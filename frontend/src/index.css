@@ -12,6 +12,7 @@
 @import '@syncfusion/ej2-notifications/styles/material.css';
 @import '@syncfusion/ej2-react-pdfviewer/styles/material.css';
 
+
 /* ─── Syncfusion PDF Viewer — hide built-in toolbars only ─── */
 .e-pdfviewer .e-toolbar,
 .e-pdfviewer .e-annotation-toolbar,
