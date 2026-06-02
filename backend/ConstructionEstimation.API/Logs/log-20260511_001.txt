@@ -1,0 +1,55 @@
+2026-05-11 18:59:03.171 +05:30 [INF] Database migrated successfully
+2026-05-11 18:59:03.498 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-05-11 18:59:03.591 +05:30 [WRN] The WebRootPath was not found: E:\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-05-11 18:59:03.683 +05:30 [ERR] Hosting failed to start
+System.IO.IOException: Failed to bind to address http://127.0.0.1:5000: address already in use.
+ ---> Microsoft.AspNetCore.Connections.AddressInUseException: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+ ---> System.Net.Sockets.SocketException (10048): Only one usage of each socket address (protocol/network address/port) is normally permitted.
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions.CreateDefaultBoundListenSocket(EndPoint endpoint)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportFactory.BindAsync(EndPoint endpoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.TransportManager.BindAsync(EndPoint endPoint, ConnectionDelegate connectionDelegate, EndpointConfig endpointConfig, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.<>c__DisplayClass28_0`1.<<StartAsync>g__OnBind|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.LocalhostListenOptions.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.AddressesStrategy.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.BindAsync(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync[TContext](IHttpApplication`1 application, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Hosting.GenericWebHostService.StartAsync(CancellationToken cancellationToken)
+   at Microsoft.Extensions.Hosting.Internal.Host.<StartAsync>b__14_1(IHostedService service, CancellationToken token)
+   at Microsoft.Extensions.Hosting.Internal.Host.ForeachService[T](IEnumerable`1 services, CancellationToken token, Boolean concurrent, Boolean abortOnFirstException, List`1 exceptions, Func`3 operation)
+2026-05-11 19:09:59.915 +05:30 [INF] Database migrated successfully
+2026-05-11 19:10:00.207 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-05-11 19:10:00.310 +05:30 [WRN] The WebRootPath was not found: E:\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-05-11 19:10:03.713 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 1692.1422 ms
+2026-05-11 19:10:54.137 +05:30 [INF] HTTP GET / responded 404 in 35.4894 ms
+2026-05-11 19:10:59.330 +05:30 [INF] HTTP GET /swagger responded 301 in 18.2297 ms
+2026-05-11 19:10:59.506 +05:30 [INF] HTTP GET /swagger/index.html responded 200 in 148.9690 ms
+2026-05-11 19:10:59.614 +05:30 [INF] HTTP GET /swagger/index.js responded 200 in 0.9883 ms
+2026-05-11 19:10:59.624 +05:30 [INF] HTTP GET /swagger/index.css responded 200 in 14.9289 ms
+2026-05-11 19:10:59.780 +05:30 [INF] HTTP GET /swagger/swagger-ui-standalone-preset.js responded 200 in 166.6246 ms
+2026-05-11 19:10:59.781 +05:30 [INF] HTTP GET /swagger/swagger-ui.css responded 200 in 176.6766 ms
+2026-05-11 19:10:59.819 +05:30 [INF] HTTP GET /swagger/swagger-ui-bundle.js responded 200 in 206.8595 ms
+2026-05-11 19:11:01.756 +05:30 [INF] HTTP GET /swagger/favicon-32x32.png responded 200 in 0.3465 ms
+2026-05-11 19:11:02.322 +05:30 [INF] HTTP GET /swagger/v1/swagger.json responded 200 in 618.4421 ms
+2026-05-11 19:40:44.307 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 2886.2458 ms
+2026-05-11 19:40:56.894 +05:30 [INF] HTTP GET /api/projects responded 200 in 739.6176 ms
+2026-05-11 19:40:56.930 +05:30 [INF] HTTP GET /api/projects responded 200 in 25.2641 ms
+2026-05-11 19:41:21.044 +05:30 [INF] HTTP POST /api/projects responded 200 in 429.2450 ms
+2026-05-11 19:41:23.125 +05:30 [INF] HTTP GET /api/drawings/project/2 responded 200 in 166.5682 ms
+2026-05-11 19:41:23.154 +05:30 [INF] HTTP GET /api/drawings/project/2 responded 200 in 14.1012 ms
+2026-05-11 19:44:48.776 +05:30 [INF] HTTP POST /api/drawings/upload/2 responded 400 in 78.4185 ms
+2026-05-11 19:45:12.934 +05:30 [INF] HTTP GET /api/projects responded 200 in 75.6683 ms
+2026-05-11 19:45:12.943 +05:30 [INF] HTTP GET /api/projects responded 200 in 3.2963 ms
+2026-05-11 19:45:14.717 +05:30 [INF] HTTP GET /api/drawings/project/2 responded 200 in 38.7342 ms
+2026-05-11 19:45:14.730 +05:30 [INF] HTTP GET /api/drawings/project/2 responded 200 in 4.5567 ms
+2026-05-11 19:45:22.647 +05:30 [INF] HTTP POST /api/drawings/upload/2 responded 400 in 9.7205 ms
+2026-05-11 19:45:34.284 +05:30 [INF] HTTP POST /api/drawings/upload/2 responded 400 in 21.4110 ms

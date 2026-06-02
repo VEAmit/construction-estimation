@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+/* ─── Syncfusion PDF Viewer styles ───────────────────────── */
+@import '@syncfusion/ej2-base/styles/material.css';
+@import '@syncfusion/ej2-buttons/styles/material.css';
+@import '@syncfusion/ej2-dropdowns/styles/material.css';
+@import '@syncfusion/ej2-inputs/styles/material.css';
+@import '@syncfusion/ej2-lists/styles/material.css';
+@import '@syncfusion/ej2-navigations/styles/material.css';
+@import '@syncfusion/ej2-popups/styles/material.css';
+@import '@syncfusion/ej2-splitbuttons/styles/material.css';
+@import '@syncfusion/ej2-notifications/styles/material.css';
+@import '@syncfusion/ej2-react-pdfviewer/styles/material.css';
+
+/* ─── Syncfusion PDF Viewer — hide built-in toolbars only ─── */
+.e-pdfviewer .e-toolbar,
+.e-pdfviewer .e-annotation-toolbar,
+.e-pdfviewer .e-pv-comment-panel { display: none !important; }
+.e-pdfviewer { border: none !important; }
+
+/* ─── Reset ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #0a0f1e;
+  color: #1e293b;
+}
+
+/* CRITICAL: #root must NOT restrict height for login page */
+#root { height: 100%; width: 100%; }
+
+/* ─── App shell (only applied inside <AppShell />) ───── */
+.app-shell {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0f1e; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* ─── Design tokens ──────────────────────────────────── */
+:root {
+  --hdr:   #1c2b4a;      /* header bg */
+  --tool:  #2d3a4f;      /* toolbar bg */
+  --side:  #f8fafc;      /* sidebar bg */
+  --panel: #ffffff;      /* panel bg */
+  --view:  #525659;      /* PDF viewer bg */
+  --acc:   #1d6fdb;      /* accent blue */
+  --acc2:  #1558b0;      /* accent hover */
+  --bdr:   #e2e8f0;      /* border */
+  --txt:   #1e293b;      /* text */
+  --txt2:  #64748b;      /* muted text */
+  --green: #16a34a;
+  --red:   #dc2626;
+
+  --hdr-h:  52px;
+  --tool-h: 46px;
+  --side-w: 272px;
+  --rpnl-w: 220px;
+  --tbl-h:  230px;
+  --r:      6px;
+  --sh:     0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.06);
+  --sh-md:  0 4px 12px rgba(0,0,0,.10);
+  --sh-lg:  0 20px 40px rgba(0,0,0,.20);
+}
+
+/* ─── PDF viewer ─────────────────────────────────────── */
+.pdf-wrap { position: relative; display: inline-block; }
+.pdf-wrap canvas { display: block; }
+.meas-overlay {
+  position: absolute; top: 0; left: 0;
+  pointer-events: all;
+}
+
+/* ─── Takeoff table ──────────────────────────────────── */
+.tbl th {
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  white-space: nowrap; color: var(--txt2);
+  background: #f1f5f9;
+}
+.tbl td { font-size: 0.78rem; }
+
+/* ─── Animations ─────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp .2s ease-out; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .8s linear infinite; }
+
+/* ─── Tooltip ────────────────────────────────────────── */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 110%; left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b; color: #fff;
+  font-size: 11px; padding: 3px 7px; border-radius: 4px;
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity .15s;
+  z-index: 999;
+}
+[data-tip]:hover::after { opacity: 1; }
+
+/* ─── Tool button ────────────────────────────────────── */
+.tool-btn {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px; width: 52px; height: 46px;
+  font-size: 10px; font-weight: 500; color: #94a3b8;
+  border-radius: 4px; cursor: pointer;
+  border: none; background: transparent;
+  transition: background .15s, color .15s;
+}
+.tool-btn:hover { background: rgba(255,255,255,.12); color: #e2e8f0; }
+.tool-btn.active { background: var(--acc); color: #fff; }
+
+/* ─── Input base ─────────────────────────────────────── */
+.inp {
+  width: 100%; border: 1px solid var(--bdr);
+  border-radius: var(--r); padding: 7px 10px;
+  font-size: 13px; color: var(--txt);
+  outline: none; transition: border-color .15s, box-shadow .15s;
+  background: #fff;
+}
+.inp:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(29,111,219,.12); }
+
+/* ─── Btn base ───────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: var(--r);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  border: none; transition: background .15s, opacity .15s; }
+.btn-primary { background: var(--acc); color: #fff; }
+.btn-primary:hover { background: var(--acc2); }
+.btn-ghost { background: transparent; color: var(--txt2); border: 1px solid var(--bdr); }
+.btn-ghost:hover { background: var(--bdr); color: var(--txt); }
+.btn-danger { background: #fee2e2; color: var(--red); border: 1px solid #fca5a5; }
+.btn-danger:hover { background: #fca5a5; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }

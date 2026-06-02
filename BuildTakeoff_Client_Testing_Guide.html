@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BuildTakeoff Pro — Client Testing Guide</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 13px; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #1a202c;
+      background: #fff;
+      line-height: 1.6;
+    }
+
+    /* ── Print Setup ── */
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    @media print {
+      body { font-size: 11px; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      .avoid-break { page-break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+      .cover { page-break-after: always; }
+    }
+
+    /* ── Cover Page ── */
+    .cover {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(160deg, #0d1b3e 0%, #1a3a6b 60%, #0d1b3e 100%);
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
+    .cover-logo {
+      width: 72px; height: 72px;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 28px;
+      font-size: 32px;
+    }
+    .cover h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+    .cover .subtitle { font-size: 16px; color: rgba(255,255,255,0.7); margin-bottom: 32px; }
+    .cover-meta {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 20px 32px;
+      margin-top: 20px;
+      display: inline-block;
+      text-align: left;
+    }
+    .cover-meta table { border-collapse: collapse; }
+    .cover-meta td { padding: 5px 16px 5px 0; font-size: 13px; color: rgba(255,255,255,0.85); }
+    .cover-meta td:first-child { font-weight: 700; color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .cover-badge {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 6px 18px;
+      border-radius: 20px;
+      background: rgba(29,111,219,0.3);
+      border: 1px solid rgba(29,111,219,0.5);
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      padding: 40px 48px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .toc h2 { font-size: 20px; font-weight: 800; color: #0d1b3e; margin-bottom: 20px; }
+    .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+    .toc-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dotted #cbd5e0; }
+    .toc-num { font-size: 11px; font-weight: 700; color: #1d6fdb; min-width: 28px; background: rgba(29,111,219,0.08); border-radius: 4px; padding: 2px 5px; text-align: center; }
+    .toc-title { font-size: 12px; color: #2d3748; }
+    .toc-page { font-size: 11px; color: #94a3b8; margin-left: auto; }
+
+    /* ── Content Wrapper ── */
+    .content { padding: 40px 48px; max-width: 880px; margin: 0 auto; }
+
+    /* ── Section Header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #1d6fdb;
+    }
+    .section-num {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: #1d6fdb; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 800; flex-shrink: 0;
+    }
+    .section-header h2 { font-size: 19px; font-weight: 800; color: #0d1b3e; }
+
+    /* ── Sub Section ── */
+    h3 { font-size: 14px; font-weight: 700; color: #1d6fdb; margin: 22px 0 10px; }
+    h4 { font-size: 13px; font-weight: 700; color: #2d3748; margin: 16px 0 8px; }
+
+    /* ── Step Tables ── */
+    .step-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 12px;
+    }
+    .step-table thead tr {
+      background: #0d1b3e;
+      color: #fff;
+    }
+    .step-table thead th {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .step-table thead th:first-child { border-radius: 6px 0 0 0; width: 60px; }
+    .step-table thead th:last-child  { border-radius: 0 6px 0 0; }
+    .step-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+    .step-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .step-table tbody tr:hover { background: #eff6ff; }
+    .step-table td { padding: 8px 12px; vertical-align: top; }
+    .step-table td:first-child { font-weight: 700; color: #1d6fdb; width: 60px; text-align: center; }
+    .step-table .action { color: #1a202c; font-weight: 500; }
+    .step-table .result { color: #2f855a; font-size: 11px; }
+
+    /* ── Info Table ── */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 12px;
+    }
+    .info-table thead tr { background: #1a3a6b; color: #fff; }
+    .info-table thead th {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .info-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+    .info-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .info-table td { padding: 7px 12px; vertical-align: top; }
+    .info-table td:first-child { font-weight: 600; color: #2d3748; }
+
+    /* ── Callout Boxes ── */
+    .callout {
+      border-left: 4px solid #1d6fdb;
+      background: #eff6ff;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 14px;
+      font-size: 12px;
+    }
+    .callout.warning {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .callout.success {
+      border-left-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .callout.danger {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+    .callout-title {
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .callout.info .callout-title  { color: #1d6fdb; }
+    .callout.warning .callout-title { color: #b45309; }
+    .callout.success .callout-title { color: #15803d; }
+    .callout.danger .callout-title  { color: #b91c1c; }
+
+    /* ── Workflow Box ── */
+    .workflow-box {
+      background: #0d1b3e;
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.9;
+    }
+    .workflow-box .step-ok   { color: #4ade80; }
+    .workflow-box .step-num  { color: #60a5fa; font-weight: 700; }
+    .workflow-box .step-note { color: #fbbf24; font-size: 11px; margin-left: 24px; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      vertical-align: middle;
+    }
+    .badge.green  { background: #dcfce7; color: #15803d; }
+    .badge.blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge.amber  { background: #fef9c3; color: #92400e; }
+    .badge.red    { background: #fee2e2; color: #b91c1c; }
+
+    /* ── kbd ── */
+    kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-family: 'Consolas', monospace;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e0;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      color: #1a202c;
+    }
+
+    /* ── Formula ── */
+    .formula {
+      background: #1e293b;
+      color: #7dd3fc;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-family: 'Consolas', monospace;
+      font-size: 12px;
+      margin-bottom: 12px;
+      border-left: 3px solid #3b82f6;
+    }
+
+    /* ── Highlight ── */
+    mark { background: #fef9c3; padding: 0 3px; border-radius: 3px; }
+    strong { color: #0d1b3e; }
+    em { color: #1d6fdb; font-style: normal; font-weight: 600; }
+
+    /* ── Separator ── */
+    .section-sep {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 36px 0;
+    }
+
+    /* ── Footer ── */
+    .doc-footer {
+      background: #0d1b3e;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      padding: 16px;
+      font-size: 11px;
+      margin-top: 40px;
+    }
+
+    /* ── Print Button ── */
+    .print-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #1d6fdb;
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 999;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .print-bar span { font-size: 14px; font-weight: 600; }
+    .print-btn {
+      background: #fff;
+      color: #1d6fdb;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .print-btn:hover { background: #eff6ff; }
+    body.has-bar { padding-top: 52px; }
+
+    /* ── Checklist ── */
+    .checklist { list-style: none; margin-bottom: 16px; }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .checklist li .chk {
+      width: 18px; height: 18px;
+      border: 2px solid #cbd5e0;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .checklist li .cat {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      min-width: 80px;
+    }
+
+    /* Columns layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media print { .two-col { display: block; } .two-col > * { margin-bottom: 12px; } }
+
+    ul.bullet { padding-left: 20px; margin-bottom: 12px; }
+    ul.bullet li { margin-bottom: 5px; font-size: 12px; }
+  </style>
+</head>
+<body class="has-bar">
+
+<!-- Print Bar -->
+<div class="print-bar no-print">
+  <span>BuildTakeoff Pro — Client Testing Guide</span>
+  <button class="print-btn" onclick="window.print()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="6 9 6 2 18 2 18 9"/>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Save as PDF (Ctrl+P)
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════ COVER ══════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">📐</div>
+  <h1>BuildTakeoff Pro</h1>
+  <p class="subtitle">Construction Estimation &amp; Digital Takeoff System</p>
+  <p style="font-size:20px; font-weight:700; color:rgba(255,255,255,0.9); margin-bottom:6px;">
+    Client Testing Guide
+  </p>
+  <p style="font-size:13px; color:rgba(255,255,255,0.55); margin-bottom:28px;">
+    Step-by-step workflow documentation for QA &amp; acceptance testing
+  </p>
+  <div class="cover-meta">
+    <table>
+      <tr><td>Document</td><td>BuildTakeoff Pro — Client Testing Guide v1.0</td></tr>
+      <tr><td>Application</td><td>Construction Estimation &amp; Digital Takeoff System</td></tr>
+      <tr><td>Tech Stack</td><td>React · ASP.NET Core · SQL Server · Syncfusion PDF Viewer</td></tr>
+      <tr><td>Prepared For</td><td>Client QA &amp; Acceptance Testing</td></tr>
+      <tr><td>Date</td><td>May 2026</td></tr>
+    </table>
+  </div>
+  <div class="cover-badge">CONFIDENTIAL — FOR CLIENT TESTING USE ONLY</div>
+</div>
+
+<!-- ══════════════════════════════════════════ TOC ══════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <div class="toc-grid">
+    <div class="toc-item"><span class="toc-num">01</span><span class="toc-title">Application Overview</span></div>
+    <div class="toc-item"><span class="toc-num">07</span><span class="toc-title">Member Schedule</span></div>
+    <div class="toc-item"><span class="toc-num">02</span><span class="toc-title">Login &amp; Access</span></div>
+    <div class="toc-item"><span class="toc-num">08</span><span class="toc-title">Export Reports</span></div>
+    <div class="toc-item"><span class="toc-num">03</span><span class="toc-title">Dashboard &amp; Projects</span></div>
+    <div class="toc-item"><span class="toc-num">09</span><span class="toc-title">Full Demo Script</span></div>
+    <div class="toc-item"><span class="toc-num">04</span><span class="toc-title">Upload a Drawing</span></div>
+    <div class="toc-item"><span class="toc-num">10</span><span class="toc-title">Client Acceptance Checklist</span></div>
+    <div class="toc-item"><span class="toc-num">05</span><span class="toc-title">Set Drawing Scale</span></div>
+    <div class="toc-item"><span class="toc-num">11</span><span class="toc-title">Troubleshooting Guide</span></div>
+    <div class="toc-item"><span class="toc-num">06</span><span class="toc-title">Drawing Measurements</span></div>
+    <div class="toc-item"><span class="toc-num">12</span><span class="toc-title">Database &amp; Technical Reference</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ CONTENT ══════════════════════════════════════════ -->
+<div class="content">
+
+  <!-- ─── SECTION 1: OVERVIEW ─── -->
+  <div class="section-header avoid-break">
+    <div class="section-num">01</div>
+    <h2>Application Overview</h2>
+  </div>
+
+  <p style="font-size:13px; margin-bottom:16px; color:#374151;">
+    <strong>BuildTakeoff Pro</strong> is a digital construction takeoff and estimation system designed for
+    structural engineers and estimators. It provides a simplified Bluebeam-style workflow for measuring
+    structural drawings, calculating quantities, and generating professional estimation reports.
+  </p>
+
+  <div class="two-col">
+    <div>
+      <h3>What the System Does</h3>
+      <ul class="bullet">
+        <li>Open and view structural PDF drawings in-browser</li>
+        <li>Calibrate drawing scale from any known dimension</li>
+        <li>Draw measurement lines directly on the drawing</li>
+        <li>Auto-calculate real-world lengths using the calibrated scale</li>
+        <li>Auto-save all measurements to a central database</li>
+        <li>Build a structural steel member schedule</li>
+        <li>Auto-calculate member weights (UnitWeight × Length × Qty)</li>
+        <li>Export professional Excel and PDF reports</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Technology Stack</h3>
+      <table class="info-table">
+        <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend</td><td>React.js + Vite</td></tr>
+          <tr><td>Backend API</td><td>ASP.NET Core Web API</td></tr>
+          <tr><td>Database</td><td>SQL Server</td></tr>
+          <tr><td>PDF Viewer</td><td>Syncfusion EJ2 PDF Viewer</td></tr>
+          <tr><td>Auth</td><td>JWT Bearer Token</td></tr>
+          <tr><td>Export</td><td>SheetJS (Excel) + jsPDF</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Core Workflow (Summary)</h3>
+  <div class="workflow-box">
+    <span class="step-num">1.</span> Login → Select Project → Open Drawing<br>
+    <span class="step-num">2.</span> Calibrate Scale → draw a line on a known dimension → enter real length<br>
+    <span class="step-num">3.</span> Measure → draw lines on structural elements → auto-saves with real-world length<br>
+    <span class="step-num">4.</span> Member Schedule → add steel members → link to measurements → weight auto-calculates<br>
+    <span class="step-num">5.</span> Export → Excel or PDF report with all data
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 2: LOGIN ─── -->
+  <div class="section-header avoid-break">
+    <div class="section-num">02</div>
+    <h2>Login &amp; Access</h2>
+  </div>
+
+  <div class="callout warning avoid-break">
+    <div class="callout-title">Prerequisites</div>
+    Backend must be running on <strong>http://localhost:5000</strong> and frontend on <strong>http://localhost:5173</strong>
+    before testing. Use Chrome or Microsoft Edge for best results.
+  </div>
+
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td class="action">Open <strong>http://localhost:5173</strong> in browser</td><td class="result">Login page displays with BuildTakeoff Pro branding</td></tr>
+      <tr><td>2</td><td class="action">Enter email: <kbd>admin@buildtakeoff.com</kbd></td><td class="result">Email field accepts value</td></tr>
+      <tr><td>3</td><td class="action">Enter password: <kbd>Admin@123</kbd></td><td class="result">Password field accepts value</td></tr>
+      <tr><td>4</td><td class="action">Click <strong>Login</strong> button</td><td class="result">Redirects to Dashboard. User name "Admin" shown in top-right</td></tr>
+      <tr><td>5</td><td class="action">Logout and login with <kbd>demo@buildtakeoff.com</kbd> / <kbd>Admin@123</kbd></td><td class="result">Logs in as "Demo User" with Estimator role</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout success avoid-break">
+    <div class="callout-title">Login Credentials</div>
+    <table style="font-size:12px; border-collapse:collapse;">
+      <tr><td style="padding:3px 16px 3px 0; font-weight:700;">Admin:</td><td><kbd>admin@buildtakeoff.com</kbd> / <kbd>Admin@123</kbd></td></tr>
+      <tr><td style="padding:3px 16px 3px 0; font-weight:700;">Estimator:</td><td><kbd>demo@buildtakeoff.com</kbd> / <kbd>Admin@123</kbd></td></tr>
+    </table>
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 3: DASHBOARD ─── -->
+  <div class="section-header avoid-break">
+    <div class="section-num">03</div>
+    <h2>Dashboard &amp; Projects</h2>
+  </div>
+
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>6</td><td class="action">After login, view the Dashboard</td><td class="result">All existing projects shown as cards with name, number, and client</td></tr>
+      <tr><td>7</td><td class="action">Click <strong>+ New Project</strong> button</td><td class="result">Create Project dialog opens</td></tr>
+      <tr><td>8</td><td class="action">Fill in: Project Name, Project Number, Client Name, Location, Description</td><td class="result">All fields accept text input</td></tr>
+      <tr><td>9</td><td class="action">Click <strong>Save / Create Project</strong></td><td class="result">Dialog closes. New project card appears on dashboard</td></tr>
+      <tr><td>10</td><td class="action">Click on any project card</td><td class="result">Opens Drawings workspace for that project. Breadcrumb shows project name</td></tr>
+      <tr><td>11</td><td class="action">Click <strong>&lt; Projects</strong> in the breadcrumb</td><td class="result">Returns to Dashboard</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 4: UPLOAD ─── -->
+  <div class="section-header avoid-break">
+    <div class="section-num">04</div>
+    <h2>Upload a Drawing</h2>
+  </div>
+
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>12</td><td class="action">In the <strong>left sidebar</strong> under "DRAWINGS", click <em>browse</em> or drag a PDF file into the drop zone</td><td class="result">File picker opens or drag-drop accepted</td></tr>
+      <tr><td>13</td><td class="action">Select a PDF construction drawing file</td><td class="result">Upload progress bar appears. Drawing name shows in sidebar list</td></tr>
+      <tr><td>14</td><td class="action">Click the drawing name in the sidebar</td><td class="result">PDF loads in the centre viewer. Breadcrumb updates with drawing name</td></tr>
+      <tr><td>15</td><td class="action">Hold <kbd>Ctrl</kbd> and scroll up with mouse wheel</td><td class="result">Drawing zooms in smoothly</td></tr>
+      <tr><td>16</td><td class="action">Hold <kbd>Ctrl</kbd> and scroll down with mouse wheel</td><td class="result">Drawing zooms out</td></tr>
+      <tr><td>17</td><td class="action">Press <kbd>0</kbd> or click <strong>Fit</strong> button (top-right toolbar)</td><td class="result">Drawing fits to screen width</td></tr>
+      <tr><td>18</td><td class="action">Click the trash icon next to a drawing in the sidebar</td><td class="result">Confirmation appears. Drawing deleted from sidebar and database</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Navigation Controls Reference</h3>
+  <table class="info-table">
+    <thead><tr><th>Action</th><th>How To</th></tr></thead>
+    <tbody>
+      <tr><td>Zoom In</td><td><kbd>Ctrl</kbd> + Scroll Up &nbsp;|&nbsp; Press <kbd>+</kbd> key &nbsp;|&nbsp; Click <strong>+</strong> zoom button</td></tr>
+      <tr><td>Zoom Out</td><td><kbd>Ctrl</kbd> + Scroll Down &nbsp;|&nbsp; Press <kbd>-</kbd> key &nbsp;|&nbsp; Click <strong>-</strong> zoom button</td></tr>
+      <tr><td>Fit Page</td><td>Press <kbd>0</kbd> &nbsp;|&nbsp; Click <strong>Fit</strong> button</td></tr>
+      <tr><td>Pan Drawing</td><td>Press <kbd>H</kbd> or click <strong>Pan</strong> → drag the drawing</td></tr>
+      <tr><td>Next Page</td><td>Click page navigation arrow (shown for multi-page PDFs)</td></tr>
+      <tr><td>Clear Lines</td><td>Click <strong>Clear</strong> button (removes all drawn lines from viewer)</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 5: SCALE ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">05</div>
+    <h2>Set Drawing Scale <span class="badge amber">Required Before Measuring</span></h2>
+  </div>
+
+  <div class="callout danger avoid-break">
+    <div class="callout-title">Important — Must Do First</div>
+    Scale calibration <strong>must be completed before taking any measurements</strong>.
+    If you try to use the Measure tool before calibrating, the system will automatically redirect you back to Calibrate with a guide message.
+    Measurements drawn before calibration will have no real-world length value.
+  </div>
+
+  <h3>Method A — Calibrate from a Known Dimension <span class="badge green">Most Accurate</span></h3>
+  <p style="font-size:12px; margin-bottom:12px; color:#4b5563;">Use this method whenever you have a dimension on the drawing you know the real-world size of (e.g. a grid line marked 5000mm, a door opening, column spacing).</p>
+
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>19</td><td class="action">Click <strong>Calibrate</strong> button in toolbar or press <kbd>C</kbd></td><td class="result">Toolbar shows amber hint: "Step 1 of 2 — Draw a line over a dimension you know…" </td></tr>
+      <tr><td>20</td><td class="action">Zoom into the drawing to find a dimension you know (e.g. a grid marked "5000")</td><td class="result">Drawing zooms. You can now see the dimension clearly</td></tr>
+      <tr><td>21</td><td class="action">Click the <strong>start point</strong> of that known dimension on the drawing</td><td class="result">Amber dot placed at start point</td></tr>
+      <tr><td>22</td><td class="action">Click the <strong>end point</strong> of that same dimension</td><td class="result">Amber line drawn. <strong>Calibration dialog pops up automatically</strong></td></tr>
+      <tr><td>23</td><td class="action">In the dialog, enter the real-world length (e.g. <kbd>5</kbd> for 5 metres)</td><td class="result">Scale preview shows: "X.XXXX mm / drawing unit"</td></tr>
+      <tr><td>24</td><td class="action">Select the correct unit from the dropdown (mm, cm, m, ft, in)</td><td class="result">Unit selection updates the preview</td></tr>
+      <tr><td>25</td><td class="action">Click <strong>Apply Scale</strong></td><td class="result">• Amber calibration line <strong>disappears</strong> from drawing<br>• Right panel shows green <span class="badge green">✓ Calibrated · m</span><br>• Breadcrumb shows green <span class="badge green">CALIBRATED</span> badge<br>• Tool auto-switches to <strong>Measure</strong> mode</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Method B — Quick Scale Preset <span class="badge amber">Approximate</span></h3>
+  <p style="font-size:12px; margin-bottom:12px; color:#4b5563;">Use when you know the drawing scale (e.g. 1:100) but don't have a specific dimension to measure. Works best with standard A-size PDFs exported at full print scale.</p>
+
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>26</td><td class="action">In the <strong>right panel</strong>, locate "Quick Scale (approx.)" section</td><td class="result">Visible only when drawing is not yet calibrated</td></tr>
+      <tr><td>27</td><td class="action">Select a scale from dropdown: 1:10, 1:20, 1:50, <strong>1:100</strong>, 1:200, 1:500, 1:1000</td><td class="result">Scale value selected</td></tr>
+      <tr><td>28</td><td class="action">Select the display unit (m, mm, cm, ft, in)</td><td class="result">Unit selected</td></tr>
+      <tr><td>29</td><td class="action">Click <strong>Apply 1:100 Scale</strong></td><td class="result">• Right panel shows green Calibrated badge<br>• Tool auto-switches to Measure mode</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info avoid-break">
+    <div class="callout-title">How to Verify the Scale is Correct</div>
+    After calibration, the right panel shows: <strong>"1 unit = 0.0706 m"</strong> (for 1:200 scale).
+    To verify, use the Measure tool to draw over the same calibration dimension — the saved length should match what you know.
+  </div>
+
+  <h3>Re-calibrate (if needed)</h3>
+  <p style="font-size:12px; margin-bottom:12px;">Click <strong>Re-calibrate Scale</strong> in the right panel at any time. The new scale applies to all future measurements. Previously saved measurements retain their original values.</p>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 6: MEASUREMENTS ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">06</div>
+    <h2>Drawing Measurements</h2>
+  </div>
+
+  <h3>Drawing a Measurement Line</h3>
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>30</td><td class="action">Ensure drawing is calibrated (green <span class="badge green">CALIBRATED</span> badge visible)</td><td class="result">Ready to measure</td></tr>
+      <tr><td>31</td><td class="action">Click <strong>Measure</strong> button in toolbar or press <kbd>L</kbd></td><td class="result">Toolbar shows blue hint: "Click two points on the drawing to measure a line"</td></tr>
+      <tr><td>32</td><td class="action">Zoom into the element you want to measure</td><td class="result">Element clearly visible</td></tr>
+      <tr><td>33</td><td class="action">Click the <strong>start point</strong> of the element</td><td class="result">Blue dot placed at start point</td></tr>
+      <tr><td>34</td><td class="action">Click the <strong>end point</strong> of the element</td><td class="result">Blue measurement line drawn on the drawing</td></tr>
+      <tr><td>35</td><td class="action">Wait 1–2 seconds</td><td class="result">Toast notification appears: <span class="badge green">M1: 1.470 m ✅</span></td></tr>
+      <tr><td>36</td><td class="action">Look at the bottom <strong>Measurements</strong> panel</td><td class="result">New row appears: Mark=M1, Length=1.47 m, Time=now</td></tr>
+      <tr><td>37</td><td class="action">Draw 3 more measurement lines</td><td class="result">M2, M3, M4 appear in the table automatically</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning avoid-break">
+    <div class="callout-title">Important — Calibrate Mode vs. Measure Mode</div>
+    <ul style="font-size:12px; margin-top:4px; padding-left:16px;">
+      <li>Lines drawn in <strong>Calibrate mode</strong> (amber lines) are for setting scale only — they are NOT saved as measurements</li>
+      <li>Lines drawn in <strong>Measure mode</strong> (blue lines) are saved automatically to the database</li>
+      <li>If you see old amber/red lines on the drawing from calibration practice, click the <strong>Clear</strong> button to remove them</li>
+      <li>The Measure tool shows a blue highlight when active. Calibrate shows an amber highlight</li>
+    </ul>
+  </div>
+
+  <h3>Measurements Table — Column Reference</h3>
+  <table class="info-table">
+    <thead><tr><th>Column</th><th>Description</th><th>Editable?</th></tr></thead>
+    <tbody>
+      <tr><td>#</td><td>Row number (display only)</td><td>No</td></tr>
+      <tr><td>Mark</td><td>Auto-assigned ID: M1, M2, M3…</td><td>Yes</td></tr>
+      <tr><td>Description</td><td>Auto-filled with the calculated length value</td><td>Yes</td></tr>
+      <tr><td>Length</td><td>Calculated real-world length using calibrated scale</td><td>Yes</td></tr>
+      <tr><td>Wt/m (kg)</td><td>Unit weight in kg per metre — enter to calculate total weight</td><td>Yes</td></tr>
+      <tr><td>Total Wt (kg)</td><td>Auto-calculated: Wt/m × Length × Qty (backend computes)</td><td>No</td></tr>
+      <tr><td>Type</td><td>Steel member type or material description</td><td>Yes</td></tr>
+      <tr><td>Qty</td><td>Quantity of this member (default = 1)</td><td>Yes</td></tr>
+      <tr><td>Unit</td><td>Display unit (m, mm, etc.)</td><td>Yes</td></tr>
+      <tr><td>Time</td><td>Time when measurement was taken</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Managing Measurements</h3>
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>38</td><td class="action">Click any row in the Measurements table</td><td class="result">That measurement line highlights on the PDF drawing (blue border)</td></tr>
+      <tr><td>39</td><td class="action">Click the same row again</td><td class="result">Selection clears</td></tr>
+      <tr><td>40</td><td class="action">Click the <strong>pencil (edit) icon</strong> on any row</td><td class="result">Row becomes editable with input fields</td></tr>
+      <tr><td>41</td><td class="action">Edit the Mark field (e.g. change M1 to B1)</td><td class="result">Field accepts new value</td></tr>
+      <tr><td>42</td><td class="action">Enter a unit weight in the <strong>Wt/m</strong> field (e.g. <kbd>46.1</kbd>)</td><td class="result">Weight preview appears</td></tr>
+      <tr><td>43</td><td class="action">Click <strong>✓</strong> to save the edit</td><td class="result">Row updates. Total Weight calculated automatically by backend</td></tr>
+      <tr><td>44</td><td class="action">Type in the <strong>Filter</strong> box (e.g. "beam")</td><td class="result">Table filters to matching rows only</td></tr>
+      <tr><td>45</td><td class="action">Click the <strong>trash icon</strong> on any row</td><td class="result">Confirmation shown. Row deleted from table and database</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Live Totals Bar</h3>
+  <p style="font-size:12px; margin-bottom:10px;">Above the table, a live totals bar shows current summary values — updates immediately when any measurement changes:</p>
+  <div class="formula">📋 Measurements: 5 &nbsp;&nbsp;&nbsp; 📏 Total Length: 18.45 m &nbsp;&nbsp;&nbsp; ⚖️ Total Wt: 850.3 kg</div>
+  <p style="font-size:12px; margin-bottom:12px;">The table footer also shows column totals: <strong>∑ 18.45 m</strong> and <strong>∑ 850.3 kg</strong></p>
+
+  <h3>Weight Calculation Formula</h3>
+  <div class="formula">Total Weight (kg) = Unit Weight (kg/m) × Length (m) × Quantity</div>
+  <p style="font-size:12px;"><strong>Example:</strong> A 310UB46 beam, 3.5 m long, with 4 pieces:<br>
+  Total Weight = 46.2 × 3.5 × 4 = <strong>646.8 kg</strong></p>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 7: MEMBER SCHEDULE ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">07</div>
+    <h2>Member Schedule</h2>
+  </div>
+
+  <p style="font-size:12px; margin-bottom:14px; color:#4b5563;">
+    The Member Schedule tracks all structural steel members with their sizes, weights, and quantities.
+    It can link to measurements drawn on the drawing for automatic length population.
+  </p>
+
+  <h3>Adding a Member</h3>
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>46</td><td class="action">Click the <strong>Member Schedule</strong> tab in the bottom panel</td><td class="result">Member Schedule table appears</td></tr>
+      <tr><td>47</td><td class="action">Click <strong>+ Add Member</strong> button</td><td class="result">New editable row appears at the top of the table</td></tr>
+      <tr><td>48</td><td class="action">Enter <strong>Mark</strong> (e.g. <kbd>B1</kbd>, <kbd>C1</kbd>, <kbd>R1</kbd>)</td><td class="result">Mark field accepts value</td></tr>
+      <tr><td>49</td><td class="action">Select <strong>Member Size</strong> from dropdown (e.g. <em>310 UB 46.2</em>)</td><td class="result"><strong>Unit Weight auto-fills</strong>: 46.2 kg/m (from steel section database)</td></tr>
+      <tr><td>50</td><td class="action">Select <strong>Member Type</strong> (Beam, Column, Brace, Purlin, Rafter, etc.)</td><td class="result">Type selected</td></tr>
+      <tr><td>51</td><td class="action">In the <strong>Linked Measurement</strong> dropdown, select a measurement (e.g. M1)</td><td class="result"><strong>Length field auto-fills</strong> from M1's measured length (converted to metres)</td></tr>
+      <tr><td>52</td><td class="action">Alternatively, manually type the <strong>Length</strong> in metres</td><td class="result">Length field accepts value</td></tr>
+      <tr><td>53</td><td class="action">Set <strong>Qty</strong> (e.g. <kbd>4</kbd> for 4 identical columns)</td><td class="result">Quantity set</td></tr>
+      <tr><td>54</td><td class="action">Observe the <strong>Total Wt</strong> preview in the row</td><td class="result">Shows: UnitWeight × Length × Qty in kg</td></tr>
+      <tr><td>55</td><td class="action">Add optional <strong>Description</strong> / comments</td><td class="result">Notes recorded</td></tr>
+      <tr><td>56</td><td class="action">Click <strong>✓</strong> to save</td><td class="result">Member saved to database. Row appears in table with all values</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Member Schedule Columns</h3>
+  <table class="info-table">
+    <thead><tr><th>Column</th><th>Description</th><th>Auto-Calculated?</th></tr></thead>
+    <tbody>
+      <tr><td>Mark</td><td>Member identifier (B1, C1, R1…)</td><td>No</td></tr>
+      <tr><td>Member Size</td><td>Steel section code (e.g. 310UB46, 200UC52)</td><td>No</td></tr>
+      <tr><td>Type</td><td>Beam / Column / Brace / Purlin / Rafter / Plate / Girt</td><td>No</td></tr>
+      <tr><td>Unit Wt (kg/m)</td><td>Weight per metre — auto-fills from steel section database</td><td><span class="badge green">Auto</span></td></tr>
+      <tr><td>Length (m)</td><td>Member length in metres — auto-fills from linked measurement</td><td><span class="badge green">Auto</span></td></tr>
+      <tr><td>Qty</td><td>Number of identical members</td><td>No</td></tr>
+      <tr><td>Total Wt (kg)</td><td>= Unit Wt × Length × Qty (calculated by backend)</td><td><span class="badge green">Auto</span></td></tr>
+      <tr><td>Linked Measurement</td><td>Which drawing measurement this member corresponds to</td><td>No</td></tr>
+      <tr><td>Description</td><td>Free-text notes or material grade</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout success avoid-break">
+    <div class="callout-title">Auto-Fill from Measurement</div>
+    When you select a measurement in the "Linked Measurement" dropdown, the <strong>Length field automatically fills</strong>
+    with that measurement's length converted to metres. Example: If M1 = 3.47 m, selecting M1 as the linked measurement
+    sets Length = 3.470 automatically.
+  </div>
+
+  <h3>Member Schedule Totals Footer</h3>
+  <p style="font-size:12px; margin-bottom:10px;">The bottom of the Member Schedule table shows column totals:</p>
+  <div class="formula">TOTALS &nbsp;&nbsp;&nbsp; [Total Qty] &nbsp;&nbsp;&nbsp; [Total Weight kg]</div>
+  <p style="font-size:12px;">The toolbar also shows: <strong>Qty: 12 &nbsp;|&nbsp; Total: 2,450.6 kg</strong></p>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 8: EXPORT ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">08</div>
+    <h2>Export Reports</h2>
+  </div>
+
+  <div class="callout info avoid-break">
+    <div class="callout-title">Note</div>
+    Export buttons appear in the top navigation bar only after at least one measurement has been saved.
+    They are also available in the Measurements table toolbar.
+  </div>
+
+  <h3>Excel Export</h3>
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>57</td><td class="action">Click <strong>Excel</strong> button in the top navigation bar</td><td class="result">File download starts automatically</td></tr>
+      <tr><td>58</td><td class="action">Open the downloaded <strong>.xlsx</strong> file</td><td class="result">Excel opens with 3 sheets: Summary, Measurements, Member Schedule</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Excel Workbook Structure</h3>
+  <table class="info-table">
+    <thead><tr><th>Sheet</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Summary</td>
+        <td>Project name &amp; number, Drawing name, Scale unit, Total measurements count, Total length, Total members count, Total steel weight, Generated date</td>
+      </tr>
+      <tr>
+        <td>Measurements</td>
+        <td>All measurement rows: No, Mark, Description, Length, Member Type, Qty, Unit, Notes</td>
+      </tr>
+      <tr>
+        <td>Member Schedule</td>
+        <td>All member rows: No, Mark, Size, Type, Unit Weight, Length, Qty, Total Weight, Description</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>PDF Export</h3>
+  <table class="step-table">
+    <thead>
+      <tr><th>Step</th><th>Action</th><th>Expected Result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>59</td><td class="action">Click <strong>PDF</strong> button in the top navigation bar</td><td class="result">File download starts automatically</td></tr>
+      <tr><td>60</td><td class="action">Open the downloaded <strong>.pdf</strong> file</td><td class="result">Professional report with: Header (project/drawing info), Measurements table with totals, Member Schedule table with totals, Page numbers on every page</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 9: DEMO SCRIPT ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">09</div>
+    <h2>Full Demo Script</h2>
+  </div>
+
+  <p style="font-size:12px; margin-bottom:16px; color:#4b5563;">Follow these steps in exact order to run the complete end-to-end demonstration for a client:</p>
+
+  <div class="workflow-box avoid-break">
+    <span class="step-num">Step 1.</span> Open http://localhost:5173 → Login as demo@buildtakeoff.com<br>
+    <span class="step-note">Expected: Dashboard loads with project cards</span><br><br>
+
+    <span class="step-num">Step 2.</span> Click <strong>"Virtual Project"</strong> card on Dashboard<br>
+    <span class="step-note">Expected: Drawings workspace opens, breadcrumb shows project name</span><br><br>
+
+    <span class="step-num">Step 3.</span> In left sidebar → upload a PDF drawing (or click existing one)<br>
+    <span class="step-note">Expected: PDF loads in the centre viewer</span><br><br>
+
+    <span class="step-num">Step 4.</span> Press Ctrl + Scroll to zoom into the drawing<br>
+    <span class="step-note">Expected: Drawing zooms in smoothly</span><br><br>
+
+    <span class="step-num">Step 5.</span> Click <strong>Calibrate</strong> button → draw a line over a known dimension<br>
+    <span class="step-note">Expected: Amber line drawn → Calibration dialog appears automatically</span><br><br>
+
+    <span class="step-num">Step 6.</span> Enter the real-world length → select unit (e.g. 5, Meter) → click Apply Scale<br>
+    <span class="step-note"> Amber line disappears · Green CALIBRATED badge appears · Tool switches to Measure</span><br><br>
+
+    <span class="step-num">Step 7.</span> Click <strong>Measure</strong> (or it's already active) → draw 4 measurement lines<br>
+    <span class="step-note"> Each auto-saves: M1: 1.47 m, M2: 3.50 m, M3: 2.80 m, M4: 0.90 m</span><br><br>
+
+    <span class="step-num">Step 8.</span> Click a row in the Measurements table<br>
+    <span class="step-note">Expected: That measurement line highlights blue on the drawing</span><br><br>
+
+    <span class="step-num">Step 9.</span> Click Edit (pencil) on M2 → enter Wt/m = 46.1 → click ✓<br>
+    <span class="step-note"> Total Wt appears: 46.1 × 3.50 × 1 = 161.4 kg</span><br><br>
+
+    <span class="step-num">Step 10.</span> Click <strong>Member Schedule</strong> tab → click + Add Member<br>
+    <span class="step-note">Expected: New editable row appears</span><br><br>
+
+    <span class="step-num">Step 11.</span> Select size 310UB46 → link to M2 → set Qty = 4 → click ✓<br>
+    <span class="step-note"> Length auto-fills from M2 · Total Weight = 46.2 × 3.50 × 4 = 646.8 kg</span><br><br>
+
+    <span class="step-num">Step 12.</span> Add 2 more members (different sizes and measurements)<br>
+    <span class="step-note">Expected: Member Schedule totals update</span><br><br>
+
+    <span class="step-num">Step 13.</span> Click <strong>Excel</strong> button → file downloads<br>
+    <span class="step-note">Expected: .xlsx with 3 sheets: Summary, Measurements, Member Schedule</span><br><br>
+
+    <span class="step-num">Step 14.</span> Click <strong>PDF</strong> button → file downloads<br>
+    <span class="step-note">Expected: Professional PDF report with project info, tables, totals, and page numbers</span>
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 10: CHECKLIST ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">10</div>
+    <h2>Client Acceptance Checklist</h2>
+  </div>
+
+  <p style="font-size:12px; margin-bottom:14px; color:#4b5563;">
+    Use this checklist to formally sign off on each feature during acceptance testing.
+    Mark each item when verified.
+  </p>
+
+  <h3>Authentication &amp; Projects</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">AUTH</span><span>Login with valid credentials redirects to Dashboard</span></li>
+    <li><div class="chk"></div><span class="cat">AUTH</span><span>Invalid credentials show error message</span></li>
+    <li><div class="chk"></div><span class="cat">PROJECT</span><span>Create a new project with all fields — appears on Dashboard</span></li>
+    <li><div class="chk"></div><span class="cat">PROJECT</span><span>Click project card — opens Drawings workspace with correct project in breadcrumb</span></li>
+    <li><div class="chk"></div><span class="cat">PROJECT</span><span>Back navigation returns to Dashboard</span></li>
+  </ul>
+
+  <h3>Drawing Upload &amp; Viewer</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">UPLOAD</span><span>Upload a PDF drawing — appears in sidebar list with name and size</span></li>
+    <li><div class="chk"></div><span class="cat">VIEWER</span><span>Click drawing in sidebar — PDF loads in centre viewer</span></li>
+    <li><div class="chk"></div><span class="cat">ZOOM</span><span>Ctrl + Scroll zooms in and out smoothly</span></li>
+    <li><div class="chk"></div><span class="cat">ZOOM</span><span>Fit button / press 0 fits the page to screen</span></li>
+    <li><div class="chk"></div><span class="cat">PERSIST</span><span>Reload the page — drawing is still listed and loads correctly</span></li>
+  </ul>
+
+  <h3>Scale Calibration</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">GUARD</span><span>Clicking Measure before calibrating redirects to Calibrate with a hint message</span></li>
+    <li><div class="chk"></div><span class="cat">CALIB</span><span>Calibrate tool draws an amber line on click</span></li>
+    <li><div class="chk"></div><span class="cat">CALIB</span><span>Completing a calibration line opens the Calibration dialog automatically</span></li>
+    <li><div class="chk"></div><span class="cat">CALIB</span><span>Entering value + clicking Apply Scale: amber line disappears, green badge appears</span></li>
+    <li><div class="chk"></div><span class="cat">PERSIST</span><span>Reload page — drawing still shows green CALIBRATED badge (scale persisted in DB)</span></li>
+    <li><div class="chk"></div><span class="cat">QUICK</span><span>Quick Scale preset (right panel) sets scale without drawing a line</span></li>
+    <li><div class="chk"></div><span class="cat">RECALIB</span><span>Re-calibrate button allows updating the scale at any time</span></li>
+  </ul>
+
+  <h3>Measurements</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">DRAW</span><span>Measure tool draws a blue line from click point to click point</span></li>
+    <li><div class="chk"></div><span class="cat">AUTO-SAVE</span><span>Measurement auto-saves immediately — toast notification confirms (M1: X.XX m)</span></li>
+    <li><div class="chk"></div><span class="cat">TABLE</span><span>Saved measurement appears instantly in the Measurements table with correct length</span></li>
+    <li><div class="chk"></div><span class="cat">HIGHLIGHT</span><span>Clicking a table row highlights that measurement line on the drawing</span></li>
+    <li><div class="chk"></div><span class="cat">EDIT</span><span>Pencil icon → edit Mark, Description, Unit Weight → save → values update</span></li>
+    <li><div class="chk"></div><span class="cat">WEIGHT</span><span>Setting Wt/m on a measurement → Total Wt calculated and displayed</span></li>
+    <li><div class="chk"></div><span class="cat">DELETE</span><span>Trash icon → confirmation → row removed from table and database</span></li>
+    <li><div class="chk"></div><span class="cat">FILTER</span><span>Typing in Filter box filters the table in real-time</span></li>
+    <li><div class="chk"></div><span class="cat">TOTALS</span><span>Live totals bar shows correct total item count and total length</span></li>
+    <li><div class="chk"></div><span class="cat">PERSIST</span><span>Reload page — all measurements still in the table with correct values</span></li>
+  </ul>
+
+  <h3>Member Schedule</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">ADD</span><span>+ Add Member → new editable row appears</span></li>
+    <li><div class="chk"></div><span class="cat">AUTO</span><span>Selecting a steel section auto-fills the Unit Weight field</span></li>
+    <li><div class="chk"></div><span class="cat">LINK</span><span>Selecting a Linked Measurement auto-fills the Length field in metres</span></li>
+    <li><div class="chk"></div><span class="cat">CALC</span><span>Total Weight = Unit Weight × Length × Qty is computed correctly</span></li>
+    <li><div class="chk"></div><span class="cat">SAVE</span><span>Clicking ✓ saves member to database</span></li>
+    <li><div class="chk"></div><span class="cat">EDIT</span><span>Edit (pencil) on saved row → update values → save → member updates</span></li>
+    <li><div class="chk"></div><span class="cat">DELETE</span><span>Delete → confirmation → member removed</span></li>
+    <li><div class="chk"></div><span class="cat">TOTALS</span><span>Footer row shows correct total quantity and total weight</span></li>
+    <li><div class="chk"></div><span class="cat">PERSIST</span><span>Reload page — all member schedule data still present</span></li>
+  </ul>
+
+  <h3>Export</h3>
+  <ul class="checklist">
+    <li><div class="chk"></div><span class="cat">EXCEL</span><span>Excel button downloads a .xlsx file with 3 sheets: Summary, Measurements, Member Schedule</span></li>
+    <li><div class="chk"></div><span class="cat">EXCEL</span><span>Summary sheet shows correct project name, drawing name, totals, and generated date</span></li>
+    <li><div class="chk"></div><span class="cat">EXCEL</span><span>Measurements sheet shows all rows with correct lengths and units</span></li>
+    <li><div class="chk"></div><span class="cat">EXCEL</span><span>Member Schedule sheet shows all members with correct weights</span></li>
+    <li><div class="chk"></div><span class="cat">PDF</span><span>PDF button downloads a professional .pdf with header, tables, totals, and page numbers</span></li>
+  </ul>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 11: TROUBLESHOOTING ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">11</div>
+    <h2>Troubleshooting Guide</h2>
+  </div>
+
+  <table class="info-table">
+    <thead>
+      <tr><th>Problem</th><th>Likely Cause</th><th>Solution</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Measure tool switches back to Calibrate automatically</td>
+        <td>Drawing not yet calibrated</td>
+        <td>Complete calibration first (Section 05). The guard prevents uncalibrated measurements.</td>
+      </tr>
+      <tr>
+        <td>Lines drawn on drawing don't appear in the Measurements table</td>
+        <td>Lines were drawn in <strong>Calibrate mode</strong>, not Measure mode</td>
+        <td>Check toolbar: Measure must be active (blue). Click <strong>Clear</strong> to remove old calibration lines, then click <strong>Measure</strong> and draw new lines.</td>
+      </tr>
+      <tr>
+        <td>Old red/amber lines still visible on drawing</td>
+        <td>Calibration lines not cleared (delete annotation may not have fired)</td>
+        <td>Click the <strong>Clear</strong> button in the toolbar. This removes all drawn lines from the viewer. Saved measurements in the table are not affected.</td>
+      </tr>
+      <tr>
+        <td>Length shows "—" in the Measurements table</td>
+        <td>Measurement was drawn before calibration was set</td>
+        <td>Delete that row (trash icon) and re-draw the line in Measure mode after calibrating.</td>
+      </tr>
+      <tr>
+        <td>Syncfusion labels on drawing show "2.47 in" (wrong unit)</td>
+        <td>Syncfusion's internal label display uses its own unit system</td>
+        <td>Ignore the label shown on the drawing line. The <strong>correct length</strong> is the value shown in the Measurements table, which uses your calibrated scale.</td>
+      </tr>
+      <tr>
+        <td>Scale looks wrong / lengths seem too large or too small</td>
+        <td>Calibration was done on a very short line, or wrong value entered</td>
+        <td>Click <strong>Re-calibrate Scale</strong> in the right panel. Use a longer, well-defined dimension for better accuracy. Method A (draw on drawing) is more accurate than Method B (preset).</td>
+      </tr>
+      <tr>
+        <td>Member Schedule Total Weight is 0 or blank</td>
+        <td>Unit Weight or Length is 0</td>
+        <td>Check that Unit Weight is set (select a steel section size — it auto-fills) and Length is greater than 0.</td>
+      </tr>
+      <tr>
+        <td>Length not auto-filling in Member Schedule</td>
+        <td>Linked Measurement has no calibrated length (length is null)</td>
+        <td>The linked measurement must have a valid length. Draw measurements after calibrating. Check the measurement's Length column is not "—".</td>
+      </tr>
+      <tr>
+        <td>Export buttons not visible</td>
+        <td>No measurements saved yet</td>
+        <td>Draw at least one measurement line first. Export buttons appear once the table has data.</td>
+      </tr>
+      <tr>
+        <td>PDF drawing takes a long time to load</td>
+        <td>Large PDF file size</td>
+        <td>This is normal for large construction drawings. Syncfusion renders PDF in the browser using WebAssembly. Wait for the spinner to complete. Subsequent views are faster.</td>
+      </tr>
+      <tr>
+        <td>Page shows "Could not load drawing"</td>
+        <td>Backend not running or file not found</td>
+        <td>Ensure the backend is running on port 5000. If using a re-uploaded drawing, delete the old entry and upload again.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="section-sep">
+
+  <!-- ─── SECTION 12: TECHNICAL ─── -->
+  <div class="page-break"></div>
+  <div class="section-header avoid-break">
+    <div class="section-num">12</div>
+    <h2>Database &amp; Technical Reference</h2>
+  </div>
+
+  <h3>Database Tables</h3>
+  <table class="info-table">
+    <thead><tr><th>Table</th><th>Key Fields</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>dbo.Projects</td>
+        <td>Id, Name, ProjectNumber, ClientName, Location, Description, UserId</td>
+        <td>Stores all projects</td>
+      </tr>
+      <tr>
+        <td>dbo.Drawings</td>
+        <td>Id, Name, FileName, FilePath, ScaleRatio, IsCalibrated, CalibrationUnit, ProjectId</td>
+        <td>PDF drawing metadata + calibration data. ScaleRatio = mm per PDF coordinate unit</td>
+      </tr>
+      <tr>
+        <td>dbo.TakeoffItems</td>
+        <td>Id, Mark, Description, ItemType, Length, Quantity, Unit, UnitWeight, TotalWeight, PointsJson, DrawingId, CreatedAt</td>
+        <td>All measurement lines. PointsJson stores the coordinates. Length is in the calibration unit.</td>
+      </tr>
+      <tr>
+        <td>dbo.MemberScheduleItems</td>
+        <td>Id, Mark, MemberSize, MemberType, UnitWeight, Length, Quantity, TotalWeight, Description, TakeoffItemId, DrawingId</td>
+        <td>Steel member schedule. TakeoffItemId links to a measurement.</td>
+      </tr>
+      <tr>
+        <td>dbo.Users</td>
+        <td>Id, FirstName, LastName, Email, PasswordHash, Role (Admin/Estimator)</td>
+        <td>User accounts with role-based access</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scale Formula Reference</h3>
+  <div class="formula">ScaleRatio (mm per PDF point) = RealLength_mm / PixelLength_pts<br>
+PixelLength_pts = Euclidean distance between clicked points in PDF coordinate space</div>
+
+  <div class="formula">RealWorldLength = PixelLength × ScaleRatio → converted to display unit<br>
+TotalWeight (kg) = UnitWeight (kg/m) × toMeters(Length, Unit) × Quantity</div>
+
+  <h3>Quick Scale Preset Formula</h3>
+  <div class="formula">ScaleRatio = N × (25.4 / 72) mm/pt<br>
+where N = scale denominator (e.g. 100 for 1:100)<br>
+Assumes: standard PDF at 72 DPI print resolution</div>
+
+  <h3>API Endpoints Reference</h3>
+  <table class="info-table">
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>POST</td><td>/api/auth/login</td><td>Authenticate user → returns JWT token</td></tr>
+      <tr><td>GET</td><td>/api/projects</td><td>List all projects for current user</td></tr>
+      <tr><td>POST</td><td>/api/drawings/upload/{projectId}</td><td>Upload a PDF drawing</td></tr>
+      <tr><td>PUT</td><td>/api/drawings/{id}/calibrate</td><td>Save calibration (scaleRatio + unit)</td></tr>
+      <tr><td>GET</td><td>/api/drawings/{id}/file</td><td>Serve the PDF file (anonymous access)</td></tr>
+      <tr><td>POST</td><td>/api/takeoffitems/drawing/{drawingId}</td><td>Save a new measurement</td></tr>
+      <tr><td>PUT</td><td>/api/takeoffitems/{id}</td><td>Update measurement (inc. unit weight)</td></tr>
+      <tr><td>DELETE</td><td>/api/takeoffitems/{id}</td><td>Delete a measurement</td></tr>
+      <tr><td>GET</td><td>/api/takeoffitems/drawing/{drawingId}/summary</td><td>Get totals (count, total length, total weight)</td></tr>
+      <tr><td>POST</td><td>/api/memberschedules/drawing/{drawingId}</td><td>Save a new member schedule item</td></tr>
+      <tr><td>PUT</td><td>/api/memberschedules/{id}</td><td>Update member schedule item</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Current Database State (from your screenshots)</h3>
+  <table class="info-table">
+    <thead><tr><th>Item</th><th>Value</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Projects</td><td>3 projects (Testing, Demo Project 2, Virtual Project)</td><td><span class="badge green">✓ OK</span></td></tr>
+      <tr><td>Drawing</td><td>construction_related_sketches.pdf — 3043 bytes, 1 page</td><td><span class="badge green">✓ OK</span></td></tr>
+      <tr><td>ScaleRatio</td><td>70.556 mm/pt (= 1:200 scale preset)</td><td><span class="badge green">✓ Calibrated</span></td></tr>
+      <tr><td>CalibrationUnit</td><td>Meter</td><td><span class="badge green">✓ OK</span></td></tr>
+      <tr><td>TakeoffItems</td><td>0 rows (empty)</td><td><span class="badge amber">⚠ Action needed</span></td></tr>
+      <tr><td>MemberScheduleItems</td><td>0 rows (empty)</td><td><span class="badge amber">⚠ Requires measurements first</span></td></tr>
+      <tr><td>Users</td><td>2 users (Admin + Demo Estimator)</td><td><span class="badge green">✓ OK</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger avoid-break" style="margin-top:12px;">
+    <div class="callout-title">Immediate Action Required for Testing</div>
+    The TakeoffItems table is empty because the lines currently visible on the drawing were drawn in
+    <strong>Calibrate mode</strong>, not Measure mode. To populate measurements:
+    <ol style="font-size:12px; margin-top:6px; padding-left:16px; line-height:1.9;">
+      <li>Click the <strong>Clear</strong> button in the toolbar to remove old calibration lines</li>
+      <li>Click <strong>Measure</strong> button (or press <kbd>L</kbd>) — the drawing is already calibrated</li>
+      <li>Draw 3–4 measurement lines on structural elements</li>
+      <li>Each line will auto-save and appear in the Measurements table immediately</li>
+    </ol>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="doc-footer no-print">
+  BuildTakeoff Pro — Client Testing Guide v1.0 &nbsp;|&nbsp; Construction Estimation &amp; Digital Takeoff System &nbsp;|&nbsp; May 2026
+</div>
+
+<div class="doc-footer" style="display:none;">
+  BuildTakeoff Pro — Client Testing Guide v1.0 | Construction Estimation &amp; Digital Takeoff System | May 2026
+</div>
+
+<script>
+  // Auto-remove print bar and adjust body during print
+  window.addEventListener('beforeprint', () => document.body.classList.remove('has-bar'));
+  window.addEventListener('afterprint',  () => document.body.classList.add('has-bar'));
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import { useAppStore } from './store/useAppStore'
+import Layout from './components/layout/Layout'
+import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
+import DrawingsPage from './pages/DrawingsPage'
+
+// Redirect logged-in users away from /login (avoids the blurred login flash on back-navigation)
+function PublicRoute({ children }) {
+  const token     = useAppStore(s => s.token)
+  const _hydrated = useAppStore(s => s._hydrated)
+  if (!_hydrated) return null
+  if (token) return <Navigate to="/dashboard" replace />
+  return children
+}
+
+function ProtectedRoute({ children }) {
+  const token     = useAppStore(s => s.token)
+  const _hydrated = useAppStore(s => s._hydrated)
+
+  // Wait for the persist store to finish rehydrating from localStorage.
+  // Without this guard, token is null for ~1 frame on every load, which
+  // triggers a redirect to /login and flashes the blurred login background.
+  if (!_hydrated) return null
+
+  if (!token) return <Navigate to="/login" replace />
+  return children
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1e293b',
+            color: '#f1f5f9',
+            border: '1px solid #334155',
+            borderRadius: '8px',
+            fontSize: '13px',
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#1e293b' } },
+          error: { iconTheme: { primary: '#f87171', secondary: '#1e293b' } },
+        }}
+      />
+      <Routes>
+        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="drawings" element={<DrawingsPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

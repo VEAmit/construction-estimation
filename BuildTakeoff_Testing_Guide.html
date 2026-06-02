@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BuildTakeoff Pro — Testing Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff;line-height:1.6}
+
+  /* ── Cover Page ─────────────────────────────────────────── */
+  .cover{
+    page-break-after:always;
+    background:linear-gradient(135deg,#0d1b3e 0%,#1a3a6b 50%,#0d2147 100%);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:60px 40px;color:#fff;text-align:center;position:relative;overflow:hidden;
+  }
+  .cover::before{content:'';position:absolute;top:-100px;right:-100px;width:500px;height:500px;
+    background:rgba(29,111,219,.15);border-radius:50%;filter:blur(80px)}
+  .cover::after{content:'';position:absolute;bottom:-80px;left:-80px;width:400px;height:400px;
+    background:rgba(29,111,219,.1);border-radius:50%;filter:blur(70px)}
+  .cover-logo{width:80px;height:80px;border-radius:20px;
+    background:linear-gradient(135deg,#1d6fdb,#0d47a1);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 28px;
+    box-shadow:0 12px 32px rgba(29,111,219,.4)}
+  .cover h1{font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:10px}
+  .cover h2{font-size:18px;font-weight:400;opacity:.7;margin-bottom:40px}
+  .cover-meta{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+    border-radius:12px;padding:24px 40px;display:inline-flex;gap:48px;position:relative;z-index:1}
+  .cover-meta-item{text-align:center}
+  .cover-meta-item .label{font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+  .cover-meta-item .value{font-size:15px;font-weight:600}
+  .cover-footer{position:absolute;bottom:28px;font-size:11px;opacity:.3}
+
+  /* ── Page layout ────────────────────────────────────────── */
+  .page{padding:48px 56px;max-width:900px;margin:0 auto}
+  @media print{
+    .cover{min-height:100vh}
+    .page{padding:32px 40px}
+    @page{margin:0;size:A4}
+    .no-break{page-break-inside:avoid}
+    .break-before{page-break-before:always}
+  }
+
+  /* ── Section headers ──────────────────────────────────────*/
+  .section-title{
+    display:flex;align-items:center;gap:10px;
+    font-size:18px;font-weight:700;color:#0f172a;
+    margin:36px 0 16px;padding-bottom:10px;
+    border-bottom:2px solid #e2e8f0;
+  }
+  .section-num{
+    width:30px;height:30px;border-radius:8px;flex-shrink:0;
+    background:linear-gradient(135deg,#1d6fdb,#1558b0);
+    color:#fff;font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* ── Step cards ───────────────────────────────────────────*/
+  .step-card{
+    background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+    padding:16px 20px;margin-bottom:14px;
+  }
+  .step-card h4{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;
+    display:flex;align-items:center;gap:8px}
+  .step-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;
+    background:#dbeafe;color:#1d4ed8;text-transform:uppercase;letter-spacing:.05em}
+  .step-tag.orange{background:#ffedd5;color:#c2410c}
+  .step-tag.green{background:#dcfce7;color:#15803d}
+
+  /* ── Tables ───────────────────────────────────────────────*/
+  table{width:100%;border-collapse:collapse;margin:12px 0 16px;font-size:12px}
+  th{background:#0d1b3e;color:#fff;padding:9px 12px;text-align:left;font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:.05em}
+  td{padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#374151}
+  tr:nth-child(even) td{background:#f8fafc}
+  tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+  .badge-blue{background:#dbeafe;color:#1d4ed8}
+  .badge-green{background:#dcfce7;color:#15803d}
+  .badge-orange{background:#ffedd5;color:#c2410c}
+  .badge-red{background:#fee2e2;color:#dc2626}
+  .badge-grey{background:#f1f5f9;color:#475569}
+
+  /* ── Layout diagram ───────────────────────────────────────*/
+  .layout-box{
+    font-family:'Courier New',monospace;font-size:11px;line-height:1.7;
+    background:#0f172a;color:#94a3b8;border-radius:10px;padding:18px 22px;
+    margin:12px 0 16px;white-space:pre;overflow-x:auto;border:1px solid #1e293b;
+  }
+  .layout-box .hi{color:#60a5fa}
+  .layout-box .gr{color:#22c55e}
+  .layout-box .or{color:#f59e0b}
+
+  /* ── Code/credential blocks ───────────────────────────────*/
+  .cred-box{
+    background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;
+    padding:14px 18px;margin:10px 0;
+  }
+  .cred-box .label{font-size:10px;font-weight:700;color:#1d6fdb;
+    text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+  .cred-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px}
+  .cred-key{font-weight:600;color:#374151;width:80px;flex-shrink:0}
+  .cred-val{font-family:'Courier New',monospace;background:#fff;border:1px solid #bfdbfe;
+    border-radius:4px;padding:2px 8px;color:#0d47a1;font-size:12px}
+
+  /* ── Command blocks ───────────────────────────────────────*/
+  .cmd{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px 18px;margin:10px 0;
+    font-family:'Courier New',monospace;font-size:12px;line-height:1.8;border:1px solid #1e293b}
+  .cmd .comment{color:#475569}
+  .cmd .path{color:#60a5fa}
+  .cmd .kw{color:#c084fc}
+
+  /* ── Checklist ────────────────────────────────────────────*/
+  .checklist{list-style:none;margin:10px 0}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;
+    font-size:12px;border-bottom:1px solid #f1f5f9;color:#374151}
+  .checklist li:last-child{border-bottom:none}
+  .check-box{width:16px;height:16px;border:2px solid #cbd5e1;border-radius:4px;
+    flex-shrink:0;margin-top:1px}
+
+  /* ── Alert box ────────────────────────────────────────────*/
+  .alert{border-radius:8px;padding:12px 16px;margin:12px 0;display:flex;gap:10px;align-items:flex-start}
+  .alert-info{background:#eff6ff;border:1px solid #bfdbfe}
+  .alert-warn{background:#fffbeb;border:1px solid #fde68a}
+  .alert-success{background:#f0fdf4;border:1px solid #bbf7d0}
+  .alert-icon{font-size:16px;flex-shrink:0;line-height:1.4}
+  .alert p{font-size:12px;color:#374151;margin:0}
+  .alert strong{color:#1e293b}
+
+  /* ── Numbered steps ───────────────────────────────────────*/
+  ol.steps{padding-left:0;list-style:none;margin:10px 0}
+  ol.steps li{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start}
+  ol.steps li .num{width:22px;height:22px;border-radius:50%;background:#1d6fdb;color:#fff;
+    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  ol.steps li .txt{font-size:12px;color:#374151;line-height:1.6}
+  ol.steps li .txt strong{color:#1e293b}
+
+  /* ── Toolbar pills ────────────────────────────────────────*/
+  .tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+  .tool-pill{border-radius:8px;padding:10px 14px;border:1px solid;display:flex;align-items:center;gap:10px}
+  .tool-pill .icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0;font-size:16px}
+  .tool-pill .name{font-size:12px;font-weight:700;margin-bottom:2px}
+  .tool-pill .desc{font-size:11px;opacity:.7}
+
+  p{margin-bottom:10px;font-size:13px;color:#374151}
+  strong{color:#1e293b}
+  hr{border:none;border-top:1px solid #e2e8f0;margin:28px 0}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     COVER PAGE
+══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  </div>
+  <h1>BuildTakeoff Pro</h1>
+  <h2>Complete Testing &amp; User Guide — Phase 1 POC</h2>
+
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="label">Version</div>
+      <div class="value">Phase 1 POC</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Date</div>
+      <div class="value">May 2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Platform</div>
+      <div class="value">React + ASP.NET Core</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Status</div>
+      <div class="value">Client Demo Ready</div>
+    </div>
+  </div>
+
+  <div class="cover-footer">Confidential — BuildTakeoff Pro · Phase 1 POC Document</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 1 — Overview + Start
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="section-title">
+    <div class="section-num">0</div>
+    Application Overview
+  </div>
+
+  <p>BuildTakeoff Pro is a professional construction estimation and digital takeoff platform. Phase 1 delivers core drawing management, line measurement, member schedule tracking, and report export — designed for structural steel estimation workflows.</p>
+
+  <div class="tool-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:20px">
+    <div class="step-card" style="margin:0">
+      <h4>Stack</h4>
+      <p style="margin:0;font-size:12px">React 19 + Vite (Frontend)<br/>ASP.NET Core 9 (API)<br/>SQL Server (Database)</p>
+    </div>
+    <div class="step-card" style="margin:0">
+      <h4>Ports</h4>
+      <p style="margin:0;font-size:12px">Frontend: <strong>localhost:5173</strong><br/>Backend API: <strong>localhost:5000</strong><br/>Swagger: <strong>localhost:5000/swagger</strong></p>
+    </div>
+    <div class="step-card" style="margin:0">
+      <h4>Key Features</h4>
+      <p style="margin:0;font-size:12px">PDF Drawing Viewer<br/>Line Measurement Tool<br/>Member Schedule + Export</p>
+    </div>
+  </div>
+
+  <!-- ── Application Layout ─────────────────────── -->
+  <div class="section-title">
+    <div class="section-num" style="background:linear-gradient(135deg,#475569,#334155)">UI</div>
+    Screen Layout
+  </div>
+
+  <div class="layout-box"><span class="hi">┌──────────────────────────────────────────────────────────────────────┐</span>
+<span class="hi">│</span>  BREADCRUMB BAR:  ← Projects &gt; Project Name &gt; Drawing Name  [Excel] [PDF] [Show/Hide Data]  <span class="hi">│</span>
+<span class="hi">├───────────────┬──────────────────────────────────────┬─────────────────┤</span>
+<span class="hi">│               │</span>  <span class="or">TOOLBAR:  Select | Pan | Measure | Calibrate</span>  <span class="hi">│                 │</span>
+<span class="hi">│  LEFT         ├──────────────────────────────────────┤  RIGHT          │</span>
+<span class="hi">│  SIDEBAR      │                                      │  PANEL          │</span>
+<span class="hi">│               │                                      │                 │</span>
+<span class="hi">│  Drawings     │</span>      <span class="gr">PDF VIEWER</span>                    <span class="hi">│  ▸ Scale Cal.   │</span>
+<span class="hi">│  list +       │</span>      <span class="gr">(zoom, pan, annotations)</span>       <span class="hi">│  ▸ Display Unit │</span>
+<span class="hi">│  upload       │                                      │  ▸ Last Meas.   │</span>
+<span class="hi">│               │                                      │  ▸ Summary      │</span>
+<span class="hi">│               ├──────────────────────────────────────┤                 │</span>
+<span class="hi">│               │</span>  <span class="or">BOTTOM TABS: [Measurements] [Member Schedule]</span>   <span class="hi">│                 │</span>
+<span class="hi">└───────────────┴──────────────────────────────────────┴─────────────────┘</span></div>
+
+  <!-- ── Step 0: Start Servers ──────────────────── -->
+  <div class="section-title">
+    <div class="section-num">1</div>
+    Starting the Application
+  </div>
+
+  <p>Open <strong>two separate terminals</strong> and run the following commands:</p>
+
+  <div class="cmd">
+<span class="comment"># Terminal 1 — Backend API</span>
+<span class="kw">cd</span> <span class="path">"e:\Construction Project\backend\ConstructionEstimation.API"</span>
+dotnet run
+
+<span class="comment"># Wait for: "Now listening on: http://localhost:5000"</span>
+  </div>
+
+  <div class="cmd">
+<span class="comment"># Terminal 2 — Frontend</span>
+<span class="kw">cd</span> <span class="path">"e:\Construction Project\frontend"</span>
+npm run dev
+
+<span class="comment"># Wait for: "Local: http://localhost:5173/"</span>
+  </div>
+
+  <div class="alert alert-info">
+    <div class="alert-icon">ℹ️</div>
+    <p>Open your browser and navigate to <strong>http://localhost:5173</strong>. Both servers must be running simultaneously. If the backend is not running, the frontend will show a blank/error state.</p>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 2 — Login + Dashboard
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num">2</div>
+    Login
+  </div>
+
+  <p>The application opens on the <strong>Sign In</strong> page automatically. Demo credentials are pre-filled.</p>
+
+  <div class="cred-box">
+    <div class="label">Demo Credentials</div>
+    <div class="cred-row"><span class="cred-key">Email</span><span class="cred-val">demo@buildtakeoff.com</span></div>
+    <div class="cred-row"><span class="cred-key">Password</span><span class="cred-val">Demo@123</span></div>
+  </div>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Fields are pre-filled — click <strong>Sign In</strong></div></li>
+    <li><div class="num">2</div><div class="txt">A blue spinner appears briefly while authenticating</div></li>
+    <li><div class="num">3</div><div class="txt">Toast notification: <em>"Welcome back, Demo User!"</em></div></li>
+    <li><div class="num">4</div><div class="txt">Automatically redirected to the <strong>Dashboard</strong></div></li>
+  </ol>
+
+  <div class="alert alert-warn">
+    <div class="alert-icon">⚠️</div>
+    <p><strong>If login fails:</strong> The backend API is not running. Check Terminal 1 for errors and ensure it shows "Now listening on: http://localhost:5000".</p>
+  </div>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">3</div>
+    Dashboard — Creating a Project
+  </div>
+
+  <p>The Dashboard displays all projects as cards. A seeded <em>"Demo Project"</em> appears by default. You can search existing projects using the search bar at the top.</p>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Click <strong>+ New Project</strong> (top-right button)</div></li>
+    <li><div class="num">2</div><div class="txt">Fill in the project creation modal:</div></li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Field</th><th>Required</th><th>Example Value</th></tr></thead>
+    <tbody>
+      <tr><td>Project Name</td><td><span class="badge badge-red">Required</span></td><td>Steel Frame Building A</td></tr>
+      <tr><td>Project Number</td><td><span class="badge badge-grey">Optional</span></td><td>PRJ-2026-001</td></tr>
+      <tr><td>Client Name</td><td><span class="badge badge-grey">Optional</span></td><td>ABC Construction Ltd</td></tr>
+      <tr><td>Description</td><td><span class="badge badge-grey">Optional</span></td><td>3-storey steel frame structure</td></tr>
+    </tbody>
+  </table>
+
+  <ol class="steps">
+    <li><div class="num">3</div><div class="txt">Click <strong>Create Project</strong></div></li>
+    <li><div class="num">4</div><div class="txt">New project card appears showing: project name, project number (blue), client name with icon, and "0 drawings" badge</div></li>
+    <li><div class="num">5</div><div class="txt">Click the project card to open the Drawings page</div></li>
+  </ol>
+
+  <div class="alert alert-success">
+    <div class="alert-icon">✅</div>
+    <p><strong>Test search:</strong> Type part of the project name in the search bar — project cards filter in real time without any page reload.</p>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 3 — Upload + Calibrate
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num">4</div>
+    Uploading a PDF Drawing
+  </div>
+
+  <p>After entering a project, the <strong>Drawings Page</strong> opens. The left sidebar contains the drawing list and upload area.</p>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Click the dashed upload zone (<em>"Drop PDF or browse"</em>) <strong>OR</strong> drag a PDF file directly onto it</div></li>
+    <li><div class="num">2</div><div class="txt">A progress bar (0–100%) shows upload progress</div></li>
+    <li><div class="num">3</div><div class="txt">Toast: <em>"StructuralDrawing.pdf uploaded successfully"</em></div></li>
+    <li><div class="num">4</div><div class="txt">Drawing card appears in the sidebar list, selected automatically</div></li>
+    <li><div class="num">5</div><div class="txt">PDF renders in the center viewer</div></li>
+    <li><div class="num">6</div><div class="txt">Breadcrumb updates: <em>Projects → Project Name → Drawing Name</em></div></li>
+  </ol>
+
+  <div class="alert alert-info">
+    <div class="alert-icon">ℹ️</div>
+    <p><strong>Multiple drawings:</strong> Upload several PDFs — they all stack in the sidebar. Click any card to switch between drawings. Each drawing maintains its own measurements and member schedule independently.</p>
+  </div>
+
+  <div class="alert alert-warn">
+    <div class="alert-icon">⚠️</div>
+    <p><strong>Only PDF files are accepted.</strong> Non-PDF files are rejected immediately with an error toast. Maximum file size: 100 MB.</p>
+  </div>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">5</div>
+    Toolbar — Navigation Tools
+  </div>
+
+  <div class="tool-grid">
+    <div class="tool-pill" style="border-color:#e2e8f0;background:#f8fafc">
+      <div class="icon" style="background:#f1f5f9">🖱️</div>
+      <div><div class="name">Select</div><div class="desc">Click annotations to select/highlight them</div></div>
+    </div>
+    <div class="tool-pill" style="border-color:#e2e8f0;background:#f8fafc">
+      <div class="icon" style="background:#f1f5f9">✋</div>
+      <div><div class="name">Pan</div><div class="desc">Click and drag to pan around the drawing</div></div>
+    </div>
+    <div class="tool-pill" style="border-color:#bfdbfe;background:#eff6ff">
+      <div class="icon" style="background:#dbeafe">📏</div>
+      <div><div class="name" style="color:#1d4ed8">Measure (Line)</div><div class="desc">Click two points to draw and measure a line</div></div>
+    </div>
+    <div class="tool-pill" style="border-color:#fed7aa;background:#fff7ed">
+      <div class="icon" style="background:#ffedd5">⚖️</div>
+      <div><div class="name" style="color:#c2410c">Calibrate</div><div class="desc">Draw a known-length line to set the scale</div></div>
+    </div>
+  </div>
+
+  <p style="margin-top:8px"><strong>Zoom:</strong> Use the scroll wheel to zoom in/out anywhere on the drawing. The zoom level is preserved per drawing session.</p>
+  <p><strong>Multi-page PDFs:</strong> Page navigation arrows and a page number input appear at the bottom of the viewer.</p>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">6</div>
+    Scale Calibration <span style="font-size:12px;color:#64748b;font-weight:400">(Critical — do this before measuring)</span>
+  </div>
+
+  <div class="alert alert-warn">
+    <div class="alert-icon">⚠️</div>
+    <p>Without calibration, all measurements are shown in <strong>pixels</strong> rather than real-world units (mm, m, ft). Always calibrate before taking measurements on a new drawing.</p>
+  </div>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Click the <strong style="color:#c2410c">Calibrate</strong> (orange) tool in the toolbar — a hint appears: <em>"Draw a line of known length"</em></div></li>
+    <li><div class="num">2</div><div class="txt">On the drawing, find a known dimension — e.g. a column grid spacing of <strong>6000 mm</strong></div></li>
+    <li><div class="num">3</div><div class="txt">Click the <strong>start point</strong> → click the <strong>end point</strong> of that known dimension</div></li>
+    <li><div class="num">4</div><div class="txt">In the <strong>Right Panel</strong>, the calibration form appears: enter <em>6000</em> and select <em>mm</em></div></li>
+    <li><div class="num">5</div><div class="txt">Click <strong>Apply</strong></div></li>
+  </ol>
+
+  <p><strong>After calibration:</strong></p>
+  <ul style="padding-left:20px;font-size:12px;color:#374151;line-height:2">
+    <li>Toast: <em>"Scale calibrated successfully"</em></li>
+    <li>Drawing card in sidebar shows a green dot <strong style="color:#15803d">● Calibrated</strong></li>
+    <li>Breadcrumb bar shows a green <strong style="color:#15803d">CALIBRATED</strong> badge</li>
+    <li>Right panel shows: ✓ <em>Calibrated · mm</em></li>
+    <li>All subsequent measurements show real-world values</li>
+  </ul>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 4 — Measurements
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num">7</div>
+    Drawing Line Measurements
+  </div>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Click the <strong style="color:#1d4ed8">Measure</strong> (blue) tool — hint: <em>"Click two points to measure a line"</em></div></li>
+    <li><div class="num">2</div><div class="txt">Click <strong>Point A</strong> on the drawing → click <strong>Point B</strong></div></li>
+    <li><div class="num">3</div><div class="txt">A <strong style="color:#1d4ed8">blue line annotation</strong> appears on the drawing</div></li>
+    <li><div class="num">4</div><div class="txt">The <strong>Right Panel</strong> updates with "Last Measurement" showing the length (e.g. <em>3,245.20 mm</em>)</div></li>
+    <li><div class="num">5</div><div class="txt">The <strong>Add Measurement modal</strong> opens automatically</div></li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Modal Field</th><th>Example</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Member Mark / Tag</td><td>B1</td><td>Short identifier for the member</td></tr>
+      <tr><td>Member Type</td><td>Beam</td><td>Beam, Column, Brace, Purlin, Rafter, Plate, Other</td></tr>
+      <tr><td>Description</td><td>Main floor beam at grid A</td><td>Auto-filled if left blank</td></tr>
+      <tr><td>Quantity</td><td>4</td><td>How many of this member exist</td></tr>
+      <tr><td>Notes</td><td>UB 200×25</td><td>Optional reference notes</td></tr>
+    </tbody>
+  </table>
+
+  <p>Click <strong>Save Measurement</strong> → row appears in the bottom <strong>Measurements</strong> tab. Repeat for all members.</p>
+
+  <div class="alert alert-success">
+    <div class="alert-icon">✅</div>
+    <p>The <strong>Add</strong> button in the Measurements table also opens the modal for manual entry (without drawing a line first — useful for members not visible on this drawing page).</p>
+  </div>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">8</div>
+    Measurements Table — Bottom Panel
+  </div>
+
+  <table>
+    <thead><tr><th>Action</th><th>How To</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Select a row</strong></td><td>Click any row — the corresponding line on the drawing highlights in a brighter blue</td></tr>
+      <tr><td><strong>Select via drawing</strong></td><td>Click a blue annotation line on the PDF — matching row highlights in the table</td></tr>
+      <tr><td><strong>Edit inline</strong></td><td>Click the pencil icon — mark, description, qty, and notes become editable inputs. Click ✓ to save</td></tr>
+      <tr><td><strong>Delete</strong></td><td>Click the red trash icon → confirm dialog → row and annotation removed</td></tr>
+      <tr><td><strong>Filter</strong></td><td>Type in the search box — filters by mark, description, or member type in real time</td></tr>
+      <tr><td><strong>Total length</strong></td><td>Shows ∑ total length in the table toolbar (sum of all measurement lengths)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-info">
+    <div class="alert-icon">ℹ️</div>
+    <p>Rows with a <strong style="color:#1d4ed8">pencil icon indicator</strong> in the last column have an associated drawing annotation. The right panel shows full details of the currently selected measurement.</p>
+  </div>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">9</div>
+    Right Panel — Details &amp; Summary
+  </div>
+
+  <table>
+    <thead><tr><th>Section</th><th>What it Shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Scale Calibration</strong></td><td>Calibrate / Re-calibrate buttons and instructions. Shows ✓ Calibrated status with unit</td></tr>
+      <tr><td><strong>Display Unit</strong></td><td>Unit selector: mm / cm / m / ft / in — changes display unit for all measurements</td></tr>
+      <tr><td><strong>Last Measurement</strong></td><td>Large value display of the most recently drawn line</td></tr>
+      <tr><td><strong>Selected Measurement</strong></td><td>Mark, description, length, type, quantity for the row/annotation currently selected</td></tr>
+      <tr><td><strong>Member Schedule Summary</strong></td><td>Total members, total quantity, total weight (kg) — updates live as members are added</td></tr>
+      <tr><td><strong>Measurement Summary</strong></td><td>Total items count and combined total length</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 5 — Member Schedule
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num">10</div>
+    Member Schedule
+  </div>
+
+  <p>Click the <strong>Member Schedule</strong> tab in the bottom panel. This table tracks all structural steel members with size, weight, and quantity data.</p>
+
+  <div class="section-title" style="font-size:14px;border-bottom:1px solid #e2e8f0;margin-top:0">Adding a Member</div>
+
+  <ol class="steps">
+    <li><div class="num">1</div><div class="txt">Click <strong>+ Add Member</strong> (blue button, top-right of the member schedule toolbar)</div></li>
+    <li><div class="num">2</div><div class="txt">A new editable row appears at the top of the table — fill in:</div></li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Column</th><th>Example</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Mark</td><td>C1</td><td>Member identifier</td></tr>
+      <tr><td>Member Size</td><td>UC 203×203×46</td><td>Standard section designation</td></tr>
+      <tr><td>Type</td><td>Column</td><td>Beam, Column, Brace, Purlin, Rafter, Plate, Other</td></tr>
+      <tr><td>Unit Wt (kg/m)</td><td>46.1</td><td>Weight per metre of the section</td></tr>
+      <tr><td>Length (m)</td><td>4.5</td><td>Length in <strong>metres</strong></td></tr>
+      <tr><td>Qty</td><td>8</td><td>Number of identical members</td></tr>
+      <tr><td>Description</td><td>Ground floor columns</td><td>Optional details</td></tr>
+    </tbody>
+  </table>
+
+  <ol class="steps" style="counter-reset:step 2">
+    <li><div class="num">3</div><div class="txt">Click the <strong>✓ Save</strong> button on the row</div></li>
+    <li><div class="num">4</div><div class="txt"><strong>Total Weight auto-calculates:</strong> Unit Wt × Length × Qty = 46.1 × 4.5 × 8 = <strong>1,659.6 kg</strong></div></li>
+    <li><div class="num">5</div><div class="txt">Right Panel <em>"Member Schedule Summary"</em> updates: member count, total qty, total weight</div></li>
+  </ol>
+
+  <div class="alert alert-info">
+    <div class="alert-icon">ℹ️</div>
+    <p><strong>Auto weight lookup:</strong> When you type a known section size (e.g. "UB 200×25"), the unit weight field may auto-populate from the built-in steel section reference table.</p>
+  </div>
+
+  <div class="section-title" style="font-size:14px;border-bottom:1px solid #e2e8f0">Editing &amp; Deleting Members</div>
+
+  <table>
+    <thead><tr><th>Action</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Edit</strong></td><td>Click the pencil icon on any row — all fields become inline inputs. Edit and click ✓</td></tr>
+      <tr><td><strong>Delete</strong></td><td>Click the red trash icon → confirm → row removed, totals update</td></tr>
+      <tr><td><strong>Link to measurement</strong></td><td>In the "Linked Meas." column dropdown, pick an existing line measurement to associate</td></tr>
+      <tr><td><strong>Totals footer</strong></td><td>The bottom row shows total quantity and total weight across all members</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-success">
+    <div class="alert-icon">✅</div>
+    <p><strong>Data persistence:</strong> All member schedule data is saved to the SQL Server database. Refreshing the page or re-opening the drawing reloads all data correctly.</p>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 6 — Export + Checklist
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num">11</div>
+    Export Reports
+  </div>
+
+  <div class="alert alert-warn" style="margin-bottom:16px">
+    <div class="alert-icon">⚠️</div>
+    <p>The <strong>Excel</strong> and <strong>PDF</strong> export buttons only appear in the breadcrumb bar when there is at least <strong>1 saved measurement</strong>. They are also available inside the Measurements table toolbar.</p>
+  </div>
+
+  <div class="step-card no-break">
+    <h4><span class="step-tag green">Excel</span> &nbsp; Two-Sheet Workbook</h4>
+    <p style="margin:0 0 8px">Click the <strong>Excel</strong> button. A <code>.xlsx</code> file downloads with two sheets:</p>
+    <table style="margin:0">
+      <thead><tr><th>Sheet</th><th>Columns</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Measurements</strong></td><td>No · Mark · Description · Length · Member Type · Qty · Unit · Notes</td></tr>
+        <tr><td><strong>Member Schedule</strong></td><td>No · Mark · Member Size · Member Type · Unit Wt (kg/m) · Length (m) · Qty · Total Wt (kg) · Description</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="step-card no-break" style="margin-top:14px">
+    <h4><span class="step-tag orange">PDF</span> &nbsp; Formatted Estimation Report</h4>
+    <p style="margin:0 0 8px">Click the <strong>PDF</strong> button. A landscape <code>.pdf</code> downloads containing:</p>
+    <ul style="padding-left:18px;font-size:12px;color:#374151;line-height:2">
+      <li><strong>Dark navy header</strong> with drawing name, project ID, date, and scale unit</li>
+      <li><strong>Section 1 — Measurements table</strong> (blue header) with total items + total length footer</li>
+      <li><strong>Section 2 — Member Schedule table</strong> (dark navy header) with total qty + total weight footer</li>
+      <li><strong>Page numbers</strong> centred at the bottom of every page</li>
+    </ul>
+  </div>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num">12</div>
+    Navigation — Switching Drawings &amp; Projects
+  </div>
+
+  <table>
+    <thead><tr><th>Action</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>Switch drawing</td><td>Click a different PDF card in the left sidebar — all data reloads for that drawing</td></tr>
+      <tr><td>Back to projects</td><td>Click <strong>← Projects</strong> in the breadcrumb bar</td></tr>
+      <tr><td>Hide/show data panel</td><td>Click the <strong>Show/Hide Data</strong> toggle in the breadcrumb — maximises the PDF viewer</td></tr>
+      <tr><td>Delete a drawing</td><td>Hover over a drawing card in the sidebar → red trash icon appears → confirm</td></tr>
+      <tr><td>Delete a project</td><td>Hover over a project card on the Dashboard → red trash icon</td></tr>
+    </tbody>
+  </table>
+
+  <hr/>
+
+  <div class="section-title">
+    <div class="section-num" style="background:linear-gradient(135deg,#15803d,#166534)">✓</div>
+    Phase 1 — Feature Verification Checklist
+  </div>
+
+  <ul class="checklist">
+    <li><div class="check-box"></div>Login with demo credentials works and redirects to Dashboard</li>
+    <li><div class="check-box"></div>Create project with Name, Project Number, and Client Name — visible on card</li>
+    <li><div class="check-box"></div>Search bar filters project cards in real time</li>
+    <li><div class="check-box"></div>PDF uploads with progress bar and renders in the center viewer</li>
+    <li><div class="check-box"></div>Scroll/zoom and Pan tool work correctly on the drawing</li>
+    <li><div class="check-box"></div>Calibrate tool draws an orange line; entering a known length applies scale</li>
+    <li><div class="check-box"></div>Drawing card shows green "● Calibrated" after scale is set</li>
+    <li><div class="check-box"></div>Measure tool draws blue lines; Add Measurement modal opens automatically</li>
+    <li><div class="check-box"></div>Measured length shown in real-world units (mm/m) after calibration</li>
+    <li><div class="check-box"></div>Measurement appears as a row in the bottom Measurements tab</li>
+    <li><div class="check-box"></div>Clicking a table row highlights the annotation on the drawing (and vice versa)</li>
+    <li><div class="check-box"></div>Inline edit (pencil icon) saves changes to the database</li>
+    <li><div class="check-box"></div>Refreshing the page — all data (measurements + members) reloads correctly</li>
+    <li><div class="check-box"></div>Member Schedule tab: Add member, Total Weight auto-calculates correctly</li>
+    <li><div class="check-box"></div>Right panel shows Member Schedule summary (count, qty, weight)</li>
+    <li><div class="check-box"></div>Excel export: downloads .xlsx with two sheets (Measurements + Member Schedule)</li>
+    <li><div class="check-box"></div>PDF export: downloads .pdf with header, two sections, page numbers</li>
+    <li><div class="check-box"></div>Upload second drawing; both appear in sidebar; switching reloads data correctly</li>
+    <li><div class="check-box"></div>Delete measurement removes annotation line from the drawing</li>
+    <li><div class="check-box"></div>Hide Data button maximises PDF viewer; Show Data restores panel</li>
+  </ul>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE 7 — Troubleshooting
+══════════════════════════════════════════════════════════ -->
+<div class="page break-before">
+
+  <div class="section-title">
+    <div class="section-num" style="background:linear-gradient(135deg,#dc2626,#b91c1c)">!</div>
+    Troubleshooting Quick Reference
+  </div>
+
+  <table>
+    <thead><tr><th style="width:35%">Symptom</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Login fails immediately</strong></td>
+        <td>Backend not running</td>
+        <td>Run <code>dotnet run</code> in the API project. Check Terminal 1 shows "listening on port 5000"</td>
+      </tr>
+      <tr>
+        <td><strong>Blank page / white screen</strong></td>
+        <td>JavaScript crash in the app</td>
+        <td>Press F12 → Console tab → read the red error. Usually backend is offline or a store state issue. Refresh the page</td>
+      </tr>
+      <tr>
+        <td><strong>"Drawing file not found"</strong> on the viewer</td>
+        <td>Backend offline or file missing from disk</td>
+        <td>Restart backend. If persists, the file was deleted from the Uploads folder — re-upload the drawing</td>
+      </tr>
+      <tr>
+        <td><strong>"Authentication error"</strong> on the viewer</td>
+        <td>JWT token expired</td>
+        <td>Log out and log back in to get a fresh token</td>
+      </tr>
+      <tr>
+        <td><strong>Measurements not saving</strong></td>
+        <td>401 Unauthorized (expired token)</td>
+        <td>Open F12 → Network tab, look for red 401 responses. Log out and log back in</td>
+      </tr>
+      <tr>
+        <td><strong>Member total weight is zero</strong></td>
+        <td>Length entered in wrong unit</td>
+        <td>Member Schedule expects Length in <strong>metres</strong>. E.g. enter <em>4.5</em> not <em>4500</em></td>
+      </tr>
+      <tr>
+        <td><strong>Excel/PDF buttons missing</strong></td>
+        <td>No measurements saved yet</td>
+        <td>Save at least 1 measurement — buttons appear automatically in the breadcrumb bar</td>
+      </tr>
+      <tr>
+        <td><strong>PDF shows blank / loading spinner forever</strong></td>
+        <td>PDF.js worker not loaded</td>
+        <td>Stop the frontend dev server and run <code>npm run dev</code> again — it copies the PDF worker on startup</td>
+      </tr>
+      <tr>
+        <td><strong>Calibration gives wrong measurements</strong></td>
+        <td>Incorrect reference length or unit</td>
+        <td>Click "Re-calibrate Scale" in the right panel. Draw the reference line more carefully. Ensure the unit matches the value entered</td>
+      </tr>
+      <tr>
+        <td><strong>"Failed to load drawings"</strong> toast</td>
+        <td>Network error to API</td>
+        <td>Confirm backend is running on port 5000. Check Vite proxy is active (dev server must be running via <code>npm run dev</code>)</td>
+      </tr>
+      <tr>
+        <td><strong>Data doesn't appear after refresh</strong></td>
+        <td>EF migration not applied</td>
+        <td>The backend auto-runs migrations on startup. Stop and restart the backend to trigger a re-migration</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr/>
+
+  <div class="section-title" style="font-size:15px">
+    <div class="section-num" style="background:linear-gradient(135deg,#475569,#334155)">i</div>
+    Useful URLs (Development)
+  </div>
+
+  <table>
+    <thead><tr><th>URL</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>http://localhost:5173</code></td><td>Frontend application (React + Vite)</td></tr>
+      <tr><td><code>http://localhost:5000/swagger</code></td><td>Backend API documentation — test all endpoints directly</td></tr>
+      <tr><td><code>http://localhost:5000/api/projects</code></td><td>Raw JSON — confirms API is running and authenticated</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:48px;padding-top:20px;border-top:2px solid #0d1b3e;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#0d1b3e">BuildTakeoff Pro</div>
+      <div style="font-size:11px;color:#64748b">Phase 1 POC — Construction Estimation Platform</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#64748b">
+      <div>Confidential Client Document</div>
+      <div>May 2026</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Auto-trigger print dialog so user can Save as PDF immediately
+  window.onload = () => {
+    document.title = 'BuildTakeoff Pro - Testing Guide'
+  }
+</script>
+
+</body>
+</html>
