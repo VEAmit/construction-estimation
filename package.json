@@ -1,0 +1,21 @@
+{
+  "name": "construction-project",
+  "version": "1.0.0",
+  "description": "Construction Estimation and Digital Takeoff Application",
+  "scripts": {
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "dotnet publish backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj -c Release -o ./publish/backend",
+    "dev": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "dotnet run --project backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj",
+    "start": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,yellow\" \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "npm --prefix frontend run preview",
+    "start:backend": "dotnet run --project backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj --configuration Release",
+    "install:all": "npm install && npm --prefix frontend install",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
