@@ -104,21 +104,20 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', background:'#080e1c' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', background:'#080B12' }}>
 
       {/* Toolbar */}
-      <div style={{ padding:'7px 12px', borderBottom:'1px solid #1e293b', flexShrink:0,
-        display:'flex', alignItems:'center', gap:'8px', background:'#0c1220' }}>
+      <div style={{ padding:'7px 12px', borderBottom:'1px solid rgba(255,255,255,.07)', flexShrink:0,
+        display:'flex', alignItems:'center', gap:'8px', background:'#0D1526' }}>
 
-        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
-            <path d="M3 9h18M3 15h18M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>
-          </svg>
-          <span style={{ fontSize:'12px', fontWeight:700, color:'#64748b' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
+          <div style={{ width:'2px', height:'16px', background:'#EF233C', borderRadius:'1px' }} />
+          <span style={{ fontSize:'12px', fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.06em' }}>
             Member Schedule
           </span>
-          <span style={{ fontSize:'10px', color:'#475569', background:'#1e293b',
-            padding:'1px 5px', borderRadius:'4px' }}>
+          <span style={{ fontSize:'10px', color:'#EF233C', fontWeight:700,
+            background:'rgba(239,35,60,.1)', padding:'1px 6px', borderRadius:'10px',
+            border:'1px solid rgba(239,35,60,.2)' }}>
             {memberScheduleItems.length}
           </span>
         </div>
@@ -126,10 +125,10 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
         {/* Totals */}
         {totalWeight > 0 && (
           <div style={{ display:'flex', gap:'12px', marginLeft:'8px' }}>
-            <span style={{ fontSize:'11px', color:'#94a3b8' }}>
+            <span style={{ fontSize:'11px', color:'#475569' }}>
               Qty: <strong style={{ color:'#f1f5f9' }}>{totalQty}</strong>
             </span>
-            <span style={{ fontSize:'11px', color:'#94a3b8' }}>
+            <span style={{ fontSize:'11px', color:'#475569' }}>
               Total: <strong style={{ color:'#22c55e' }}>{totalWeight.toFixed(1)} kg</strong>
             </span>
           </div>
@@ -140,8 +139,9 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
         <button onClick={() => { setAddMode(true); setNewRow({ ...emptyRow }) }}
           style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 12px',
             borderRadius:'6px', border:'none',
-            background:'linear-gradient(90deg,#1d6fdb,#1558b0)',
-            color:'#fff', fontSize:'11px', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+            background:'linear-gradient(90deg,#EF233C,#D90429)',
+            color:'#fff', fontSize:'11px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap',
+            boxShadow:'0 2px 10px rgba(239,35,60,.3)' }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -167,11 +167,11 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
       <div style={{ flex:1, overflow:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
           <thead>
-            <tr style={{ position:'sticky', top:0, background:'#0a111f', zIndex:1 }}>
+            <tr style={{ position:'sticky', top:0, background:'#0D1526', zIndex:1 }}>
               {['','Mark','Member Size','Type','Unit Wt\n(kg/m)','Length\n(m)','Qty','Total Wt\n(kg)','Linked\nMeasurement','Description',''].map((h, i) => (
-                <th key={i} style={{ padding:'6px 8px', textAlign:'left', fontSize:'10px',
-                  fontWeight:700, color:'#334155', textTransform:'uppercase',
-                  letterSpacing:'.05em', borderBottom:'1px solid #1e293b',
+                <th key={i} style={{ padding:'7px 8px', textAlign:'left', fontSize:'10px',
+                  fontWeight:800, color:'#475569', textTransform:'uppercase',
+                  letterSpacing:'.07em', borderBottom:'2px solid rgba(239,35,60,.35)',
                   whiteSpace:'pre-line', lineHeight:1.2,
                   width: i === 0 ? '4px' : undefined }}>
                   {h}
@@ -182,9 +182,9 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
           <tbody>
             {/* Add new row (inline) */}
             {addMode && (
-              <tr style={{ background:'rgba(29,111,219,.08)', borderBottom:'1px solid #1e3a5f' }}>
+              <tr style={{ background:'rgba(239,35,60,.06)', borderBottom:'1px solid rgba(239,35,60,.15)' }}>
                 <td style={{ padding:'0 0 0 4px', width:'4px' }}>
-                  <div style={{ width:'3px', height:'28px', background:'#1d6fdb', borderRadius:'2px' }} />
+                  <div style={{ width:'3px', height:'28px', background:'#EF233C', borderRadius:'2px' }} />
                 </td>
                 <td style={td}>
                   <input value={newRow.mark} onChange={e => set(newRow, setNewRow, 'mark', e.target.value)}
@@ -255,7 +255,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
             {memberScheduleItems.length === 0 && !addMode ? (
               <tr>
                 <td colSpan={11} style={{ padding:'40px', textAlign:'center' }}>
-                  <div style={{ color:'#334155', fontSize:'12px' }}>
+                  <div style={{ color:'#1e293b', fontSize:'12px' }}>
                     No members in schedule — click "Add Member" to begin
                   </div>
                 </td>
@@ -267,18 +267,18 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
               return (
                 <tr key={item.id}
-                  style={{ borderBottom:'1px solid #0d1628',
-                    background: isEditing ? '#0e1d3a' : 'transparent',
+                  style={{ borderBottom:'1px solid rgba(255,255,255,.04)',
+                    background: isEditing ? 'rgba(239,35,60,.06)' : 'transparent',
                     transition:'background .1s' }}
-                  onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = '#0d1628' }}
+                  onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(255,255,255,.03)' }}
                   onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = 'transparent' }}
                 >
                   {/* Left accent */}
                   <td style={{ padding:'0 0 0 4px', width:'4px' }}>
-                    <div style={{ width:'3px', height:'28px', background:'#3b82f6', borderRadius:'2px' }} />
+                    <div style={{ width:'3px', height:'28px', background:'#EF233C', borderRadius:'2px' }} />
                   </td>
 
-                  <td style={{ ...td, color:'#60a5fa', fontWeight:700 }}>
+                  <td style={{ ...td, color:'#EF233C', fontWeight:700 }}>
                     {isEditing
                       ? <input value={row.mark} onChange={e => setEditBuf(b => ({...b, mark: e.target.value}))} style={{ ...ei, width:'54px' }} />
                       : item.mark || '—'}
@@ -302,7 +302,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                           {MEMBER_TYPES.map(t => <option key={t}>{t}</option>)}
                         </select>
                       : <span style={{ padding:'2px 6px', borderRadius:'4px', fontSize:'10px',
-                          background:'rgba(59,130,246,.1)', color:'#60a5fa', fontWeight:600 }}>
+                          background:'rgba(239,35,60,.08)', color:'#94a3b8', fontWeight:600 }}>
                           {item.memberType}
                         </span>}
                   </td>
@@ -346,7 +346,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                           ))}
                         </select>
                       : linkedMeas
-                        ? <span style={{ color:'#3b82f6' }}>
+                        ? <span style={{ color:'#EF233C', fontWeight:600 }}>
                             {linkedMeas.mark || `#${linkedMeas.id}`}
                           </span>
                         : '—'}
@@ -368,7 +368,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                       </span>
                     ) : (
                       <span style={{ display:'flex', gap:'3px' }}>
-                        <button onClick={() => startEdit(item)} style={ab('#3b82f6')} title="Edit">
+                        <button onClick={() => startEdit(item)} style={ab('#EF233C')} title="Edit">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -391,7 +391,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
           {/* Totals footer */}
           {memberScheduleItems.length > 0 && (
             <tfoot>
-              <tr style={{ background:'#0c1527', borderTop:'2px solid #1d6fdb' }}>
+              <tr style={{ background:'#0D1526', borderTop:'2px solid rgba(239,35,60,.35)' }}>
                 <td colSpan={2} />
                 <td colSpan={4} style={{ ...td, color:'#475569', fontSize:'10px',
                   fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em' }}>
@@ -411,7 +411,9 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
 const td = { padding:'6px 8px', color:'#94a3b8', verticalAlign:'middle' }
 const ei = {
-  padding:'3px 5px', background:'#1e2d45', border:'1px solid #3b82f6',
+  padding:'3px 5px',
+  background:'rgba(255,255,255,.04)',
+  border:'1px solid rgba(239,35,60,.4)',
   borderRadius:'4px', fontSize:'11px', color:'#f1f5f9', outline:'none',
 }
 const ab = (color) => ({

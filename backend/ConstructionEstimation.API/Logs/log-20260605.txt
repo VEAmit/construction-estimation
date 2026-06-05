@@ -1,0 +1,1 @@
+2026-06-05 09:12:47.464 +05:30 [INF] Database migrated successfully

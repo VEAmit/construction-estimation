@@ -4,6 +4,7 @@ import { drawingService } from '../services/drawingService'
 import { takeoffService } from '../services/takeoffService'
 import { memberScheduleService } from '../services/memberScheduleService'
 import { useAppStore } from '../store/useAppStore'
+import { useBreakpoint } from '../utils/useBreakpoint'
 import DrawingSidebar from '../components/drawings/DrawingSidebar'
 import PdfViewer from '../components/drawings/PdfViewer'
 import Toolbar from '../components/tools/Toolbar'
@@ -19,6 +20,8 @@ import toast from 'react-hot-toast'
 
 export default function DrawingsPage() {
   const navigate = useNavigate()
+  const { isMobile, isTablet, isDesktop } = useBreakpoint()
+
   const {
     selectedProject, setSelectedProject,
     drawings, setDrawings, selectedDrawing, setSelectedDrawing,
@@ -29,30 +32,34 @@ export default function DrawingsPage() {
     _hydrated,
   } = useAppStore()
 
-  const [lastMeasurement, setLastMeasurement]   = useState(null)
-  const [showAddModal,    setShowAddModal]       = useState(false)   // manual-add only
-  const [pendingMeas,     setPendingMeas]        = useState(null)
-  const [showCalModal,    setShowCalModal]       = useState(false)
-  const [calSaving,       setCalSaving]          = useState(false)
-  const [autoSaving,      setAutoSaving]         = useState(false)
-  const [showBottom,      setShowBottom]         = useState(true)
-  const [bottomTab,       setBottomTab]          = useState('measurements')
-  const [summary,         setSummaryLocal]       = useState(null)
-  const [selectedAnnotId, setSelectedAnnotId]    = useState(null)
+  const [lastMeasurement,  setLastMeasurement]  = useState(null)
+  const [showAddModal,     setShowAddModal]      = useState(false)
+  const [pendingMeas,      setPendingMeas]       = useState(null)
+  const [showCalModal,     setShowCalModal]      = useState(false)
+  const [calSaving,        setCalSaving]         = useState(false)
+  const [autoSaving,       setAutoSaving]        = useState(false)
+  const [showBottom,       setShowBottom]        = useState(true)
+  const [bottomTab,        setBottomTab]         = useState('measurements')
+  const [summary,          setSummaryLocal]      = useState(null)
+  const [selectedAnnotId,  setSelectedAnnotId]   = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
 
-  // In-memory map from DB item ID → Syncfusion annotation { annotationId, pageNumber }
-  // Annotations are ephemeral (lost on page reload) so we only track within-session
+  // Mobile panel drawer state
+  const [sidebarOpen,  setSidebarOpen]  = useState(false)
+  const [rightOpen,    setRightOpen]    = useState(false)
+
   const annotationMapRef = useRef({})
 
-  // Redirect if no project — but wait until the persist store has rehydrated
-  // so a page refresh on /drawings doesn't immediately bounce to dashboard
+  // Close mobile drawers on route change or desktop switch
+  useEffect(() => {
+    if (!isMobile) { setSidebarOpen(false); setRightOpen(false) }
+  }, [isMobile])
+
   useEffect(() => {
     if (!_hydrated) return
     if (!selectedProject) navigate('/dashboard')
   }, [_hydrated, selectedProject])
 
-  // Guard: if user activates Measure tool before calibrating, redirect to Calibrate
   useEffect(() => {
     if (!selectedDrawing || activeTool !== 'line') return
     if (selectedDrawing.isCalibrated) return
@@ -62,30 +69,18 @@ export default function DrawingsPage() {
     })
   }, [activeTool, selectedDrawing?.isCalibrated, selectedDrawing?.id])
 
-  // Load drawings when project changes
-  // ── IMPORTANT: clear drawing state immediately (synchronously) before the
-  // API call resolves so the PDF viewer goes blank the instant a new project
-  // is selected.  Without this, the old project's drawing stays visible while
-  // the fetch is in flight, and if the new project has 0 drawings it never clears.
   useEffect(() => {
     if (!selectedProject) return
-    // Reset to blank slate for the incoming project right away
     setSelectedDrawing(null)
     setDrawings([])
     drawingService.getByProject(selectedProject.id)
       .then(data => {
         setDrawings(data)
-        if (data.length > 0) {
-          // Always start from the first drawing of the new project — never
-          // carry over a selectedDrawing.id that belonged to another project.
-          setSelectedDrawing(data[0])
-        }
-        // data.length === 0 → selectedDrawing stays null → viewer shows empty state
+        if (data.length > 0) setSelectedDrawing(data[0])
       })
       .catch(() => toast.error('Failed to load drawings'))
   }, [selectedProject?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load measurements + member schedule when drawing changes
   useEffect(() => {
     if (!selectedDrawing) {
       setTakeoffItems([])
@@ -106,20 +101,13 @@ export default function DrawingsPage() {
         setSummary(sum)
         setMemberScheduleItems(members)
         setMemberScheduleSummary(memberSum)
-
-        // Rebuild annotation map from stored pointsJson so clicking a row
-        // highlights the correct line even after a page refresh.
-        // Handles both legacy event format (page, annotationId) and
-        // current export format (pageIndex, annotationId/uniqueKey).
         const map = {}
         items.forEach(item => {
           if (!item.pointsJson) return
           try {
             const stored = JSON.parse(item.pointsJson)
-            // UUID is in annotationId (event format), AnnotName (Syncfusion export), or name/uniqueKey
             const annotId = stored.annotationId ?? stored.AnnotName ?? stored.uniqueKey ?? stored.name
             if (!annotId) return
-            // page is 0-based string in event format; pageIndex is 0-based number in export format
             const page0 = stored.page != null
               ? parseInt(stored.page, 10)
               : (stored.pageIndex ?? 0)
@@ -131,9 +119,7 @@ export default function DrawingsPage() {
       .catch(() => toast.error('Failed to load drawing data'))
   }, [selectedDrawing?.id])
 
-  // ── Auto-save helper ────────────────────────────────────────────────────
   const autoSave = useCallback(async (measurement) => {
-    // Read from store so we always have the latest drawing even if the closure is stale
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category } = useAppStore.getState()
     if (!drw || autoSaving) return
     setAutoSaving(true)
@@ -157,40 +143,26 @@ export default function DrawingsPage() {
         area:        null,
         unitWeight:  null,
         totalWeight: null,
-        color:       color ?? '#3b82f6',
+        color:       color ?? '#EF233C',
         category:    category ?? 'General',
-        // Store the raw annotation object so it can be re-imported after page refresh
         pointsJson:  measurement.rawAnnotation
           ? JSON.stringify(measurement.rawAnnotation)
           : (measurement.points?.length ? JSON.stringify(measurement.points) : null),
       })
-
       addTakeoffItem(saved)
-
-      // Track annotation ID in-memory for row→drawing selection
       if (measurement.annotationId) {
         annotationMapRef.current[saved.id] = {
           annotationId: measurement.annotationId,
           pageNumber:   measurement.pageNumber ?? 1,
         }
       }
-
-      // Refresh summary
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
         .catch(() => {})
-
-      // Result toast
       if (measurement.length != null) {
-        toast.success(
-          `${nextMark}: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`,
-          { duration: 2500, icon: '📐' }
-        )
+        toast.success(`${nextMark}: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
       } else {
-        toast(
-          `${nextMark}: ${Math.round(measurement.pixelLength)} px — calibrate for real length`,
-          { duration: 3000, icon: '⚠️' }
-        )
+        toast(`${nextMark}: ${Math.round(measurement.pixelLength)} px — calibrate for real length`, { duration: 3000, icon: '⚠️' })
       }
     } catch {
       toast.error('Could not save measurement — try again')
@@ -199,22 +171,13 @@ export default function DrawingsPage() {
     }
   }, [autoSaving, addTakeoffItem])
 
-  // ── Measurement callback from PdfViewer ────────────────────────────────
   const handleMeasure = useCallback((measurement) => {
     setLastMeasurement(measurement)
-
-    // Read activeTool from store directly to avoid stale closure — Syncfusion
-    // may hold an older version of this callback after tool switches.
     const { activeTool: currentTool } = useAppStore.getState()
-    if (currentTool === 'calibrate') {
-      setShowCalModal(true)
-      return
-    }
-
+    if (currentTool === 'calibrate') { setShowCalModal(true); return }
     autoSave(measurement)
   }, [autoSave])
 
-  // ── Calibration apply (called by CalibrationModal) ─────────────────────
   const handleCalibrationApply = useCallback(async (realLength, unit) => {
     const pxLen = lastMeasurement?.pixelLength
     if (!pxLen || pxLen === 0) { toast.error('No calibration line found'); return }
@@ -227,21 +190,11 @@ export default function DrawingsPage() {
       setSelectedDrawing(updated)
       setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
       setShowCalModal(false)
-
-      // Remove the calibration line from the viewer — it was only used to set the scale
       if (lastMeasurement?.annotationId) {
-        triggerPdfCommand({
-          type:         'deleteAnnotation',
-          annotationId: lastMeasurement.annotationId,
-          pageNumber:   lastMeasurement.pageNumber ?? 1,
-        })
+        triggerPdfCommand({ type: 'deleteAnnotation', annotationId: lastMeasurement.annotationId, pageNumber: lastMeasurement.pageNumber ?? 1 })
       }
-
-      setActiveTool('line')  // switch straight to measure so demo flows
-      toast.success(
-        `Scale set — draw measurement lines now`,
-        { duration: 3500, icon: '✅' }
-      )
+      setActiveTool('line')
+      toast.success('Scale set — draw measurement lines now', { duration: 3500, icon: '✅' })
     } catch {
       toast.error('Calibration failed')
     } finally {
@@ -249,7 +202,6 @@ export default function DrawingsPage() {
     }
   }, [lastMeasurement, selectedDrawing, triggerPdfCommand])
 
-  // ── Quick scale (from RightPanel preset) ──────────────────────────────
   const handleQuickScale = useCallback(async (scaleRatio, unit) => {
     if (!selectedDrawing) return
     try {
@@ -258,22 +210,18 @@ export default function DrawingsPage() {
       setSelectedDrawing(updated)
       setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
       setActiveTool('line')
-      toast.success(`Scale set — ready to measure`, { duration: 3000, icon: '✅' })
+      toast.success('Scale set — ready to measure', { duration: 3000, icon: '✅' })
     } catch {
       toast.error('Failed to apply quick scale')
     }
   }, [selectedDrawing])
 
-  // ── Row selected in table → highlight annotation on drawing ───────────
   const handleRowSelect = useCallback((dbId) => {
     setSelectedAnnotId(dbId)
     const annot = annotationMapRef.current[dbId]
-    if (annot?.annotationId) {
-      triggerPdfCommand({ type: 'selectAnnotation', ...annot })
-    }
+    if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand])
 
-  // ── Drawing management ─────────────────────────────────────────────────
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
     try {
@@ -290,6 +238,7 @@ export default function DrawingsPage() {
     setMemberScheduleItems([])
     setSummaryLocal(null)
     annotationMapRef.current = {}
+    if (isMobile) setSidebarOpen(false)
   }
 
   const handleDrawingDeleted = (id) => {
@@ -304,7 +253,6 @@ export default function DrawingsPage() {
     }
   }
 
-  // Used by manual Add button in table
   const handleItemAdded = async () => {
     if (!selectedDrawing) return
     try {
@@ -334,83 +282,133 @@ export default function DrawingsPage() {
     setShowExtractModal(false)
   }, [selectedDrawing])
 
-  const handleExport = () =>
-    exportToExcel(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
+  const handleExport    = () => exportToExcel(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
+  const handleExportPdf = () => exportToPdf(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
 
-  const handleExportPdf = () =>
-    exportToPdf(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
-
-  const drawingUrl      = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
+  const drawingUrl        = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
   const selectedAnnotItem = selectedAnnotId ? takeoffItems.find(t => t.id === selectedAnnotId) : null
 
-  return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+  // Bottom panel height
+  const bottomH = isMobile ? '200px' : isTablet ? '240px' : '280px'
 
-      {/* ── Breadcrumb bar ─────────────────────────────────────────── */}
-      <div style={{ padding:'5px 16px', background:'#060d1a', borderBottom:'1px solid #1e293b',
-        display:'flex', alignItems:'center', gap:'8px', flexShrink:0, minHeight:'36px' }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+      {/* ── Backdrop for mobile drawers ─────────────────────────── */}
+      {isMobile && (sidebarOpen || rightOpen) && (
+        <div
+          className="drawer-backdrop"
+          onClick={() => { setSidebarOpen(false); setRightOpen(false) }}
+        />
+      )}
+
+      {/* ── Breadcrumb bar ──────────────────────────────────────── */}
+      <div style={{
+        padding: isMobile ? '5px 10px' : '5px 16px',
+        background: '#090f1e', borderBottom: '1px solid rgba(255,255,255,.07)',
+        display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '8px',
+        flexShrink: 0, minHeight: '40px', flexWrap: 'nowrap', overflowX: 'auto',
+      }}>
+
+        {/* Mobile: Sidebar toggle */}
+        {isMobile && (
+          <button
+            onClick={() => { setSidebarOpen(o => !o); setRightOpen(false) }}
+            style={{
+              flexShrink: 0, background: sidebarOpen ? 'rgba(239,35,60,.12)' : 'transparent',
+              border: `1px solid ${sidebarOpen ? 'rgba(239,35,60,.3)' : 'rgba(255,255,255,.1)'}`,
+              borderRadius: '6px', padding: '5px 7px', cursor: 'pointer',
+              color: sidebarOpen ? '#EF233C' : '#64748b', display: 'flex', alignItems: 'center',
+              touchAction: 'manipulation',
+            }}
+            title="Drawings panel"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </button>
+        )}
 
         <button onClick={() => { setSelectedProject(null); navigate('/dashboard') }}
-          style={{ background:'none', border:'none', color:'#475569', cursor:'pointer',
-            display:'flex', alignItems:'center', gap:'4px', fontSize:'12px',
-            padding:'2px 6px', borderRadius:'4px' }}
-          onMouseEnter={e => e.currentTarget.style.color='#94a3b8'}
-          onMouseLeave={e => e.currentTarget.style.color='#475569'}>
+          style={{
+            background: 'none', border: 'none', color: '#475569', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px',
+            padding: '2px 6px', borderRadius: '4px', flexShrink: 0, touchAction: 'manipulation',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = '#94a3b8'}
+          onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+        >
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
-          Projects
+          {!isMobile && 'Projects'}
         </button>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-        <span style={{ fontSize:'12px', fontWeight:600, color:'#94a3b8' }}>
+
+        {!isMobile && (
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        )}
+
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isMobile ? '90px' : '200px' }}>
           {selectedProject?.name}
-          {selectedProject?.projectNumber && (
-            <span style={{ fontSize:'10px', color:'#3b82f6', marginLeft:'6px', fontWeight:700 }}>
+          {!isMobile && selectedProject?.projectNumber && (
+            <span style={{ fontSize: '10px', color: '#EF233C', marginLeft: '6px', fontWeight: 700 }}>
               {selectedProject.projectNumber}
             </span>
           )}
         </span>
-        {selectedDrawing && (
+
+        {selectedDrawing && !isMobile && (
           <>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="2">
               <polyline points="9 18 15 12 9 6"/>
             </svg>
-            <span style={{ fontSize:'12px', color:'#64748b' }}>{selectedDrawing.name}</span>
+            <span style={{ fontSize: '12px', color: '#64748b', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+              {selectedDrawing.name}
+            </span>
             {selectedDrawing.isCalibrated && (
-              <span style={{ fontSize:'10px', color:'#22c55e', fontWeight:700,
-                background:'rgba(34,197,94,.1)', padding:'1px 6px', borderRadius:'4px', marginLeft:'2px' }}>
+              <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 700, background: 'rgba(34,197,94,.1)', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
                 CALIBRATED
               </span>
             )}
           </>
         )}
 
-        <div style={{ flex:1 }} />
-
-        {/* Auto-saving indicator */}
-        {autoSaving && (
-          <span style={{ fontSize:'11px', color:'#64748b', display:'flex', alignItems:'center', gap:'5px' }}>
-            <svg className="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-            Saving…
+        {/* Calibrated badge on mobile */}
+        {isMobile && selectedDrawing?.isCalibrated && (
+          <span style={{ fontSize: '9px', color: '#22c55e', fontWeight: 700, background: 'rgba(34,197,94,.1)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+            ✓ CAL
           </span>
         )}
 
-        {/* Auto Extract button */}
-        {selectedDrawing && (
+        <div style={{ flex: 1 }} />
+
+        {/* Auto-saving indicator */}
+        {autoSaving && (
+          <span style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            <svg className="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            {!isMobile && 'Saving…'}
+          </span>
+        )}
+
+        {/* Extract button — hide on small mobile */}
+        {!isMobile && (
           <button
-            onClick={() => setShowExtractModal(true)}
+            onClick={() => selectedDrawing && setShowExtractModal(true)}
+            disabled={!selectedDrawing}
             style={{
-              display:'flex', alignItems:'center', gap:'5px',
-              padding:'3px 10px', borderRadius:'5px',
-              border:'1px solid rgba(168,85,247,.35)',
-              background:'transparent', color:'#c084fc',
-              fontSize:'11px', fontWeight:600, cursor:'pointer',
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '4px 10px', borderRadius: '5px',
+              border: '1px solid rgba(168,85,247,.35)',
+              background: 'transparent', color: '#c084fc',
+              fontSize: '11px', fontWeight: 600,
+              cursor: selectedDrawing ? 'pointer' : 'not-allowed',
+              opacity: selectedDrawing ? 1 : 0.3, flexShrink: 0,
             }}
-            title="Auto-extract structural members from drawing using OCR"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -421,75 +419,122 @@ export default function DrawingsPage() {
         )}
 
         {/* Export buttons */}
-        {takeoffItems.length > 0 && (
-          <div style={{ display:'flex', gap:'6px' }}>
-            <button onClick={handleExport} style={{ display:'flex', alignItems:'center', gap:'4px',
-              padding:'3px 10px', borderRadius:'5px', border:'1px solid rgba(34,197,94,.25)',
-              background:'transparent', color:'#22c55e', fontSize:'11px', fontWeight:600, cursor:'pointer' }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              Excel
-            </button>
-            <button onClick={handleExportPdf} style={{ display:'flex', alignItems:'center', gap:'4px',
-              padding:'3px 10px', borderRadius:'5px', border:'1px solid rgba(248,113,113,.25)',
-              background:'transparent', color:'#f87171', fontSize:'11px', fontWeight:600, cursor:'pointer' }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              PDF
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+          <button onClick={handleExport} disabled={takeoffItems.length === 0}
+            title="Export to Excel"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              padding: '4px 8px', borderRadius: '5px',
+              border: '1px solid rgba(34,197,94,.25)',
+              background: 'transparent', color: '#22c55e', fontSize: '11px', fontWeight: 600,
+              cursor: takeoffItems.length > 0 ? 'pointer' : 'not-allowed',
+              opacity: takeoffItems.length > 0 ? 1 : 0.3, touchAction: 'manipulation',
+            }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            {!isMobile && 'Excel'}
+          </button>
+          <button onClick={handleExportPdf} disabled={takeoffItems.length === 0}
+            title="Export to PDF"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              padding: '4px 8px', borderRadius: '5px',
+              border: '1px solid rgba(248,113,113,.25)',
+              background: 'transparent', color: '#f87171', fontSize: '11px', fontWeight: 600,
+              cursor: takeoffItems.length > 0 ? 'pointer' : 'not-allowed',
+              opacity: takeoffItems.length > 0 ? 1 : 0.3, touchAction: 'manipulation',
+            }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            {!isMobile && 'PDF'}
+          </button>
+        </div>
 
-        {/* Bottom panel toggle */}
+        {/* Data panel toggle */}
         <button onClick={() => setShowBottom(t => !t)} style={{
-          display:'flex', alignItems:'center', gap:'6px', padding:'3px 10px',
-          borderRadius:'6px', fontSize:'11px', fontWeight:600,
-          border:`1px solid ${showBottom ? '#1d6fdb' : '#334155'}`,
-          background: showBottom ? 'rgba(29,111,219,.15)' : 'transparent',
-          color: showBottom ? '#60a5fa' : '#64748b', cursor:'pointer', transition:'all .15s' }}>
+          display: 'flex', alignItems: 'center', gap: '4px',
+          padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+          border: `1px solid ${showBottom ? 'rgba(239,35,60,.35)' : 'rgba(255,255,255,.1)'}`,
+          background: showBottom ? 'rgba(239,35,60,.12)' : 'transparent',
+          color: showBottom ? '#EF233C' : '#64748b', cursor: 'pointer',
+          transition: 'all .15s', flexShrink: 0, touchAction: 'manipulation',
+        }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <line x1="3" y1="15" x2="21" y2="15"/>
           </svg>
-          {showBottom ? 'Hide' : 'Show'} Data
+          {!isMobile && (showBottom ? 'Hide' : 'Show')}
           {(takeoffItems.length > 0 || memberScheduleItems.length > 0) && (
-            <span style={{ background:'#1d6fdb', color:'#fff', borderRadius:'10px',
-              padding:'1px 5px', fontSize:'9px' }}>
+            <span style={{ background: '#EF233C', color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '9px' }}>
               {takeoffItems.length + memberScheduleItems.length}
             </span>
           )}
         </button>
+
+        {/* Mobile: Right panel toggle */}
+        {isMobile && (
+          <button
+            onClick={() => { setRightOpen(o => !o); setSidebarOpen(false) }}
+            style={{
+              flexShrink: 0, background: rightOpen ? 'rgba(239,35,60,.12)' : 'transparent',
+              border: `1px solid ${rightOpen ? 'rgba(239,35,60,.3)' : 'rgba(255,255,255,.1)'}`,
+              borderRadius: '6px', padding: '5px 7px', cursor: 'pointer',
+              color: rightOpen ? '#EF233C' : '#64748b', display: 'flex', alignItems: 'center',
+              touchAction: 'manipulation',
+            }}
+            title="Scale & Units"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* ── Toolbar ────────────────────────────────────────────────── */}
+      {/* ── Toolbar ─────────────────────────────────────────────── */}
       <Toolbar />
 
-      {/* ── Main work area ─────────────────────────────────────────── */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+      {/* ── Main work area ──────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
 
-        {/* Left: Drawing sidebar */}
-        <DrawingSidebar
-          drawings={drawings}
-          selectedDrawing={selectedDrawing}
-          onSelect={(d) => {
-            setSelectedDrawing(d)
-            setSelectedAnnotId(null)
-            annotationMapRef.current = {}
+        {/* Left: Drawing sidebar — drawer on mobile */}
+        <div
+          className="panel-drawer"
+          style={{
+            position: isMobile ? 'fixed' : 'relative',
+            top: isMobile ? 0 : undefined,
+            bottom: isMobile ? 0 : undefined,
+            left: isMobile ? 0 : undefined,
+            zIndex: isMobile ? 200 : undefined,
+            transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: isMobile && sidebarOpen ? '4px 0 30px rgba(0,0,0,.7)' : 'none',
           }}
-          onUploaded={handleDrawingUploaded}
-          onDeleted={handleDrawingDeleted}
-        />
+        >
+          <DrawingSidebar
+            drawings={drawings}
+            selectedDrawing={selectedDrawing}
+            onSelect={(d) => {
+              setSelectedDrawing(d)
+              setSelectedAnnotId(null)
+              annotationMapRef.current = {}
+              if (isMobile) setSidebarOpen(false)
+            }}
+            onUploaded={handleDrawingUploaded}
+            onDeleted={handleDrawingDeleted}
+          />
+        </div>
 
         {/* Center: PDF viewer + bottom panel */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
           {/* PDF Viewer */}
-          <div style={{ flex: showBottom ? '1 1 60%' : '1 1 100%',
-            overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
+          <div style={{ flex: showBottom ? '1 1 60%' : '1 1 100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <PdfViewer
               key={selectedProject?.id ?? 'no-project'}
               drawingUrl={drawingUrl}
@@ -507,26 +552,25 @@ export default function DrawingsPage() {
                   const updated = await drawingService.getById(drw.id)
                   setSelectedDrawing(updated)
                   setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
-                } catch (_) {
-                  // Non-critical: individual measurements are still saved per row
-                }
+                } catch (_) {}
               }}
             />
           </div>
 
           {/* Bottom data panel */}
           {showBottom && (
-            <div style={{ flex:'0 0 280px', borderTop:'2px solid #1d6fdb',
-              display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
-
+            <div style={{
+              flex: `0 0 ${bottomH}`, borderTop: '2px solid rgba(239,35,60,.3)',
+              background: '#080B12', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden', minHeight: 0,
+            }}>
               {/* Tab bar */}
-              <div style={{ display:'flex', alignItems:'center', background:'#0c1527',
-                borderBottom:'1px solid #1e293b', flexShrink:0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: '#0D1526', borderBottom: '1px solid rgba(255,255,255,.07)', flexShrink: 0, overflowX: 'auto' }}>
                 <TabBtn
                   active={bottomTab === 'measurements'}
                   onClick={() => setBottomTab('measurements')}
                   icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke={bottomTab==='measurements' ? '#3b82f6' : '#64748b'} strokeWidth="2">
+                    stroke={bottomTab === 'measurements' ? '#EF233C' : '#64748b'} strokeWidth="2">
                     <line x1="5" y1="19" x2="19" y2="5"/>
                     <circle cx="5" cy="19" r="2" fill="currentColor"/>
                     <circle cx="19" cy="5" r="2" fill="currentColor"/>
@@ -538,23 +582,22 @@ export default function DrawingsPage() {
                   active={bottomTab === 'members'}
                   onClick={() => setBottomTab('members')}
                   icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke={bottomTab==='members' ? '#3b82f6' : '#64748b'} strokeWidth="2">
+                    stroke={bottomTab === 'members' ? '#EF233C' : '#64748b'} strokeWidth="2">
                     <path d="M3 9h18M3 15h18M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>
                   </svg>}
                   label="Member Schedule"
                   badge={memberScheduleItems.length}
                 />
-                <div style={{ flex:1 }} />
-                {memberScheduleItems.length > 0 && bottomTab === 'measurements' && (
-                  <div style={{ fontSize:'11px', color:'#64748b', padding:'0 12px' }}>
-                    {memberScheduleItems.length} members ·{' '}
-                    {memberScheduleItems.reduce((s,m)=>s+(m.totalWeight??0),0).toFixed(0)} kg
+                <div style={{ flex: 1 }} />
+                {memberScheduleItems.length > 0 && bottomTab === 'measurements' && !isMobile && (
+                  <div style={{ fontSize: '11px', color: '#475569', padding: '0 12px', whiteSpace: 'nowrap' }}>
+                    {memberScheduleItems.length} members · {memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0).toFixed(0)} kg
                   </div>
                 )}
               </div>
 
               {/* Tab content */}
-              <div style={{ flex:1, overflow:'hidden' }}>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
                 {bottomTab === 'measurements' ? (
                   <MeasurementTable
                     drawing={selectedDrawing}
@@ -573,20 +616,32 @@ export default function DrawingsPage() {
           )}
         </div>
 
-        {/* Right panel */}
-        <RightPanel
-          drawing={selectedDrawing}
-          lastMeasurement={lastMeasurement}
-          selectedItem={selectedAnnotItem}
-          summary={summary}
-          onCalibrated={handleCalibrated}
-          onQuickScale={handleQuickScale}
-        />
+        {/* Right panel — drawer on mobile */}
+        <div
+          className="panel-drawer"
+          style={{
+            position: isMobile ? 'fixed' : 'relative',
+            top: isMobile ? 0 : undefined,
+            bottom: isMobile ? 0 : undefined,
+            right: isMobile ? 0 : undefined,
+            zIndex: isMobile ? 200 : undefined,
+            transform: isMobile && !rightOpen ? 'translateX(100%)' : 'translateX(0)',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: isMobile && rightOpen ? '-4px 0 30px rgba(0,0,0,.7)' : 'none',
+          }}
+        >
+          <RightPanel
+            drawing={selectedDrawing}
+            lastMeasurement={lastMeasurement}
+            selectedItem={selectedAnnotItem}
+            summary={summary}
+            onCalibrated={handleCalibrated}
+            onQuickScale={handleQuickScale}
+          />
+        </div>
       </div>
 
-      {/* ── Modals ─────────────────────────────────────────────────── */}
-
-      {/* Calibration modal — triggered by drawing a line in Calibrate mode */}
+      {/* ── Modals ─────────────────────────────────────────────── */}
       {showCalModal && (
         <CalibrationModal
           pixelLength={lastMeasurement?.pixelLength ?? 0}
@@ -596,7 +651,6 @@ export default function DrawingsPage() {
         />
       )}
 
-      {/* Manual add modal — only via the "+Add" button in the table */}
       {showAddModal && (
         <AddMeasurementModal
           drawing={selectedDrawing}
@@ -606,7 +660,6 @@ export default function DrawingsPage() {
         />
       )}
 
-      {/* AI / OCR extraction modal */}
       {showExtractModal && selectedDrawing && (
         <ExtractionModal
           drawingId={selectedDrawing.id}
@@ -622,18 +675,22 @@ export default function DrawingsPage() {
 function TabBtn({ active, onClick, icon, label, badge }) {
   return (
     <button onClick={onClick} style={{
-      display:'flex', alignItems:'center', gap:'6px',
-      padding:'8px 16px', fontSize:'12px',
+      display: 'flex', alignItems: 'center', gap: '6px',
+      padding: '8px 14px', fontSize: '12px',
       fontWeight: active ? 700 : 400,
-      color: active ? '#60a5fa' : '#64748b',
-      background:'transparent', border:'none', cursor:'pointer',
-      borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
-      marginBottom:'-1px', transition:'all .15s' }}>
+      color: active ? '#EF233C' : '#64748b',
+      background: 'transparent', border: 'none', cursor: 'pointer',
+      borderBottom: active ? '2px solid #EF233C' : '2px solid transparent',
+      marginBottom: '-1px', transition: 'all .15s', whiteSpace: 'nowrap',
+      touchAction: 'manipulation',
+    }}>
       {icon}
       {label}
       {badge > 0 && (
-        <span style={{ background: active ? '#1d6fdb' : '#1e293b',
-          color:'#fff', borderRadius:'10px', padding:'0 5px', fontSize:'10px' }}>
+        <span style={{
+          background: active ? '#EF233C' : 'rgba(255,255,255,.1)',
+          color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '10px',
+        }}>
           {badge}
         </span>
       )}

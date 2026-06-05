@@ -9,7 +9,7 @@ export default function Layout() {
       height: '100vh',
       width: '100vw',
       overflow: 'hidden',
-      background: '#0a0f1e',
+      background: '#080B12',
     }}>
       <Header />
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

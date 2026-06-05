@@ -35,14 +35,15 @@ export default function App() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#1e293b',
+            background: '#111827',
             color: '#f1f5f9',
-            border: '1px solid #334155',
+            border: '1px solid rgba(255,255,255,.1)',
             borderRadius: '8px',
             fontSize: '13px',
+            boxShadow: '0 8px 24px rgba(0,0,0,.5)',
           },
-          success: { iconTheme: { primary: '#22c55e', secondary: '#1e293b' } },
-          error: { iconTheme: { primary: '#f87171', secondary: '#1e293b' } },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#111827' } },
+          error:   { iconTheme: { primary: '#EF233C', secondary: '#111827' } },
         }}
       />
       <Routes>

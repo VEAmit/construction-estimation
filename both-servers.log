@@ -1,0 +1,28 @@
+
+> construction-project@1.0.0 dev
+> concurrently --names "FRONTEND,BACKEND" --prefix-colors "cyan,yellow" "npm run dev:frontend" "npm run dev:backend"
+
+[FRONTEND] 
+[FRONTEND] > construction-project@1.0.0 dev:frontend
+[FRONTEND] > npm --prefix frontend run dev
+[FRONTEND] 
+[BACKEND] 
+[BACKEND] > construction-project@1.0.0 dev:backend
+[BACKEND] > dotnet run --project backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj
+[BACKEND] 
+[FRONTEND] 
+[FRONTEND] > frontend@0.0.0 dev
+[FRONTEND] > vite
+[FRONTEND] 
+[BACKEND] Building...
+[FRONTEND] 
+[FRONTEND]   [32m[1mVITE[22m v8.0.12[39m  [2mready in [0m[1m17724[22m[2m[0m ms[22m
+[FRONTEND] 
+[FRONTEND]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[FRONTEND] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
+[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
+[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\ExtractionService.cs(175,26): warning CA1416: This call site is reachable on all platforms. 'Conversion.ToImages(Stream, bool, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'Linux', 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj]
+[BACKEND] [09:12:47 INF] Database migrated successfully
+[BACKEND] [09:12:48 INF] BuildTakeoff Pro API starting on port 5000
+[BACKEND] [09:12:48 WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
