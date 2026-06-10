@@ -15,14 +15,479 @@
 [FRONTEND] > vite
 [FRONTEND] 
 [BACKEND] Building...
+[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
+[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
 [FRONTEND] 
-[FRONTEND]   [32m[1mVITE[22m v8.0.12[39m  [2mready in [0m[1m17724[22m[2m[0m ms[22m
+[FRONTEND]   [32m[1mVITE[22m v8.0.12[39m  [2mready in [0m[1m62903[22m[2m[0m ms[22m
 [FRONTEND] 
 [FRONTEND]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
 [FRONTEND] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
-[BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj : warning NU1603: ConstructionEstimation.API depends on PDFtoImage (>= 4.0.3) but PDFtoImage 4.0.3 was not found. An approximate best match of PDFtoImage 4.1.0 was resolved.
 [BACKEND] D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\ExtractionService.cs(175,26): warning CA1416: This call site is reachable on all platforms. 'Conversion.ToImages(Stream, bool, string?, RenderOptions)' is only supported on: 'Android' 31.0 and later, 'Linux', 'macOS/OSX', 'Windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\ConstructionEstimation.API.csproj]
-[BACKEND] [09:12:47 INF] Database migrated successfully
-[BACKEND] [09:12:48 INF] BuildTakeoff Pro API starting on port 5000
-[BACKEND] [09:12:48 WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+[BACKEND] [11:34:41 INF] Database migrated successfully
+[BACKEND] [11:34:42 INF] BuildTakeoff Pro API starting on port 5000
+[BACKEND] [11:34:42 WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[BACKEND] [11:38:11 INF] HTTP POST /api/auth/login responded 200 in 2843.3200 ms
+[BACKEND] [11:38:14 INF] HTTP GET /api/projects responded 200 in 1598.8442 ms
+[BACKEND] [11:38:14 INF] HTTP GET /api/projects responded 200 in 48.8306 ms
+[FRONTEND] [2m4:37:38 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:37:47 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:38:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:38:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:38:38 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:39:22 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:39:49 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:40:07 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:40:20 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:40:43 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m4:42:18 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m4:42:37 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/index.css[22m
+[FRONTEND] [2m4:43:15 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/index.css[22m
+[FRONTEND] [2m4:43:43 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/index.css[22m
+[FRONTEND] [2m4:44:48 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:45:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:45:19 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:46:00 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:46:18 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:46:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:46:55 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m4:47:12 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[FRONTEND] [2m4:47:28 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[FRONTEND] [2m4:47:47 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[BACKEND] [16:49:09 INF] HTTP GET /api/drawings/project/6 responded 200 in 24058.5368 ms
+[BACKEND] [16:49:09 INF] HTTP GET /api/drawings/project/6 responded 200 in 9031.4245 ms
+[BACKEND] [16:49:16 INF] Drawing Structural Drawings_TD01 uploaded for project 6
+[BACKEND] [16:49:17 INF] HTTP POST /api/drawings/upload/6 responded 200 in 14200.4225 ms
+[BACKEND] [16:49:18 INF] HTTP GET /api/takeoffitems/drawing/7 responded 200 in 507.6209 ms
+[BACKEND] [16:49:18 INF] HTTP GET /api/takeoffitems/drawing/7/summary responded 200 in 578.3147 ms
+[BACKEND] [16:49:18 INF] HTTP GET /api/memberschedules/drawing/7 responded 200 in 774.5486 ms
+[BACKEND] [16:49:18 INF] HTTP GET /api/memberschedules/drawing/7/summary responded 200 in 562.3672 ms
+[BACKEND] [16:49:23 INF] HTTP GET /api/drawings/7/file responded 200 in 6424.0283 ms
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[BACKEND] [16:50:10 INF] HTTP DELETE /api/drawings/7 responded 200 in 288.4448 ms
+[BACKEND] [16:51:49 INF] Drawing HV Test Facility - Structural uploaded for project 6
+[BACKEND] [16:51:49 INF] HTTP POST /api/drawings/upload/6 responded 200 in 997.5655 ms
+[BACKEND] [16:51:49 INF] HTTP GET /api/takeoffitems/drawing/8/summary responded 200 in 15.7687 ms
+[BACKEND] [16:51:50 INF] HTTP GET /api/drawings/8/file responded 200 in 550.1965 ms
+[BACKEND] [16:51:50 INF] HTTP GET /api/takeoffitems/drawing/8 responded 200 in 545.5378 ms
+[BACKEND] [16:51:50 INF] HTTP GET /api/memberschedules/drawing/8/summary responded 200 in 7.8424 ms
+[BACKEND] [16:51:50 INF] HTTP GET /api/memberschedules/drawing/8 responded 200 in 578.5819 ms
+[BACKEND] [16:52:14 INF] HTTP DELETE /api/drawings/8 responded 200 in 9.0564 ms
+[BACKEND] [16:52:39 INF] Drawing NL191569_S13.10 (1) uploaded for project 6
+[BACKEND] [16:52:39 INF] HTTP POST /api/drawings/upload/6 responded 200 in 35.2381 ms
+[BACKEND] [16:52:40 INF] HTTP GET /api/drawings/9/file responded 200 in 36.3396 ms
+[BACKEND] [16:52:40 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 9.3387 ms
+[BACKEND] [16:52:40 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 8.4959 ms
+[BACKEND] [16:52:40 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 42.5138 ms
+[BACKEND] [16:52:40 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 52.8901 ms
+[BACKEND] [16:53:39 INF] HTTP PUT /api/drawings/9/calibrate responded 200 in 295.0673 ms
+[BACKEND] [16:53:39 INF] HTTP GET /api/drawings/9 responded 200 in 258.0493 ms
+[BACKEND] [16:54:33 INF] HTTP GET /api/projects responded 200 in 436.9671 ms
+[BACKEND] [16:54:33 INF] HTTP GET /api/projects responded 200 in 10.6320 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 3.5158 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 5.8159 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 5.3841 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 4.7963 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 4.0335 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/drawings/project/6 responded 200 in 41.4576 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 3.5790 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 3.1617 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/drawings/project/6 responded 200 in 3.1560 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 3.1969 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/drawings/9/file responded 304 in 90.4205 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 1.9666 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 2.4197 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 2.5605 ms
+[BACKEND] [16:54:34 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 1.5660 ms
+[FRONTEND] [2m5:01:46 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/pages/LoginPage.jsx, /src/pages/DashboardPage.jsx, /src/pages/DrawingsPage.jsx, /src/components/layout/Header.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/components/extraction/ExtractionModal.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/pages/DrawingsPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:01:48 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/App.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:02:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:02:06 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:02:06 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:02:26 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:02:27 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:02:27 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:03:03 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:03:03 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:03:03 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:03:18 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:03:18 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:03:18 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:03:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:03:32 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:03:32 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:04:36 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:04:36 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:04:36 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:05:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:05:06 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] SyntaxError: The requested module '/src/utils/calculations.js?t=1780916893730' does not provide an export named 'pixelsToReal'
+[FRONTEND] [2m5:05:06 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /src/components/drawings/PdfViewer.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[FRONTEND] [2m5:06:47 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m5:07:27 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m9:40:56 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/pages/LoginPage.jsx, /src/pages/DashboardPage.jsx, /src/pages/DrawingsPage.jsx, /src/components/layout/Header.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/components/extraction/ExtractionModal.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx, /src/pages/LoginPage.jsx, /src/pages/DashboardPage.jsx, /src/pages/DrawingsPage.jsx, /src/components/layout/Header.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/components/extraction/ExtractionModal.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:21 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:29 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:36 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:44 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:41:54 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:44:11 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [2m9:44:27 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:44:36 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:44:45 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:44:55 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:45:20 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:45:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:45:56 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:46:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[FRONTEND] [2m9:46:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/tools/RightPanel.jsx, /src/index.css[22m
+[FRONTEND] [2m9:46:48 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m9:46:57 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m9:47:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m9:47:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/takeoff/TakeoffTable.jsx, /src/index.css[22m
+[FRONTEND] [2m9:48:07 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/index.css[22m
+[FRONTEND] [2m9:48:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [2m9:48:43 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/drawings/PdfViewer.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[FRONTEND] [2m9:50:13 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mSyntaxError[22m: The requested module '/src/utils/calculations.js?t=1780935114396' does not provide an export named 'pixelsToReal'
+[FRONTEND] [39m
+[FRONTEND] [2m9:50:38 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mSyntaxError[22m: The requested module '/src/utils/calculations.js?t=1780935114396' does not provide an export named 'pixelsToReal'
+[FRONTEND] [39m
+[BACKEND] [21:54:07 INF] HTTP GET /api/health responded 404 in 1085.1323 ms
+[BACKEND] [21:54:36 INF] HTTP GET /api/projects responded 401 in 858.4276 ms
+[FRONTEND] [2m9:55:56 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mSyntaxError[22m: The requested module '/src/utils/calculations.js?t=1780935114396' does not provide an export named 'pixelsToReal'
+[FRONTEND] [39m
+[FRONTEND] [2m9:56:15 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mSyntaxError[22m: The requested module '/src/utils/calculations.js?t=1780935114396' does not provide an export named 'pixelsToReal'
+[FRONTEND] [39m
+[FRONTEND] [2m10:24:23 pm[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mSyntaxError[22m: The requested module '/src/utils/calculations.js?t=1780935114396' does not provide an export named 'pixelsToReal'
+[FRONTEND] [39m
+[FRONTEND] [2m10:26:08 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/DrawingsPage.jsx, /src/components/drawings/DrawingSidebar.jsx, /src/components/drawings/PdfViewer.jsx, /src/components/tools/RightPanel.jsx, /src/components/takeoff/AddTakeoffModal.jsx, /src/components/takeoff/CalibrationModal.jsx, /src/components/takeoff/MemberSchedulePanel.jsx, /src/components/takeoff/TakeoffTable.jsx, /src/components/tools/Toolbar.jsx, /src/index.css[22m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 291 |    }
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 292 |  }
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 296 |  @font-face {[39m
+[FRONTEND] [33m[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+[FRONTEND] 293 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 294 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND] 295 |  @import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+[FRONTEND]     |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[FRONTEND] 296 |  @font-face {
+[FRONTEND] 297 |    font-family: "e-icons";[39m
+[BACKEND] [22:26:59 INF] HTTP GET /api/projects responded 401 in 9436.4385 ms
+[BACKEND] [22:26:59 INF] HTTP GET /api/projects responded 401 in 0.8158 ms
+[BACKEND] [22:27:22 INF] HTTP POST /api/auth/login responded 200 in 14876.4869 ms
+[BACKEND] [22:27:24 INF] HTTP GET /api/projects responded 200 in 1718.9307 ms
+[BACKEND] [22:27:24 INF] HTTP GET /api/projects responded 200 in 181.7835 ms
+[BACKEND] [22:27:27 INF] HTTP GET /api/drawings/project/6 responded 200 in 451.8347 ms
+[BACKEND] [22:27:27 INF] HTTP GET /api/drawings/project/6 responded 200 in 247.5936 ms
+[BACKEND] [22:27:27 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 83.1892 ms
+[BACKEND] [22:27:28 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 399.1561 ms
+[BACKEND] [22:27:28 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 415.7293 ms
+[BACKEND] [22:27:28 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 523.1947 ms
+[BACKEND] [22:27:28 INF] HTTP GET /api/drawings/9/file responded 304 in 770.8547 ms
+[BACKEND] [22:29:14 INF] Drawing 9: extraction method=Text, lines=10
+[BACKEND] [22:29:15 INF] Extracted 0 members from drawing 9
+[BACKEND] [22:29:15 INF] HTTP POST /api/extraction/drawing/9 responded 200 in 5271.1319 ms
+[BACKEND] [22:30:04 INF] HTTP GET /api/projects responded 200 in 907.5867 ms
+[BACKEND] [22:30:04 INF] HTTP GET /api/projects responded 200 in 85.1442 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/drawings/project/6 responded 200 in 34.5958 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/drawings/project/6 responded 200 in 1.4305 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/memberschedules/drawing/9 responded 200 in 3.4016 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/memberschedules/drawing/9/summary responded 200 in 6.6804 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/takeoffitems/drawing/9/summary responded 200 in 6.5310 ms
+[BACKEND] [22:30:10 INF] HTTP GET /api/takeoffitems/drawing/9 responded 200 in 37.5380 ms
+[BACKEND] [22:30:33 INF] Drawing Structural Drawings_TD01 uploaded for project 6
+[BACKEND] [22:30:33 INF] HTTP POST /api/drawings/upload/6 responded 200 in 6257.4946 ms
+[BACKEND] [22:30:33 INF] HTTP GET /api/takeoffitems/drawing/10/summary responded 200 in 43.4273 ms
+[BACKEND] [22:30:33 INF] HTTP GET /api/memberschedules/drawing/10/summary responded 200 in 4.1848 ms
+[BACKEND] [22:30:33 INF] HTTP GET /api/memberschedules/drawing/10 responded 200 in 4.6362 ms
+[BACKEND] [22:30:34 INF] HTTP GET /api/takeoffitems/drawing/10 responded 200 in 345.2210 ms
+[BACKEND] [22:30:34 INF] HTTP GET /api/drawings/10/file responded 200 in 984.2892 ms
+[BACKEND] [22:31:42 INF] Drawing 10: extraction method=Text, lines=31917
+[BACKEND] [22:31:43 INF] Extracted 124 members from drawing 10
+[BACKEND] [22:31:43 INF] HTTP POST /api/extraction/drawing/10 responded 200 in 40677.2598 ms

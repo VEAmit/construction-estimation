@@ -14,7 +14,7 @@ import {
   Inject,
 } from '@syncfusion/ej2-react-pdfviewer'
 import { useAppStore } from '../../store/useAppStore'
-import { pixelsToReal } from '../../utils/calculations'
+import { pixelsToReal, polygonArea, polylineLength, ptDist, pixelsAreaToReal, computePixelPerimeter } from '../../utils/calculations'
 import toast from 'react-hot-toast'
 
 // Syncfusion pdfium WASM files live in /public/ej2-pdfviewer-lib (copied by the Vite plugin).
@@ -63,9 +63,29 @@ export default function PdfViewer({
   const [errorMsg,  setErrorMsg]      = useState(null)
   const [viewerSize, setViewerSize]   = useState({ w: 0, h: 0 })
   const [docLoaded,  setDocLoaded]    = useState(false)
+  const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
+  const countMarkersRef = useRef([])
   const prevUrlRef  = useRef(null)
 
-  const { pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale, pdfCommand, clearPdfCommand, measureColor } = useAppStore()
+  const {
+    pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
+    pdfCommand, clearPdfCommand,
+    measureColor, lineThickness, fillOpacity,
+    lineStyle, arrowStyle,
+    setCountSession,
+  } = useAppStore()
+
+  // Keep countMarkers ref in sync and update the store's countSession badge
+  useEffect(() => {
+    countMarkersRef.current = countMarkers
+    setCountSession(countMarkers.filter(m => m.page === pdfPage).length)
+  }, [countMarkers, pdfPage, setCountSession])
+
+  // Reset count markers when drawing changes
+  useEffect(() => {
+    setCountMarkers([])
+    setCountSession(0)
+  }, [drawingUrl, setCountSession])
 
   // ── Refs — must be declared before any useEffect that uses them ────────
   // Keep latest drawing + callbacks in refs so stable Syncfusion callbacks
@@ -87,78 +107,98 @@ export default function PdfViewer({
 
   // ── Shared helper: extract measurement + call onMeasure ──────────────────
   const processMeasureAnnotation = useCallback((anno) => {
-    // Handle double-serialized items (some Syncfusion versions stringify values)
     let a = anno
     if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { return } }
     if (!a || typeof a !== 'object') return
 
     console.log('[BuildTakeoff] processMeasureAnnotation:', JSON.stringify(a).substring(0, 600))
 
-    // ID: 'annotationId' in event args, 'AnnotName' in Syncfusion export, 'name' in some formats
     const annotationId = a.annotationId ?? a.AnnotationId ?? a.AnnotName ?? a.name ?? a.id ?? null
     if (annotationId && processedAnnotsRef.current.has(annotationId)) return
 
     const d = drawingRef.current
-    let length = null
-    let pixelLength = 0
 
-    // ── Strategy 1: export shapeAnnotation format — "start" / "end" strings ─
-    // Syncfusion's exportAnnotationsAsObject gives:
-    //   { "start": "x1,y1", "end": "x2,y2" }  (coordinates in PDF user space, points)
-    if (a.start && a.end) {
-      const parseCoord = (str) => {
-        const parts = String(str).split(',')
-        return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+    // ── Detect annotation type ──────────────────────────────────────────────
+    const IT = a.IT ?? a.it ?? ''
+    const shapeType = (a.shapeAnnotationType ?? a.ShapeAnnotationType ?? a.type ?? '').toLowerCase()
+    const isAreaAnnotation     = IT === 'PolyLineDimension' || shapeType === 'polygon' || IT === 'Area'
+    const isPerimeterAnnotation = IT === 'Perimeter'
+
+    // ── Extract vertex points (common to both area and line) ────────────────
+    let rawPts = a.vertexPoints ?? a.VertexPoints ?? []
+    if (typeof rawPts === 'string') { try { rawPts = JSON.parse(rawPts) } catch (_) { rawPts = [] } }
+    if (!Array.isArray(rawPts)) rawPts = []
+    const pts = rawPts.map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
+
+    let length    = null
+    let pixelLength = 0
+    let area      = null
+    let pixelArea = 0
+
+    if (isAreaAnnotation && pts.length >= 3) {
+      // ── Area annotation: Shoelace for area, perimeter as pixelLength ───────
+      pixelArea   = polygonArea(pts)
+      pixelLength = computePixelPerimeter(pts)  // use perimeter as the "pixel distance"
+      if (d?.isCalibrated && d?.scaleRatio && pixelArea > 0) {
+        area   = pixelsAreaToReal(pixelArea, d.scaleRatio, d.calibrationUnit)
+        length = pixelsToReal(pixelLength, d.scaleRatio, d.calibrationUnit)  // perimeter length
       }
-      const p1 = parseCoord(a.start)
-      const p2 = parseCoord(a.end)
-      const pdfDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
-      if (pdfDist >= 1) {
-        pixelLength = pdfDist  // PDF points — used by calibration to compute scaleRatio
-        if (d?.isCalibrated && d?.scaleRatio) {
-          length = pixelsToReal(pdfDist, d.scaleRatio, d.calibrationUnit)
+    } else {
+      // ── Line / Distance annotation (existing logic) ─────────────────────────
+
+      // Strategy 1: "start" / "end" strings from Syncfusion export
+      if (a.start && a.end) {
+        const parseCoord = (str) => {
+          const parts = String(str).split(',')
+          return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+        }
+        const p1 = parseCoord(a.start)
+        const p2 = parseCoord(a.end)
+        const pdfDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
+        if (pdfDist >= 1) {
+          pixelLength = pdfDist
+          if (d?.isCalibrated && d?.scaleRatio) {
+            length = pixelsToReal(pdfDist, d.scaleRatio, d.calibrationUnit)
+          }
+        }
+      }
+
+      // Strategy 2: Syncfusion's pre-computed measurementValue
+      if (length == null) {
+        const sfVal = a.measurementValue ?? a.MeasurementValue
+        if (sfVal != null && Number(sfVal) > 0) length = Number(sfVal)
+      }
+
+      // Strategy 3: vertex points distance
+      if (length == null && pts.length >= 2) {
+        const p0 = pts[0], pn = pts[pts.length - 1]
+        const px = Math.sqrt((pn.x - p0.x) ** 2 + (pn.y - p0.y) ** 2)
+        if (px >= 1) {
+          pixelLength = px
+          if (d?.isCalibrated && d?.scaleRatio) length = pixelsToReal(px, d.scaleRatio, d.calibrationUnit)
         }
       }
     }
 
-    // ── Strategy 2: Syncfusion's pre-computed measurementValue ───────────────
-    if (length == null) {
-      const sfVal = a.measurementValue ?? a.MeasurementValue
-      if (sfVal != null && Number(sfVal) > 0) length = Number(sfVal)
-    }
-
-    // ── Strategy 3: vertex points ────────────────────────────────────────────
-    if (length == null) {
-      let rawPts = a.vertexPoints ?? a.VertexPoints ?? []
-      // VertexPoints may be serialized as a JSON string in the Syncfusion internal save format
-      if (typeof rawPts === 'string') { try { rawPts = JSON.parse(rawPts) } catch (_) { rawPts = [] } }
-      if (!Array.isArray(rawPts)) rawPts = []
-      const pts = rawPts.map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
-      let px = 0
-      if (pts.length >= 2) {
-        const p0 = pts[0], pn = pts[pts.length - 1]
-        px = Math.sqrt((pn.x - p0.x) ** 2 + (pn.y - p0.y) ** 2)
-      }
-      if (px >= 1) {
-        pixelLength = px
-        if (d?.isCalibrated && d?.scaleRatio) length = pixelsToReal(px, d.scaleRatio, d.calibrationUnit)
-      }
-    }
-
-    // Need at least a usable pixel distance
-    if (pixelLength < 1) return
-    // If calibrated but still no length, skip (would save a 0-length row)
-    if (d?.isCalibrated && (!length || length <= 0)) return
+    // Guard: need measurable pixel value
+    if (pixelLength < 1 && pixelArea < 1) return
+    // Guard: calibrated but no real value computed
+    if (d?.isCalibrated && isAreaAnnotation && (!area || area <= 0)) return
+    if (d?.isCalibrated && !isAreaAnnotation && (!length || length <= 0)) return
 
     if (annotationId) processedAnnotsRef.current.add(annotationId)
+
     onMeasureRef.current?.({
-      length:        length ?? null,
-      unit:          d?.calibrationUnit ?? 'Mm',
+      length,
+      area,
       pixelLength,
-      points:        [],
+      pixelArea,
+      unit:        d?.calibrationUnit ?? 'Mm',
+      points:      [],
       annotationId,
-      pageNumber:    a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1),
-      rawAnnotation: a,   // stored in DB pointsJson so annotations survive page refresh
+      pageNumber:  a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1),
+      rawAnnotation: a,
+      measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -382,15 +422,41 @@ export default function PdfViewer({
           // Restore Distance mode if user is still in Measure or Calibrate tool
           setTimeout(() => {
             const { activeTool: currentTool } = useAppStore.getState()
-            if (currentTool === 'line' || currentTool === 'calibrate') {
-              try { vm.annotation.setAnnotationMode('Distance') } catch (_) {}
+            const RESTORE_MAP = {
+              line: 'Distance', calibrate: 'Distance',
+              area: 'Area', perimeter: 'Perimeter',
+              arrow: 'Arrow', rect: 'Square', circle: 'Circle',
+              polygon: 'Polygon', text: 'FreeText', line_ann: 'Line',
             }
+            const mode = RESTORE_MAP[currentTool]
+            if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
           }, 150)
         }, 80)
       } else if (type === 'deleteAnnotation' && payload.annotationId) {
         vm.annotation.selectAnnotation(payload.annotationId, payload.pageNumber ?? 1)
         // Small delay to let Syncfusion register the selection before deleting
         setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 80)
+      } else if (type === 'saveCount') {
+        // Save all current-page count markers as one measurement entry
+        const pageMarkers = countMarkersRef.current.filter(m => m.page === pdfPage)
+        if (pageMarkers.length === 0) {
+          toast('No count markers on this page — click the drawing to place markers first')
+        } else {
+          const { measureCategory: cat, measureColor: color } = useAppStore.getState()
+          onMeasureRef.current?.({
+            measureType: 'Count',
+            count:       pageMarkers.length,
+            unit:        drawingRef.current?.calibrationUnit ?? 'Mm',
+            pageNumber:  pdfPage,
+            annotationId: null,
+            rawAnnotation: null,
+            pixelLength:  0,
+            pixelArea:    0,
+            length:       null,
+            area:         null,
+          })
+          setCountMarkers(prev => prev.filter(m => m.page !== pdfPage))
+        }
       } else if (type === 'clearAnnotations') {
         // Commit any in-progress annotation before exporting
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
@@ -552,9 +618,14 @@ export default function PdfViewer({
           } finally {
             // Restore Distance drawing mode if user is still in Measure or Calibrate tool
             const { activeTool: currentTool } = useAppStore.getState()
-            if (currentTool === 'line' || currentTool === 'calibrate') {
-              try { vm.annotation.setAnnotationMode('Distance') } catch (_) {}
+            const RESTORE_MAP = {
+              line: 'Distance', calibrate: 'Distance',
+              area: 'Area', perimeter: 'Perimeter',
+              arrow: 'Arrow', rect: 'Square', circle: 'Circle',
+              polygon: 'Polygon', text: 'FreeText', line_ann: 'Line',
             }
+            const mode = RESTORE_MAP[currentTool]
+            if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
           }
         }, 500)
       }
@@ -606,13 +677,27 @@ export default function PdfViewer({
       .finally(() => setLoading(false))
   }, [drawingUrl])
 
+  // ── Markup tool → Syncfusion annotation mode map ──────────────────────
+  const MARKUP_MODES = {
+    arrow:     'Arrow',
+    rect:      'Square',
+    circle:    'Circle',
+    polygon:   'Polygon',
+    text:      'FreeText',
+    highlight: 'Highlight',
+    line_ann:  'Line',
+  }
+  const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
+
   // ── Sync activeTool → Syncfusion annotation mode ───────────────────────
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm) return
     try {
-      if (activeTool === 'line' || activeTool === 'calibrate') {
-        vm.annotation.setAnnotationMode('Distance')
+      if (MEASURE_MODES[activeTool]) {
+        vm.annotation.setAnnotationMode(MEASURE_MODES[activeTool])
+      } else if (MARKUP_MODES[activeTool]) {
+        vm.annotation.setAnnotationMode(MARKUP_MODES[activeTool])
       } else if (activeTool === 'pan') {
         vm.annotation.setAnnotationMode('None')
         vm.interactionMode = 'Pan'
@@ -621,7 +706,7 @@ export default function PdfViewer({
         vm.interactionMode = 'TextSelection'
       }
     } catch (_) { /* viewer not yet mounted */ }
-  }, [activeTool])
+  }, [activeTool])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync zoom (pdfScale from store → Syncfusion zoomTo) ───────────────
   useEffect(() => {
@@ -637,30 +722,73 @@ export default function PdfViewer({
     try { vm.navigation.goToPage(pdfPage) } catch (_) { }
   }, [pdfPage, pdfBase64])
 
-  // ── Annotation draw color: amber for calibrate, active measureColor for measure ─────
+  // ── Sync color + thickness + opacity to Syncfusion ──────────────────────
+  // Runs whenever any of these change so newly drawn annotations pick up the
+  // current settings immediately without requiring a tool switch.
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64) return
+
+    const hex  = measureColor ?? '#EF233C'
+    const safeHex = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#EF233C'
+    const r = parseInt(safeHex.slice(1, 3), 16)
+    const g = parseInt(safeHex.slice(3, 5), 16)
+    const b = parseInt(safeHex.slice(5, 7), 16)
+    const thick   = lineThickness ?? 2
+    const opacity = fillOpacity ?? 0.3
+    const fillRgba  = `rgba(${r},${g},${b},${opacity})`
+    const fillLight = `rgba(${r},${g},${b},${Math.min(opacity, 0.15)})`
+
+    // Build dash array from lineStyle
+    const dashMap = { solid: '', dashed: '5 3', dotted: '2 3' }
+    const dashArray = dashMap[lineStyle ?? 'solid'] ?? ''
+
     try {
       if (activeTool === 'calibrate') {
         vm.annotation.updateMeasurementSettings('Distance', {
-          strokeColor: '#f59e0b',
-          fillColor:   'rgba(245,158,11,0.12)',
-          opacity: 1,
+          strokeColor: '#f59e0b', fillColor: 'rgba(245,158,11,0.12)', opacity: 1, thickness: thick,
         })
-      } else if (activeTool === 'line') {
-        const hex = measureColor ?? '#3b82f6'
-        const r = parseInt(hex.slice(1, 3), 16)
-        const g = parseInt(hex.slice(3, 5), 16)
-        const b = parseInt(hex.slice(5, 7), 16)
+        return
+      }
+
+      // ── Measurement tools ────────────────────────────────
+      if (activeTool === 'line') {
         vm.annotation.updateMeasurementSettings('Distance', {
-          strokeColor: hex,
-          fillColor:   `rgba(${r},${g},${b},0.12)`,
-          opacity: 1,
+          strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick,
         })
+      } else if (activeTool === 'area') {
+        try { vm.annotation.updateMeasurementSettings('Area', { strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick }) } catch (_) {}
+      } else if (activeTool === 'perimeter') {
+        try { vm.annotation.updateMeasurementSettings('Perimeter', { strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick }) } catch (_) {}
+      }
+
+      // ── Shape / markup tools ─────────────────────────────
+      const shapeSettings = {
+        strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick,
+        ...(dashArray ? { borderDashArray: dashArray } : {}),
+      }
+      if (['rect', 'circle', 'polygon', 'line_ann', 'arrow'].includes(activeTool)) {
+        try { vm.annotation.updateAnnotationSettings(shapeSettings) } catch (_) {}
+      }
+      if (activeTool === 'text') {
+        try { vm.annotation.updateAnnotationSettings({ fontColor: safeHex, opacity: 1 }) } catch (_) {}
+      }
+
+      // Re-enter the annotation mode so Syncfusion re-applies settings to
+      // the next annotation drawn — fixes color/thickness not updating on change.
+      const modeMap = {
+        line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter',
+        arrow: 'Arrow', rect: 'Square', circle: 'Circle', polygon: 'Polygon',
+        text: 'FreeText', line_ann: 'Line',
+      }
+      const modeKey = modeMap[activeTool]
+      if (modeKey) {
+        setTimeout(() => {
+          try { vm.annotation.setAnnotationMode(modeKey) } catch (_) {}
+        }, 20)
       }
     } catch (_) {}
-  }, [activeTool, pdfBase64, measureColor])
+  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle])
 
   // ── Apply calibration scale when drawing is calibrated ────────────────
   useEffect(() => {
@@ -939,6 +1067,110 @@ export default function PdfViewer({
         </div>
       )}
 
+      {/* Markup tool hints */}
+      {pdfBase64 && !loading && ['rect','circle','arrow','polygon','text','line_ann'].includes(activeTool) && (
+        <div style={{ position:'absolute', top:'12px', left:'50%', transform:'translateX(-50%)',
+          zIndex:15, display:'flex', alignItems:'center', gap:'6px',
+          background:'rgba(17,24,39,.92)', border:'1px solid rgba(139,92,246,.4)',
+          color:'#a78bfa', fontSize:'11px', fontWeight:600,
+          padding:'6px 14px', borderRadius:'20px', pointerEvents:'none', whiteSpace:'nowrap',
+          backdropFilter:'blur(4px)' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          {activeTool === 'text'     ? 'Click on the drawing to add a text label'
+           : activeTool === 'arrow'  ? 'Click and drag to draw an arrow'
+           : activeTool === 'rect'   ? 'Click and drag to draw a rectangle'
+           : activeTool === 'circle' ? 'Click and drag to draw a circle'
+           : activeTool === 'polygon'? 'Click vertices → Double-click to close shape'
+           : 'Click and drag to draw a line annotation'}
+        </div>
+      )}
+
+      {/* Area-mode hint */}
+      {pdfBase64 && !loading && activeTool === 'area' && (
+        <div style={{ position:'absolute', top:'12px', left:'50%', transform:'translateX(-50%)',
+          zIndex:15, display:'flex', alignItems:'center', gap:'6px',
+          background:'rgba(17,24,39,.92)', border:'1px solid rgba(34,197,94,.4)',
+          color:'#4ade80', fontSize:'11px', fontWeight:600,
+          padding:'6px 14px', borderRadius:'20px', pointerEvents:'none', whiteSpace:'nowrap',
+          backdropFilter:'blur(4px)' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+          </svg>
+          Click to place polygon vertices → Double-click to close area
+        </div>
+      )}
+
+      {/* Perimeter-mode hint */}
+      {pdfBase64 && !loading && activeTool === 'perimeter' && (
+        <div style={{ position:'absolute', top:'12px', left:'50%', transform:'translateX(-50%)',
+          zIndex:15, display:'flex', alignItems:'center', gap:'6px',
+          background:'rgba(17,24,39,.92)', border:'1px solid rgba(139,92,246,.4)',
+          color:'#a78bfa', fontSize:'11px', fontWeight:600,
+          padding:'6px 14px', borderRadius:'20px', pointerEvents:'none', whiteSpace:'nowrap',
+          backdropFilter:'blur(4px)' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+          Click polygon vertices → Double-click to close perimeter
+        </div>
+      )}
+
+      {/* ── Count tool overlay — transparent click target with numbered markers ── */}
+      {pdfBase64 && !loading && activeTool === 'count' && (
+        <div
+          style={{ position: 'absolute', inset: 0, zIndex: 12, cursor: 'crosshair' }}
+          onClick={(e) => {
+            const rect = containerRef.current?.getBoundingClientRect()
+            if (!rect) return
+            const xPct = (e.clientX - rect.left)  / rect.width
+            const yPct = (e.clientY - rect.top)   / rect.height
+            const newMarker = { id: Date.now(), xPct, yPct, page: pdfPage }
+            setCountMarkers(prev => [...prev, newMarker])
+          }}
+        >
+          {/* Render numbered markers for current page */}
+          {countMarkers
+            .filter(m => m.page === pdfPage)
+            .map((marker, idx) => (
+              <div
+                key={marker.id}
+                style={{
+                  position: 'absolute',
+                  left: `${marker.xPct * 100}%`,
+                  top:  `${marker.yPct * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: '22px', height: '22px',
+                  borderRadius: '50%',
+                  background: measureColor ?? '#f59e0b',
+                  color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '10px', fontWeight: 800,
+                  border: '2px solid rgba(255,255,255,0.85)',
+                  boxShadow: '0 1px 6px rgba(0,0,0,0.5)',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                }}
+              >
+                {idx + 1}
+              </div>
+            ))
+          }
+          {/* Count mode banner */}
+          <div style={{
+            position: 'absolute', bottom: '16px', left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(17,24,39,.92)', border: '1px solid rgba(245,158,11,.4)',
+            color: '#f59e0b', fontSize: '11px', fontWeight: 600,
+            padding: '5px 14px', borderRadius: '20px', whiteSpace: 'nowrap',
+            backdropFilter: 'blur(4px)', pointerEvents: 'none',
+          }}>
+            Click to place count markers · {countMarkers.filter(m => m.page === pdfPage).length} placed · Save Count when done
+          </div>
+        </div>
+      )}
+
       {/* Syncfusion PDF Viewer — only mount once we know the container size. */}
       {pdfBase64 && !errorMsg && viewerSize.h > 0 && (
         <PdfViewerComponent
@@ -970,7 +1202,7 @@ export default function PdfViewer({
                We hide the freetext UI via CSS below so users never see it. */
           enableMeasureAnnotation={true}
           enableFreeText={true}
-          enableShapeAnnotation={false}
+          enableShapeAnnotation={true}
           enableTextMarkupAnnotation={false}
           enableStampAnnotations={false}
           enableStickyNotesAnnotation={false}
@@ -981,10 +1213,14 @@ export default function PdfViewer({
           enablePrint={false}
           enableDownload={false}
 
-          /* ── Measurement units (updated dynamically after calibration) ─────── */
+          /* ── Measurement units + initial appearance ──────────────────────── */
           distanceSettings={{
-            displayUnit: drawing?.calibrationUnit ? toSfUnit(drawing.calibrationUnit) : 'Millimeter',
+            displayUnit:    drawing?.calibrationUnit ? toSfUnit(drawing.calibrationUnit) : 'Millimeter',
             conversionUnit: drawing?.calibrationUnit ? toSfUnit(drawing.calibrationUnit) : 'Millimeter',
+            strokeColor: measureColor ?? '#EF233C',
+            fillColor:   `rgba(239,35,60,${fillOpacity ?? 0.15})`,
+            opacity: 1,
+            thickness: lineThickness ?? 2,
           }}
 
           /* ── Annotation appearance ────────────────────────────────────────── */

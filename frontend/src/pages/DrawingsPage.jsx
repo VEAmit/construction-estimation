@@ -14,7 +14,7 @@ import MemberSchedulePanel from '../components/takeoff/MemberSchedulePanel'
 import AddMeasurementModal from '../components/takeoff/AddTakeoffModal'
 import CalibrationModal from '../components/takeoff/CalibrationModal'
 import { exportToExcel, exportToPdf } from '../utils/exportUtils'
-import { computeScaleRatio, getUnitLabel } from '../utils/calculations'
+import { computeScaleRatio, getUnitLabel, getAreaUnitLabel } from '../utils/calculations'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
@@ -123,24 +123,43 @@ export default function DrawingsPage() {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category } = useAppStore.getState()
     if (!drw || autoSaving) return
     setAutoSaving(true)
-    const unit     = drw.calibrationUnit ?? 'Mm'
-    const nextMark = `M${current.length + 1}`
-    const desc     = measurement.length != null
-      ? `${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
-      : `${Math.round(measurement.pixelLength)} px (not calibrated)`
+
+    const unit       = drw.calibrationUnit ?? 'Mm'
+    const isArea     = measurement.measureType === 'Area'
+    const isPerim    = measurement.measureType === 'Perimeter'
+    const isCount    = measurement.measureType === 'Count'
+    const itemType   = isArea ? 'Area' : isPerim ? 'Perimeter' : isCount ? 'Count' : 'Line'
+
+    // Mark prefix per type: A# area, P# perimeter, C# count, M# line
+    const prefix     = isArea ? 'A' : isPerim ? 'P' : isCount ? 'C' : 'M'
+    const nextMark   = `${prefix}${current.length + 1}`
+
+    const desc = isCount
+      ? `Count: ${measurement.count} × ${category}`
+      : isArea
+        ? (measurement.area != null
+            ? `${measurement.area.toFixed(3)} ${getAreaUnitLabel(unit)}`
+            : `Area (${Math.round(measurement.pixelArea ?? 0)} px² — not calibrated)`)
+        : isPerim
+          ? (measurement.length != null
+              ? `Polyline: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
+              : `Polyline (uncalibrated)`)
+          : (measurement.length != null
+              ? `${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
+              : `${Math.round(measurement.pixelLength)} px (not calibrated)`)
 
     try {
       const saved = await takeoffService.create({
         drawingId:   drw.id,
-        itemType:    'Line',
+        itemType,
         mark:        nextMark,
         description: desc,
-        quantity:    1,
+        quantity:    isCount ? measurement.count : 1,
         unit,
         material:    '',
         notes:       '',
-        length:      measurement.length ?? null,
-        area:        null,
+        length:      isCount ? null : (measurement.length ?? null),
+        area:        isCount ? null : (measurement.area ?? null),
         unitWeight:  null,
         totalWeight: null,
         color:       color ?? '#EF233C',
@@ -159,10 +178,14 @@ export default function DrawingsPage() {
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
         .catch(() => {})
-      if (measurement.length != null) {
+      if (isCount) {
+        toast.success(`${nextMark}: ${measurement.count} × ${category} saved`, { duration: 2500, icon: '🔢' })
+      } else if (isArea && measurement.area != null) {
+        toast.success(`${nextMark}: ${measurement.area.toFixed(2)} ${getAreaUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
+      } else if (measurement.length != null) {
         toast.success(`${nextMark}: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
       } else {
-        toast(`${nextMark}: ${Math.round(measurement.pixelLength)} px — calibrate for real length`, { duration: 3000, icon: '⚠️' })
+        toast(`${nextMark}: ${Math.round(measurement.pixelLength || measurement.pixelArea || 0)} px — calibrate for real measurement`, { duration: 3000, icon: '⚠️' })
       }
     } catch {
       toast.error('Could not save measurement — try again')

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { takeoffService } from '../../services/takeoffService'
 import { useAppStore } from '../../store/useAppStore'
 import { exportToExcel, exportToPdf } from '../../utils/exportUtils'
-import { fmt, getUnitLabel } from '../../utils/calculations'
+import { fmt, getUnitLabel, getAreaUnitLabel } from '../../utils/calculations'
 import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 25
@@ -58,10 +58,16 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
   }
 
   const unit         = drawing?.calibrationUnit ?? 'Mm'
-  const totalLength  = takeoffItems.reduce((s, i) => s + (i.length ?? 0), 0)
+  const lineItems    = takeoffItems.filter(i => !i.itemType || i.itemType === 'Line' || i.itemType === 'Perimeter')
+  const areaItems    = takeoffItems.filter(i => i.itemType === 'Area')
+  const countItems   = takeoffItems.filter(i => i.itemType === 'Count')
+  const totalCount   = countItems.reduce((s, i) => s + (i.quantity ?? 1), 0)
+  const totalLength  = lineItems.reduce((s, i) => s + (i.length ?? 0), 0)
+  const totalArea    = areaItems.reduce((s, i) => s + (i.area ?? 0), 0)
   const totalWeight  = takeoffItems.reduce((s, i) => s + (i.totalWeight ?? 0), 0)
   const totalItems   = takeoffItems.length
   const hasAnyWeight = takeoffItems.some(i => i.totalWeight != null && i.totalWeight > 0)
+  const hasAnyArea   = areaItems.length > 0
 
   const categoryGroups = takeoffItems.reduce((acc, i) => {
     const cat = i.category || 'General'
@@ -151,15 +157,19 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
       {/* ── Live totals bar ── */}
       {totalItems > 0 && (
         <div style={{ borderBottom: '1px solid rgba(255,255,255,.06)', flexShrink: 0, background: 'rgba(239,35,60,.03)' }}>
-          <div style={{ padding: '5px 14px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <TotalChip label="Measurements" value={totalItems} color="#EF233C" />
+          <div style={{ padding: '5px 14px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <TotalChip label="Items" value={totalItems} color="#EF233C" />
             {totalLength > 0 && (
-              <TotalChip label="Total Length"
-                value={`${fmt(totalLength)} ${getUnitLabel(unit)}`} color="#22c55e" />
+              <TotalChip label="Length" value={`${fmt(totalLength)} ${getUnitLabel(unit)}`} color="#22c55e" />
+            )}
+            {hasAnyArea && totalArea > 0 && (
+              <TotalChip label="Area" value={`${fmt(totalArea)} ${getAreaUnitLabel(unit)}`} color="#3b82f6" />
             )}
             {hasAnyWeight && (
-              <TotalChip label="Total Wt"
-                value={`${totalWeight.toFixed(1)} kg`} color="#f59e0b" />
+              <TotalChip label="Wt" value={`${totalWeight.toFixed(1)} kg`} color="#f59e0b" />
+            )}
+            {totalCount > 0 && (
+              <TotalChip label="Count" value={totalCount} color="#f59e0b" />
             )}
             {!drawing?.isCalibrated && totalItems > 0 && (
               <span style={{ fontSize: '10px', color: '#f59e0b', marginLeft: 'auto' }}>
@@ -222,7 +232,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Mark', 'Description', 'Category', 'Length', 'Wt/m (kg)', 'Total Wt', 'Type', 'Qty', 'Unit', 'Time', ''].map((h, i) => (
+                {['', '#', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Wt/m (kg)', 'Total Wt', 'Material', 'Qty', 'Unit', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -271,6 +281,18 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                       }} />
                     </td>
                     <td style={td}>{rowNum}</td>
+                    {/* Item type badge */}
+                    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      {item.itemType === 'Area' ? (
+                        <span style={{ padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 800, background: 'rgba(34,197,94,.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,.25)', textTransform: 'uppercase' }}>Area</span>
+                      ) : item.itemType === 'Perimeter' ? (
+                        <span style={{ padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 800, background: 'rgba(139,92,246,.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,.25)', textTransform: 'uppercase' }}>Poly</span>
+                      ) : item.itemType === 'Count' ? (
+                        <span style={{ padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 800, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,.25)', textTransform: 'uppercase' }}>Count</span>
+                      ) : (
+                        <span style={{ padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 800, background: 'rgba(239,35,60,.1)', color: '#f87171', border: '1px solid rgba(239,35,60,.2)', textTransform: 'uppercase' }}>Line</span>
+                      )}
+                    </td>
                     <td style={{ ...td, color: '#EF233C', fontWeight: 700 }}>
                       {isEditing
                         ? <input value={row.mark ?? ''} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '56px' }} />
@@ -291,10 +313,18 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                         </span>
                       </span>
                     </td>
-                    <td style={{ ...td, fontWeight: 700, color: item.length != null ? '#22c55e' : '#1e293b', whiteSpace: 'nowrap' }}>
-                      {item.length != null
-                        ? `${fmt(item.length)} ${getUnitLabel(item.unit)}`
-                        : hasAnnot ? <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span> : '—'}
+                    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      {item.itemType === 'Count' ? (
+                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>× {item.quantity ?? 1}</span>
+                      ) : item.itemType === 'Area' ? (
+                        item.area != null
+                          ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.area)} {getAreaUnitLabel(item.unit)}</span>
+                          : <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span>
+                      ) : (
+                        item.length != null
+                          ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.length)} {getUnitLabel(item.unit)}</span>
+                          : hasAnnot ? <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span> : '—'
+                      )}
                     </td>
                     <td style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>
                       {isEditing
@@ -363,9 +393,11 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
             {filtered.length > 0 && (
               <tfoot>
                 <tr style={{ background: '#0D1526', borderTop: '1px solid rgba(239,35,60,.2)' }}>
-                  <td colSpan={5} />
+                  <td colSpan={6} />
                   <td style={{ ...td, fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>
-                    {totalLength > 0 ? `∑ ${fmt(totalLength)} ${getUnitLabel(unit)}` : '—'}
+                    {totalLength > 0 ? `∑ ${fmt(totalLength)} ${getUnitLabel(unit)}` : ''}
+                    {hasAnyArea && totalArea > 0 ? ` / ${fmt(totalArea)} ${getAreaUnitLabel(unit)}` : ''}
+                    {totalLength === 0 && !hasAnyArea ? '—' : ''}
                   </td>
                   <td />
                   <td style={{ ...td, fontWeight: 800, color: '#f59e0b', whiteSpace: 'nowrap' }}>

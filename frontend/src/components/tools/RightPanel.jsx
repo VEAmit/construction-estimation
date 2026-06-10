@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useAppStore } from '../../store/useAppStore'
-import { fmt, getUnitLabel, convertFromMm } from '../../utils/calculations'
+import { fmt, getUnitLabel, getAreaUnitLabel, convertFromMm } from '../../utils/calculations'
 
-const UNITS = ['Mm', 'Cm', 'Meter', 'Feet', 'Inch']
+const UNITS = ['Mm', 'Cm', 'Meter', 'Feet', 'Inch', 'Yd']
 
 const SCALE_PRESETS = [
   { label: '1 : 10',   n: 10   },
@@ -191,13 +191,21 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
         <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
           <SectionLabel>Last Measurement</SectionLabel>
           <div style={{
-            background: 'rgba(239,35,60,.07)', borderRadius: '8px', padding: '10px',
-            borderLeft: '3px solid #EF233C',
+            background: lastMeasurement.measureType === 'Area' ? 'rgba(34,197,94,.07)' : 'rgba(239,35,60,.07)',
+            borderRadius: '8px', padding: '10px',
+            borderLeft: `3px solid ${lastMeasurement.measureType === 'Area' ? '#22c55e' : lastMeasurement.measureType === 'Perimeter' ? '#8b5cf6' : '#EF233C'}`,
           }}>
             <div style={{ fontSize: '10px', color: '#475569', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '6px' }}>
-              Line Measurement
+              {lastMeasurement.measureType === 'Area' ? 'Area Measurement' : lastMeasurement.measureType === 'Perimeter' ? 'Perimeter' : 'Line Measurement'}
             </div>
-            {lastMeasurement.length != null ? (
+            {lastMeasurement.measureType === 'Area' && lastMeasurement.area != null ? (
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#22c55e', lineHeight: 1 }}>
+                {fmt(lastMeasurement.area)}
+                <span style={{ fontSize: '12px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
+                  {getAreaUnitLabel(lastMeasurement.unit)}
+                </span>
+              </div>
+            ) : lastMeasurement.length != null ? (
               <div style={{ fontSize: '22px', fontWeight: 800, color: '#EF233C', lineHeight: 1 }}>
                 {fmt(lastMeasurement.length)}
                 <span style={{ fontSize: '12px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
@@ -206,42 +214,93 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
               </div>
             ) : (
               <div style={{ fontSize: '14px', color: '#475569' }}>
-                {Math.round(lastMeasurement.pixelLength ?? 0)} px (not calibrated)
+                {Math.round(lastMeasurement.pixelLength ?? lastMeasurement.pixelArea ?? 0)} px (not calibrated)
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Selected measurement ── */}
+      {/* ── Selected measurement — full properties panel ── */}
       {selectedItem && (
         <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
-          <SectionLabel>Selected Measurement</SectionLabel>
+          <SectionLabel>Properties</SectionLabel>
           <div style={{
-            background: 'rgba(239,35,60,.07)', borderRadius: '8px', padding: '10px',
-            borderLeft: '3px solid #EF233C',
+            background: selectedItem.itemType === 'Area' ? 'rgba(34,197,94,.06)' : 'rgba(239,35,60,.06)',
+            borderRadius: '8px', padding: '10px',
+            borderLeft: `3px solid ${selectedItem.color ?? (selectedItem.itemType === 'Area' ? '#22c55e' : '#EF233C')}`,
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#EF233C', textTransform: 'uppercase', letterSpacing: '.06em' }}>LINE</span>
-              {selectedItem.mark && (
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#f87171' }}>{selectedItem.mark}</span>
-              )}
+            {/* Type + Mark header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{
+                fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '10px',
+                background: selectedItem.itemType === 'Area' ? 'rgba(34,197,94,.15)' : 'rgba(239,35,60,.15)',
+                color: selectedItem.itemType === 'Area' ? '#4ade80' : '#f87171',
+                textTransform: 'uppercase', letterSpacing: '.06em',
+              }}>
+                {selectedItem.itemType ?? 'Line'}
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 800, color: selectedItem.color ?? '#EF233C' }}>
+                {selectedItem.mark}
+              </span>
             </div>
+
+            {/* Description */}
             {selectedItem.description && (
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px', wordBreak: 'break-word' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', wordBreak: 'break-word', lineHeight: 1.5 }}>
                 {selectedItem.description}
               </div>
             )}
-            {selectedItem.length != null && (
-              <MeasRow label="Length"
-                value={`${fmt(selectedItem.length)} ${getUnitLabel(selectedItem.unit ?? activeUnit)}`} color="#EF233C" />
-            )}
-            {selectedItem.material && (
-              <MeasRow label="Type" value={selectedItem.material} />
-            )}
-            {selectedItem.quantity != null && (
-              <MeasRow label="Qty" value={selectedItem.quantity} />
-            )}
+
+            {/* Measurement value */}
+            {selectedItem.itemType === 'Area' && selectedItem.area != null ? (
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#22c55e', lineHeight: 1, marginBottom: '6px' }}>
+                {fmt(selectedItem.area)}
+                <span style={{ fontSize: '11px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
+                  {getAreaUnitLabel(selectedItem.unit ?? activeUnit)}
+                </span>
+              </div>
+            ) : selectedItem.length != null ? (
+              <div style={{ fontSize: '20px', fontWeight: 800, color: selectedItem.color ?? '#EF233C', lineHeight: 1, marginBottom: '6px' }}>
+                {fmt(selectedItem.length)}
+                <span style={{ fontSize: '11px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
+                  {getUnitLabel(selectedItem.unit ?? activeUnit)}
+                </span>
+              </div>
+            ) : null}
+
+            {/* Properties grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+              {selectedItem.material && (
+                <MeasRow label="Material"  value={selectedItem.material} />
+              )}
+              {selectedItem.category && (
+                <MeasRow label="Category"  value={selectedItem.category} />
+              )}
+              {selectedItem.quantity != null && (
+                <MeasRow label="Qty"       value={selectedItem.quantity} />
+              )}
+              {selectedItem.unitWeight != null && (
+                <MeasRow label="Wt/m"      value={`${selectedItem.unitWeight.toFixed(1)} kg/m`} />
+              )}
+              {selectedItem.totalWeight != null && (
+                <MeasRow label="Total Wt"  value={`${selectedItem.totalWeight.toFixed(1)} kg`} color="#f59e0b" />
+              )}
+              {selectedItem.color && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                  <span style={{ fontSize: '10px', color: '#475569' }}>Color</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: selectedItem.color, border: '1px solid rgba(255,255,255,.2)' }} />
+                    <span style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>{selectedItem.color}</span>
+                  </div>
+                </div>
+              )}
+              {selectedItem.notes && (
+                <div style={{ marginTop: '4px', padding: '6px 8px', background: 'rgba(255,255,255,.03)', borderRadius: '5px', fontSize: '10px', color: '#475569', lineHeight: 1.5 }}>
+                  {selectedItem.notes}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -263,8 +322,36 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
         <div style={{ padding: '12px', flex: 1, overflow: 'auto' }}>
           <SectionLabel>Measurement Summary</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <StatCard label="Total Items"  value={summary.totalItems ?? 0}                                   color="#EF233C" />
-            <StatCard label="Total Length" value={`${fmt(summary.totalLength ?? 0)} ${getUnitLabel(unit)}`} color="#EF233C" />
+            <StatCard label="Total Items"  value={takeoffItems.length}                                        color="#EF233C" />
+            {(summary.totalLength ?? 0) > 0 && (
+              <StatCard label="Total Length" value={`${fmt(summary.totalLength ?? 0)} ${getUnitLabel(unit)}`} color="#22C55E" />
+            )}
+            {/* Area summary */}
+            {takeoffItems.some(i => i.itemType === 'Area' && i.area != null) && (
+              <StatCard
+                label="Total Area"
+                value={`${fmt(takeoffItems.filter(i => i.itemType === 'Area').reduce((s, i) => s + (i.area ?? 0), 0))} ${getAreaUnitLabel(unit)}`}
+                color="#3b82f6"
+              />
+            )}
+            {/* Count summary */}
+            {takeoffItems.some(i => i.itemType === 'Count') && (
+              <StatCard
+                label="Count Items"
+                value={takeoffItems.filter(i => i.itemType === 'Count').reduce((s, i) => s + (i.quantity ?? 1), 0)}
+                color="#f59e0b"
+              />
+            )}
+            {/* Type breakdown */}
+            {takeoffItems.filter(i => !i.itemType || i.itemType === 'Line').length > 0 && (
+              <StatCard label="Line Items" value={takeoffItems.filter(i => !i.itemType || i.itemType === 'Line').length} color="#EF233C" />
+            )}
+            {takeoffItems.filter(i => i.itemType === 'Area').length > 0 && (
+              <StatCard label="Area Items" value={takeoffItems.filter(i => i.itemType === 'Area').length} color="#22C55E" />
+            )}
+            {takeoffItems.filter(i => i.itemType === 'Perimeter').length > 0 && (
+              <StatCard label="Polylines" value={takeoffItems.filter(i => i.itemType === 'Perimeter').length} color="#8b5cf6" />
+            )}
           </div>
         </div>
       )}

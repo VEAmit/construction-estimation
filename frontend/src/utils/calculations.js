@@ -1,8 +1,3 @@
-export function pixelsToReal(pixels, scaleRatio, unit) {
-  const mm = pixels * scaleRatio
-  return convertFromMm(mm, unit)
-}
-
 export function convertFromMm(mm, unit) {
   switch (unit) {
     case 'Mm':    return mm
@@ -10,12 +5,13 @@ export function convertFromMm(mm, unit) {
     case 'Meter': return mm / 1000
     case 'Feet':  return mm / 304.8
     case 'Inch':  return mm / 25.4
+    case 'Yd':    return mm / 914.4
     default:      return mm
   }
 }
 
 export function getUnitLabel(unit) {
-  const map = { Mm: 'mm', Cm: 'cm', Meter: 'm', Feet: 'ft', Inch: 'in' }
+  const map = { Mm: 'mm', Cm: 'cm', Meter: 'm', Feet: 'ft', Inch: 'in', Yd: 'yd' }
   return map[unit] ?? 'mm'
 }
 
@@ -56,6 +52,7 @@ export function toMeters(value, unit) {
     case 'Meter': return value
     case 'Feet':  return value * 0.3048
     case 'Inch':  return value * 0.0254
+    case 'Yd':    return value * 0.9144
     default:      return value / 1000
   }
 }
@@ -68,8 +65,15 @@ export function toMm(value, unit) {
     case 'Meter': return value * 1000
     case 'Feet':  return value * 304.8
     case 'Inch':  return value * 25.4
+    case 'Yd':    return value * 914.4
     default:      return value
   }
+}
+
+// Convert pixel length → real-world length using scaleRatio (mm per pixel)
+export function pixelsToReal(pixelLength, scaleRatio, unit) {
+  const mmLength = pixelLength * scaleRatio
+  return convertFromMm(mmLength, unit)
 }
 
 // Compute scaleRatio (mm per pixel) from a known real-world length and pixel length
@@ -77,4 +81,63 @@ export function computeScaleRatio(realValue, realUnit, pixelLength) {
   if (!pixelLength || pixelLength === 0) return null
   const realMm = toMm(realValue, realUnit)
   return realMm / pixelLength
+}
+
+// ── Area utilities ──────────────────────────────────────────────────────
+
+// Convert pixel² area to real-world area unit
+// scaleRatio is mm per pixel → mm² per pixel² = scaleRatio²
+export function pixelsAreaToReal(pixelArea, scaleRatio, unit) {
+  const mmSq = pixelArea * scaleRatio * scaleRatio
+  switch (unit) {
+    case 'Mm':    return mmSq
+    case 'Cm':    return mmSq / 100
+    case 'Meter': return mmSq / 1_000_000
+    case 'Feet':  return mmSq / (304.8 * 304.8)
+    case 'Inch':  return mmSq / (25.4 * 25.4)
+    case 'Yd':    return mmSq / (914.4 * 914.4)
+    default:      return mmSq
+  }
+}
+
+export function getAreaUnitLabel(unit) {
+  const map = { Mm: 'mm²', Cm: 'cm²', Meter: 'm²', Feet: 'ft²', Inch: 'in²', Yd: 'yd²' }
+  return map[unit] ?? 'mm²'
+}
+
+// Compute pixel area from vertex points using Shoelace formula
+export function computePixelArea(vertexPoints) {
+  if (!vertexPoints || vertexPoints.length < 3) return 0
+  return polygonArea(vertexPoints)
+}
+
+// Compute polygon perimeter (pixel length) from closed vertex list
+export function computePixelPerimeter(pts) {
+  if (!pts || pts.length < 2) return 0
+  const open = polylineLength(pts)
+  const close = ptDist(pts[pts.length - 1], pts[0])
+  return open + close
+}
+
+// Category → default color mapping for auto-color assignment
+export const CATEGORY_COLORS = {
+  General:    '#EF233C',
+  Structural: '#ef4444',
+  Concrete:   '#f97316',
+  Roofing:    '#eab308',
+  Electrical: '#3b82f6',
+  Plumbing:   '#06b6d4',
+  HVAC:       '#8b5cf6',
+  Flooring:   '#22c55e',
+  Painting:   '#ec4899',
+  Demolition: '#dc2626',
+  Beam:       '#ef4444',
+  Column:     '#f97316',
+  Rafter:     '#f59e0b',
+  Purlin:     '#22c55e',
+  Brace:      '#8b5cf6',
+  Wall:       '#64748b',
+  Slab:       '#06b6d4',
+  Girt:       '#a78bfa',
+  Other:      '#94a3b8',
 }
