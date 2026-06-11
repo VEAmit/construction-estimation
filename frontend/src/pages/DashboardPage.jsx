@@ -87,7 +87,7 @@ export default function DashboardPage() {
 
   /* ── Responsive grid columns ─────────────────────────────── */
   const statCols   = isSmallMobile ? '1fr' : isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)'
-  const projectCols = isMobile ? '1fr' : isTablet ? 'repeat(2,1fr)' : 'repeat(auto-fill,minmax(300px,1fr))'
+  const projectCols = isMobile ? '1fr' : isTablet ? 'repeat(2,1fr)' : 'repeat(4,1fr)'
   const pad        = isMobile ? '16px' : '28px 32px'
 
   return (
@@ -214,7 +214,7 @@ export default function DashboardPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: projectCols, gap: isMobile ? '12px' : '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: projectCols, gap: isMobile ? '12px' : '18px' }}>
           {filtered.map(project => (
             <div
               key={project.id}
@@ -238,16 +238,16 @@ export default function DashboardPage() {
               }}
             >
               <div style={{ height: '2px', background: 'linear-gradient(90deg,#EF233C,rgba(239,35,60,.2))' }} />
-              <div style={{ padding: isMobile ? '14px 16px' : '16px 18px' }}>
+              <div style={{ padding: isMobile ? '14px 16px' : '20px 22px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                     <div style={{
-                      width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
+                      width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
                       background: 'rgba(239,35,60,.1)', border: '1px solid rgba(239,35,60,.2)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {(project.drawingCount ?? 0) > 0 ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF233C" strokeWidth="2">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF233C" strokeWidth="2">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                           <polyline points="14 2 14 8 20 8"/>
                           <line x1="16" y1="13" x2="8" y2="13"/>
@@ -258,11 +258,11 @@ export default function DashboardPage() {
                       )}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#f1f5f9', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {project.name}
                       </h3>
                       {project.projectNumber && (
-                        <div style={{ fontSize: '11px', color: '#EF233C', fontWeight: 700, marginTop: '2px' }}>
+                        <div style={{ fontSize: '12px', color: '#EF233C', fontWeight: 700, marginTop: '3px' }}>
                           {project.projectNumber}
                         </div>
                       )}
@@ -279,12 +279,12 @@ export default function DashboardPage() {
                       ● {project.status ?? 'Active'}
                     </span>
                     <button onClick={e => handleDelete(e, project)} style={{
-                      background: 'none', border: 'none', cursor: 'pointer', color: '#334155',
+                      background: 'none', border: 'none', cursor: 'pointer', color: '#EF233C',
                       padding: '4px', borderRadius: '4px', transition: 'color .15s',
                       display: 'flex', alignItems: 'center', touchAction: 'manipulation',
                     }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#334155'}
+                      onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#EF233C'}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6"/>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                 </div>
 
                 {project.clientName && (
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                       <circle cx="12" cy="7" r="4"/>
@@ -305,20 +305,16 @@ export default function DashboardPage() {
                 )}
 
                 {project.description && (
-                  <p style={{ fontSize: '11px', color: '#475569', margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontSize: '12px', color: '#475569', margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {project.description}
                   </p>
                 )}
 
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,.05)',
                 }}>
-                  <div style={{ fontSize: '10px', color: '#334155', fontWeight: 600 }}>
+                  <div style={{ fontSize: '15px', color: '#EF233C', fontWeight: 700 }}>
                     {project.drawingCount ?? 0} drawing{(project.drawingCount ?? 0) !== 1 ? 's' : ''}
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#334155' }}>
-                    Updated {timeAgo(project.updatedAt ?? project.createdAt)}
                   </div>
                 </div>
               </div>

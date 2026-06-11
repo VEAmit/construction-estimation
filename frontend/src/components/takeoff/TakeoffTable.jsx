@@ -7,6 +7,15 @@ import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 25
 
+function getPageNum(item) {
+  if (!item.pointsJson) return null
+  try {
+    const d = JSON.parse(item.pointsJson)
+    const idx = d.page != null ? parseInt(d.page, 10) : (d.pageIndex ?? 0)
+    return idx + 1
+  } catch { return null }
+}
+
 function fmtTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -232,7 +241,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Wt/m (kg)', 'Total Wt', 'Material', 'Qty', 'Unit', 'Time', ''].map((h, i) => (
+                {['', '#', 'Pg', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Wt/m (kg)', 'Total Wt', 'Material', 'Qty', 'Unit', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -281,6 +290,10 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                       }} />
                     </td>
                     <td style={td}>{rowNum}</td>
+                    {/* Page number */}
+                    <td style={{ ...td, color: '#475569', fontSize: '10px' }}>
+                      {getPageNum(item) != null ? `p${getPageNum(item)}` : '—'}
+                    </td>
                     {/* Item type badge */}
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>
                       {item.itemType === 'Area' ? (
@@ -393,7 +406,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
             {filtered.length > 0 && (
               <tfoot>
                 <tr style={{ background: '#0D1526', borderTop: '1px solid rgba(239,35,60,.2)' }}>
-                  <td colSpan={6} />
+                  <td colSpan={7} />
                   <td style={{ ...td, fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>
                     {totalLength > 0 ? `∑ ${fmt(totalLength)} ${getUnitLabel(unit)}` : ''}
                     {hasAnyArea && totalArea > 0 ? ` / ${fmt(totalArea)} ${getAreaUnitLabel(unit)}` : ''}

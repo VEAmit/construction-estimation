@@ -16,22 +16,24 @@ const SCALE_PRESETS = [
 
 export default function RightPanel({ drawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale }) {
   const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems } = useAppStore()
-  const [quickN,    setQuickN]    = useState('')
-  const [quickUnit, setQuickUnit] = useState('Meter')
+  const [quickN,       setQuickN]       = useState('')
+  const [quickUnit,    setQuickUnit]    = useState('Meter')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const unit = drawing?.calibrationUnit ?? activeUnit
 
   const memberTotalWeight = memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0)
   const memberTotalQty    = memberScheduleItems.reduce((s, m) => s + (m.quantity ?? 0), 0)
 
+  // Human-readable "1 px = X [unit]" label
   const scaleLabel = (() => {
     if (!drawing?.isCalibrated || !drawing?.scaleRatio) return null
     const mmPerPx = drawing.scaleRatio
     const val     = convertFromMm(mmPerPx, drawing.calibrationUnit)
     const u       = getUnitLabel(drawing.calibrationUnit)
-    if (val >= 0.01) return `1 unit = ${val >= 10 ? val.toFixed(1) : val.toFixed(4)} ${u}`
-    const pxPerMm = 1 / mmPerPx
-    return `${pxPerMm.toFixed(2)} units = 1 mm`
+    if (val >= 0.001) return `1 px = ${val >= 100 ? val.toFixed(1) : val >= 1 ? val.toFixed(3) : val.toFixed(5)} ${u}`
+    const inv = 1 / val
+    return `${inv.toFixed(1)} px = 1 ${u}`
   })()
 
   const showGuide  = !drawing || takeoffItems.length === 0
@@ -56,7 +58,7 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
             sub={step0Done ? 'Drawing ready' : 'Drop PDF in the left sidebar'} />
           <GuideStep num={2} done={step1Done} locked={!step0Done}
             label={step1Done ? 'Scale calibrated' : 'Calibrate scale'}
-            sub={step1Done ? scaleLabel : 'Use Calibrate tool → draw known line'} />
+            sub={step1Done ? scaleLabel : 'Use Calibrate tool → draw a known dimension'} />
           <GuideStep num={3} done={step2Done} locked={!step1Done}
             label="Measure elements"
             sub="Use Measure tool → click two points" />
@@ -70,101 +72,157 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
       <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
         <SectionLabel>Scale Calibration</SectionLabel>
 
-        {drawing?.isCalibrated && (
-          <div style={{ marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#22c55e' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        {/* Calibrated state — prominent card */}
+        {drawing?.isCalibrated ? (
+          <div style={{
+            background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)',
+            borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Calibrated · {getUnitLabel(drawing.calibrationUnit)}
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#22c55e' }}>Scale Calibrated</span>
+              <span style={{
+                marginLeft: 'auto', fontSize: '10px', fontWeight: 700,
+                background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.25)',
+                color: '#4ade80', padding: '1px 6px', borderRadius: '10px',
+              }}>
+                {getUnitLabel(drawing.calibrationUnit)}
+              </span>
             </div>
             {scaleLabel && (
-              <div style={{ fontSize: '10px', color: '#334155', marginTop: '3px', paddingLeft: '17px' }}>
+              <div style={{
+                fontSize: '12px', fontWeight: 700, color: '#f1f5f9',
+                paddingLeft: '19px', fontVariantNumeric: 'tabular-nums',
+              }}>
                 {scaleLabel}
               </div>
             )}
           </div>
+        ) : (
+          /* Not calibrated — instruction card */
+          <div style={{
+            background: 'rgba(245,158,11,.05)', border: '1px dashed rgba(245,158,11,.2)',
+            borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#F59E0B', marginBottom: '6px' }}>
+              How to calibrate:
+            </div>
+            {[
+              '① Click the Calibrate tool below',
+              '② Draw a line on a known dimension',
+              '③ Enter the real-world length',
+            ].map((step, i) => (
+              <div key={i} style={{ fontSize: '10px', color: '#64748b', marginBottom: '3px', lineHeight: 1.4 }}>
+                {step}
+              </div>
+            ))}
+          </div>
         )}
 
+        {/* Calibrate / Re-calibrate button */}
         <button
           onClick={() => setActiveTool('calibrate')}
           style={{
-            width: '100%', padding: '7px', borderRadius: '7px',
-            background: 'transparent', border: '1px solid',
-            color:       drawing?.isCalibrated ? '#22c55e' : '#64748b',
-            borderColor: drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(255,255,255,.1)',
-            fontSize: '12px', cursor: 'pointer', transition: 'all .15s',
+            width: '100%', padding: '8px', borderRadius: '7px',
+            background: drawing?.isCalibrated ? 'transparent' : 'rgba(245,158,11,.1)',
+            border: `1px solid ${drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.35)'}`,
+            color: drawing?.isCalibrated ? '#22c55e' : '#F59E0B',
+            fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#F59E0B'; e.currentTarget.style.color = '#fbbf24' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#F59E0B'; e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(245,158,11,.1)' }}
           onMouseLeave={e => {
-            e.currentTarget.style.borderColor = drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(255,255,255,.1)'
-            e.currentTarget.style.color       = drawing?.isCalibrated ? '#22c55e' : '#64748b'
+            e.currentTarget.style.borderColor = drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.35)'
+            e.currentTarget.style.color       = drawing?.isCalibrated ? '#22c55e' : '#F59E0B'
+            e.currentTarget.style.background  = drawing?.isCalibrated ? 'transparent' : 'rgba(245,158,11,.1)'
           }}
         >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>
+          </svg>
           {drawing?.isCalibrated ? 'Re-calibrate Scale' : 'Calibrate Scale'}
         </button>
-
-        {!drawing?.isCalibrated && (
-          <p style={{ fontSize: '10px', color: '#334155', marginTop: '7px', lineHeight: 1.6 }}>
-            Select <strong style={{ color: '#F59E0B' }}>Calibrate</strong> tool, draw a line of known length on the drawing
-          </p>
-        )}
       </div>
 
-      {/* ── Quick Scale Presets ── */}
+      {/* ── Advanced: Preset Scale (collapsed by default) ── */}
       {drawing && !drawing.isCalibrated && onQuickScale && (
-        <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
-          <SectionLabel>Quick Scale (approx.)</SectionLabel>
-          <p style={{ fontSize: '10px', color: '#334155', marginBottom: '8px', lineHeight: 1.5 }}>
-            For standard A-size PDFs — picks a scale without drawing a line.
-          </p>
-          <div style={{ display: 'flex', gap: '5px', marginBottom: '6px' }}>
-            <select
-              value={quickN}
-              onChange={e => setQuickN(e.target.value)}
-              style={{
-                flex: 1, padding: '6px 8px',
-                background: '#111827', border: '1px solid rgba(255,255,255,.1)',
-                borderRadius: '6px', fontSize: '11px', color: '#f1f5f9',
-                outline: 'none', cursor: 'pointer',
-              }}
-            >
-              <option value="">Select scale…</option>
-              {SCALE_PRESETS.map(p => (
-                <option key={p.n} value={p.n}>{p.label}</option>
-              ))}
-            </select>
-            <select
-              value={quickUnit}
-              onChange={e => setQuickUnit(e.target.value)}
-              style={{
-                padding: '6px 6px', background: '#111827',
-                border: '1px solid rgba(255,255,255,.1)',
-                borderRadius: '6px', fontSize: '11px', color: '#f1f5f9',
-                outline: 'none', cursor: 'pointer',
-              }}
-            >
-              {UNITS.map(u => <option key={u} value={u}>{getUnitLabel(u)}</option>)}
-            </select>
-          </div>
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,.07)' }}>
+          {/* Toggle header */}
           <button
-            disabled={!quickN}
-            onClick={() => {
-              if (!quickN) return
-              const scaleRatio = +quickN * (25.4 / 72)
-              onQuickScale(scaleRatio, quickUnit)
-            }}
+            onClick={() => setShowAdvanced(v => !v)}
             style={{
-              width: '100%', padding: '7px', borderRadius: '7px', border: 'none',
-              background: quickN ? 'linear-gradient(90deg,#d97706,#b45309)' : 'rgba(255,255,255,.04)',
-              color: quickN ? '#fff' : '#334155',
-              fontSize: '11px', fontWeight: 700,
-              cursor: quickN ? 'pointer' : 'not-allowed',
-              transition: 'all .15s',
+              width: '100%', padding: '10px 12px',
+              background: 'transparent', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', color: '#334155', fontSize: '10px',
+              fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em',
             }}
           >
-            Apply 1 : {quickN || '?'} Scale
+            <span>Advanced: Preset Scale</span>
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </button>
+
+          {showAdvanced && (
+            <div style={{ padding: '0 12px 12px' }}>
+              <p style={{ fontSize: '10px', color: '#334155', marginBottom: '8px', lineHeight: 1.5 }}>
+                Only use if you know the exact drawing scale (e.g. 1:100). For best accuracy, use the Calibrate tool above instead.
+              </p>
+              <div style={{ display: 'flex', gap: '5px', marginBottom: '6px' }}>
+                <select
+                  value={quickN}
+                  onChange={e => setQuickN(e.target.value)}
+                  style={{
+                    flex: 1, padding: '6px 8px',
+                    background: '#111827', border: '1px solid rgba(255,255,255,.1)',
+                    borderRadius: '6px', fontSize: '11px', color: '#f1f5f9',
+                    outline: 'none', cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Select scale…</option>
+                  {SCALE_PRESETS.map(p => (
+                    <option key={p.n} value={p.n}>{p.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={quickUnit}
+                  onChange={e => setQuickUnit(e.target.value)}
+                  style={{
+                    padding: '6px 6px', background: '#111827',
+                    border: '1px solid rgba(255,255,255,.1)',
+                    borderRadius: '6px', fontSize: '11px', color: '#f1f5f9',
+                    outline: 'none', cursor: 'pointer',
+                  }}
+                >
+                  {UNITS.map(u => <option key={u} value={u}>{getUnitLabel(u)}</option>)}
+                </select>
+              </div>
+              <button
+                disabled={!quickN}
+                onClick={() => {
+                  if (!quickN) return
+                  const scaleRatio = +quickN * (25.4 / 72)
+                  onQuickScale(scaleRatio, quickUnit)
+                }}
+                style={{
+                  width: '100%', padding: '7px', borderRadius: '7px', border: 'none',
+                  background: quickN ? 'linear-gradient(90deg,#d97706,#b45309)' : 'rgba(255,255,255,.04)',
+                  color: quickN ? '#fff' : '#334155',
+                  fontSize: '11px', fontWeight: 700,
+                  cursor: quickN ? 'pointer' : 'not-allowed',
+                  transition: 'all .15s',
+                }}
+              >
+                Apply 1 : {quickN || '?'} Scale
+              </button>
+            </div>
+          )}
         </div>
       )}
 

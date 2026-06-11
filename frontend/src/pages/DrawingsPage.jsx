@@ -25,11 +25,12 @@ export default function DrawingsPage() {
   const {
     selectedProject, setSelectedProject,
     drawings, setDrawings, selectedDrawing, setSelectedDrawing,
-    takeoffItems, addTakeoffItem, setTakeoffItems,
+    takeoffItems, addTakeoffItem, setTakeoffItems, updateTakeoffItem,
     setSummary, activeTool, setActiveTool,
     memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary,
     triggerPdfCommand,
     _hydrated,
+    measureColor, lineThickness, lineStyle, arrowStyle,
   } = useAppStore()
 
   const [lastMeasurement,  setLastMeasurement]  = useState(null)
@@ -50,6 +51,46 @@ export default function DrawingsPage() {
 
   const annotationMapRef = useRef({})
 
+  // Track style values at the moment an annotation is selected.
+  // Used to detect when the user actually changes a style prop (vs. selecting an annotation
+  // for the first time) so we only write to the DB on genuine style changes.
+  const annotStyleBaselineRef = useRef(null)
+
+  // ── DB update when style changes while an annotation is selected ─────────
+  // PdfViewer handles the visual update via editAnnotation.
+  // This effect persists the new color to the DB so the record stays in sync.
+  useEffect(() => {
+    if (!selectedAnnotId) {
+      annotStyleBaselineRef.current = null
+      return
+    }
+    const current = { color: measureColor, thickness: lineThickness, lineStyle, arrowStyle }
+
+    if (annotStyleBaselineRef.current === null) {
+      // First render after annotation selection — snapshot the baseline, no DB write
+      annotStyleBaselineRef.current = current
+      return
+    }
+
+    const prev = annotStyleBaselineRef.current
+    const styleChanged =
+      prev.color !== current.color ||
+      prev.thickness !== current.thickness ||
+      prev.lineStyle !== current.lineStyle ||
+      prev.arrowStyle !== current.arrowStyle
+
+    if (!styleChanged) return
+    annotStyleBaselineRef.current = current
+
+    const item = takeoffItems.find(t => t.id === selectedAnnotId)
+    if (!item) return
+
+    // Persist the new color; thickness/style are viewer-only and not stored in the DB schema
+    takeoffService.update({ ...item, color: measureColor })
+      .then(saved => updateTakeoffItem(saved))
+      .catch(() => {})  // visual update already succeeded — silent fail
+  }, [measureColor, lineThickness, lineStyle, arrowStyle, selectedAnnotId])  // eslint-disable-line react-hooks/exhaustive-deps
+
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
     if (!isMobile) { setSidebarOpen(false); setRightOpen(false) }
@@ -63,9 +104,9 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (!selectedDrawing || activeTool !== 'line') return
     if (selectedDrawing.isCalibrated) return
-    setActiveTool('calibrate')
-    toast('Calibrate the scale first — draw a line of known length, then enter its real dimension', {
-      icon: '📐', duration: 5000,
+    // Guide user without blocking — uncalibrated measurements save with pixel values
+    toast('Scale not set — lengths will appear in pixels. Use the Calibrate tool to set real-world scale.', {
+      icon: '📐', duration: 4500, id: 'calibrate-hint',
     })
   }, [activeTool, selectedDrawing?.isCalibrated, selectedDrawing?.id])
 
@@ -121,7 +162,7 @@ export default function DrawingsPage() {
 
   const autoSave = useCallback(async (measurement) => {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category } = useAppStore.getState()
-    if (!drw || autoSaving) return
+    if (!drw) return
     setAutoSaving(true)
 
     const unit       = drw.calibrationUnit ?? 'Mm'
@@ -148,6 +189,28 @@ export default function DrawingsPage() {
               ? `${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
               : `${Math.round(measurement.pixelLength)} px (not calibrated)`)
 
+    // Safe serialise — skips circular refs so Syncfusion internal objects never crash this
+    const safeJson = (obj) => {
+      if (!obj) return null
+      try {
+        const seen = new WeakSet()
+        return JSON.stringify(obj, (_, v) => {
+          if (typeof v === 'object' && v !== null) {
+            if (seen.has(v)) return undefined
+            seen.add(v)
+          }
+          return v
+        })
+      } catch { return null }
+    }
+
+    const pointsJson = measurement.rawAnnotation
+      ? safeJson(measurement.rawAnnotation)
+      : (measurement.points?.length ? safeJson(measurement.points) : null)
+
+    console.log('[BuildTakeoff] autoSave — mark:', nextMark, 'length:', measurement.length,
+      'pixelLength:', measurement.pixelLength, 'drawingId:', drw.id)
+
     try {
       const saved = await takeoffService.create({
         drawingId:   drw.id,
@@ -164,9 +227,7 @@ export default function DrawingsPage() {
         totalWeight: null,
         color:       color ?? '#EF233C',
         category:    category ?? 'General',
-        pointsJson:  measurement.rawAnnotation
-          ? JSON.stringify(measurement.rawAnnotation)
-          : (measurement.points?.length ? JSON.stringify(measurement.points) : null),
+        pointsJson,
       })
       addTakeoffItem(saved)
       if (measurement.annotationId) {
@@ -187,17 +248,20 @@ export default function DrawingsPage() {
       } else {
         toast(`${nextMark}: ${Math.round(measurement.pixelLength || measurement.pixelArea || 0)} px — calibrate for real measurement`, { duration: 3000, icon: '⚠️' })
       }
-    } catch {
+    } catch (err) {
+      console.error('[BuildTakeoff] autoSave failed:', err)
       toast.error('Could not save measurement — try again')
     } finally {
       setAutoSaving(false)
     }
-  }, [autoSaving, addTakeoffItem])
+  }, [addTakeoffItem])
 
   const handleMeasure = useCallback((measurement) => {
     setLastMeasurement(measurement)
     const { activeTool: currentTool } = useAppStore.getState()
-    if (currentTool === 'calibrate') { setShowCalModal(true); return }
+    // Show calibration modal when calibrate tool is active so user can set scale,
+    // but do NOT early-return — autoSave always runs so the line appears in the grid.
+    if (currentTool === 'calibrate') setShowCalModal(true)
     autoSave(measurement)
   }, [autoSave])
 
@@ -566,7 +630,12 @@ export default function DrawingsPage() {
               onMeasure={handleMeasure}
               annotations={takeoffItems.filter(t => t.pointsJson)}
               selectedAnnotationId={selectedAnnotId}
-              onAnnotationSelect={setSelectedAnnotId}
+              onAnnotationSelect={(annotUuid) => {
+                // Map Syncfusion annotation UUID → DB item ID so the grid row highlights correctly
+                const entries = Object.entries(annotationMapRef.current)
+                const found = entries.find(([, v]) => v.annotationId === annotUuid)
+                setSelectedAnnotId(found ? Number(found[0]) : null)
+              }}
               onAnnotationsBlob={async (blobBase64) => {
                 const { selectedDrawing: drw } = useAppStore.getState()
                 if (!drw) return

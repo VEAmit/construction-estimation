@@ -116,6 +116,7 @@ const COUNT_SUBTYPES = [
 
 const THICKNESSES = [1, 2, 3, 5, 8]
 const OPACITIES   = [0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+const FONT_SIZES  = [8, 10, 12, 14, 18, 24, 36, 48]
 
 const LINE_STYLES = [
   { id: 'solid',  label: '—',   title: 'Solid line' },
@@ -145,6 +146,7 @@ export default function Toolbar() {
     fillOpacity,     setFillOpacity,
     lineStyle,       setLineStyle,
     arrowStyle,      setArrowStyle,
+    fontSize,        setFontSize,
     countSession,
   } = useAppStore()
 
@@ -431,27 +433,53 @@ export default function Toolbar() {
                   }} title="Current color" />
                 </div>
 
-                <StyleSep />
+                {/* Font size — only for text tool */}
+                {activeTool === 'text' && (
+                  <>
+                    <StyleSep />
+                    <span style={{ fontSize: '10px', color: '#334155' }}>Size:</span>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      {FONT_SIZES.map(s => (
+                        <button key={s} onClick={() => setFontSize(s)} title={`${s}pt`}
+                          style={{
+                            height: '22px', minWidth: '28px', padding: '0 6px',
+                            borderRadius: '4px', fontSize: '11px', fontWeight: fontSize === s ? 800 : 500,
+                            border: `1px solid ${fontSize === s ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                            background: fontSize === s ? 'rgba(239,35,60,.15)' : 'transparent',
+                            color: fontSize === s ? '#EF233C' : '#475569',
+                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                          }}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
 
-                {/* Thickness */}
-                <span style={{ fontSize: '10px', color: '#334155' }}>Thickness:</span>
-                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                  {THICKNESSES.map(t => (
-                    <button key={t} onClick={() => setLineThickness(t)} title={`${t}px`}
-                      style={{
-                        height: '22px', padding: '0 7px',
-                        borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                        border: `1px solid ${lineThickness === t ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
-                        background: lineThickness === t ? 'rgba(239,35,60,.15)' : 'transparent',
-                        color: lineThickness === t ? '#EF233C' : '#475569',
-                        cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}>
-                      <div style={{ width: '14px', height: `${Math.min(t, 4)}px`, background: 'currentColor', borderRadius: '1px' }} />
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                {/* Thickness — hidden for text tool */}
+                {activeTool !== 'text' && (
+                  <>
+                    <StyleSep />
+                    <span style={{ fontSize: '10px', color: '#334155' }}>Thickness:</span>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      {THICKNESSES.map(t => (
+                        <button key={t} onClick={() => setLineThickness(t)} title={`${t}px`}
+                          style={{
+                            height: '22px', padding: '0 7px',
+                            borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                            border: `1px solid ${lineThickness === t ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                            background: lineThickness === t ? 'rgba(239,35,60,.15)' : 'transparent',
+                            color: lineThickness === t ? '#EF233C' : '#475569',
+                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                          }}>
+                          <div style={{ width: '14px', height: `${Math.min(t, 4)}px`, background: 'currentColor', borderRadius: '1px' }} />
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 {/* Line style — for linear tools */}
                 {(isLine || activeTool === 'area') && (
@@ -500,8 +528,8 @@ export default function Toolbar() {
                   </>
                 )}
 
-                {/* Fill opacity — for area/markup tools */}
-                {(activeTool === 'area' || isMarkup) && (
+                {/* Fill opacity — for area/markup tools, not text */}
+                {(activeTool === 'area' || isMarkup) && activeTool !== 'text' && (
                   <>
                     <StyleSep />
                     <span style={{ fontSize: '10px', color: '#334155' }}>Fill:</span>
@@ -551,12 +579,19 @@ export default function Toolbar() {
                 {activeTool === 'calibrate' && !compact && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '11px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                      </svg>
-                      Draw a line of known length → Save Calib → enter real dimension
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {[
+                        { step: '①', text: 'Click start point' },
+                        { step: '②', text: 'Click end point on a known dimension' },
+                        { step: '③', text: 'Save Calib → enter real length' },
+                      ].map((s, i) => (
+                        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontWeight: 800, color: '#F59E0B', fontSize: '12px' }}>{s.step}</span>
+                          {s.text}
+                          {i < 2 && <span style={{ color: '#1e293b', marginLeft: '2px' }}>›</span>}
+                        </span>
+                      ))}
+                    </div>
                   </>
                 )}
               </>
