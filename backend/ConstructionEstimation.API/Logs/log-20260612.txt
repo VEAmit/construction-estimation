@@ -1,0 +1,435 @@
+2026-06-12 08:51:03.525 +05:30 [INF] Database migrated successfully
+2026-06-12 08:51:04.373 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-06-12 08:51:04.864 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-06-12 08:52:43.895 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 401 in 2504.8446 ms
+2026-06-12 08:52:44.165 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 401 in 67.8858 ms
+2026-06-12 08:53:38.192 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 3306.7147 ms
+2026-06-12 08:53:50.688 +05:30 [INF] HTTP GET /api/projects responded 200 in 12230.7549 ms
+2026-06-12 08:53:50.905 +05:30 [INF] HTTP GET /api/projects responded 200 in 212.7971 ms
+2026-06-12 08:53:57.878 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 437.4290 ms
+2026-06-12 08:53:57.906 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 22.7873 ms
+2026-06-12 08:53:58.146 +05:30 [INF] HTTP GET /api/drawings/11/file responded 304 in 200.2626 ms
+2026-06-12 08:53:58.313 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 316.4264 ms
+2026-06-12 08:53:58.331 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 350.9837 ms
+2026-06-12 08:53:58.368 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 370.0153 ms
+2026-06-12 08:53:58.372 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 340.9796 ms
+2026-06-12 08:55:06.652 +05:30 [INF] HTTP GET /api/projects responded 200 in 10.2080 ms
+2026-06-12 08:55:06.943 +05:30 [INF] HTTP GET /api/projects responded 200 in 286.7129 ms
+2026-06-12 08:55:26.090 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 15.5036 ms
+2026-06-12 08:55:26.099 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 4.0452 ms
+2026-06-12 08:55:26.156 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 4.6176 ms
+2026-06-12 08:55:26.158 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 5.6848 ms
+2026-06-12 08:55:26.214 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 61.4727 ms
+2026-06-12 08:55:26.332 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 187.3347 ms
+2026-06-12 08:56:13.975 +05:30 [INF] HTTP GET /api/projects responded 200 in 10.5918 ms
+2026-06-12 08:56:13.982 +05:30 [INF] HTTP GET /api/projects responded 200 in 3.2688 ms
+2026-06-12 08:56:16.157 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 27.7165 ms
+2026-06-12 08:56:16.165 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 3.0212 ms
+2026-06-12 08:56:16.216 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 8.1213 ms
+2026-06-12 08:56:16.267 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 55.2210 ms
+2026-06-12 08:56:16.267 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 55.5840 ms
+2026-06-12 08:56:16.330 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 120.9459 ms
+2026-06-12 08:59:14.411 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 11.0750 ms
+2026-06-12 08:59:14.417 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 2.4185 ms
+2026-06-12 08:59:16.235 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 4.8201 ms
+2026-06-12 08:59:16.235 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 7.8557 ms
+2026-06-12 08:59:16.236 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 5.7483 ms
+2026-06-12 08:59:16.237 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 7.9418 ms
+2026-06-12 08:59:26.307 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 401 in 0.7596 ms
+2026-06-12 08:59:26.550 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 401 in 0.5712 ms
+2026-06-12 09:00:07.327 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 11.8938 ms
+2026-06-12 09:00:07.337 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 3.0528 ms
+2026-06-12 09:00:07.802 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 18.4986 ms
+2026-06-12 09:00:07.808 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 27.0690 ms
+2026-06-12 09:00:07.808 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 24.9854 ms
+2026-06-12 09:00:07.815 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 33.2469 ms
+2026-06-12 09:04:41.964 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 2133.4262 ms
+2026-06-12 09:04:41.972 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 3.1208 ms
+2026-06-12 09:04:42.072 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 15.9713 ms
+2026-06-12 09:04:42.075 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 20.5205 ms
+2026-06-12 09:04:42.395 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 304.7420 ms
+2026-06-12 09:04:42.423 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 364.8496 ms
+2026-06-12 09:04:47.847 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 9.9176 ms
+2026-06-12 09:04:47.852 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 2.0874 ms
+2026-06-12 09:04:47.919 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 5.1816 ms
+2026-06-12 09:04:47.920 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 4.5973 ms
+2026-06-12 09:04:47.926 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 10.9269 ms
+2026-06-12 09:04:47.927 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 9.2286 ms
+2026-06-12 09:06:32.668 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 9.7479 ms
+2026-06-12 09:06:32.673 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 2.1630 ms
+2026-06-12 09:06:32.758 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 4.2741 ms
+2026-06-12 09:06:32.767 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 1.9280 ms
+2026-06-12 09:06:32.779 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 3.8126 ms
+2026-06-12 09:06:32.790 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 1.7999 ms
+2026-06-12 09:09:46.543 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 45.7089 ms
+2026-06-12 09:09:46.576 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 28.5470 ms
+2026-06-12 09:09:46.651 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 26.9184 ms
+2026-06-12 09:09:46.832 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 3.0244 ms
+2026-06-12 09:09:46.832 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 3.0565 ms
+2026-06-12 09:09:46.833 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 206.8330 ms
+2026-06-12 09:16:19.653 +05:30 [INF] Database migrated successfully
+2026-06-12 09:16:23.377 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-06-12 09:16:24.287 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-06-12 09:17:29.348 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 5341.2851 ms
+2026-06-12 09:17:29.572 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 212.3419 ms
+2026-06-12 09:17:29.854 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 138.1740 ms
+2026-06-12 09:17:29.931 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 214.9688 ms
+2026-06-12 09:17:30.027 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 280.0736 ms
+2026-06-12 09:17:30.039 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 292.0247 ms
+2026-06-12 09:17:57.313 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/11 responded 200 in 3095.7278 ms
+2026-06-12 09:18:02.484 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 5.9589 ms
+2026-06-12 09:18:19.887 +05:30 [INF] HTTP DELETE /api/takeoffitems/8 responded 200 in 772.6926 ms
+2026-06-12 09:18:20.496 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 4.9692 ms
+2026-06-12 09:19:46.757 +05:30 [INF] HTTP DELETE /api/takeoffitems/9 responded 200 in 366.9538 ms
+2026-06-12 09:19:46.990 +05:30 [INF] HTTP DELETE /api/takeoffitems/7 responded 200 in 601.2840 ms
+2026-06-12 09:19:46.990 +05:30 [INF] HTTP DELETE /api/takeoffitems/9 responded 200 in 628.0237 ms
+2026-06-12 09:19:47.505 +05:30 [INF] HTTP DELETE /api/takeoffitems/6 responded 200 in 1116.5075 ms
+2026-06-12 09:19:48.450 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 5.7421 ms
+2026-06-12 09:19:48.640 +05:30 [INF] HTTP DELETE /api/takeoffitems/6 responded 200 in 2251.3034 ms
+2026-06-12 09:19:48.792 +05:30 [INF] HTTP DELETE /api/takeoffitems/9 responded 404 in 2403.6482 ms
+2026-06-12 09:19:48.823 +05:30 [INF] HTTP DELETE /api/takeoffitems/6 responded 404 in 379.2824 ms
+2026-06-12 09:20:53.033 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 645.4694 ms
+2026-06-12 09:20:53.294 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 252.0003 ms
+2026-06-12 09:20:53.399 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 14.4241 ms
+2026-06-12 09:20:53.402 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 16.1856 ms
+2026-06-12 09:20:53.633 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 240.0753 ms
+2026-06-12 09:20:53.658 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 261.1625 ms
+2026-06-12 09:21:39.148 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/11 responded 200 in 5480.8590 ms
+2026-06-12 09:21:46.286 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 7.3393 ms
+2026-06-12 09:22:10.407 +05:30 [INF] HTTP DELETE /api/takeoffitems/10 responded 200 in 7.1737 ms
+2026-06-12 09:22:10.457 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 6.0323 ms
+2026-06-12 09:28:49.061 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 2929.7246 ms
+2026-06-12 09:28:49.069 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 3.6311 ms
+2026-06-12 09:28:49.134 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 18.6415 ms
+2026-06-12 09:28:49.231 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 106.7126 ms
+2026-06-12 09:28:49.335 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 201.4259 ms
+2026-06-12 09:28:49.351 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 223.3718 ms
+2026-06-12 09:32:44.397 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/11 responded 200 in 35.3651 ms
+2026-06-12 09:32:44.473 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 17.4257 ms
+2026-06-12 09:32:56.073 +05:30 [INF] HTTP PUT /api/takeoffitems/11 responded 200 in 134.0927 ms
+2026-06-12 09:33:00.858 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/11 responded 200 in 5.5469 ms
+2026-06-12 09:33:00.899 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 4.1000 ms
+2026-06-12 12:53:58.589 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/10/summary responded 200 in 2863.1465 ms
+2026-06-12 12:53:58.619 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/10 responded 200 in 2894.4747 ms
+2026-06-12 12:53:58.619 +05:30 [INF] HTTP GET /api/memberschedules/drawing/10 responded 200 in 2908.2022 ms
+2026-06-12 12:53:58.638 +05:30 [INF] HTTP GET /api/memberschedules/drawing/10/summary responded 200 in 2463.5324 ms
+2026-06-12 12:54:04.012 +05:30 [INF] HTTP GET /api/drawings/10/file responded 200 in 8133.8932 ms
+2026-06-12 13:08:23.140 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-06-12 13:08:23.140 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-06-12 13:09:09.920 +05:30 [ERR] An exception occurred in the database while saving changes for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:09:09.920 +05:30 [ERR] An exception occurred in the database while saving changes for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:09:11.720 +05:30 [ERR] HTTP POST /api/takeoffitems/drawing/10 responded 500 in 121501.6142 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.BaseRepository`1.AddAsync(T entity) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\BaseRepository.cs:line 28
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.Create(Int32 drawingId, CreateTakeoffItemRequest request) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 72
+   at lambda_method270(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:09:11.720 +05:30 [ERR] HTTP POST /api/takeoffitems/drawing/10 responded 500 in 121501.6842 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.BaseRepository`1.AddAsync(T entity) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\BaseRepository.cs:line 28
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.Create(Int32 drawingId, CreateTakeoffItemRequest request) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 72
+   at lambda_method270(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:09:22.396 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.BaseRepository`1.AddAsync(T entity) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\BaseRepository.cs:line 28
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.Create(Int32 drawingId, CreateTakeoffItemRequest request) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 72
+   at lambda_method270(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:09:22.397 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=2448; handshake=791; [Login] initialization=126; authentication=808; [Post-Login] complete=19067; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.BaseRepository`1.AddAsync(T entity) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\BaseRepository.cs:line 28
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.Create(Int32 drawingId, CreateTakeoffItemRequest request) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 72
+   at lambda_method270(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:8085c947-8696-4d36-b3cb-ef7ee0e8d52a
+Error Number:-2,State:0,Class:11
+2026-06-12 13:17:12.875 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/10 responded 200 in 5311.4242 ms
+2026-06-12 13:17:12.875 +05:30 [INF] HTTP GET /api/memberschedules/drawing/10 responded 200 in 5311.3404 ms
+2026-06-12 13:17:12.890 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/10/summary responded 200 in 5283.3113 ms
+2026-06-12 13:17:12.911 +05:30 [INF] HTTP GET /api/memberschedules/drawing/10/summary responded 200 in 4706.6460 ms
+2026-06-12 13:17:14.231 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 6583.9593 ms
+2026-06-12 13:17:14.785 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 539.1016 ms
+2026-06-12 13:17:14.852 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 61.1315 ms
+2026-06-12 13:17:15.044 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 2.7887 ms
+2026-06-12 13:17:15.073 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 31.4076 ms
+2026-06-12 13:17:15.083 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 41.8687 ms
+2026-06-12 13:17:15.088 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 48.9774 ms
+2026-06-12 13:17:19.479 +05:30 [INF] HTTP GET /api/drawings/11/file responded 304 in 3930.2425 ms
+2026-06-12 13:18:14.158 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 96.0140 ms
+2026-06-12 13:18:14.162 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 71.9049 ms
+2026-06-12 13:18:14.162 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 4.7674 ms
+2026-06-12 13:18:14.163 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 6.0257 ms
+2026-06-12 13:18:14.165 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 97.0919 ms
+2026-06-12 13:18:19.310 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 3625.8453 ms
+2026-06-12 13:18:19.311 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 3626.3851 ms
+2026-06-12 13:18:19.313 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 3628.7539 ms
+2026-06-12 13:18:19.313 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 3626.1746 ms
+2026-06-12 13:18:19.321 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 3598.5809 ms
+2026-06-12 13:18:20.823 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 9.4217 ms
+2026-06-12 13:18:40.827 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 69.9812 ms
+2026-06-12 13:18:40.852 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 20.6187 ms
+2026-06-12 13:18:40.889 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 9.1980 ms
+2026-06-12 13:18:40.892 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 10.3449 ms
+2026-06-12 13:18:40.894 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 13.2845 ms
+2026-06-12 13:18:40.998 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 116.1499 ms

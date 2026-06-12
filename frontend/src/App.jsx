@@ -1,10 +1,12 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAppStore } from './store/useAppStore'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import DrawingsPage from './pages/DrawingsPage'
+
+const DrawingsPage = lazy(() => import('./pages/DrawingsPage'))
 
 // Redirect logged-in users away from /login (avoids the blurred login flash on back-navigation)
 function PublicRoute({ children }) {
@@ -55,7 +57,11 @@ export default function App() {
         }>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="drawings" element={<DrawingsPage />} />
+          <Route path="drawings" element={
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-400 text-sm">Loading drawings…</div>}>
+              <DrawingsPage />
+            </Suspense>
+          } />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

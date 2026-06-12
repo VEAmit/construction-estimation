@@ -19,11 +19,8 @@
 .e-pdfviewer { border: none !important; }
 
 /* ─── Syncfusion measurement annotation label text ───────────
-   Syncfusion v33.2.x renders Distance/Area/Perimeter labels via
-   the ej2-drawings Canvas renderer (ctx.fillText), so CSS font-size
-   alone has no effect on measurement labels — those are controlled
-   by editAnnotation({ fontSize:48, labelSettings:{fontSize:48} }).
-   These selectors are kept as a fallback for any SVG text paths.   */
+   Primary control is PdfViewer.jsx (shapeLabelSettings + labelSettings).
+   These selectors are a fallback for any SVG text paths.   */
 #sfPdfViewer text,
 [id^="sfPdfViewer"] text,
 [id*="annotationCanvas"] text,
@@ -31,7 +28,7 @@
 .e-pdfviewer-annotation-layer text,
 .e-pv-annotation-canvas text,
 .e-pdfviewer-measure-annotations text {
-  font-size: 32px !important;
+  font-size: 24px !important;
   font-weight: 700 !important;
   font-family: 'Arial', sans-serif !important;
   paint-order: stroke fill !important;

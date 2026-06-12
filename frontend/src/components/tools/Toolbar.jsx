@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useBreakpoint } from '../../utils/useBreakpoint'
 import { CATEGORY_COLORS } from '../../utils/calculations'
+import { MEASURE_LABEL_PRESETS } from '../../utils/measureLabel'
 
 // ── Measure tools ────────────────────────────────────────────────────────
 const MEASURE_TOOLS = [
@@ -147,6 +148,7 @@ export default function Toolbar() {
     lineStyle,       setLineStyle,
     arrowStyle,      setArrowStyle,
     fontSize,        setFontSize,
+    measureLabelFontSize, setMeasureLabelFontSize,
     countSession,
   } = useAppStore()
 
@@ -274,7 +276,7 @@ export default function Toolbar() {
             </button>
           ) : null}
 
-          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Clear unsaved drawings"
+          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Clear last unsaved markup from PDF"
             style={{ ...zBtn, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"/>
@@ -453,6 +455,32 @@ export default function Toolbar() {
                         </button>
                       ))}
                     </div>
+                  </>
+                )}
+
+                {/* Label size — Bluebeam-style presets for measurement tools */}
+                {isMeasure && !isCount && (
+                  <>
+                    <StyleSep />
+                    <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      {MEASURE_LABEL_PRESETS.map(p => (
+                        <button key={p.value} onClick={() => setMeasureLabelFontSize(p.value)} title={p.title}
+                          style={{
+                            height: '22px', minWidth: '30px', padding: '0 7px',
+                            borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
+                            border: `1px solid ${measureLabelFontSize === p.value ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                            background: measureLabelFontSize === p.value ? 'rgba(239,35,60,.15)' : 'transparent',
+                            color: measureLabelFontSize === p.value ? '#EF233C' : '#475569',
+                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                          }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '9px', color: '#334155', flexShrink: 0 }}>
+                      {measureLabelFontSize}pt
+                    </span>
                   </>
                 )}
 

@@ -15,6 +15,7 @@ import {
 } from '@syncfusion/ej2-react-pdfviewer'
 import { useAppStore } from '../../store/useAppStore'
 import { pixelsToReal, polygonArea, polylineLength, ptDist, pixelsAreaToReal, computePixelPerimeter } from '../../utils/calculations'
+import { buildMeasureLabelPatch, toSyncfusionLabelSize } from '../../utils/measureLabel'
 import toast from 'react-hot-toast'
 
 // Syncfusion pdfium WASM files live in /public/ej2-pdfviewer-lib (copied by the Vite plugin).
@@ -33,6 +34,37 @@ function toSfUnit(unit) {
 function fromSfUnit(sfUnit) {
   const map = { Millimeter: 'Mm', Centimeter: 'Cm', Meter: 'Meter', Foot: 'Feet', Inch: 'Inch' }
   return map[sfUnit] ?? 'Mm'
+}
+
+function isMeasureAnnotation(annot) {
+  if (!annot) return false
+  const shape = String(annot.shapeAnnotationType ?? annot.ShapeAnnotationType ?? '').toLowerCase()
+  const it = String(annot.IT ?? annot.it ?? '')
+  return ['distance', 'area', 'perimeter'].includes(shape)
+    || ['LineDimension', 'PolyLineDimension', 'Area', 'Perimeter'].includes(it)
+}
+
+function applyGlobalMeasureLabelSettings(vm, userPt, pdfScale, fontColor = '#111827') {
+  const patch = buildMeasureLabelPatch(userPt, pdfScale, fontColor)
+  const sfSize = toSyncfusionLabelSize(userPt, pdfScale)
+  try {
+    vm.enableShapeLabel = true
+    vm.shapeLabelSettings = {
+      opacity: 1,
+      fillColor: 'rgba(255,255,255,0.88)',
+      borderColor: 'rgba(0,0,0,0.18)',
+      fontColor,
+      fontSize: sfSize,
+      fontFamily: 'Arial',
+    }
+  } catch (_) {}
+  ;['Distance', 'Area', 'Perimeter'].forEach(type => {
+    try { vm.annotation.updateMeasurementSettings(type, patch) } catch (_) {}
+  })
+}
+
+function patchMeasureAnnotationLabel(annot, userPt, pdfScale, fontColor = '#111827') {
+  return { ...annot, ...buildMeasureLabelPatch(userPt, pdfScale, fontColor) }
 }
 
 function Step({ n, text }) {
@@ -55,6 +87,8 @@ export default function PdfViewer({
   annotations = [],
   selectedAnnotationId,
   onAnnotationSelect,
+  getProtectedAnnotIds,       // () => Set of DB-persisted annotation IDs (safe from Clear)
+  onClearSessionMeasurements, // (clearedAnnotIds: string[]) => remove matching grid rows
 }) {
   const viewerRef   = useRef(null)
   const containerRef = useRef(null)
@@ -71,10 +105,10 @@ export default function PdfViewer({
     dragging:  false,
     prevX:     0,
     prevY:     0,
-    startX:    0,   // initial mousedown position — used for drag threshold
+    startX:    0,
     startY:    0,
     hasMoved:  false,
-    scrollEl:  null, // the actual scrollable DOM element, cached on mousedown
+    scrollEls: null,
   })
 
   // Track the full annotation object from the last annotationSelect event.
@@ -88,6 +122,7 @@ export default function PdfViewer({
     pdfCommand, clearPdfCommand,
     measureColor, lineThickness, fillOpacity,
     lineStyle, arrowStyle, fontSize,
+    measureLabelFontSize,
     setCountSession,
   } = useAppStore()
 
@@ -115,11 +150,130 @@ export default function PdfViewer({
 
   // Track which annotation IDs we've already sent to onMeasure (session-only)
   const processedAnnotsRef = useRef(new Set())
+  const lastDrawnAnnotRef = useRef(null)
+  const measureCompleteTimersRef = useRef(new Map())
 
   // Used to suppress re-saving when we re-import stored annotations from DB
   const importingAnnotsRef  = useRef(false)
   // Track which drawing ID we've already imported for (import once per drawing load)
   const importedDrawingRef  = useRef(null)
+
+  // Reset dedup set when drawing changes
+  useEffect(() => {
+    processedAnnotsRef.current = new Set()
+    importedDrawingRef.current = null
+    measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
+    measureCompleteTimersRef.current.clear()
+  }, [drawing?.id])
+
+  // Pre-seed saved annotation IDs from DB (prevents duplicate rows on reload)
+  useEffect(() => {
+    if (!drawing?.id) return
+    annotations.forEach(item => {
+      if (!item.pointsJson) return
+      try {
+        const raw = JSON.parse(item.pointsJson)
+        const id = raw.annotationId ?? raw.AnnotName ?? raw.uniqueKey ?? raw.name
+        if (id) processedAnnotsRef.current.add(id)
+      } catch (_) {}
+    })
+  }, [drawing?.id, annotations])
+
+  const extractMeasurementValue = (a) => {
+    const direct = a.measurementValue ?? a.MeasurementValue
+    if (direct != null && Number(direct) > 0) return Number(direct)
+
+    const cal = a.Calibrate ?? a.calibrate
+    if (cal) {
+      const dist = cal.Distance ?? cal.distance
+      if (Array.isArray(dist) && dist.length > 0 && Number(dist[0]) > 0) return Number(dist[0])
+      if (typeof dist === 'number' && dist > 0) return dist
+    }
+
+    const label = a.Note ?? a.note ?? a.labelContent ?? a.LabelContent ?? a.label ?? a.text
+    if (label) {
+      const m = String(label).match(/([\d.]+)/)
+      if (m) return parseFloat(m[1])
+    }
+    return null
+  }
+
+  const buildPlainAnnot = (a) => {
+    const pts = (a.vertexPoints ?? a.VertexPoints ?? [])
+      .map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
+    const annotId = a.annotationId ?? a.AnnotName ?? a.name ?? a.id
+    const bounds = a.Bounds ?? a.bounds
+    let start = a.start
+    let end = a.end
+    if (!start && !end && bounds && pts.length < 2) {
+      const bx = bounds.X ?? bounds.x ?? 0
+      const by = bounds.Y ?? bounds.y ?? 0
+      const bw = bounds.Width ?? bounds.width ?? 0
+      const bh = bounds.Height ?? bounds.height ?? 0
+      start = `${bx},${by}`
+      end = `${bx + bw},${by + bh}`
+    }
+    return {
+      annotationId:        annotId,
+      name:                annotId,
+      type:                a.type ?? 'Line',
+      IT:                  a.IT ?? a.it ?? 'LineDimension',
+      shapeAnnotationType: a.shapeAnnotationType ?? a.ShapeAnnotationType ?? 'Distance',
+      pageNumber:          a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0', 10) + 1),
+      page:                String(a.page != null ? parseInt(a.page, 10) : ((a.pageNumber ?? a.PageNumber ?? 1) - 1)),
+      strokeColor:         a.strokeColor ?? a.StrokeColor ?? '#EF233C',
+      fillColor:           a.fillColor ?? a.FillColor ?? 'rgba(239,35,60,0.15)',
+      thickness:           a.thickness ?? a.Thickness ?? 2,
+      opacity:             a.opacity ?? a.Opacity ?? 1,
+      measurementValue:    extractMeasurementValue(a),
+      vertexPoints:        pts,
+      ...(pts.length >= 2 ? {
+        start: `${pts[0].x},${pts[0].y}`,
+        end:   `${pts[pts.length - 1].x},${pts[pts.length - 1].y}`,
+      } : {}),
+      ...(start && end ? { start, end } : {}),
+    }
+  }
+
+  const exportAndProcessUnsaved = useCallback((vm) => {
+    if (!vm?.exportAnnotationsAsObject) return
+    try {
+      const result = vm.exportAnnotationsAsObject()
+      const processExport = (raw) => {
+        if (!raw) return
+        let data = raw
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data) } catch (_) { return }
+        }
+        const flat = []
+        const push = (item) => {
+          let a = item
+          if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { return } }
+          if (a && typeof a === 'object' && !Array.isArray(a)) flat.push(a)
+        }
+        if (Array.isArray(data)) {
+          data.forEach(push)
+        } else {
+          const pages = data?.pdfAnnotation ?? {}
+          Object.values(pages).forEach(pageData => {
+            ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
+              let list = pageData?.[key] ?? []
+              if (typeof list === 'string') { try { list = JSON.parse(list) } catch (_) { list = [] } }
+              if (Array.isArray(list)) list.forEach(push)
+            })
+          })
+        }
+        flat.forEach(a => processMeasureRef.current?.(buildPlainAnnot(a)))
+      }
+      if (result && typeof result.then === 'function') {
+        result.then(processExport).catch(() => {})
+      } else if (result) {
+        processExport(result)
+      }
+    } catch (_) {}
+  }, [])
+
+  const processMeasureRef = useRef(null)
 
   // ── Shared helper: extract measurement + call onMeasure ──────────────────
   const processMeasureAnnotation = useCallback((anno) => {
@@ -172,7 +326,7 @@ export default function PdfViewer({
         const p1 = parseCoord(a.start)
         const p2 = parseCoord(a.end)
         const pdfDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
-        if (pdfDist >= 1) {
+        if (pdfDist >= 0.1) {
           pixelLength = pdfDist
           if (d?.isCalibrated && d?.scaleRatio) {
             length = pixelsToReal(pdfDist, d.scaleRatio, d.calibrationUnit)
@@ -180,37 +334,51 @@ export default function PdfViewer({
         }
       }
 
-      // Strategy 2: Syncfusion's pre-computed measurementValue
+      // Strategy 2: Syncfusion's pre-computed measurementValue (incl. Calibrate.Distance, label text)
       if (length == null) {
-        const sfVal = a.measurementValue ?? a.MeasurementValue
-        if (sfVal != null && Number(sfVal) > 0) length = Number(sfVal)
+        const sfVal = extractMeasurementValue(a)
+        if (sfVal != null && sfVal > 0) length = sfVal
       }
 
       // Strategy 3: vertex points distance
       if (length == null && pts.length >= 2) {
         const p0 = pts[0], pn = pts[pts.length - 1]
         const px = Math.sqrt((pn.x - p0.x) ** 2 + (pn.y - p0.y) ** 2)
-        if (px >= 1) {
+        if (px >= 0.1) {
           pixelLength = px
           if (d?.isCalibrated && d?.scaleRatio) length = pixelsToReal(px, d.scaleRatio, d.calibrationUnit)
         }
       }
     }
 
-    // Guard: need measurable pixel value
-    if (pixelLength < 1 && pixelArea < 1) return
-    // Guard: calibrated but no real value computed
-    if (d?.isCalibrated && isAreaAnnotation && (!area || area <= 0)) return
-    if (d?.isCalibrated && !isAreaAnnotation && (!length || length <= 0)) return
+    // Final pass: derive real length/area from pixels when calibrated
+    if ((length == null || length <= 0) && pixelLength >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
+      length = pixelsToReal(pixelLength, d.scaleRatio, d.calibrationUnit)
+    }
+    if ((area == null || area <= 0) && pixelArea >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
+      area = pixelsAreaToReal(pixelArea, d.scaleRatio, d.calibrationUnit)
+    }
 
-    if (annotationId) processedAnnotsRef.current.add(annotationId)
+    // Guard: need at least one measurable value (pixel or real)
+    const hasLineValue = pixelLength >= 0.1 || (length != null && length > 0)
+    const hasAreaValue = pixelArea >= 0.1 || (area != null && area > 0)
+    if (isAreaAnnotation) {
+      if (!hasAreaValue) return
+    } else if (!hasLineValue) {
+      return
+    }
+
+    if (annotationId) {
+      processedAnnotsRef.current.add(annotationId)
+      lastDrawnAnnotRef.current = annotationId
+    }
 
     onMeasureRef.current?.({
       length,
       area,
       pixelLength,
       pixelArea,
-      unit:        d?.calibrationUnit ?? 'Mm',
+      unit:        useAppStore.getState().activeUnit ?? d?.calibrationUnit ?? 'Mm',
       points:      [],
       annotationId,
       pageNumber:  a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1),
@@ -218,6 +386,44 @@ export default function PdfViewer({
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { processMeasureRef.current = processMeasureAnnotation }, [processMeasureAnnotation])
+
+  // Exit draw mode before export — Syncfusion only commits finished annotations in None mode
+  // (same pattern as the manual Save button / captureAnnotations).
+  const flushMeasurementExport = useCallback((vm) => {
+    if (!vm) return
+    const { activeTool: tool } = useAppStore.getState()
+    const restoreMap = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
+    const restoreMode = restoreMap[tool]
+    try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+    setTimeout(() => {
+      exportAndProcessUnsaved(vm)
+      if (restoreMode) {
+        setTimeout(() => {
+          try { vm.annotation.setAnnotationMode(restoreMode) } catch (_) {}
+        }, 80)
+      }
+    }, 200)
+  }, [exportAndProcessUnsaved])
+
+  const scheduleMeasurementComplete = useCallback((plainAnnot) => {
+    if (!plainAnnot) return
+    const id = plainAnnot.annotationId ?? plainAnnot.name ?? `tmp-${Date.now()}`
+    const prev = measureCompleteTimersRef.current.get(id)
+    if (prev) clearTimeout(prev)
+
+    const runSave = () => {
+      processMeasureRef.current?.(plainAnnot)
+      flushMeasurementExport(viewerRef.current)
+      measureCompleteTimersRef.current.delete(id)
+    }
+
+    // Try immediately, then after Syncfusion finalises, then export flush
+    processMeasureRef.current?.(plainAnnot)
+    measureCompleteTimersRef.current.set(id, setTimeout(runSave, 500))
+    setTimeout(() => flushMeasurementExport(viewerRef.current), 900)
+  }, [flushMeasurementExport])
 
   // ── ResizeObserver: give Syncfusion explicit pixel dimensions ──────────
   useEffect(() => {
@@ -292,7 +498,7 @@ export default function PdfViewer({
         } catch (err) {
           console.error('[BuildTakeoff] AnnotationData import failed:', err)
         }
-        setTimeout(() => { importingAnnotsRef.current = false }, 2000)
+        setTimeout(() => { importingAnnotsRef.current = false }, 150)
       }, 600)
 
       return () => clearTimeout(timer)
@@ -341,6 +547,9 @@ export default function PdfViewer({
           FillColor:           raw.FillColor ?? raw.fillColor ?? 'rgba(59,130,246,0.12)',
           Opacity:             raw.Opacity ?? raw.opacity ?? 1,
           Thickness:           raw.Thickness ?? raw.thickness ?? 1,
+          FontSize:            raw.FontSize ?? raw.fontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
+          fontSize:            raw.fontSize ?? raw.FontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
+          labelSettings:       raw.labelSettings ?? raw.LabelSettings ?? buildMeasureLabelPatch(measureLabelFontSize, pdfScale, raw.strokeColor ?? '#111827').labelSettings,
           Calibrate:           raw.Calibrate ?? raw.calibrate ?? {
             Ratio: '1 mm = 1 px', X: [], Distance: [], Area: [], Angle: [], Volume: [], TargetUnitConversion: 1,
           },
@@ -397,11 +606,26 @@ export default function PdfViewer({
       } catch (err) {
         console.error('[BuildTakeoff] pointsJson import failed:', err)
       }
-      setTimeout(() => { importingAnnotsRef.current = false }, 2000)
+      setTimeout(() => { importingAnnotsRef.current = false }, 150)
     }, 600)
 
     return () => clearTimeout(timer)
   }, [docLoaded, drawing?.id, drawing?.annotationData, annotations])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
+  useEffect(() => {
+    const MEASURE_TOOLS = ['line', 'area', 'perimeter', 'calibrate']
+    if (!MEASURE_TOOLS.includes(activeTool)) return
+    const el = containerRef.current
+    if (!el) return
+
+    const onMouseUp = () => {
+      if (importingAnnotsRef.current) return
+      setTimeout(() => flushMeasurementExport(viewerRef.current), 700)
+    }
+    el.addEventListener('mouseup', onMouseUp, true)
+    return () => el.removeEventListener('mouseup', onMouseUp, true)
+  }, [activeTool, flushMeasurementExport])
 
   // ── Ctrl+scroll wheel zoom ─────────────────────────────────────────────
   useEffect(() => {
@@ -417,141 +641,115 @@ export default function PdfViewer({
     return () => el.removeEventListener('wheel', onWheel)
   }, [setPdfScale])
 
-  // ── Custom pan/drag — smooth Bluebeam-style click-and-drag scrolling ──────
-  //
-  // Scroll element discovery:
-  //   Use window.getComputedStyle to find the first div inside #sfPdfViewer
-  //   whose CSS overflow is auto/scroll.  This is version-agnostic and works
-  //   regardless of the ID, class, or internal structure Syncfusion generates.
-  //
-  // Two scroll strategies (exclusive — no double-scroll):
-  //   1. scrollTop += / scrollLeft +=  (synchronous, proportional to mouse delta)
-  //   2. Synthetic WheelEvent  (fallback — only dispatched when Strategy 1 produces
-  //      zero scroll movement, e.g. virtual-scroll implementations)
-  //
-  // Drag threshold (5 px):
-  //   Prevents a plain click from triggering any scroll (eliminates the "image
-  //   jumping up and down on click" caused by 1-2 px of natural mouse jitter).
+  // ── Pan drag fallback — Syncfusion native Pan is primary; this handles edge cases ──
   useEffect(() => {
     const outer = containerRef.current
-    if (!outer) return
-
-    if (activeTool !== 'pan') {
-      outer.style.removeProperty('cursor')
+    if (!outer || activeTool !== 'pan') {
+      outer?.classList.remove('bt-pan-active')
+      outer?.style.removeProperty('cursor')
       return
     }
 
     const state = panStateRef.current
+    outer.classList.add('bt-pan-active')
+    outer.style.cursor = 'grab'
 
-    // Find Syncfusion's scroll container via computed overflow — works across all
-    // Syncfusion versions regardless of internal ID / class naming conventions.
-    const findScrollEl = () => {
-      // Priority 1: Syncfusion exposes its scroll element as viewerBase.viewerContainer
+    const findScrollEls = () => {
+      const els = []
       const vm = viewerRef.current
-      const vbEl = vm?.viewerBase?.viewerContainer
-      if (vbEl) return vbEl
+      const primary = vm?.viewerBase?.viewerContainer
+        ?? document.getElementById('sfPdfViewer_viewerContainer')
+      if (primary) els.push(primary)
 
-      // Priority 2: walk divs inside the Syncfusion root, pick first with overflow scroll/auto
       const viewer = document.getElementById('sfPdfViewer')
       if (viewer) {
         for (const el of viewer.querySelectorAll('div')) {
+          if (els.includes(el)) continue
           const cs = window.getComputedStyle(el)
-          if (cs.overflowY === 'auto' || cs.overflowY === 'scroll' ||
-              cs.overflow  === 'auto' || cs.overflow  === 'scroll') {
-            return el
-          }
+          const scrollableY = (cs.overflowY === 'auto' || cs.overflowY === 'scroll')
+            && el.scrollHeight > el.clientHeight + 1
+          const scrollableX = (cs.overflowX === 'auto' || cs.overflowX === 'scroll' || cs.overflow === 'auto' || cs.overflow === 'scroll')
+            && el.scrollWidth > el.clientWidth + 1
+          if (scrollableY || scrollableX) els.push(el)
         }
       }
-      return null
+      return els
     }
 
-    const THRESHOLD = 5  // px of total movement before any scroll fires
+    const applyScroll = (dx, dy) => {
+      const els = state.scrollEls?.length ? state.scrollEls : findScrollEls()
+      let moved = false
+      for (const el of els) {
+        const prevTop = el.scrollTop
+        const prevLeft = el.scrollLeft
+        el.scrollTop += dy
+        el.scrollLeft += dx
+        if (el.scrollTop !== prevTop || el.scrollLeft !== prevLeft) moved = true
+      }
+      if (!moved && els[0]) {
+        els[0].dispatchEvent(new WheelEvent('wheel', {
+          bubbles: true, cancelable: false,
+          deltaX: dx, deltaY: dy,
+          deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+          view: window,
+        }))
+      }
+    }
 
     const onMouseDown = (e) => {
       if (e.button !== 0) return
       if (e.target.closest('button, input, select, a, textarea')) return
-
-      e.preventDefault()
-      e.stopPropagation()   // block Syncfusion annotation/text-selection on this drag
-
-      state.scrollEl = findScrollEl()
+      state.scrollEls = findScrollEls()
       state.dragging = true
       state.hasMoved = false
-      state.startX   = e.clientX
-      state.startY   = e.clientY
-      state.prevX    = e.clientX
-      state.prevY    = e.clientY
+      state.startX = e.clientX
+      state.startY = e.clientY
+      state.prevX = e.clientX
+      state.prevY = e.clientY
       outer.style.cursor = 'grabbing'
     }
 
     const onMouseMove = (e) => {
       if (!state.dragging) return
-
-      // Hold off until mouse has moved ≥ THRESHOLD px from the original click position.
-      // This absorbs 1-2 px of natural mouse jitter on click-release without any drag.
       if (!state.hasMoved) {
-        if (Math.abs(e.clientX - state.startX) < THRESHOLD &&
-            Math.abs(e.clientY - state.startY) < THRESHOLD) return
+        if (Math.abs(e.clientX - state.startX) < 3 && Math.abs(e.clientY - state.startY) < 3) return
         state.hasMoved = true
-        // Re-anchor prevX/Y so the first scroll delta is small and smooth
         state.prevX = e.clientX
         state.prevY = e.clientY
         return
       }
-
-      const dx = state.prevX - e.clientX   // + = panned left  → content scrolls right
-      const dy = state.prevY - e.clientY   // + = panned up    → content scrolls down
+      const dx = state.prevX - e.clientX
+      const dy = state.prevY - e.clientY
       state.prevX = e.clientX
       state.prevY = e.clientY
-      if (dx === 0 && dy === 0) return
-
-      const el = state.scrollEl
-      if (!el) return
-
-      // ── Strategy 1: direct DOM scroll (synchronous, 1:1 with mouse movement) ──
-      const prevTop  = el.scrollTop
-      const prevLeft = el.scrollLeft
-      el.scrollTop  += dy
-      el.scrollLeft += dx
-      if (el.scrollTop !== prevTop || el.scrollLeft !== prevLeft) return  // ✓ worked
-
-      // ── Strategy 2: synthetic WheelEvent ───────────────────────────────────────
-      // Reached only when Strategy 1 had no effect (virtual-scroll mode).
-      // Dispatch pixel-mode event so scroll amount matches mouse delta 1:1.
-      el.dispatchEvent(new WheelEvent('wheel', {
-        bubbles:    true,
-        cancelable: false,
-        deltaX:     dx,
-        deltaY:     dy,
-        deltaMode:  WheelEvent.DOM_DELTA_PIXEL,
-        view:       window,
-      }))
+      if (dx !== 0 || dy !== 0) applyScroll(dx, dy)
     }
 
     const onMouseUp = () => {
       if (!state.dragging) return
       state.dragging = false
-      state.scrollEl = null
+      state.scrollEls = null
       state.hasMoved = false
       outer.style.cursor = 'grab'
     }
 
-    outer.style.cursor = 'grab'
-    // capture:true — fires before any Syncfusion child, immune to z-index stacking
-    outer.addEventListener('mousedown', onMouseDown, { capture: true })
+    const viewerRoot = document.getElementById('sfPdfViewer')
+    const targets = [outer, viewerRoot].filter(Boolean)
+    for (const t of targets) t.addEventListener('mousedown', onMouseDown, { capture: true })
     window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup',   onMouseUp)
+    window.addEventListener('mouseup', onMouseUp)
 
     return () => {
       state.dragging = false
-      state.scrollEl = null
+      state.scrollEls = null
       state.hasMoved = false
+      outer.classList.remove('bt-pan-active')
       outer.style.removeProperty('cursor')
-      outer.removeEventListener('mousedown', onMouseDown, { capture: true })
+      for (const t of targets) t.removeEventListener('mousedown', onMouseDown, { capture: true })
       window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup',   onMouseUp)
+      window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [activeTool])
+  }, [activeTool, docLoaded])
 
   // ── Handle imperative viewer commands (fitPage, selectAnnotation, …) ───
   useEffect(() => {
@@ -611,12 +809,12 @@ export default function PdfViewer({
           setCountMarkers(prev => prev.filter(m => m.page !== pdfPage))
         }
       } else if (type === 'clearAnnotations') {
-        // Cancel any in-progress rubber-band drawing
+        measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
+        measureCompleteTimersRef.current.clear()
+
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
-        // Clear our selection tracking so style changes don't update a stale annotation
         selectedAnnotDataRef.current = null
 
-        // Helper: restore the drawing mode for the current active tool
         const restoreMode = () => {
           const { activeTool: t } = useAppStore.getState()
           const modeRemap = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
@@ -624,47 +822,56 @@ export default function PdfViewer({
           if (m) { try { vm.annotation.setAnnotationMode(m) } catch (_) {} }
         }
 
-        // Small delay: let setAnnotationMode('None') settle before we export.
-        // This ensures the in-progress rubber-band is fully cancelled first.
+        const protectedIds = getProtectedAnnotIds?.() ?? new Set()
+
         setTimeout(() => {
-          // Export to discover which annotations exist, then delete ONLY the ones
-          // that are NOT in processedAnnotsRef (i.e. not yet saved to the database).
-          // Saved annotations (those loaded from DB or auto-saved this session) remain visible.
           const doSelectiveDelete = (rawData) => {
             let data = rawData
             if (typeof data === 'string') { try { data = JSON.parse(data) } catch { data = null } }
             if (!data?.pdfAnnotation) { restoreMode(); return }
 
-            const savedIds = processedAnnotsRef.current  // Set of DB-saved annotation IDs
             const toDelete = []
 
             Object.entries(data.pdfAnnotation).forEach(([pageIdx, pageData]) => {
-              const pageNum = parseInt(pageIdx) + 1
+              const pageNum = parseInt(pageIdx, 10) + 1
               ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
                 let list = pageData?.[key]
                 if (typeof list === 'string') { try { list = JSON.parse(list) } catch { list = [] } }
                 if (!Array.isArray(list)) return
                 list.forEach(anno => {
-                  const id = anno?.AnnotName ?? anno?.annotationId ?? anno?.name
-                  if (!id || savedIds.has(id)) return  // skip saved ones
+                  const id = anno?.AnnotName ?? anno?.annotationId ?? anno?.name ?? anno?.id
+                  if (!id || protectedIds.has(id)) return
                   toDelete.push({ id, pageNum })
                 })
               })
             })
 
-            // Pre-mark as processed so any pending 350ms annotationAdd timer doesn't
-            // re-save the line to the DB after we've deleted it from the viewer.
-            toDelete.forEach(({ id }) => processedAnnotsRef.current.add(id))
+            const lastId = lastDrawnAnnotRef.current
+            const targets = lastId && toDelete.some(t => t.id === lastId)
+              ? toDelete.filter(t => t.id === lastId)
+              : (toDelete.length ? [toDelete[toDelete.length - 1]] : [])
 
-            toDelete.forEach(({ id, pageNum }, i) => {
+            const clearedIds = targets.map(t => t.id)
+            targets.forEach(({ id }) => {
+              processedAnnotsRef.current.delete(id)
+              if (lastDrawnAnnotRef.current === id) lastDrawnAnnotRef.current = null
+            })
+
+            targets.forEach(({ id, pageNum }, i) => {
               setTimeout(() => {
                 try { vm.annotation.selectAnnotation(id, pageNum) } catch (_) {}
                 setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 50)
               }, i * 100)
             })
 
-            // Always restore drawing mode after deletions complete (even if nothing deleted)
-            const restoreDelay = toDelete.length > 0 ? toDelete.length * 100 + 150 : 50
+            if (clearedIds.length > 0) {
+              onClearSessionMeasurements?.(clearedIds)
+              toast.success(`Cleared ${clearedIds.length} unsaved markup${clearedIds.length > 1 ? 's' : ''}`)
+            } else {
+              toast('Nothing to clear — only unsaved markups are removed')
+            }
+
+            const restoreDelay = targets.length > 0 ? targets.length * 100 + 150 : 50
             setTimeout(restoreMode, restoreDelay)
           }
 
@@ -678,7 +885,7 @@ export default function PdfViewer({
               restoreMode()
             }
           } catch (_) { restoreMode() }
-        }, 100)
+        }, 200)
       } else if (type === 'captureAnnotations') {
         // Step 1: Exit Distance drawing mode NOW so Syncfusion commits any in-progress
         // annotation before we export. Must be synchronous (before the delay).
@@ -870,7 +1077,8 @@ export default function PdfViewer({
         vm.annotation.setAnnotationMode(MARKUP_MODES[activeTool])
       } else if (activeTool === 'pan') {
         vm.annotation.setAnnotationMode('None')
-        vm.interactionMode = 'TextSelection'  // neutral mode — custom drag handles pan via capture events
+        vm.interactionMode = 'Pan'
+        try { vm.focusViewerContainer?.() } catch (_) {}
       } else {
         vm.annotation.setAnnotationMode('None')
         vm.interactionMode = 'TextSelection'
@@ -914,10 +1122,12 @@ export default function PdfViewer({
     const dashArray = dashMap[lineStyle ?? 'solid'] ?? ''
 
     try {
+      applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, safeHex)
+
       if (activeTool === 'calibrate') {
         vm.annotation.updateMeasurementSettings('Distance', {
           strokeColor: '#f59e0b', fillColor: 'rgba(245,158,11,0.12)', opacity: 1, thickness: thick,
-          fontSize: 48, fontColor: '#b45309',
+          ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, '#b45309'),
         })
         return
       }
@@ -926,12 +1136,12 @@ export default function PdfViewer({
       if (activeTool === 'line') {
         vm.annotation.updateMeasurementSettings('Distance', {
           strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick,
-          fontSize: 48, fontColor: safeHex,
+          ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex),
         })
       } else if (activeTool === 'area') {
-        try { vm.annotation.updateMeasurementSettings('Area', { strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick, fontSize: 48, fontColor: safeHex }) } catch (_) {}
+        try { vm.annotation.updateMeasurementSettings('Area', { strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick, ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
       } else if (activeTool === 'perimeter') {
-        try { vm.annotation.updateMeasurementSettings('Perimeter', { strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick, fontSize: 48, fontColor: safeHex }) } catch (_) {}
+        try { vm.annotation.updateMeasurementSettings('Perimeter', { strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick, ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
       }
 
       // ── Shape / markup tools ─────────────────────────────
@@ -958,15 +1168,20 @@ export default function PdfViewer({
       if (selectedAnnotDataRef.current) {
         editingAnnotRef.current = true
         try {
+          const current = selectedAnnotDataRef.current
           const updAnnot = {
-            ...selectedAnnotDataRef.current,
+            ...current,
             strokeColor: safeHex,
             thickness:   thick,
             fillColor:   fillRgba,
             borderDashArray: dashArray,
-            // FreeText annotations use fontColor/fontSize — safe to pass for all types
-            fontColor:   safeHex,
-            fontSize:    fontSize ?? 14,
+          }
+          // Measurement labels must keep the large font — do NOT apply text-tool fontSize (14pt).
+          if (isMeasureAnnotation(current)) {
+            Object.assign(updAnnot, buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex))
+          } else if (activeTool === 'text') {
+            updAnnot.fontColor = safeHex
+            updAnnot.fontSize = fontSize ?? 14
           }
           vm.annotation.editAnnotation(updAnnot)
           // Keep the ref in sync with the new property values
@@ -994,7 +1209,7 @@ export default function PdfViewer({
         }, 20)
       }
     } catch (_) {}
-  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize])
+  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale])
 
   // ── Apply calibration scale when drawing is calibrated ────────────────
   useEffect(() => {
@@ -1006,16 +1221,40 @@ export default function PdfViewer({
         displayUnit: sfUnit,
         conversionUnit: sfUnit,
         depth: drawing.scaleRatio,
+        ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, '#111827'),
       })
     } catch (_) { }
-  }, [drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit, pdfBase64])
+  }, [drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit, pdfBase64, measureLabelFontSize, pdfScale])
+
+  // ── Re-apply label size when user changes preset or zoom (Bluebeam-style) ──
+  useEffect(() => {
+    const vm = viewerRef.current
+    if (!vm || !pdfBase64 || !docLoaded) return
+    applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
+    if (selectedAnnotDataRef.current && isMeasureAnnotation(selectedAnnotDataRef.current)) {
+      editingAnnotRef.current = true
+      try {
+        const patched = patchMeasureAnnotationLabel(
+          selectedAnnotDataRef.current,
+          measureLabelFontSize,
+          pdfScale,
+          selectedAnnotDataRef.current.strokeColor ?? measureColor ?? '#111827',
+        )
+        vm.annotation.editAnnotation(patched)
+        selectedAnnotDataRef.current = patched
+      } catch (_) {}
+      setTimeout(() => { editingAnnotRef.current = false }, 300)
+    }
+  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, measureColor])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
   const handleDocumentLoaded = useCallback((args) => {
     setPdfTotalPages(args.pageCount ?? 1)
     setPdfPage(1)
     setDocLoaded(true)  // annotation API is now safe to call
-  }, [setPdfTotalPages, setPdfPage])
+    const vm = viewerRef.current
+    if (vm) applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
+  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale])
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
@@ -1044,30 +1283,7 @@ export default function PdfViewer({
     // Syncfusion annotation (it contains internal module refs / circular references
     // that cause JSON.stringify to throw a TypeError in autoSave's pointsJson step).
     eventAnnotations.forEach(a => {
-      const pts = (a.vertexPoints ?? a.VertexPoints ?? [])
-        .map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
-      const annotId = a.annotationId ?? a.name ?? a.id
-
-      const plainAnnot = {
-        annotationId:        annotId,
-        name:                annotId,
-        type:                a.type  ?? 'Line',
-        IT:                  a.IT ?? a.it ?? 'LineDimension',
-        shapeAnnotationType: a.shapeAnnotationType ?? 'Distance',
-        pageNumber:          a.pageNumber ?? 1,
-        page:                String((a.pageNumber ?? 1) - 1),
-        strokeColor:         a.strokeColor  ?? '#EF233C',
-        fillColor:           a.fillColor    ?? 'rgba(239,35,60,0.15)',
-        thickness:           a.thickness    ?? 2,
-        opacity:             a.opacity      ?? 1,
-        measurementValue:    a.measurementValue ?? a.MeasurementValue,
-        vertexPoints:        pts,
-        ...(pts.length >= 2 ? {
-          start: `${pts[0].x},${pts[0].y}`,
-          end:   `${pts[pts.length - 1].x},${pts[pts.length - 1].y}`,
-        } : {}),
-      }
-      processMeasureAnnotation(plainAnnot)
+      scheduleMeasurementComplete(buildPlainAnnot(a))
     })
 
     // Keep raw event annotation ref for editAnnotation (Syncfusion API requires it)
@@ -1086,25 +1302,18 @@ export default function PdfViewer({
       // it overrides any top-level fontSize we pass, making the font-size check a no-op.
       // Fix: always mirror fontSize inside labelSettings so both paths use the large value.
       const eventAnnot = eventAnnotations[0]
-      if (eventAnnot) {
-        editingAnnotRef.current = true
-        try {
-          vm.annotation.editAnnotation({
-            ...eventAnnot,
-            fontSize:        48,
-            fontColor:       '#111827',
-            labelFillColor:  'rgba(255,255,255,0.88)',
-            labelBorderColor: 'rgba(0,0,0,0.18)',
-            labelSettings: {
-              ...(eventAnnot.labelSettings ?? {}),
-              fontSize:    48,
-              fontColor:   '#111827',
-              fillColor:   'rgba(255,255,255,0.88)',
-              borderColor: 'rgba(0,0,0,0.18)',
-            },
-          })
-        } catch (_) {}
-        setTimeout(() => { editingAnnotRef.current = false }, 300)
+      if (eventAnnot && isMeasureAnnotation(eventAnnot)) {
+        const labelColor = eventAnnot.strokeColor ?? measureColor ?? '#111827'
+        const applyLabelSize = () => {
+          editingAnnotRef.current = true
+          try {
+            vm.annotation.editAnnotation(patchMeasureAnnotationLabel(eventAnnot, measureLabelFontSize, pdfScale, labelColor))
+          } catch (_) {}
+          setTimeout(() => { editingAnnotRef.current = false }, 300)
+        }
+        applyLabelSize()
+        // Re-apply once more — Syncfusion sometimes renders the default 14pt label first.
+        setTimeout(applyLabelSize, 350)
       }
 
       // Save full annotation blob so annotations survive page refresh
@@ -1126,39 +1335,15 @@ export default function PdfViewer({
         }
       } catch (_) {}
     }, 500)
-  }, [processMeasureAnnotation])
+  }, [scheduleMeasurementComplete, measureColor, measureLabelFontSize, pdfScale])
 
   // ── Fired when annotation properties change (fires even when annotationAdd doesn't) ──
   const handleAnnotationPropertiesChange = useCallback((args) => {
     if (importingAnnotsRef.current) return
-    if (editingAnnotRef.current) return
     const a = args?.annotation
     if (!a) return
-
-    // Sanitize to plain data (same reason as handleAnnotationAdd — avoids circular refs)
-    const pts = (a.vertexPoints ?? a.VertexPoints ?? [])
-      .map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
-    const annotId = a.annotationId ?? a.name ?? a.id
-    processMeasureAnnotation({
-      annotationId:        annotId,
-      name:                annotId,
-      type:                a.type  ?? 'Line',
-      IT:                  a.IT ?? a.it ?? 'LineDimension',
-      shapeAnnotationType: a.shapeAnnotationType ?? 'Distance',
-      pageNumber:          a.pageNumber ?? 1,
-      page:                String((a.pageNumber ?? 1) - 1),
-      strokeColor:         a.strokeColor  ?? '#EF233C',
-      fillColor:           a.fillColor    ?? 'rgba(239,35,60,0.15)',
-      thickness:           a.thickness    ?? 2,
-      opacity:             a.opacity      ?? 1,
-      measurementValue:    a.measurementValue ?? a.MeasurementValue,
-      vertexPoints:        pts,
-      ...(pts.length >= 2 ? {
-        start: `${pts[0].x},${pts[0].y}`,
-        end:   `${pts[pts.length - 1].x},${pts[pts.length - 1].y}`,
-      } : {}),
-    })
-  }, [processMeasureAnnotation])
+    scheduleMeasurementComplete(buildPlainAnnot(a))
+  }, [scheduleMeasurementComplete])
 
   // ── Fired when an annotation is selected on the viewer ────────────────
   const handleAnnotationSelect = useCallback((args) => {
@@ -1166,10 +1351,12 @@ export default function PdfViewer({
     const id = annotation?.annotationId
     if (id) {
       onAnnotationSelect?.(id)
-      // Store the full annotation object so the style sync effect can call editAnnotation
       selectedAnnotDataRef.current = annotation
+      if (isMeasureAnnotation(annotation) && !importingAnnotsRef.current) {
+        scheduleMeasurementComplete(buildPlainAnnot(annotation))
+      }
     }
-  }, [onAnnotationSelect])
+  }, [onAnnotationSelect, scheduleMeasurementComplete])
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -1205,6 +1392,12 @@ export default function PdfViewer({
         /* ── Expand the viewer content to fill the full width left by the sidebar ── */
         #sfPdfViewer_viewerContainer,
         #sfPdfViewer .e-pv-viewer-container { left: 0 !important; width: 100% !important; }
+
+        /* Pan mode — grab cursor + let drag reach the scroll container */
+        .bt-pan-active #sfPdfViewer,
+        .bt-pan-active #sfPdfViewer_viewerContainer,
+        .bt-pan-active #sfPdfViewer .e-pv-viewer-container { cursor: grab !important; }
+        .bt-pan-active #sfPdfViewer_viewerContainer { touch-action: none; }
       `}</style>
 
       {/* Loading overlay */}
@@ -1465,6 +1658,15 @@ export default function PdfViewer({
                of undefined" which crashes the call stack BEFORE annotationAdd fires.
                We hide the freetext UI via CSS below so users never see it. */
           enableMeasureAnnotation={true}
+          enableShapeLabel={true}
+          shapeLabelSettings={{
+            opacity: 1,
+            fillColor: 'rgba(255,255,255,0.88)',
+            borderColor: 'rgba(0,0,0,0.18)',
+            fontColor: '#111827',
+            fontSize: toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
+            fontFamily: 'Arial',
+          }}
           enableFreeText={true}
           enableShapeAnnotation={true}
           enableTextMarkupAnnotation={false}
@@ -1485,8 +1687,7 @@ export default function PdfViewer({
             fillColor:   `rgba(239,35,60,${fillOpacity ?? 0.15})`,
             opacity: 1,
             thickness: lineThickness ?? 2,
-            fontSize: 48,
-            fontColor: '#111827',
+            ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, '#111827'),
           }}
 
           /* ── Annotation appearance ────────────────────────────────────────── */

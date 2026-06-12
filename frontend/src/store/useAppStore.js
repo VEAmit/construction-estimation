@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEFAULT_MEASURE_LABEL_SIZE } from '../utils/measureLabel'
 
 export const useAppStore = create(
   persist(
@@ -81,6 +82,7 @@ export const useAppStore = create(
       lineStyle:       'solid',   // 'solid' | 'dashed' | 'dotted'
       arrowStyle:      'none',    // 'none' | 'start' | 'end' | 'both'
       fontSize:        14,        // font size (pt) for the Text annotation tool
+      measureLabelFontSize: DEFAULT_MEASURE_LABEL_SIZE, // label size for line/area/perimeter (pt)
       countSession:    0,         // running count of markers in current session
       pdfScale: 1.2,
       pdfPage: 1,
@@ -94,6 +96,7 @@ export const useAppStore = create(
       setLineStyle:      (s)     => set({ lineStyle: s }),
       setArrowStyle:     (s)     => set({ arrowStyle: s }),
       setFontSize:       (s)     => set({ fontSize: s }),
+      setMeasureLabelFontSize: (s) => set({ measureLabelFontSize: s }),
       setCountSession:   (n)     => set({ countSession: n }),
       setPdfScale: (scaleFn) =>
         set((s) => ({ pdfScale: typeof scaleFn === 'function' ? scaleFn(s.pdfScale) : scaleFn })),
@@ -118,6 +121,7 @@ export const useAppStore = create(
         userName: s.userName,
         userRole: s.userRole,
         activeUnit: s.activeUnit,
+        measureLabelFontSize: s.measureLabelFontSize,
         selectedProject: s.selectedProject,
       }),
       onRehydrateStorage: () => (state) => {

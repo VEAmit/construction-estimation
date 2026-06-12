@@ -16,6 +16,21 @@ function getPageNum(item) {
   } catch { return null }
 }
 
+function getThickness(item) {
+  if (!item.pointsJson) return null
+  try {
+    const d = JSON.parse(item.pointsJson)
+    const t = d.thickness ?? d.Thickness
+    return t != null ? Number(t) : null
+  } catch { return null }
+}
+
+function fmtScale(drawing) {
+  if (!drawing?.isCalibrated || !drawing?.scaleRatio) return '—'
+  const u = getUnitLabel(drawing.calibrationUnit ?? 'Meter')
+  return `1px=${drawing.scaleRatio.toFixed(4)}${u}`
+}
+
 function fmtTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -28,7 +43,7 @@ function fmtTime(iso) {
     ' ' + d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function MeasurementTable({ drawing, onAddClick, selectedId, onRowSelect }) {
+export default function MeasurementTable({ drawing, onAddClick, selectedId, onRowSelect, onDelete }) {
   const { takeoffItems, memberScheduleItems, selectedProject, updateTakeoffItem, removeTakeoffItem } = useAppStore()
   const [page,    setPage]    = useState(1)
   const [editId,  setEditId]  = useState(null)
@@ -57,11 +72,15 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this measurement?')) return
+    if (!confirm('Delete this measurement from grid and drawing?')) return
     try {
-      await takeoffService.delete(id)
-      removeTakeoffItem(id)
-      if (selectedId === id) onRowSelect?.(null)
+      if (onDelete) {
+        await onDelete(id)
+      } else {
+        await takeoffService.delete(id)
+        removeTakeoffItem(id)
+        if (selectedId === id) onRowSelect?.(null)
+      }
       toast.success('Measurement deleted')
     } catch { toast.error('Failed to delete') }
   }
@@ -224,7 +243,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
             </div>
             <p style={{ fontSize: '12px', color: '#334155' }}>
               {takeoffItems.length === 0
-                ? 'No measurements yet — use the Measure tool on the drawing'
+                ? 'Draw on the PDF — measurements save automatically (Bluebeam-style)'
                 : 'No matching measurements'}
             </p>
             {takeoffItems.length === 0 && (
@@ -241,7 +260,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Pg', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Wt/m (kg)', 'Total Wt', 'Material', 'Qty', 'Unit', 'Time', ''].map((h, i) => (
+                {['', '#', 'Pg', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Material', 'Qty', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -331,13 +350,20 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                         <span style={{ fontWeight: 700, color: '#f59e0b' }}>× {item.quantity ?? 1}</span>
                       ) : item.itemType === 'Area' ? (
                         item.area != null
-                          ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.area)} {getAreaUnitLabel(item.unit)}</span>
+                          ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.area)}</span>
                           : <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span>
                       ) : (
                         item.length != null
-                          ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.length)} {getUnitLabel(item.unit)}</span>
+                          ? <span style={{ fontWeight: 700, color: item.color ?? '#22c55e' }}>{fmt(item.length)}</span>
                           : hasAnnot ? <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span> : '—'
                       )}
+                    </td>
+                    <td style={{ ...td, color: '#334155' }}>{getUnitLabel(item.unit)}</td>
+                    <td style={{ ...td, color: '#475569', fontSize: '9px', whiteSpace: 'nowrap' }}>
+                      {fmtScale(drawing)}
+                    </td>
+                    <td style={{ ...td, color: '#64748b', fontSize: '10px', textAlign: 'center' }}>
+                      {getThickness(item) ?? '—'}
                     </td>
                     <td style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>
                       {isEditing
@@ -363,7 +389,6 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                         ? <input value={row.quantity ?? 1} type="number" min="1" onChange={e => setEditBuf(b => ({ ...b, quantity: +e.target.value }))} style={{ ...ei, width: '44px' }} />
                         : item.quantity}
                     </td>
-                    <td style={{ ...td, color: '#334155' }}>{getUnitLabel(item.unit)}</td>
                     <td style={{ ...td, color: '#1e293b', fontSize: '10px', whiteSpace: 'nowrap' }}>
                       {fmtTime(item.createdAt)}
                     </td>
@@ -412,11 +437,11 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                     {hasAnyArea && totalArea > 0 ? ` / ${fmt(totalArea)} ${getAreaUnitLabel(unit)}` : ''}
                     {totalLength === 0 && !hasAnyArea ? '—' : ''}
                   </td>
-                  <td />
+                  <td colSpan={3} />
                   <td style={{ ...td, fontWeight: 800, color: '#f59e0b', whiteSpace: 'nowrap' }}>
                     {hasAnyWeight ? `∑ ${totalWeight.toFixed(1)} kg` : '—'}
                   </td>
-                  <td colSpan={5} />
+                  <td colSpan={4} />
                 </tr>
               </tfoot>
             )}

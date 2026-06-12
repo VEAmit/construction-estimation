@@ -120,9 +120,14 @@ export function computePixelPerimeter(pts) {
 }
 
 // Category → default color mapping for auto-color assignment
+// Bluebeam-style tool-chest colors (structural steel takeoff)
 export const CATEGORY_COLORS = {
-  General:    '#EF233C',
-  Structural: '#ef4444',
+  General:    '#EF233C',  // Red
+  Beam:       '#3B82F6',  // Blue
+  Column:     '#22C55E',  // Green
+  Rafter:     '#F97316',  // Orange
+  Brace:      '#8B5CF6',  // Purple
+  Structural: '#EF4444',
   Concrete:   '#f97316',
   Roofing:    '#eab308',
   Electrical: '#3b82f6',
@@ -131,11 +136,7 @@ export const CATEGORY_COLORS = {
   Flooring:   '#22c55e',
   Painting:   '#ec4899',
   Demolition: '#dc2626',
-  Beam:       '#3B82F6',
-  Column:     '#10B981',
-  Rafter:     '#f59e0b',
   Purlin:     '#22c55e',
-  Brace:      '#8b5cf6',
   Wall:       '#64748b',
   Slab:       '#06b6d4',
   Girt:       '#a78bfa',

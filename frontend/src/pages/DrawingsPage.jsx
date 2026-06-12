@@ -30,7 +30,8 @@ export default function DrawingsPage() {
     memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary,
     triggerPdfCommand,
     _hydrated,
-    measureColor, lineThickness, lineStyle, arrowStyle,
+    measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
+    removeTakeoffItem,
   } = useAppStore()
 
   const [lastMeasurement,  setLastMeasurement]  = useState(null)
@@ -50,6 +51,18 @@ export default function DrawingsPage() {
   const [rightOpen,    setRightOpen]    = useState(false)
 
   const annotationMapRef = useRef({})
+  const persistedAnnotIdsRef = useRef(new Set())
+  const savingAnnotIdsRef = useRef(new Set())
+
+  const extractAnnotIdFromPointsJson = useCallback((pointsJson) => {
+    if (!pointsJson) return null
+    try {
+      const stored = typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson
+      return stored.annotationId ?? stored.AnnotName ?? stored.uniqueKey ?? stored.name ?? null
+    } catch {
+      return null
+    }
+  }, [])
 
   // Track style values at the moment an annotation is selected.
   // Used to detect when the user actually changes a style prop (vs. selecting an annotation
@@ -85,11 +98,11 @@ export default function DrawingsPage() {
     const item = takeoffItems.find(t => t.id === selectedAnnotId)
     if (!item) return
 
-    // Persist the new color; thickness/style are viewer-only and not stored in the DB schema
-    takeoffService.update({ ...item, color: measureColor })
+    // Persist color + category (Bluebeam tool-chest style)
+    takeoffService.update({ ...item, color: measureColor, category: measureCategory })
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})  // visual update already succeeded — silent fail
-  }, [measureColor, lineThickness, lineStyle, arrowStyle, selectedAnnotId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineThickness, lineStyle, arrowStyle, selectedAnnotId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -128,6 +141,7 @@ export default function DrawingsPage() {
       setMemberScheduleItems([])
       setSummaryLocal(null)
       annotationMapRef.current = {}
+      persistedAnnotIdsRef.current = new Set()
       return
     }
     Promise.all([
@@ -156,16 +170,24 @@ export default function DrawingsPage() {
           } catch (_) {}
         })
         annotationMapRef.current = map
+        persistedAnnotIdsRef.current = new Set(
+          items.map(item => extractAnnotIdFromPointsJson(item.pointsJson)).filter(Boolean)
+        )
       })
       .catch(() => toast.error('Failed to load drawing data'))
-  }, [selectedDrawing?.id])
+  }, [selectedDrawing?.id, extractAnnotIdFromPointsJson])
 
   const autoSave = useCallback(async (measurement) => {
-    const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category } = useAppStore.getState()
+    const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
     if (!drw) return
+
+    const annotKey = measurement.annotationId ?? `${measurement.pixelLength}-${measurement.pageNumber}`
+    if (savingAnnotIdsRef.current.has(annotKey)) return
+    savingAnnotIdsRef.current.add(annotKey)
+
     setAutoSaving(true)
 
-    const unit       = drw.calibrationUnit ?? 'Mm'
+    const unit       = activeUnit ?? drw.calibrationUnit ?? 'Mm'
     const isArea     = measurement.measureType === 'Area'
     const isPerim    = measurement.measureType === 'Perimeter'
     const isCount    = measurement.measureType === 'Count'
@@ -173,7 +195,8 @@ export default function DrawingsPage() {
 
     // Mark prefix per type: A# area, P# perimeter, C# count, M# line
     const prefix     = isArea ? 'A' : isPerim ? 'P' : isCount ? 'C' : 'M'
-    const nextMark   = `${prefix}${current.length + 1}`
+    const sameType   = current.filter(t => (t.itemType || 'Line') === itemType)
+    const nextMark   = `${prefix}${sameType.length + 1}`
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
@@ -230,6 +253,9 @@ export default function DrawingsPage() {
         pointsJson,
       })
       addTakeoffItem(saved)
+      setShowBottom(true)
+      setBottomTab('measurements')
+      setSelectedAnnotId(saved.id)
       if (measurement.annotationId) {
         annotationMapRef.current[saved.id] = {
           annotationId: measurement.annotationId,
@@ -252,6 +278,7 @@ export default function DrawingsPage() {
       console.error('[BuildTakeoff] autoSave failed:', err)
       toast.error('Could not save measurement — try again')
     } finally {
+      savingAnnotIdsRef.current.delete(annotKey)
       setAutoSaving(false)
     }
   }, [addTakeoffItem])
@@ -305,9 +332,55 @@ export default function DrawingsPage() {
 
   const handleRowSelect = useCallback((dbId) => {
     setSelectedAnnotId(dbId)
+    if (!dbId) return
     const annot = annotationMapRef.current[dbId]
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand])
+
+  const handleClearSessionMeasurements = useCallback(async (clearedAnnotIds) => {
+    if (!clearedAnnotIds?.length) return
+    const persisted = persistedAnnotIdsRef.current
+    const { takeoffItems: items } = useAppStore.getState()
+    const toRemove = items.filter(item => {
+      const aid = extractAnnotIdFromPointsJson(item.pointsJson)
+      return aid && clearedAnnotIds.includes(aid) && !persisted.has(aid)
+    })
+    for (const item of toRemove) {
+      try {
+        await takeoffService.delete(item.id)
+        removeTakeoffItem(item.id)
+        delete annotationMapRef.current[item.id]
+        if (selectedAnnotId === item.id) setSelectedAnnotId(null)
+      } catch (_) { /* best-effort */ }
+    }
+    if (toRemove.length > 0 && selectedDrawing) {
+      takeoffService.getSummary(selectedDrawing.id)
+        .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+        .catch(() => {})
+    }
+  }, [extractAnnotIdFromPointsJson, removeTakeoffItem, selectedAnnotId, selectedDrawing, setSummary])
+
+  const handleRowDelete = useCallback(async (id) => {
+    const annot = annotationMapRef.current[id]
+    try {
+      await takeoffService.delete(id)
+      removeTakeoffItem(id)
+      delete annotationMapRef.current[id]
+      if (selectedAnnotId === id) setSelectedAnnotId(null)
+      if (annot?.annotationId) {
+        persistedAnnotIdsRef.current.delete(annot.annotationId)
+        triggerPdfCommand({ type: 'deleteAnnotation', annotationId: annot.annotationId, pageNumber: annot.pageNumber ?? 1 })
+      }
+      if (selectedDrawing) {
+        takeoffService.getSummary(selectedDrawing.id)
+          .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+          .catch(() => {})
+      }
+    } catch {
+      toast.error('Failed to delete measurement')
+      throw new Error('delete failed')
+    }
+  }, [selectedAnnotId, selectedDrawing, triggerPdfCommand, removeTakeoffItem, setSummary])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -325,6 +398,7 @@ export default function DrawingsPage() {
     setMemberScheduleItems([])
     setSummaryLocal(null)
     annotationMapRef.current = {}
+    persistedAnnotIdsRef.current = new Set()
     if (isMobile) setSidebarOpen(false)
   }
 
@@ -337,6 +411,7 @@ export default function DrawingsPage() {
       setMemberScheduleItems([])
       setSummaryLocal(null)
       annotationMapRef.current = {}
+      persistedAnnotIdsRef.current = new Set()
     }
   }
 
@@ -623,7 +698,7 @@ export default function DrawingsPage() {
           {/* PDF Viewer */}
           <div style={{ flex: showBottom ? '1 1 60%' : '1 1 100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <PdfViewer
-              key={selectedProject?.id ?? 'no-project'}
+              key={`${selectedProject?.id ?? 'p'}-${selectedDrawing?.id ?? 'd'}`}
               drawingUrl={drawingUrl}
               drawing={selectedDrawing}
               activeTool={activeTool}
@@ -636,6 +711,8 @@ export default function DrawingsPage() {
                 const found = entries.find(([, v]) => v.annotationId === annotUuid)
                 setSelectedAnnotId(found ? Number(found[0]) : null)
               }}
+              getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
+              onClearSessionMeasurements={handleClearSessionMeasurements}
               onAnnotationsBlob={async (blobBase64) => {
                 const { selectedDrawing: drw } = useAppStore.getState()
                 if (!drw) return
@@ -695,6 +772,7 @@ export default function DrawingsPage() {
                     drawing={selectedDrawing}
                     selectedId={selectedAnnotId}
                     onRowSelect={handleRowSelect}
+                    onDelete={handleRowDelete}
                     onAddClick={() => { setPendingMeas(null); setShowAddModal(true) }}
                   />
                 ) : (

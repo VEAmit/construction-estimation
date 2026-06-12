@@ -9,7 +9,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 
-SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQxAR8/V1JHaF1cXmhPYVJ0WmFZfVhgdV9CZFZTR2YuP1ZhSXxVdkBiWn9fdHBXQWlUV0R9XEE=");
+SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQxAR8/V1JHaF5cWWdCf1FpRmJGdld5fUVHYVZUTXxaS00DNHVRdkdlWXlfcXZWRWdfWExwXEdWYEo=");
 
 var builder = WebApplication.CreateBuilder(args);
 
