@@ -1,3 +1,4 @@
+import '../../syncfusion-license.js'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   PdfViewerComponent,
@@ -14,7 +15,11 @@ import {
   Inject,
 } from '@syncfusion/ej2-react-pdfviewer'
 import { useAppStore } from '../../store/useAppStore'
-import { pixelsToReal, polygonArea, polylineLength, ptDist, pixelsAreaToReal, computePixelPerimeter } from '../../utils/calculations'
+import {
+  pixelsToReal, polygonArea, polylineLength, ptDist, pixelsAreaToReal, computePixelPerimeter,
+  convertFromMm, toMm, formatMeasureLength, formatMeasureArea,
+  parseMeasureLabel, convertMeasureValue, getUnitLabel,
+} from '../../utils/calculations'
 import { buildMeasureLabelPatch, toSyncfusionLabelSize } from '../../utils/measureLabel'
 import toast from 'react-hot-toast'
 
@@ -38,6 +43,8 @@ function fromSfUnit(sfUnit) {
 
 function isMeasureAnnotation(annot) {
   if (!annot) return false
+  const type = String(annot.type ?? '').toLowerCase()
+  if (type === 'text' || type === 'freetext') return false
   const shape = String(annot.shapeAnnotationType ?? annot.ShapeAnnotationType ?? '').toLowerCase()
   const it = String(annot.IT ?? annot.it ?? '')
   return ['distance', 'area', 'perimeter'].includes(shape)
@@ -88,7 +95,8 @@ export default function PdfViewer({
   selectedAnnotationId,
   onAnnotationSelect,
   getProtectedAnnotIds,       // () => Set of DB-persisted annotation IDs (safe from Clear)
-  onClearSessionMeasurements, // (clearedAnnotIds: string[]) => remove matching grid rows
+  onClearPending,             // () => Promise<boolean> — clear active pending measurement
+  measureReleaseRef,          // ref — parent calls .current(id) to allow re-save after API failure
 }) {
   const viewerRef   = useRef(null)
   const containerRef = useRef(null)
@@ -122,7 +130,7 @@ export default function PdfViewer({
     pdfCommand, clearPdfCommand,
     measureColor, lineThickness, fillOpacity,
     lineStyle, arrowStyle, fontSize,
-    measureLabelFontSize,
+    measureLabelFontSize, activeUnit,
     setCountSession,
   } = useAppStore()
 
@@ -144,27 +152,39 @@ export default function PdfViewer({
   const drawingRef          = useRef(drawing)
   const onMeasureRef        = useRef(onMeasure)
   const onAnnotationsBlobRef = useRef(onAnnotationsBlob)
+  const getProtectedAnnotIdsRef = useRef(getProtectedAnnotIds)
   useEffect(() => { drawingRef.current           = drawing          }, [drawing])
   useEffect(() => { onMeasureRef.current         = onMeasure        }, [onMeasure])
   useEffect(() => { onAnnotationsBlobRef.current = onAnnotationsBlob }, [onAnnotationsBlob])
+  useEffect(() => { getProtectedAnnotIdsRef.current = getProtectedAnnotIds }, [getProtectedAnnotIds])
 
-  // Track which annotation IDs we've already sent to onMeasure (session-only)
+  const importedAnnotIdsRef = useRef(new Set())
   const processedAnnotsRef = useRef(new Set())
+  const pendingLabelByAnnotRef = useRef(new Map())
   const lastDrawnAnnotRef = useRef(null)
   const measureCompleteTimersRef = useRef(new Map())
 
-  // Used to suppress re-saving when we re-import stored annotations from DB
   const importingAnnotsRef  = useRef(false)
-  // Track which drawing ID we've already imported for (import once per drawing load)
   const importedDrawingRef  = useRef(null)
+  const importCompletedRef  = useRef(false)
 
-  // Reset dedup set when drawing changes
   useEffect(() => {
+    importedAnnotIdsRef.current = new Set()
     processedAnnotsRef.current = new Set()
+    pendingLabelByAnnotRef.current = new Map()
     importedDrawingRef.current = null
+    importCompletedRef.current = false
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
   }, [drawing?.id])
+
+  useEffect(() => {
+    if (!measureReleaseRef) return
+    measureReleaseRef.current = (annotationId) => {
+      if (annotationId) processedAnnotsRef.current.delete(annotationId)
+    }
+    return () => { measureReleaseRef.current = null }
+  }, [measureReleaseRef])
 
   // Pre-seed saved annotation IDs from DB (prevents duplicate rows on reload)
   useEffect(() => {
@@ -198,24 +218,43 @@ export default function PdfViewer({
     return null
   }
 
+  const extractSfMeasurement = (a, calibrationUnit) => {
+    const labelText = String(
+      a.Note ?? a.note ?? a.labelContent ?? a.LabelContent ?? a.label ?? a.text ?? ''
+    ).trim()
+    const fromLabel = parseMeasureLabel(labelText)
+    if (fromLabel?.value > 0) return fromLabel
+
+    const cal = a.Calibrate ?? a.calibrate
+    if (cal) {
+      const dist = cal.Distance ?? cal.distance
+      let val = null
+      if (Array.isArray(dist) && dist.length > 0) val = Number(dist[0])
+      else if (typeof dist === 'number') val = dist
+      if (val != null && val > 0) {
+        return { value: val, unit: calibrationUnit ?? 'Mm', isArea: false }
+      }
+    }
+
+    const mv = extractMeasurementValue(a)
+    if (mv != null && mv > 0) {
+      return { value: mv, unit: calibrationUnit ?? 'Mm', isArea: false }
+    }
+    return null
+  }
+
   const buildPlainAnnot = (a) => {
-    const pts = (a.vertexPoints ?? a.VertexPoints ?? [])
+    let rawPts = a.vertexPoints ?? a.VertexPoints ?? []
+    if (typeof rawPts === 'string') { try { rawPts = JSON.parse(rawPts) } catch { rawPts = [] } }
+    const pts = (Array.isArray(rawPts) ? rawPts : [])
       .map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
     const annotId = a.annotationId ?? a.AnnotName ?? a.name ?? a.id
-    const bounds = a.Bounds ?? a.bounds
-    let start = a.start
-    let end = a.end
-    if (!start && !end && bounds && pts.length < 2) {
-      const bx = bounds.X ?? bounds.x ?? 0
-      const by = bounds.Y ?? bounds.y ?? 0
-      const bw = bounds.Width ?? bounds.width ?? 0
-      const bh = bounds.Height ?? bounds.height ?? 0
-      start = `${bx},${by}`
-      end = `${bx + bw},${by + bh}`
-    }
+    let start = a.start ?? a.Start
+    let end = a.end ?? a.End
     return {
       annotationId:        annotId,
       name:                annotId,
+      AnnotName:           a.AnnotName ?? annotId,
       type:                a.type ?? 'Line',
       IT:                  a.IT ?? a.it ?? 'LineDimension',
       shapeAnnotationType: a.shapeAnnotationType ?? a.ShapeAnnotationType ?? 'Distance',
@@ -226,6 +265,14 @@ export default function PdfViewer({
       thickness:           a.thickness ?? a.Thickness ?? 2,
       opacity:             a.opacity ?? a.Opacity ?? 1,
       measurementValue:    extractMeasurementValue(a),
+      Note:                a.Note ?? a.note,
+      note:                a.note ?? a.Note,
+      labelContent:        a.labelContent ?? a.LabelContent,
+      LabelContent:        a.LabelContent ?? a.labelContent,
+      label:               a.label ?? a.text,
+      text:                a.text ?? a.label,
+      Calibrate:           a.Calibrate ?? a.calibrate,
+      calibrate:           a.calibrate ?? a.Calibrate,
       vertexPoints:        pts,
       ...(pts.length >= 2 ? {
         start: `${pts[0].x},${pts[0].y}`,
@@ -275,26 +322,171 @@ export default function PdfViewer({
 
   const processMeasureRef = useRef(null)
 
+  const getDisplayUnit = useCallback(() => {
+    const d = drawingRef.current
+    return useAppStore.getState().activeUnit ?? d?.calibrationUnit ?? 'Mm'
+  }, [])
+
+  // Syncfusion's updateScaleRatioCollection writes to sourceTextBox.value on mouseup.
+  // sourceTextBox is created by createRatioUI(). Do NOT call createScaleRatioWindow() —
+  // that opens an isModal dialog whose overlay blocks all PDF clicks and causes blur.
+  const ensureMeasureScaleUi = useCallback((vm) => {
+    const mod = vm?.annotation?.measureAnnotationModule
+    if (!mod || mod.sourceTextBox) return
+    try {
+      if (mod.scaleRatioDialog) {
+        try { mod.scaleRatioDialog.hide(); mod.scaleRatioDialog.destroy() } catch (_) {}
+        mod.scaleRatioDialog = null
+      }
+      vm.element?.querySelectorAll('.e-dlg-overlay, .e-overlay').forEach(el => el.remove())
+
+      const viewerId = vm.element?.id ?? 'sfPdfViewer'
+      const hostId = `${viewerId}_bt_scale_host`
+      let host = document.getElementById(hostId)
+      if (!host) {
+        host = document.createElement('div')
+        host.id = hostId
+        host.setAttribute('aria-hidden', 'true')
+        host.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;opacity:0;'
+        vm.element?.appendChild(host)
+      }
+      host.innerHTML = ''
+      const ui = mod.createRatioUI()
+      if (ui) host.appendChild(ui)
+    } catch (_) {}
+  }, [])
+
+  const applyCalibrationToViewer = useCallback((vm) => {
+    const d = drawingRef.current
+    if (!vm) return
+    ensureMeasureScaleUi(vm)
+    if (!d?.isCalibrated || !d?.scaleRatio) return
+    try {
+      const sfUnit = toSfUnit(d.calibrationUnit ?? 'Mm')
+      const unitLabel = getUnitLabel(d.calibrationUnit ?? 'Mm')
+      const destPerPx = convertFromMm(d.scaleRatio, d.calibrationUnit ?? 'Mm')
+      const calPatch = {
+        displayUnit: sfUnit,
+        conversionUnit: sfUnit,
+        depth: d.scaleRatio,
+        scaleRatio: 1,
+        ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, '#111827'),
+      }
+      vm.measurementSettings = { ...vm.measurementSettings, ...calPatch }
+      vm.annotation.updateMeasurementSettings('Distance', calPatch)
+      try { vm.annotation.updateMeasurementSettings() } catch (_) {}
+      ;['Area', 'Perimeter'].forEach(type => {
+        try {
+          vm.annotation.updateMeasurementSettings(type, {
+            displayUnit: sfUnit,
+            conversionUnit: sfUnit,
+            depth: d.scaleRatio,
+            scaleRatio: 1,
+          })
+        } catch (_) {}
+      })
+      const mod = vm.annotation?.measureAnnotationModule
+      if (mod?.sourceTextBox) mod.sourceTextBox.value = 1
+      if (mod?.destTextBox) mod.destTextBox.value = destPerPx
+      if (mod && mod.scaleRatioCollection?.length === 0) {
+        mod.scaleRatioCollection.push({
+          id: 'buildtakeoff-calibration',
+          annotName: 'buildtakeoff-calibration',
+          displayUnit: unitLabel,
+          unit: 'px',
+          ratio: destPerPx,
+          destValue: destPerPx,
+          srcValue: 1,
+          volumeDepth: d.scaleRatio,
+          depthValue: d.scaleRatio,
+          ratioString: [`1 px`, `${destPerPx} ${unitLabel}`],
+        })
+      }
+    } catch (_) {}
+  }, [ensureMeasureScaleUi, measureLabelFontSize, pdfScale])
+
+  const buildLabelSyncPatch = useCallback((base, labelText, fontColor) => {
+    const parsed = parseMeasureLabel(labelText)
+    const numeric = parsed?.value ?? parseFloat(labelText)
+    const unitLabel = parsed?.unit ? getUnitLabel(parsed.unit) : labelText.replace(/[\d.\s]/g, '').trim() || 'cm'
+    const cal = base?.Calibrate ?? base?.calibrate ?? {}
+    const calPatch = Number.isFinite(numeric) ? {
+      ...cal,
+      Distance: [numeric],
+      distance: [numeric],
+      Ratio: `1 ${unitLabel} = 1 px`,
+      TargetUnitConversion: 1,
+    } : cal
+    return {
+      ...base,
+      ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, fontColor),
+      labelContent: labelText,
+      LabelContent: labelText,
+      Note: labelText,
+      note: labelText,
+      label: labelText,
+      text: labelText,
+      ...(Number.isFinite(numeric) ? { measurementValue: numeric } : {}),
+      Calibrate: calPatch,
+      calibrate: calPatch,
+    }
+  }, [measureLabelFontSize, pdfScale])
+
+  const applyLabelToAnnot = useCallback((annot, labelText) => {
+    const vm = viewerRef.current
+    if (!vm || !annot) return
+    const fontColor = annot.strokeColor ?? annot.StrokeColor ?? measureColor ?? '#111827'
+    editingAnnotRef.current = true
+    try {
+      applyCalibrationToViewer(vm)
+      vm.annotation.editAnnotation(
+        labelText
+          ? buildLabelSyncPatch(annot, labelText, fontColor)
+          : patchMeasureAnnotationLabel(annot, measureLabelFontSize, pdfScale, fontColor),
+      )
+    } catch (_) {}
+    setTimeout(() => { editingAnnotRef.current = false }, 300)
+  }, [applyCalibrationToViewer, buildLabelSyncPatch, measureColor, measureLabelFontSize, pdfScale])
+
+  const syncAnnotationLabel = useCallback((annotationId, pageNumber, labelText) => {
+    const vm = viewerRef.current
+    if (!vm || !annotationId || !labelText) return
+    pendingLabelByAnnotRef.current.set(annotationId, { pageNumber, labelText })
+    setTimeout(() => {
+      try {
+        vm.annotation.selectAnnotation(annotationId, pageNumber ?? 1)
+        setTimeout(() => {
+          const current = selectedAnnotDataRef.current
+          const base = current && (
+            current.annotationId === annotationId
+            || current.name === annotationId
+            || current.AnnotName === annotationId
+          ) ? current : { annotationId, name: annotationId, AnnotName: annotationId }
+          applyLabelToAnnot(base, labelText)
+        }, 100)
+      } catch (_) {}
+    }, 150)
+  }, [applyLabelToAnnot])
+
   // ── Shared helper: extract measurement + call onMeasure ──────────────────
   const processMeasureAnnotation = useCallback((anno) => {
     let a = anno
     if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { return } }
     if (!a || typeof a !== 'object') return
 
-    console.log('[BuildTakeoff] processMeasureAnnotation:', JSON.stringify(a).substring(0, 600))
+    if (!isMeasureAnnotation(a)) return
 
     const annotationId = a.annotationId ?? a.AnnotationId ?? a.AnnotName ?? a.name ?? a.id ?? null
     if (annotationId && processedAnnotsRef.current.has(annotationId)) return
 
     const d = drawingRef.current
+    const displayUnit = getDisplayUnit()
 
-    // ── Detect annotation type ──────────────────────────────────────────────
     const IT = a.IT ?? a.it ?? ''
     const shapeType = (a.shapeAnnotationType ?? a.ShapeAnnotationType ?? a.type ?? '').toLowerCase()
     const isAreaAnnotation     = IT === 'PolyLineDimension' || shapeType === 'polygon' || IT === 'Area'
     const isPerimeterAnnotation = IT === 'Perimeter'
 
-    // ── Extract vertex points (common to both area and line) ────────────────
     let rawPts = a.vertexPoints ?? a.VertexPoints ?? []
     if (typeof rawPts === 'string') { try { rawPts = JSON.parse(rawPts) } catch (_) { rawPts = [] } }
     if (!Array.isArray(rawPts)) rawPts = []
@@ -306,17 +498,13 @@ export default function PdfViewer({
     let pixelArea = 0
 
     if (isAreaAnnotation && pts.length >= 3) {
-      // ── Area annotation: Shoelace for area, perimeter as pixelLength ───────
       pixelArea   = polygonArea(pts)
-      pixelLength = computePixelPerimeter(pts)  // use perimeter as the "pixel distance"
+      pixelLength = computePixelPerimeter(pts)
       if (d?.isCalibrated && d?.scaleRatio && pixelArea > 0) {
-        area   = pixelsAreaToReal(pixelArea, d.scaleRatio, d.calibrationUnit)
-        length = pixelsToReal(pixelLength, d.scaleRatio, d.calibrationUnit)  // perimeter length
+        area   = pixelsAreaToReal(pixelArea, d.scaleRatio, displayUnit)
+        length = pixelsToReal(pixelLength, d.scaleRatio, displayUnit)
       }
     } else {
-      // ── Line / Distance annotation (existing logic) ─────────────────────────
-
-      // Strategy 1: "start" / "end" strings from Syncfusion export
       if (a.start && a.end) {
         const parseCoord = (val) => {
           if (typeof val === 'object' && val !== null) return { x: val.x ?? val.X ?? 0, y: val.y ?? val.Y ?? 0 }
@@ -329,37 +517,33 @@ export default function PdfViewer({
         if (pdfDist >= 0.1) {
           pixelLength = pdfDist
           if (d?.isCalibrated && d?.scaleRatio) {
-            length = pixelsToReal(pdfDist, d.scaleRatio, d.calibrationUnit)
+            length = pixelsToReal(pdfDist, d.scaleRatio, displayUnit)
           }
         }
       }
 
-      // Strategy 2: Syncfusion's pre-computed measurementValue (incl. Calibrate.Distance, label text)
       if (length == null) {
         const sfVal = extractMeasurementValue(a)
         if (sfVal != null && sfVal > 0) length = sfVal
       }
 
-      // Strategy 3: vertex points distance
       if (length == null && pts.length >= 2) {
         const p0 = pts[0], pn = pts[pts.length - 1]
         const px = Math.sqrt((pn.x - p0.x) ** 2 + (pn.y - p0.y) ** 2)
         if (px >= 0.1) {
           pixelLength = px
-          if (d?.isCalibrated && d?.scaleRatio) length = pixelsToReal(px, d.scaleRatio, d.calibrationUnit)
+          if (d?.isCalibrated && d?.scaleRatio) length = pixelsToReal(px, d.scaleRatio, displayUnit)
         }
       }
     }
 
-    // Final pass: derive real length/area from pixels when calibrated
     if ((length == null || length <= 0) && pixelLength >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
-      length = pixelsToReal(pixelLength, d.scaleRatio, d.calibrationUnit)
+      length = pixelsToReal(pixelLength, d.scaleRatio, displayUnit)
     }
     if ((area == null || area <= 0) && pixelArea >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
-      area = pixelsAreaToReal(pixelArea, d.scaleRatio, d.calibrationUnit)
+      area = pixelsAreaToReal(pixelArea, d.scaleRatio, displayUnit)
     }
 
-    // Guard: need at least one measurable value (pixel or real)
     const hasLineValue = pixelLength >= 0.1 || (length != null && length > 0)
     const hasAreaValue = pixelArea >= 0.1 || (area != null && area > 0)
     if (isAreaAnnotation) {
@@ -378,14 +562,14 @@ export default function PdfViewer({
       area,
       pixelLength,
       pixelArea,
-      unit:        useAppStore.getState().activeUnit ?? d?.calibrationUnit ?? 'Mm',
-      points:      [],
+      unit: displayUnit,
+      points: [],
       annotationId,
       pageNumber:  a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1),
       rawAnnotation: a,
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [getDisplayUnit])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { processMeasureRef.current = processMeasureAnnotation }, [processMeasureAnnotation])
 
@@ -409,21 +593,27 @@ export default function PdfViewer({
 
   const scheduleMeasurementComplete = useCallback((plainAnnot) => {
     if (!plainAnnot) return
-    const id = plainAnnot.annotationId ?? plainAnnot.name ?? `tmp-${Date.now()}`
+    const id = plainAnnot.annotationId ?? plainAnnot.name ?? plainAnnot.AnnotName
+    if (!id) return
+
     const prev = measureCompleteTimersRef.current.get(id)
     if (prev) clearTimeout(prev)
 
-    const runSave = () => {
-      processMeasureRef.current?.(plainAnnot)
-      flushMeasurementExport(viewerRef.current)
-      measureCompleteTimersRef.current.delete(id)
+    const resolveAnnot = () => {
+      const live = selectedAnnotDataRef.current
+      const liveId = live?.annotationId ?? live?.name ?? live?.AnnotName
+      return (live && liveId === id) ? buildPlainAnnot(live) : plainAnnot
     }
 
-    // Try immediately, then after Syncfusion finalises, then export flush
-    processMeasureRef.current?.(plainAnnot)
-    measureCompleteTimersRef.current.set(id, setTimeout(runSave, 500))
-    setTimeout(() => flushMeasurementExport(viewerRef.current), 900)
-  }, [flushMeasurementExport])
+    const save = () => {
+      measureCompleteTimersRef.current.delete(id)
+      processMeasureRef.current?.(resolveAnnot())
+      exportAndProcessUnsaved(viewerRef.current)
+    }
+
+    processMeasureRef.current?.(resolveAnnot())
+    measureCompleteTimersRef.current.set(id, setTimeout(save, 400))
+  }, [exportAndProcessUnsaved])
 
   // ── ResizeObserver: give Syncfusion explicit pixel dimensions ──────────
   useEffect(() => {
@@ -439,75 +629,65 @@ export default function PdfViewer({
     return () => ro.disconnect()
   }, [])
 
-  // ── Re-import stored annotations from DB after Syncfusion document load ──
-  //
-  // Root cause of persistence failure: Syncfusion v33.2.x exports Distance
-  // measurement annotations under the "shapeAnnotation" key (not "measureAnnotation"),
-  // in the raw event format { type:"Line", IT:"LineDimension", start:"x,y", end:"x,y", name:"uuid" }.
-  // importAnnotationsFromObject() accepts the same format — we just pass the stored
-  // pointsJson annotations directly under shapeAnnotation without any reconstruction.
+  // ── Re-import stored annotations ONCE per drawing load ─────────────────
+  // CRITICAL: must never re-run when annotations/annotationData change after a line
+  // is drawn — mid-session re-import resets Syncfusion scale state and crashes mouseup.
   useEffect(() => {
-    if (!docLoaded || !drawing?.id) return
-    if (importedDrawingRef.current === drawing.id) return
+    if (!docLoaded || !drawing?.id || importCompletedRef.current) return
 
     const vm = viewerRef.current
     if (!vm) return
 
-    // ── Strategy A: use stored AnnotationData blob (most reliable) ──────────
-    // AnnotationData is the exact JSON string returned by exportAnnotationsAsObject.
-    // Passing it to importAnnotation with format 'Json' routes through importAnnotationsAsJson
-    // which recognises measureShapeAnnotation and calls the correct WASM-side import.
-    if (drawing.annotationData) {
+    const finishImport = () => {
+      importCompletedRef.current = true
       importedDrawingRef.current = drawing.id
-
-      const timer = setTimeout(() => {
-        try {
-          let annotObj = drawing.annotationData
-          if (typeof annotObj === 'string') {
-            try { annotObj = JSON.parse(annotObj) } catch (_) { annotObj = null }
-          }
-          if (!annotObj) return
-
-          console.log('[BuildTakeoff] re-importing from AnnotationData blob')
-          importingAnnotsRef.current = true
-          // importAnnotation (singular) is the correct Syncfusion v33.2.x API.
-          // Passing the raw JSON string with format 'Json' routes through importAnnotationsAsJson
-          // which recognises the pdfAnnotation structure and calls the correct WASM import path.
-          if (typeof vm.importAnnotation === 'function') {
-            vm.importAnnotation(
-              typeof drawing.annotationData === 'string'
-                ? drawing.annotationData
-                : JSON.stringify(drawing.annotationData),
-              'Json'
-            )
-          }
-
-          // Pre-populate processedAnnotsRef so "Save Lines" doesn't duplicate saved rows
-          const pages = annotObj?.pdfAnnotation ?? {}
-          Object.values(pages).forEach(pageData => {
-            ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
-              let list = pageData?.[key] ?? []
-              if (typeof list === 'string') { try { list = JSON.parse(list) } catch (_) { list = [] } }
-              if (!Array.isArray(list)) return
-              list.forEach(a => {
-                const id = a?.AnnotName ?? a?.annotationId ?? a?.uniqueKey ?? a?.name
-                if (id) processedAnnotsRef.current.add(id)
-              })
-            })
-          })
-        } catch (err) {
-          console.error('[BuildTakeoff] AnnotationData import failed:', err)
-        }
-        setTimeout(() => { importingAnnotsRef.current = false }, 150)
-      }, 600)
-
-      return () => clearTimeout(timer)
+      importingAnnotsRef.current = false
+      applyCalibrationToViewer(vm)
     }
 
-    // ── Strategy B: reconstruct from per-item pointsJson (no blob saved yet) ─
-    // Handles drawings that were measured without ever clicking "Save Lines",
-    // and legacy DB items stored in Syncfusion event format (vertexPoints only).
-    if (!annotations.length) return   // DB query still in flight — will re-fire
+    // Prefer pointsJson when takeoff rows exist — blob import can break scale UI state
+    const usePointsJson = annotations.length > 0
+
+    // Strategy A: stored AnnotationData blob (only when no takeoff rows to reconstruct)
+    if (drawing.annotationData && !usePointsJson) {
+      try {
+        let annotObj = drawing.annotationData
+        if (typeof annotObj === 'string') {
+          try { annotObj = JSON.parse(annotObj) } catch (_) { annotObj = null }
+        }
+        if (!annotObj) return
+
+        console.log('[BuildTakeoff] one-time import from AnnotationData blob')
+        importingAnnotsRef.current = true
+        if (typeof vm.importAnnotation === 'function') {
+          vm.importAnnotation(
+            typeof drawing.annotationData === 'string'
+              ? drawing.annotationData
+              : JSON.stringify(drawing.annotationData),
+            'Json',
+          )
+        }
+        const pages = annotObj?.pdfAnnotation ?? {}
+        Object.values(pages).forEach(pageData => {
+          ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
+            let list = pageData?.[key] ?? []
+            if (typeof list === 'string') { try { list = JSON.parse(list) } catch (_) { list = [] } }
+            if (!Array.isArray(list)) return
+            list.forEach(a => {
+              const id = a?.AnnotName ?? a?.annotationId ?? a?.uniqueKey ?? a?.name
+              if (id) importedAnnotIdsRef.current.add(id)
+            })
+          })
+        })
+      } catch (err) {
+        console.error('[BuildTakeoff] AnnotationData import failed:', err)
+      }
+      setTimeout(finishImport, 50)
+      return
+    }
+
+    // Strategy B: reconstruct from per-item pointsJson
+    if (!annotations.length) return
 
     const byPage = {}
     annotations.forEach(item => {
@@ -569,48 +749,35 @@ export default function PdfViewer({
         byPage[pageIdx].push(importable)
 
         const id = raw.annotationId ?? raw.uniqueKey ?? raw.name
-        if (id) processedAnnotsRef.current.add(id)
+        if (id) importedAnnotIdsRef.current.add(id)
       } catch (_) {}
     })
 
-    if (!Object.keys(byPage).length) return
+    if (!Object.keys(byPage).length) {
+      importCompletedRef.current = true
+      applyCalibrationToViewer(vm)
+      return
+    }
 
-    // Don't lock importedDrawingRef before the timer — if annotationData arrives
-    // while we wait, we want the effect to re-fire and Strategy A to take over.
-    const capturedDrawingId = drawing.id
-
-    const timer = setTimeout(() => {
-      // If annotationData arrived while we were waiting, abort — Strategy A will run
-      if (drawingRef.current?.annotationData) return
-      // Guard against duplicate executions
-      if (importedDrawingRef.current === capturedDrawingId) return
-      importedDrawingRef.current = capturedDrawingId
-
-      // v33.2.x: measureShapeAnnotation is the key for Distance annotations.
-      // Two keys are required (>1) to satisfy importAnnotation's object-path condition.
-      const pdfAnnotation = {}
-      Object.entries(byPage).forEach(([pageIdx, annots]) => {
-        pdfAnnotation[pageIdx] = {
-          measureShapeAnnotation: annots,  // correct key for Distance/measure annotations
-          shapeAnnotation: [],             // needed: importAnnotation requires >1 key to use direct object path
-        }
-      })
-
-      console.log('[BuildTakeoff] re-importing', Object.values(byPage).flat().length, 'annotation(s) from pointsJson')
-
-      importingAnnotsRef.current = true
-      try {
-        if (typeof vm.importAnnotation === 'function') {
-          vm.importAnnotation(JSON.stringify({ pdfAnnotation }), 'Json')
-        }
-      } catch (err) {
-        console.error('[BuildTakeoff] pointsJson import failed:', err)
+    const pdfAnnotation = {}
+    Object.entries(byPage).forEach(([pageIdx, annots]) => {
+      pdfAnnotation[pageIdx] = {
+        measureShapeAnnotation: annots,
+        shapeAnnotation: [],
       }
-      setTimeout(() => { importingAnnotsRef.current = false }, 150)
-    }, 600)
+    })
 
-    return () => clearTimeout(timer)
-  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations])  // eslint-disable-line react-hooks/exhaustive-deps
+    console.log('[BuildTakeoff] one-time import', Object.values(byPage).flat().length, 'annotation(s) from pointsJson')
+    importingAnnotsRef.current = true
+    try {
+      if (typeof vm.importAnnotation === 'function') {
+        vm.importAnnotation(JSON.stringify({ pdfAnnotation }), 'Json')
+      }
+    } catch (err) {
+      console.error('[BuildTakeoff] pointsJson import failed:', err)
+    }
+    setTimeout(finishImport, 50)
+  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations.length, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
   useEffect(() => {
@@ -619,13 +786,18 @@ export default function PdfViewer({
     const el = containerRef.current
     if (!el) return
 
+    let mouseUpTimer = null
     const onMouseUp = () => {
-      if (importingAnnotsRef.current) return
-      setTimeout(() => flushMeasurementExport(viewerRef.current), 700)
+      if (importingAnnotsRef.current || editingAnnotRef.current) return
+      clearTimeout(mouseUpTimer)
+      mouseUpTimer = setTimeout(() => exportAndProcessUnsaved(viewerRef.current), 400)
     }
     el.addEventListener('mouseup', onMouseUp, true)
-    return () => el.removeEventListener('mouseup', onMouseUp, true)
-  }, [activeTool, flushMeasurementExport])
+    return () => {
+      clearTimeout(mouseUpTimer)
+      el.removeEventListener('mouseup', onMouseUp, true)
+    }
+  }, [activeTool, exportAndProcessUnsaved])
 
   // ── Ctrl+scroll wheel zoom ─────────────────────────────────────────────
   useEffect(() => {
@@ -784,6 +956,9 @@ export default function PdfViewer({
           }, 150)
         }, 80)
       } else if (type === 'deleteAnnotation' && payload.annotationId) {
+        processedAnnotsRef.current.delete(payload.annotationId)
+        pendingLabelByAnnotRef.current.delete(payload.annotationId)
+        if (lastDrawnAnnotRef.current === payload.annotationId) lastDrawnAnnotRef.current = null
         vm.annotation.selectAnnotation(payload.annotationId, payload.pageNumber ?? 1)
         // Small delay to let Syncfusion register the selection before deleting
         setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 80)
@@ -824,68 +999,72 @@ export default function PdfViewer({
 
         const protectedIds = getProtectedAnnotIds?.() ?? new Set()
 
-        setTimeout(() => {
-          const doSelectiveDelete = (rawData) => {
-            let data = rawData
-            if (typeof data === 'string') { try { data = JSON.parse(data) } catch { data = null } }
-            if (!data?.pdfAnnotation) { restoreMode(); return }
+        const clearPdfAnnot = (id, pageNum) => {
+          if (!id) return
+          processedAnnotsRef.current.delete(id)
+          pendingLabelByAnnotRef.current.delete(id)
+          if (lastDrawnAnnotRef.current === id) lastDrawnAnnotRef.current = null
+          setTimeout(() => {
+            try { vm.annotation.selectAnnotation(id, pageNum) } catch (_) {}
+            setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 50)
+          }, 80)
+        }
 
-            const toDelete = []
-
-            Object.entries(data.pdfAnnotation).forEach(([pageIdx, pageData]) => {
-              const pageNum = parseInt(pageIdx, 10) + 1
-              ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
-                let list = pageData?.[key]
-                if (typeof list === 'string') { try { list = JSON.parse(list) } catch { list = [] } }
-                if (!Array.isArray(list)) return
-                list.forEach(anno => {
-                  const id = anno?.AnnotName ?? anno?.annotationId ?? anno?.name ?? anno?.id
-                  if (!id || protectedIds.has(id)) return
-                  toDelete.push({ id, pageNum })
-                })
-              })
-            })
-
-            const lastId = lastDrawnAnnotRef.current
-            const targets = lastId && toDelete.some(t => t.id === lastId)
-              ? toDelete.filter(t => t.id === lastId)
-              : (toDelete.length ? [toDelete[toDelete.length - 1]] : [])
-
-            const clearedIds = targets.map(t => t.id)
-            targets.forEach(({ id }) => {
-              processedAnnotsRef.current.delete(id)
-              if (lastDrawnAnnotRef.current === id) lastDrawnAnnotRef.current = null
-            })
-
-            targets.forEach(({ id, pageNum }, i) => {
-              setTimeout(() => {
-                try { vm.annotation.selectAnnotation(id, pageNum) } catch (_) {}
-                setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 50)
-              }, i * 100)
-            })
-
-            if (clearedIds.length > 0) {
-              onClearSessionMeasurements?.(clearedIds)
-              toast.success(`Cleared ${clearedIds.length} unsaved markup${clearedIds.length > 1 ? 's' : ''}`)
-            } else {
-              toast('Nothing to clear — only unsaved markups are removed')
-            }
-
-            const restoreDelay = targets.length > 0 ? targets.length * 100 + 150 : 50
-            setTimeout(restoreMode, restoreDelay)
+        const runClear = async () => {
+          const clearedPending = await onClearPending?.()
+          if (clearedPending) {
+            setTimeout(restoreMode, 200)
+            return
           }
 
-          try {
-            const result = vm.exportAnnotationsAsObject?.()
-            if (result && typeof result.then === 'function') {
-              result.then(doSelectiveDelete).catch(() => { restoreMode() })
-            } else if (result) {
-              doSelectiveDelete(result)
-            } else {
-              restoreMode()
+          setTimeout(() => {
+            const doSelectiveDelete = (rawData) => {
+              let data = rawData
+              if (typeof data === 'string') { try { data = JSON.parse(data) } catch { data = null } }
+              if (!data?.pdfAnnotation) { restoreMode(); return }
+
+              const toDelete = []
+              Object.entries(data.pdfAnnotation).forEach(([pageIdx, pageData]) => {
+                const pageNum = parseInt(pageIdx, 10) + 1
+                ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
+                  let list = pageData?.[key]
+                  if (typeof list === 'string') { try { list = JSON.parse(list) } catch { list = [] } }
+                  if (!Array.isArray(list)) return
+                  list.forEach(anno => {
+                    const id = anno?.AnnotName ?? anno?.annotationId ?? anno?.name ?? anno?.id
+                    if (!id || protectedIds.has(id)) return
+                    toDelete.push({ id, pageNum })
+                  })
+                })
+              })
+
+              const lastId = lastDrawnAnnotRef.current
+              const target = (lastId && toDelete.find(t => t.id === lastId))
+                ?? (toDelete.length ? toDelete[toDelete.length - 1] : null)
+
+              if (target) {
+                clearPdfAnnot(target.id, target.pageNum)
+              } else {
+                toast('Nothing to clear — draw a line first or select a measurement to remove')
+              }
+
+              setTimeout(restoreMode, target ? 200 : 50)
             }
-          } catch (_) { restoreMode() }
-        }, 200)
+
+            try {
+              const result = vm.exportAnnotationsAsObject?.()
+              if (result && typeof result.then === 'function') {
+                result.then(doSelectiveDelete).catch(() => { restoreMode() })
+              } else if (result) {
+                doSelectiveDelete(result)
+              } else {
+                restoreMode()
+              }
+            } catch (_) { restoreMode() }
+          }, 200)
+        }
+
+        runClear()
       } else if (type === 'captureAnnotations') {
         // Step 1: Exit Distance drawing mode NOW so Syncfusion commits any in-progress
         // annotation before we export. Must be synchronous (before the delay).
@@ -1022,8 +1201,9 @@ export default function PdfViewer({
     setLoading(true)
     setErrorMsg(null)
     setPdfBase64(null)
-    setDocLoaded(false)               // gates annotation import until new doc is fully loaded
-    importedDrawingRef.current = null  // reset so the new drawing gets re-imported
+    setDocLoaded(false)
+    importedDrawingRef.current = null
+    importCompletedRef.current = false
 
     fetch(drawingUrl)
       .then(res => {
@@ -1073,6 +1253,7 @@ export default function PdfViewer({
     try {
       if (MEASURE_MODES[activeTool]) {
         vm.annotation.setAnnotationMode(MEASURE_MODES[activeTool])
+        applyCalibrationToViewer(vm)
       } else if (MARKUP_MODES[activeTool]) {
         vm.annotation.setAnnotationMode(MARKUP_MODES[activeTool])
       } else if (activeTool === 'pan') {
@@ -1084,7 +1265,7 @@ export default function PdfViewer({
         vm.interactionMode = 'TextSelection'
       }
     } catch (_) { /* viewer not yet mounted */ }
-  }, [activeTool])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTool, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync zoom (pdfScale from store → Syncfusion zoomTo) ───────────────
   useEffect(() => {
@@ -1193,38 +1374,15 @@ export default function PdfViewer({
         // the next annotation the user draws (not just the one just updated).
       }
 
-      // Re-enter the annotation mode so Syncfusion applies the new settings to
-      // the next annotation drawn — fixes thickness/color not updating on change.
-      const modeMap = {
-        line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter',
-        arrow: 'Arrow', rect: 'Square', circle: 'Circle', polygon: 'Polygon',
-        text: 'FreeText', line_ann: 'Line',
-      }
-      const modeKey = modeMap[activeTool]
-      if (modeKey) {
-        setTimeout(() => {
-          try { vm.annotation.setAnnotationMode(modeKey) } catch (_) {}
-          // Mode re-enter deselects — clear our annotation tracking ref
-          selectedAnnotDataRef.current = null
-        }, 20)
-      }
     } catch (_) {}
   }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale])
 
-  // ── Apply calibration scale when drawing is calibrated ────────────────
+  // ── Apply calibration scale to Syncfusion (display unit in grid is separate) ──
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !drawing?.isCalibrated || !drawing?.scaleRatio) return
-    try {
-      const sfUnit = toSfUnit(drawing.calibrationUnit)
-      vm.annotation.updateMeasurementSettings('Distance', {
-        displayUnit: sfUnit,
-        conversionUnit: sfUnit,
-        depth: drawing.scaleRatio,
-        ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, '#111827'),
-      })
-    } catch (_) { }
-  }, [drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit, pdfBase64, measureLabelFontSize, pdfScale])
+    if (!vm || !pdfBase64) return
+    applyCalibrationToViewer(vm)
+  }, [drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit, pdfBase64, applyCalibrationToViewer])
 
   // ── Re-apply label size when user changes preset or zoom (Bluebeam-style) ──
   useEffect(() => {
@@ -1253,8 +1411,11 @@ export default function PdfViewer({
     setPdfPage(1)
     setDocLoaded(true)  // annotation API is now safe to call
     const vm = viewerRef.current
-    if (vm) applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
-  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale])
+    if (vm) {
+      applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
+      applyCalibrationToViewer(vm)
+    }
+  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer])
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
@@ -1286,66 +1447,16 @@ export default function PdfViewer({
       scheduleMeasurementComplete(buildPlainAnnot(a))
     })
 
-    // Keep raw event annotation ref for editAnnotation (Syncfusion API requires it)
     if (eventAnnotations[0]) selectedAnnotDataRef.current = eventAnnotations[0]
+  }, [scheduleMeasurementComplete])
 
-    // ── DEFERRED 500ms: font-size update + annotation-blob persistence ──────────
-    // editAnnotation must wait for Syncfusion to finalise the annotation render.
-    // exportAnnotationsAsObject gives the canonical blob for future re-import.
-    setTimeout(() => {
-      const vm = viewerRef.current
-      if (!vm) return
-
-      // Bump the label font size on the just-drawn annotation.
-      // CRITICAL: Syncfusion v33.2.x reads annotation.labelSettings.fontSize BEFORE
-      // checking annotation.fontSize.  If labelSettings.fontSize is the default (14),
-      // it overrides any top-level fontSize we pass, making the font-size check a no-op.
-      // Fix: always mirror fontSize inside labelSettings so both paths use the large value.
-      const eventAnnot = eventAnnotations[0]
-      if (eventAnnot && isMeasureAnnotation(eventAnnot)) {
-        const labelColor = eventAnnot.strokeColor ?? measureColor ?? '#111827'
-        const applyLabelSize = () => {
-          editingAnnotRef.current = true
-          try {
-            vm.annotation.editAnnotation(patchMeasureAnnotationLabel(eventAnnot, measureLabelFontSize, pdfScale, labelColor))
-          } catch (_) {}
-          setTimeout(() => { editingAnnotRef.current = false }, 300)
-        }
-        applyLabelSize()
-        // Re-apply once more — Syncfusion sometimes renders the default 14pt label first.
-        setTimeout(applyLabelSize, 350)
-      }
-
-      // Save full annotation blob so annotations survive page refresh
-      try {
-        const exportResult = vm.exportAnnotationsAsObject?.()
-        const saveBlobFn = onAnnotationsBlobRef.current
-        if (!saveBlobFn) return
-        const doSave = (rawExport) => {
-          if (!rawExport) return
-          try {
-            const jsonStr = typeof rawExport === 'string' ? rawExport : JSON.stringify(rawExport)
-            saveBlobFn(jsonStr)
-          } catch (_) {}
-        }
-        if (exportResult && typeof exportResult.then === 'function') {
-          exportResult.then(doSave).catch(() => {})
-        } else if (exportResult) {
-          doSave(exportResult)
-        }
-      } catch (_) {}
-    }, 500)
-  }, [scheduleMeasurementComplete, measureColor, measureLabelFontSize, pdfScale])
-
-  // ── Fired when annotation properties change (fires even when annotationAdd doesn't) ──
   const handleAnnotationPropertiesChange = useCallback((args) => {
-    if (importingAnnotsRef.current) return
+    if (importingAnnotsRef.current || editingAnnotRef.current) return
     const a = args?.annotation
     if (!a) return
     scheduleMeasurementComplete(buildPlainAnnot(a))
   }, [scheduleMeasurementComplete])
 
-  // ── Fired when an annotation is selected on the viewer ────────────────
   const handleAnnotationSelect = useCallback((args) => {
     const annotation = args?.annotation
     const id = annotation?.annotationId
@@ -1397,6 +1508,11 @@ export default function PdfViewer({
         .bt-pan-active #sfPdfViewer,
         .bt-pan-active #sfPdfViewer_viewerContainer,
         .bt-pan-active #sfPdfViewer .e-pv-viewer-container { cursor: grab !important; }
+
+        /* Remove stray modal overlays that block PDF interaction */
+        #sfPdfViewer .e-dlg-overlay,
+        #sfPdfViewer .e-overlay,
+        .e-dlg-overlay.e-fade { display: none !important; pointer-events: none !important; }
         .bt-pan-active #sfPdfViewer_viewerContainer { touch-action: none; }
       `}</style>
 
@@ -1683,6 +1799,10 @@ export default function PdfViewer({
           distanceSettings={{
             displayUnit:    drawing?.calibrationUnit ? toSfUnit(drawing.calibrationUnit) : 'Millimeter',
             conversionUnit: drawing?.calibrationUnit ? toSfUnit(drawing.calibrationUnit) : 'Millimeter',
+            ...(drawing?.isCalibrated && drawing?.scaleRatio ? {
+              depth: drawing.scaleRatio,
+              scaleRatio: 1,
+            } : {}),
             strokeColor: measureColor ?? '#EF233C',
             fillColor:   `rgba(239,35,60,${fillOpacity ?? 0.15})`,
             opacity: 1,

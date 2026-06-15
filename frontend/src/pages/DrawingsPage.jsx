@@ -14,7 +14,10 @@ import MemberSchedulePanel from '../components/takeoff/MemberSchedulePanel'
 import AddMeasurementModal from '../components/takeoff/AddTakeoffModal'
 import CalibrationModal from '../components/takeoff/CalibrationModal'
 import { exportToExcel, exportToPdf } from '../utils/exportUtils'
-import { computeScaleRatio, getUnitLabel, getAreaUnitLabel } from '../utils/calculations'
+import {
+  computeScaleRatio, getUnitLabel, getAreaUnitLabel,
+  formatMeasureLength, formatMeasureArea,
+} from '../utils/calculations'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
@@ -53,6 +56,10 @@ export default function DrawingsPage() {
   const annotationMapRef = useRef({})
   const persistedAnnotIdsRef = useRef(new Set())
   const savingAnnotIdsRef = useRef(new Set())
+  const measureReleaseRef = useRef(null)
+  // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
+  const pendingMeasurementRef = useRef(null)
+  const clearedMarkRef = useRef(null)
 
   const extractAnnotIdFromPointsJson = useCallback((pointsJson) => {
     if (!pointsJson) return null
@@ -142,8 +149,12 @@ export default function DrawingsPage() {
       setSummaryLocal(null)
       annotationMapRef.current = {}
       persistedAnnotIdsRef.current = new Set()
+      pendingMeasurementRef.current = null
+      clearedMarkRef.current = null
       return
     }
+    pendingMeasurementRef.current = null
+    clearedMarkRef.current = null
     Promise.all([
       takeoffService.getByDrawing(selectedDrawing.id),
       takeoffService.getSummary(selectedDrawing.id),
@@ -177,13 +188,42 @@ export default function DrawingsPage() {
       .catch(() => toast.error('Failed to load drawing data'))
   }, [selectedDrawing?.id, extractAnnotIdFromPointsJson])
 
+  const deletePendingMeasurement = useCallback(async (pending, { silent = false } = {}) => {
+    if (!pending || persistedAnnotIdsRef.current.has(pending.annotationId)) return false
+    try {
+      await takeoffService.delete(pending.dbId)
+      removeTakeoffItem(pending.dbId)
+      delete annotationMapRef.current[pending.dbId]
+      triggerPdfCommand({
+        type: 'deleteAnnotation',
+        annotationId: pending.annotationId,
+        pageNumber: pending.pageNumber ?? 1,
+      })
+      if (selectedAnnotId === pending.dbId) setSelectedAnnotId(null)
+      if (pendingMeasurementRef.current?.dbId === pending.dbId) {
+        pendingMeasurementRef.current = null
+      }
+      if (selectedDrawing) {
+        takeoffService.getSummary(selectedDrawing.id)
+          .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+          .catch(() => {})
+      }
+      if (!silent) toast.success('Cleared measurement')
+      return true
+    } catch {
+      if (!silent) toast.error('Failed to clear measurement')
+      return false
+    }
+  }, [removeTakeoffItem, selectedAnnotId, selectedDrawing, setSummary, triggerPdfCommand])
+
   const autoSave = useCallback(async (measurement) => {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
     if (!drw) return
 
-    const annotKey = measurement.annotationId ?? `${measurement.pixelLength}-${measurement.pageNumber}`
-    if (savingAnnotIdsRef.current.has(annotKey)) return
-    savingAnnotIdsRef.current.add(annotKey)
+    const annotKey = measurement.annotationId
+      ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
+    if (annotKey && savingAnnotIdsRef.current.has(annotKey)) return
+    if (annotKey) savingAnnotIdsRef.current.add(annotKey)
 
     setAutoSaving(true)
 
@@ -196,20 +236,22 @@ export default function DrawingsPage() {
     // Mark prefix per type: A# area, P# perimeter, C# count, M# line
     const prefix     = isArea ? 'A' : isPerim ? 'P' : isCount ? 'C' : 'M'
     const sameType   = current.filter(t => (t.itemType || 'Line') === itemType)
-    const nextMark   = `${prefix}${sameType.length + 1}`
+    const reuseMark  = clearedMarkRef.current
+    if (reuseMark) clearedMarkRef.current = null
+    const nextMark   = reuseMark ?? `${prefix}${sameType.length + 1}`
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
       : isArea
         ? (measurement.area != null
-            ? `${measurement.area.toFixed(3)} ${getAreaUnitLabel(unit)}`
+            ? formatMeasureArea(measurement.area, unit)
             : `Area (${Math.round(measurement.pixelArea ?? 0)} px² — not calibrated)`)
         : isPerim
           ? (measurement.length != null
-              ? `Polyline: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
+              ? `Polyline: ${formatMeasureLength(measurement.length, unit)}`
               : `Polyline (uncalibrated)`)
           : (measurement.length != null
-              ? `${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`
+              ? formatMeasureLength(measurement.length, unit)
               : `${Math.round(measurement.pixelLength)} px (not calibrated)`)
 
     // Safe serialise — skips circular refs so Syncfusion internal objects never crash this
@@ -261,6 +303,13 @@ export default function DrawingsPage() {
           annotationId: measurement.annotationId,
           pageNumber:   measurement.pageNumber ?? 1,
         }
+        persistedAnnotIdsRef.current.add(measurement.annotationId)
+      }
+      pendingMeasurementRef.current = {
+        dbId: saved.id,
+        annotationId: measurement.annotationId,
+        mark: saved.mark,
+        pageNumber: measurement.pageNumber ?? 1,
       }
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
@@ -276,6 +325,7 @@ export default function DrawingsPage() {
       }
     } catch (err) {
       console.error('[BuildTakeoff] autoSave failed:', err)
+      if (measurement.annotationId) measureReleaseRef.current?.(measurement.annotationId)
       toast.error('Could not save measurement — try again')
     } finally {
       savingAnnotIdsRef.current.delete(annotKey)
@@ -286,8 +336,6 @@ export default function DrawingsPage() {
   const handleMeasure = useCallback((measurement) => {
     setLastMeasurement(measurement)
     const { activeTool: currentTool } = useAppStore.getState()
-    // Show calibration modal when calibrate tool is active so user can set scale,
-    // but do NOT early-return — autoSave always runs so the line appears in the grid.
     if (currentTool === 'calibrate') setShowCalModal(true)
     autoSave(measurement)
   }, [autoSave])
@@ -337,28 +385,14 @@ export default function DrawingsPage() {
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand])
 
-  const handleClearSessionMeasurements = useCallback(async (clearedAnnotIds) => {
-    if (!clearedAnnotIds?.length) return
-    const persisted = persistedAnnotIdsRef.current
-    const { takeoffItems: items } = useAppStore.getState()
-    const toRemove = items.filter(item => {
-      const aid = extractAnnotIdFromPointsJson(item.pointsJson)
-      return aid && clearedAnnotIds.includes(aid) && !persisted.has(aid)
-    })
-    for (const item of toRemove) {
-      try {
-        await takeoffService.delete(item.id)
-        removeTakeoffItem(item.id)
-        delete annotationMapRef.current[item.id]
-        if (selectedAnnotId === item.id) setSelectedAnnotId(null)
-      } catch (_) { /* best-effort */ }
+  const handleClearPending = useCallback(async () => {
+    const pending = pendingMeasurementRef.current
+    if (!pending) return false
+    if (!persistedAnnotIdsRef.current.has(pending.annotationId)) {
+      clearedMarkRef.current = pending.mark
     }
-    if (toRemove.length > 0 && selectedDrawing) {
-      takeoffService.getSummary(selectedDrawing.id)
-        .then(sum => { setSummaryLocal(sum); setSummary(sum) })
-        .catch(() => {})
-    }
-  }, [extractAnnotIdFromPointsJson, removeTakeoffItem, selectedAnnotId, selectedDrawing, setSummary])
+    return deletePendingMeasurement(pending)
+  }, [deletePendingMeasurement])
 
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
@@ -367,6 +401,7 @@ export default function DrawingsPage() {
       removeTakeoffItem(id)
       delete annotationMapRef.current[id]
       if (selectedAnnotId === id) setSelectedAnnotId(null)
+      if (pendingMeasurementRef.current?.dbId === id) pendingMeasurementRef.current = null
       if (annot?.annotationId) {
         persistedAnnotIdsRef.current.delete(annot.annotationId)
         triggerPdfCommand({ type: 'deleteAnnotation', annotationId: annot.annotationId, pageNumber: annot.pageNumber ?? 1 })
@@ -712,15 +747,14 @@ export default function DrawingsPage() {
                 setSelectedAnnotId(found ? Number(found[0]) : null)
               }}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
-              onClearSessionMeasurements={handleClearSessionMeasurements}
+              measureReleaseRef={measureReleaseRef}
+              onClearPending={handleClearPending}
               onAnnotationsBlob={async (blobBase64) => {
                 const { selectedDrawing: drw } = useAppStore.getState()
                 if (!drw) return
                 try {
+                  // Save blob silently — do NOT refetch drawing (triggers re-import / scale reset)
                   await drawingService.saveAnnotations(drw.id, blobBase64)
-                  const updated = await drawingService.getById(drw.id)
-                  setSelectedDrawing(updated)
-                  setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
                 } catch (_) {}
               }}
             />

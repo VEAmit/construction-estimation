@@ -39,6 +39,40 @@ export function fmt(v, d = 2) {
   return typeof v === 'number' ? v.toFixed(d) : '--'
 }
 
+/** Same formatting for PDF line labels and grid length column */
+export function formatMeasureLength(value, unit, decimals = 2) {
+  if (value == null || Number.isNaN(value)) return ''
+  return `${value.toFixed(decimals)} ${getUnitLabel(unit)}`
+}
+
+export function formatMeasureArea(value, unit, decimals = 2) {
+  if (value == null || Number.isNaN(value)) return ''
+  return `${value.toFixed(decimals)} ${getAreaUnitLabel(unit)}`
+}
+
+const LABEL_UNIT_MAP = {
+  mm: 'Mm', cm: 'Cm', m: 'Meter', ft: 'Feet', in: 'Inch', yd: 'Yd',
+}
+
+/** Parse Syncfusion label text like "5.28 in" or "13.41 cm" */
+export function parseMeasureLabel(text) {
+  if (!text) return null
+  const m = String(text).trim().match(/([\d.]+)\s*(mm²|cm²|m²|ft²|in²|yd²|mm|cm|m|ft|in|yd)?/i)
+  if (!m || !Number.isFinite(parseFloat(m[1]))) return null
+  const token = (m[2] || '').toLowerCase().replace(/²/g, '')
+  return {
+    value: parseFloat(m[1]),
+    unit: LABEL_UNIT_MAP[token] ?? null,
+    isArea: /²/.test(m[2] || ''),
+  }
+}
+
+/** Convert a Syncfusion measurement value from one unit to another */
+export function convertMeasureValue(value, fromUnit, toUnit) {
+  if (value == null || !fromUnit || !toUnit) return value
+  return convertFromMm(toMm(value, fromUnit), toUnit)
+}
+
 export function fmtSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`

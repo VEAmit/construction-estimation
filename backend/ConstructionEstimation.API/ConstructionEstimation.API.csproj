@@ -20,7 +20,7 @@
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Syncfusion.EJ2.PdfViewer.AspNet.Core" Version="33.2.6" />
+    <PackageReference Include="Syncfusion.EJ2.PdfViewer.AspNet.Core" Version="29.2.11" />
   </ItemGroup>
 
   <ItemGroup>

@@ -276,7 +276,7 @@ export default function Toolbar() {
             </button>
           ) : null}
 
-          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Clear last unsaved markup from PDF"
+          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Undo last measurement (removes from PDF and grid)"
             style={{ ...zBtn, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"/>

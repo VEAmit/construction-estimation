@@ -39,7 +39,15 @@ export default defineConfig({
       },
     },
   },
+  resolve: {
+    dedupe: ['@syncfusion/ej2-base'],
+  },
   optimizeDeps: {
+    include: [
+      '@syncfusion/ej2-base',
+      '@syncfusion/ej2-react-pdfviewer',
+      '@syncfusion/ej2-pdfviewer',
+    ],
     exclude: ['pdfjs-dist'],
   },
 })
