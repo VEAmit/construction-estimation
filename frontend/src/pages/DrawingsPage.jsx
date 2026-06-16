@@ -79,6 +79,7 @@ export default function DrawingsPage() {
   // for the first time) so we only write to the DB on genuine style changes.
   const annotStyleBaselineRef = useRef(null)
   const pasteStyleOverrideRef = useRef(null)
+  const blobSaveTimerRef = useRef(null)
 
   // ── DB update when style changes while an annotation is selected ─────────
   // PdfViewer handles the visual update via editAnnotation.
@@ -220,6 +221,17 @@ export default function DrawingsPage() {
     }
   }, [removeTakeoffItem, selectedAnnotId, selectedDrawing, setSummary, triggerPdfCommand])
 
+  const scheduleAnnotationBlobSave = useCallback(() => {
+    if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
+    blobSaveTimerRef.current = setTimeout(() => {
+      triggerPdfCommand('saveAnnotationBlob')
+    }, 1500)
+  }, [triggerPdfCommand])
+
+  useEffect(() => () => {
+    if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
+  }, [])
+
   const autoSave = useCallback(async (measurement) => {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
     if (!drw) return
@@ -323,6 +335,7 @@ export default function DrawingsPage() {
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
         .catch(() => {})
+      scheduleAnnotationBlobSave()
       if (isCount) {
         toast.success(`${nextMark}: ${measurement.count} × ${category} saved`, { duration: 2500, icon: '🔢' })
       } else if (isArea && measurement.area != null) {
@@ -340,7 +353,7 @@ export default function DrawingsPage() {
       savingAnnotIdsRef.current.delete(annotKey)
       setAutoSaving(false)
     }
-  }, [addTakeoffItem])
+  }, [addTakeoffItem, scheduleAnnotationBlobSave])
 
   const handleMeasure = useCallback((measurement) => {
     setLastMeasurement(measurement)

@@ -187,6 +187,63 @@ function applyToolbarLinearStyle(vm, target, {
   }
 }
 
+function resolveLinearItemColor(item, fallback = '#111827') {
+  if (item?.color) return item.color
+  if (!item?.pointsJson) return fallback
+  try {
+    const raw = JSON.parse(item.pointsJson)
+    return raw.strokeColor ?? raw.StrokeColor ?? fallback
+  } catch { return fallback }
+}
+
+/** Collect every saved linear measurement on the drawing. */
+function listAllLinearTargets(annotations, vm) {
+  if (!annotations?.length) return []
+  const targets = []
+  for (const item of annotations) {
+    if ((item.itemType || 'Line') !== 'Line' || !item.pointsJson) continue
+    const id = parseAnnotIdFromPointsJson(item.pointsJson)
+    if (!id) continue
+    targets.push({
+      annotId: id,
+      item,
+      annot: vm ? resolveLiveAnnotation(vm, id) : null,
+    })
+  }
+  return targets
+}
+
+/** Apply toolbar label + thickness + line mode to ALL linear measurements on the PDF. */
+function applyToolbarLinearStyleToAll(vm, annotations, styleParams) {
+  if (!vm || !annotations?.length) return
+  const targets = listAllLinearTargets(annotations, vm)
+  for (const target of targets) {
+    const fontColor = resolveLinearItemColor(target.item, styleParams.fontColor ?? '#111827')
+    applyToolbarLinearStyle(vm, target, { ...styleParams, fontColor })
+    try {
+      const live = target.annot ?? resolveLiveAnnotation(vm, target.annotId)
+      if (live) {
+        const patched = patchMeasureAnnotationLabel(
+          live,
+          styleParams.measureLabelFontSize,
+          styleParams.pdfScale,
+          fontColor,
+          styleParams.lineThickness,
+          styleParams.arrowStyle,
+          styleParams.linearLineMode,
+        )
+        vm.annotation.editAnnotation({
+          ...live,
+          annotationId: target.annotId,
+          name: target.annotId,
+          AnnotName: target.annotId,
+          ...patched,
+        })
+      }
+    } catch (_) {}
+  }
+}
+
 /**
  * Write the grid-calculated label onto Syncfusion's distance/perimeter diagram text.
  * Syncfusion initDistanceLabel uses setConversion() when notes is empty → NaN without its
@@ -425,6 +482,7 @@ export default function PdfViewer({
   const pasteStyleRef = useRef(null)
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
+  const importedTakeoffIdsRef = useRef(new Set())
 
   useEffect(() => {
     importedAnnotIdsRef.current = new Set()
@@ -433,6 +491,7 @@ export default function PdfViewer({
     importedDrawingRef.current = null
     importCompletedRef.current = false
     annotationsSyncKeyRef.current = ''
+    importedTakeoffIdsRef.current = new Set()
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
   }, [drawing?.id])
@@ -468,7 +527,7 @@ export default function PdfViewer({
     requestAnimationFrame(() => {
       const vm = viewerRef.current
       if (!vm) return
-      const { measureLabelFontSize: defaultLabelPt, lineThickness: defaultThick } = useAppStore.getState()
+      const { measureLabelFontSize: labelPt, lineThickness: thick, arrowStyle: arrows, linearLineMode: lineMode } = useAppStore.getState()
       annotations.forEach(item => {
         if (!item.pointsJson) return
         try {
@@ -484,11 +543,7 @@ export default function PdfViewer({
             ?? (parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1)
           const color = raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#111827'
           if (isLine) {
-            const storedThick = raw.Thickness ?? raw.thickness ?? defaultThick
-            const storedArrows = inferArrowStyleFromAnnot(raw)
-            const storedLineMode = inferLinearLineModeFromAnnot(raw)
-            const labelPt = inferLabelSizeFromSfFontSize(raw.FontSize ?? raw.fontSize, pdfScale) ?? defaultLabelPt
-            const linearStyle = buildLinearDistanceStyle(labelPt, pdfScale, color, storedThick, storedArrows, storedLineMode)
+            const linearStyle = buildLinearDistanceStyle(labelPt, pdfScale, color, thick, arrows, lineMode)
             linearStyle.strokeColor = color
             const diagramStyle = buildLinearLabelDiagramStyle(labelPt, pdfScale, color)
             applyCalibratedLabelToDiagram(vm, id, pageNumber, text, color, diagramStyle)
@@ -1012,11 +1067,9 @@ export default function PdfViewer({
     return () => ro.disconnect()
   }, [])
 
-  // ── Re-import stored annotations ONCE per drawing load ─────────────────
-  // CRITICAL: must never re-run when annotations/annotationData change after a line
-  // is drawn — mid-session re-import resets Syncfusion scale state and crashes mouseup.
+  // ── Import stored annotations from takeoff pointsJson (incremental + reload-safe) ──
   useEffect(() => {
-    if (!docLoaded || !drawing?.id || importCompletedRef.current) return
+    if (!docLoaded || !drawing?.id) return
 
     const vm = viewerRef.current
     if (!vm) return
@@ -1028,52 +1081,30 @@ export default function PdfViewer({
       applyCalibrationToViewer(vm)
     }
 
-    // Prefer pointsJson when takeoff rows exist — blob import can break scale UI state
-    const usePointsJson = annotations.length > 0
-
-    // Strategy A: stored AnnotationData blob (only when no takeoff rows to reconstruct)
-    if (drawing.annotationData && !usePointsJson) {
-      try {
-        let annotObj = drawing.annotationData
-        if (typeof annotObj === 'string') {
-          try { annotObj = JSON.parse(annotObj) } catch (_) { annotObj = null }
-        }
-        if (!annotObj) return
-
-        console.log('[BuildTakeoff] one-time import from AnnotationData blob')
-        importingAnnotsRef.current = true
-        if (typeof vm.importAnnotation === 'function') {
-          vm.importAnnotation(
-            typeof drawing.annotationData === 'string'
-              ? drawing.annotationData
-              : JSON.stringify(drawing.annotationData),
-            'Json',
-          )
-        }
-        const pages = annotObj?.pdfAnnotation ?? {}
-        Object.values(pages).forEach(pageData => {
-          ;['measureShapeAnnotation', 'shapeAnnotation', 'measureAnnotation'].forEach(key => {
-            let list = pageData?.[key] ?? []
-            if (typeof list === 'string') { try { list = JSON.parse(list) } catch (_) { list = [] } }
-            if (!Array.isArray(list)) return
-            list.forEach(a => {
-              const id = a?.AnnotName ?? a?.annotationId ?? a?.uniqueKey ?? a?.name
-              if (id) importedAnnotIdsRef.current.add(id)
-            })
-          })
-        })
-      } catch (err) {
-        console.error('[BuildTakeoff] AnnotationData import failed:', err)
+    const itemsToImport = annotations.filter(item => {
+      if (!item.pointsJson || importedTakeoffIdsRef.current.has(item.id)) return false
+      const id = parseAnnotIdFromPointsJson(item.pointsJson)
+      if (id && resolveLiveAnnotation(vm, id)) {
+        importedTakeoffIdsRef.current.add(item.id)
+        return false
       }
-      setTimeout(finishImport, 50)
+      return true
+    })
+
+    // Wait for takeoff rows after PDF loads — retry so refresh never skips import
+    if (!itemsToImport.length) {
+      if (annotations.length === 0 && !importCompletedRef.current) {
+        const retry = setTimeout(() => {
+          if (importCompletedRef.current || annotations.length > 0) return
+          importCompletedRef.current = true
+        }, 4000)
+        return () => clearTimeout(retry)
+      }
       return
     }
 
-    // Strategy B: reconstruct from per-item pointsJson
-    if (!annotations.length) return
-
     const byPage = {}
-    annotations.forEach(item => {
+    itemsToImport.forEach(item => {
       if (!item.pointsJson) return
       try {
         const raw = JSON.parse(item.pointsJson)
@@ -1167,14 +1198,11 @@ export default function PdfViewer({
 
         const id = raw.annotationId ?? raw.uniqueKey ?? raw.name
         if (id) importedAnnotIdsRef.current.add(id)
+        importedTakeoffIdsRef.current.add(item.id)
       } catch (_) {}
     })
 
-    if (!Object.keys(byPage).length) {
-      importCompletedRef.current = true
-      applyCalibrationToViewer(vm)
-      return
-    }
+    if (!Object.keys(byPage).length) return
 
     const pdfAnnotation = {}
     Object.entries(byPage).forEach(([pageIdx, annots]) => {
@@ -1184,7 +1212,7 @@ export default function PdfViewer({
       }
     })
 
-    console.log('[BuildTakeoff] one-time import', Object.values(byPage).flat().length, 'annotation(s) from pointsJson')
+    console.log('[BuildTakeoff] import', Object.values(byPage).flat().length, 'annotation(s) from pointsJson')
     importingAnnotsRef.current = true
     try {
       if (typeof vm.importAnnotation === 'function') {
@@ -1194,7 +1222,7 @@ export default function PdfViewer({
       console.error('[BuildTakeoff] pointsJson import failed:', err)
     }
     setTimeout(finishImport, 50)
-  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations.length, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docLoaded, drawing?.id, annotations, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
   useEffect(() => {
@@ -1569,6 +1597,30 @@ export default function PdfViewer({
             if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
           }, 200)
         }, 400)
+      } else if (type === 'saveAnnotationBlob') {
+        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+        setTimeout(() => {
+          try {
+            const result = vm.exportAnnotationsAsObject?.()
+            const saveBlob = (rawData) => {
+              if (!rawData) return
+              const saveBlobFn = onAnnotationsBlobRef.current
+              if (!saveBlobFn) return
+              try {
+                const jsonStr = typeof rawData === 'string' ? rawData : JSON.stringify(rawData)
+                saveBlobFn(jsonStr)
+              } catch (_) {}
+            }
+            if (result && typeof result.then === 'function') {
+              result.then(saveBlob).catch(() => {})
+            } else if (result) {
+              saveBlob(result)
+            }
+          } catch (_) {}
+          const { activeTool: currentTool } = useAppStore.getState()
+          const mode = MEASURE_MODES[currentTool]
+          if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
+        }, 300)
       } else if (type === 'captureAnnotations') {
         // Step 1: Exit Distance drawing mode NOW so Syncfusion commits any in-progress
         // annotation before we export. Must be synchronous (before the delay).
@@ -1845,28 +1897,17 @@ export default function PdfViewer({
         } catch (_) {}
       }
 
-      // ── Update selected or last-drawn linear measurement in-place ──
+      // ── Apply label/thickness/line-mode to ALL linear measurements on the PDF ──
       if (activeTool === 'line') {
-        const target = resolveLinearStyleTarget(vm, {
-          selectedAnnotDataRef, lastDrawnAnnotRef, selectedAnnotationId, annotations,
-        })
-        if (target) {
+        const styleParams = {
+          measureLabelFontSize, pdfScale, fontColor: safeHex, lineThickness: thick,
+          arrowStyle, linearLineMode, displayUnit: getDisplayUnit(),
+        }
+        const targets = listAllLinearTargets(annotations, vm)
+        if (targets.length) {
           editingAnnotRef.current = true
           try {
-            applyToolbarLinearStyle(vm, target, {
-              measureLabelFontSize, pdfScale, fontColor: safeHex, lineThickness: thick,
-              arrowStyle, linearLineMode, displayUnit: getDisplayUnit(),
-            })
-            if (selectedAnnotDataRef.current) {
-              const current = selectedAnnotDataRef.current
-              const patched = patchMeasureAnnotationLabel(
-                current, measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle, linearLineMode,
-              )
-              try {
-                vm.annotation.editAnnotation(patched)
-                selectedAnnotDataRef.current = patched
-              } catch (_) {}
-            }
+            applyToolbarLinearStyleToAll(vm, annotations, styleParams)
           } catch (_) {}
           setTimeout(() => { editingAnnotRef.current = false }, 300)
         } else {
@@ -1930,27 +1971,14 @@ export default function PdfViewer({
       } catch (_) {}
     }
     if (activeTool === 'line') {
-      const target = resolveLinearStyleTarget(vm, {
-        selectedAnnotDataRef, lastDrawnAnnotRef, selectedAnnotationId, annotations,
-      })
-      if (target) {
+      const targets = listAllLinearTargets(annotations, vm)
+      if (targets.length) {
         editingAnnotRef.current = true
         try {
-          const fontColor = measureColor ?? '#111827'
-          applyToolbarLinearStyle(vm, target, {
-            measureLabelFontSize, pdfScale, fontColor, lineThickness,
+          applyToolbarLinearStyleToAll(vm, annotations, {
+            measureLabelFontSize, pdfScale, fontColor: measureColor ?? '#111827', lineThickness,
             arrowStyle, linearLineMode, displayUnit: getDisplayUnit(),
           })
-          if (selectedAnnotDataRef.current) {
-            const current = selectedAnnotDataRef.current
-            const patched = patchMeasureAnnotationLabel(
-              current, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode,
-            )
-            try {
-              vm.annotation.editAnnotation(patched)
-              selectedAnnotDataRef.current = patched
-            } catch (_) {}
-          }
         } catch (_) {}
         setTimeout(() => { editingAnnotRef.current = false }, 300)
       }
