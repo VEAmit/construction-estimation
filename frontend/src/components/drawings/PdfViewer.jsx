@@ -1,5 +1,6 @@
 import '../../syncfusion-license.js'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   PdfViewerComponent,
   Toolbar,
@@ -107,6 +108,13 @@ export default function PdfViewer({
   const [docLoaded,  setDocLoaded]    = useState(false)
   const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
   const countMarkersRef = useRef([])
+  // Custom HTML overlay labels — replaces Syncfusion's native (fragile/NaN-prone)
+  // on-canvas measurement label. [{id, pageNumber, midX, midY (PDF page-space), text, color}]
+  const [measureLabels, setMeasureLabels] = useState([])
+  const [overlayTick, setOverlayTick] = useState(0)  // bumped on scroll to force label reposition
+  useEffect(() => {
+    console.log('[BT-DIAG] measureLabels state changed:', measureLabels)
+  }, [measureLabels])
   const prevUrlRef  = useRef(null)
   // Pan-drag state — full tracking state for click-and-drag scrolling.
   const panStateRef = useRef({
@@ -144,7 +152,47 @@ export default function PdfViewer({
   useEffect(() => {
     setCountMarkers([])
     setCountSession(0)
+    setMeasureLabels([])
   }, [drawingUrl, setCountSession])
+
+  // ── Keep the overlay positioned during scroll (zoom/page changes already re-render) ──
+  useEffect(() => {
+    if (!pdfBase64 || !docLoaded) return
+    const vm = viewerRef.current
+    const scrollEl = vm?.viewerBase?.viewerContainer
+      ?? document.getElementById('sfPdfViewer_viewerContainer')
+    if (!scrollEl) return
+    let raf = null
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => { raf = null; setOverlayTick(t => t + 1) })
+    }
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      scrollEl.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [pdfBase64, docLoaded])
+
+  // ── Convert a PDF page-space point to on-screen pixel position (relative to containerRef) ──
+  // Returns RAW viewport coordinates (not container-relative) — the label is rendered
+  // via a portal to document.body with position:fixed, so it must use the same
+  // coordinate space getBoundingClientRect() already gives us. This deliberately
+  // bypasses containerRef, whose `overflow:hidden` was silently clipping the overlay
+  // whenever the computed position fell outside the container's own rendered bounds.
+  const getLabelScreenPos = useCallback((pageNumber, x, y) => {
+    const vm = viewerRef.current
+    if (!vm) return null
+    const viewerId = vm.element?.id ?? 'sfPdfViewer'
+    const pageDiv = document.getElementById(`${viewerId}_pageDiv_${(pageNumber ?? 1) - 1}`)
+    if (!pageDiv) return null
+    const pageRect = pageDiv.getBoundingClientRect()
+    const zoom = vm.viewerBase?.getZoomFactor?.() ?? pdfScale ?? 1
+    return {
+      left: pageRect.left + x * zoom,
+      top:  pageRect.top  + y * zoom,
+    }
+  }, [pdfScale])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Refs — must be declared before any useEffect that uses them ────────
   // Keep latest drawing + callbacks in refs so stable Syncfusion callbacks
@@ -198,6 +246,58 @@ export default function PdfViewer({
       } catch (_) {}
     })
   }, [drawing?.id, annotations])
+
+  // Populate overlay labels for already-saved measurements — independent of Syncfusion's
+  // import events, so old lines get the same correct, large label as newly-drawn ones.
+  useEffect(() => {
+    if (!docLoaded || !annotations?.length) return
+    const next = []
+    annotations.forEach(item => {
+      if (!item.pointsJson) return
+      try {
+        const raw = JSON.parse(item.pointsJson)
+        const rawPtsSrc = raw.vertexPoints ?? raw.VertexPoints ?? []
+        const pts = (Array.isArray(rawPtsSrc) ? rawPtsSrc : [])
+          .filter(p => p && typeof p === 'object'
+            && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
+          .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+
+        let midX = null, midY = null
+        if (pts.length >= 3 && item.measureType === 'Area') {
+          midX = pts.reduce((s, p) => s + p.x, 0) / pts.length
+          midY = pts.reduce((s, p) => s + p.y, 0) / pts.length
+        } else if (pts.length >= 2) {
+          midX = (pts[0].x + pts[pts.length - 1].x) / 2
+          midY = (pts[0].y + pts[pts.length - 1].y) / 2
+        } else if (raw.start && raw.end) {
+          const parseCoord = (val) => {
+            if (typeof val === 'object' && val !== null) return { x: val.x ?? val.X ?? 0, y: val.y ?? val.Y ?? 0 }
+            const parts = String(val).split(',')
+            return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+          }
+          const p1 = parseCoord(raw.start), p2 = parseCoord(raw.end)
+          midX = (p1.x + p2.x) / 2
+          midY = (p1.y + p2.y) / 2
+        }
+        if (midX == null || midY == null) return
+
+        const pageNumber = parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1
+        const text = item.measureType === 'Area'
+          ? formatMeasureArea(item.area, item.unit ?? 'Mm')
+          : formatMeasureLength(item.length, item.unit ?? 'Mm')
+        if (!text) return
+
+        const id = raw.annotationId ?? raw.AnnotName ?? raw.name ?? `db-${item.id}`
+        next.push({ id, pageNumber, midX, midY, text, color: raw.strokeColor ?? raw.StrokeColor ?? '#111827' })
+      } catch (_) {}
+    })
+    if (!next.length) return
+    setMeasureLabels(prev => {
+      const existingIds = new Set(prev.map(l => l.id))
+      const toAdd = next.filter(l => !existingIds.has(l.id))
+      return toAdd.length ? [...prev, ...toAdd] : prev
+    })
+  }, [docLoaded, annotations])
 
   const extractMeasurementValue = (a) => {
     const direct = a.measurementValue ?? a.MeasurementValue
@@ -313,11 +413,15 @@ export default function PdfViewer({
         flat.forEach(a => processMeasureRef.current?.(buildPlainAnnot(a)))
       }
       if (result && typeof result.then === 'function') {
-        result.then(processExport).catch(() => {})
+        result.then(processExport).catch(err => {
+          console.error('[BuildTakeoff] exportAnnotationsAsObject rejected — a stored annotation likely has corrupted/null vertex data:', err)
+        })
       } else if (result) {
         processExport(result)
       }
-    } catch (_) {}
+    } catch (err) {
+      console.error('[BuildTakeoff] exportAndProcessUnsaved failed:', err)
+    }
   }, [])
 
   const processMeasureRef = useRef(null)
@@ -471,13 +575,26 @@ export default function PdfViewer({
   // ── Shared helper: extract measurement + call onMeasure ──────────────────
   const processMeasureAnnotation = useCallback((anno) => {
     let a = anno
-    if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { return } }
-    if (!a || typeof a !== 'object') return
+    if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { console.log('[BT-DIAG] processMeasureAnnotation: JSON.parse failed'); return } }
+    if (!a || typeof a !== 'object') { console.log('[BT-DIAG] processMeasureAnnotation: not an object', a); return }
 
-    if (!isMeasureAnnotation(a)) return
+    if (!isMeasureAnnotation(a)) {
+      console.log('[BT-DIAG] processMeasureAnnotation: isMeasureAnnotation=false', {
+        type: a.type, shapeAnnotationType: a.shapeAnnotationType ?? a.ShapeAnnotationType, IT: a.IT ?? a.it,
+      })
+      return
+    }
 
     const annotationId = a.annotationId ?? a.AnnotationId ?? a.AnnotName ?? a.name ?? a.id ?? null
-    if (annotationId && processedAnnotsRef.current.has(annotationId)) return
+    if (annotationId && processedAnnotsRef.current.has(annotationId)) {
+      console.log('[BT-DIAG] processMeasureAnnotation: already processed', annotationId)
+      return
+    }
+    console.log('[BT-DIAG] processMeasureAnnotation: proceeding', {
+      annotationId, start: a.start, end: a.end, vertexPoints: a.vertexPoints,
+      measurementValue: a.measurementValue, isCalibrated: drawingRef.current?.isCalibrated,
+      scaleRatio: drawingRef.current?.scaleRatio,
+    })
 
     const d = drawingRef.current
     const displayUnit = getDisplayUnit()
@@ -547,14 +664,58 @@ export default function PdfViewer({
     const hasLineValue = pixelLength >= 0.1 || (length != null && length > 0)
     const hasAreaValue = pixelArea >= 0.1 || (area != null && area > 0)
     if (isAreaAnnotation) {
-      if (!hasAreaValue) return
+      if (!hasAreaValue) {
+        console.log('[BT-DIAG] processMeasureAnnotation: returning, no area value', { pixelArea, area })
+        return
+      }
     } else if (!hasLineValue) {
+      console.log('[BT-DIAG] processMeasureAnnotation: returning, no line value', { pixelLength, length })
       return
     }
+
+    const pageNumber = a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1)
 
     if (annotationId) {
       processedAnnotsRef.current.add(annotationId)
       lastDrawnAnnotRef.current = annotationId
+    }
+
+    const labelText = isAreaAnnotation
+      ? formatMeasureArea(area, displayUnit)
+      : formatMeasureLength(length, displayUnit)
+
+    // Compute the label anchor in PDF page-space (unzoomed) coordinates for our own
+    // HTML overlay — this fully replaces Syncfusion's native on-canvas label, whose
+    // internal calibration engine is fragile and can render "NaN".
+    let midX = null, midY = null
+    if (isAreaAnnotation && pts.length >= 3) {
+      midX = pts.reduce((s, p) => s + p.x, 0) / pts.length
+      midY = pts.reduce((s, p) => s + p.y, 0) / pts.length
+    } else if (pts.length >= 2) {
+      midX = (pts[0].x + pts[pts.length - 1].x) / 2
+      midY = (pts[0].y + pts[pts.length - 1].y) / 2
+    } else if (a.start && a.end) {
+      const parseCoord = (val) => {
+        if (typeof val === 'object' && val !== null) return { x: val.x ?? val.X ?? 0, y: val.y ?? val.Y ?? 0 }
+        const parts = String(val).split(',')
+        return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+      }
+      const p1 = parseCoord(a.start), p2 = parseCoord(a.end)
+      midX = (p1.x + p2.x) / 2
+      midY = (p1.y + p2.y) / 2
+    }
+
+    console.log('[BT-DIAG] processMeasureAnnotation: computed', { length, area, pixelLength, pixelArea, displayUnit, labelText, annotationId, pageNumber, midX, midY })
+
+    if (labelText && annotationId && midX != null && midY != null) {
+      setMeasureLabels(prev => {
+        const next = prev.filter(l => l.id !== annotationId)
+        next.push({
+          id: annotationId, pageNumber, midX, midY, text: labelText,
+          color: a.strokeColor ?? a.StrokeColor ?? '#111827',
+        })
+        return next
+      })
     }
 
     onMeasureRef.current?.({
@@ -565,7 +726,7 @@ export default function PdfViewer({
       unit: displayUnit,
       points: [],
       annotationId,
-      pageNumber:  a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0') + 1),
+      pageNumber,
       rawAnnotation: a,
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
@@ -592,9 +753,10 @@ export default function PdfViewer({
   }, [exportAndProcessUnsaved])
 
   const scheduleMeasurementComplete = useCallback((plainAnnot) => {
-    if (!plainAnnot) return
+    if (!plainAnnot) { console.log('[BT-DIAG] scheduleMeasurementComplete: no plainAnnot'); return }
     const id = plainAnnot.annotationId ?? plainAnnot.name ?? plainAnnot.AnnotName
-    if (!id) return
+    if (!id) { console.log('[BT-DIAG] scheduleMeasurementComplete: no id', plainAnnot); return }
+    console.log('[BT-DIAG] scheduleMeasurementComplete: scheduling', id)
 
     const prev = measureCompleteTimersRef.current.get(id)
     if (prev) clearTimeout(prev)
@@ -696,22 +858,46 @@ export default function PdfViewer({
         const raw = JSON.parse(item.pointsJson)
         const pageIdx = String(parseInt(raw.page ?? raw.pageIndex ?? '0', 10))
 
-        // Map event-format annotation to the capitalized format renderMeasureShapeAnnotations expects
-        const pts = (raw.vertexPoints ?? raw.VertexPoints ?? [])
-          .map(p => ({ x: p.x ?? p.X ?? 0, y: p.y ?? p.Y ?? 0 }))
+        // Sanitize vertex points — a stored point array can contain a literal `null`
+        // entry (e.g. captured mid-draw, before the second click landed). Passing that
+        // straight into Syncfusion's renderer/exporter crashes EVERY subsequent render
+        // cycle with "Cannot read properties of null (reading 'X')", which corrupts the
+        // annotation event pipeline for the whole session (breaks new labels + grid sync).
+        const rawPtsSrc = raw.vertexPoints ?? raw.VertexPoints ?? []
+        const validPts = (Array.isArray(rawPtsSrc) ? rawPtsSrc : [])
+          .filter(p => p && typeof p === 'object'
+            && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
+          .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+
+        let pts = validPts
+        if (pts.length < 2 && raw.start && raw.end) {
+          const parseCoord = (val) => {
+            if (typeof val === 'object' && val !== null) return { x: Number(val.x ?? val.X) || 0, y: Number(val.y ?? val.Y) || 0 }
+            const parts = String(val).split(',')
+            return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+          }
+          pts = [parseCoord(raw.start), parseCoord(raw.end)]
+        }
+
         const hasVertexPoints = pts.length >= 2
-        const hasCoordsStr = raw.start && raw.end
+        if (!hasVertexPoints) return  // not enough valid geometry — skip this corrupted/degenerate record
 
-        const hasCoords = hasCoordsStr || hasVertexPoints
-        if (!hasCoords) return
+        // Skip degenerate near-zero-length artifacts (e.g. a single click with no drag)
+        const dxSkip = pts[pts.length - 1].x - pts[0].x
+        const dySkip = pts[pts.length - 1].y - pts[0].y
+        if (Math.sqrt(dxSkip * dxSkip + dySkip * dySkip) < 0.5) {
+          console.log('[BuildTakeoff] skipping degenerate near-zero-length annotation:', raw.annotationId ?? raw.name)
+          return
+        }
 
-        // Build bounds from vertex points when not already provided
-        const boundsFromPts = hasVertexPoints ? {
+        // Build bounds from the sanitized vertex points
+        const boundsFromPts = {
           X: Math.min(pts[0].x, pts[pts.length - 1].x),
           Y: Math.min(pts[0].y, pts[pts.length - 1].y),
           Width: Math.max(Math.abs(pts[pts.length - 1].x - pts[0].x), 1),
           Height: Math.max(Math.abs(pts[pts.length - 1].y - pts[0].y), 1),
-        } : null
+        }
+        const hasCoordsStr = raw.start && raw.end
 
         // Syncfusion v33 renderMeasureShapeAnnotations requires capital-case fields
         let importable = {
@@ -721,8 +907,11 @@ export default function PdfViewer({
           AnnotType:           raw.AnnotType ?? raw.shapeAnnotationType ?? 'shape_measure',
           AnnotName:           raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id,
           Author:              raw.Author ?? raw.author ?? 'BuildTakeoff',
-          Bounds:              raw.Bounds ?? (raw.bounds ?? boundsFromPts),
-          VertexPoints:        raw.VertexPoints ?? pts.map(p => ({ X: p.x, Y: p.y })),
+          Bounds:              raw.Bounds ?? (raw.bounds ?? boundsFromPts) ?? boundsFromPts,
+          // Always rebuild from sanitized `pts` — never trust raw.VertexPoints/vertexPoints
+          // directly, they're the fields most likely to carry a stored literal `null` point.
+          VertexPoints:        pts.map(p => ({ X: p.x, Y: p.y })),
+          vertexPoints:        pts.map(p => ({ x: p.x, y: p.y })),
           StrokeColor:         raw.StrokeColor ?? raw.strokeColor ?? '#3b82f6',
           FillColor:           raw.FillColor ?? raw.fillColor ?? 'rgba(59,130,246,0.12)',
           Opacity:             raw.Opacity ?? raw.opacity ?? 1,
@@ -1426,14 +1615,14 @@ export default function PdfViewer({
   const handleAnnotationAdd = useCallback((args) => {
     // When we re-import stored annotations from DB, Syncfusion fires annotationAdd
     // for each one — suppress so we don't create duplicate DB rows.
-    if (importingAnnotsRef.current) return
+    if (importingAnnotsRef.current) { console.log('[BT-DIAG] annotationAdd suppressed: importingAnnotsRef'); return }
 
     const eventAnnotations = []
     const single     = args?.annotation
     const collection = args?.annotationCollection
     if (single)                          eventAnnotations.push(single)
     else if (Array.isArray(collection))  collection.forEach(a => eventAnnotations.push(a))
-    if (!eventAnnotations.length) return
+    if (!eventAnnotations.length) { console.log('[BT-DIAG] annotationAdd: no eventAnnotations', args); return }
 
     // Safe log — args.annotation contains Syncfusion internal circular refs; don't JSON.stringify(args)
     console.log('[BuildTakeoff] annotationAdd fired, count:', eventAnnotations.length,
@@ -1451,9 +1640,13 @@ export default function PdfViewer({
   }, [scheduleMeasurementComplete])
 
   const handleAnnotationPropertiesChange = useCallback((args) => {
-    if (importingAnnotsRef.current || editingAnnotRef.current) return
+    if (importingAnnotsRef.current || editingAnnotRef.current) {
+      console.log('[BT-DIAG] annotationPropertiesChange suppressed', { importing: importingAnnotsRef.current, editing: editingAnnotRef.current })
+      return
+    }
     const a = args?.annotation
-    if (!a) return
+    if (!a) { console.log('[BT-DIAG] annotationPropertiesChange: no annotation in args'); return }
+    console.log('[BT-DIAG] annotationPropertiesChange fired', { id: a.annotationId ?? a.name, type: a.type, shapeAnnotationType: a.shapeAnnotationType })
     scheduleMeasurementComplete(buildPlainAnnot(a))
   }, [scheduleMeasurementComplete])
 
@@ -1724,6 +1917,58 @@ export default function PdfViewer({
             Click to place count markers · {countMarkers.filter(m => m.page === pdfPage).length} placed · Save Count when done
           </div>
         </div>
+      )}
+
+      {/* ── Measurement label overlay — our own large, correctly-computed labels.
+           Fully replaces Syncfusion's native on-canvas label (its internal calibration
+           engine is fragile and can render "NaN"). Rendered via portal to document.body
+           with position:fixed — containerRef has overflow:hidden, which was silently
+           clipping the overlay whenever its computed position fell outside the
+           container's own rendered bounds (confirmed via [BT-DIAG] logs: boxes were
+           being created with valid positions but never became visible). ── */}
+      {pdfBase64 && !loading && docLoaded && createPortal(
+        (console.log('[BT-DIAG] overlay filter: pdfPage=', pdfPage, 'all label pageNumbers=', measureLabels.map(l => l.pageNumber)),
+        measureLabels)
+          .filter(l => l.pageNumber === pdfPage)
+          .map(l => {
+            const pos = getLabelScreenPos(l.pageNumber, l.midX, l.midY)
+            if (!pos) {
+              const vmDbg = viewerRef.current
+              const viewerIdDbg = vmDbg?.element?.id ?? 'sfPdfViewer'
+              const pageDivIdDbg = `${viewerIdDbg}_pageDiv_${(l.pageNumber ?? 1) - 1}`
+              console.log('[BT-DIAG] overlay: NULL pos for', l.id, 'pageDiv id tried:', pageDivIdDbg,
+                'found:', !!document.getElementById(pageDivIdDbg), 'vm exists:', !!vmDbg)
+              return null
+            }
+            console.log('[BT-DIAG] overlay: pos for', l.id, l.text, '=', pos, 'midX/midY:', l.midX, l.midY)
+            return (
+              <div
+                key={l.id}
+                style={{
+                  position: 'fixed',
+                  left: `${pos.left}px`,
+                  top:  `${pos.top}px`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 99999,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  whiteSpace: 'nowrap',
+                  background: 'rgba(255,255,255,0.95)',
+                  border: `1.5px solid ${l.color}`,
+                  borderRadius: '4px',
+                  padding: '2px 8px',
+                  fontSize: `${Math.round((measureLabelFontSize ?? 14) * 1.3)}px`,
+                  fontWeight: 700,
+                  fontFamily: "'Inter','Arial',sans-serif",
+                  color: '#111827',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                }}
+              >
+                {l.text}
+              </div>
+            )
+          }),
+        document.body,
       )}
 
       {/* Pan-mode hint banner */}
