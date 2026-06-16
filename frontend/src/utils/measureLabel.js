@@ -45,17 +45,154 @@ export function toSyncfusionLabelSize(userPt, pdfScale = 1) {
   return Math.max(12, Math.min(72, Math.round(base / scale)))
 }
 
+/** Resolve effective arrow style from line mode + toolbar arrow setting. */
+export function resolveLinearArrowStyle(arrowStyle = 'none', linearLineMode = 'simple') {
+  if (linearLineMode === 'simple') return 'none'
+  return arrowStyle === 'none' ? 'both' : arrowStyle
+}
+
+/** Infer arrow toolbar id from stored Syncfusion line-head styles. */
+export function inferArrowStyleFromAnnot(raw) {
+  if (!raw || typeof raw !== 'object') return 'none'
+  const start = raw.lineHeadStartStyle ?? raw.LineHeadStartStyle ?? 'None'
+  const end = raw.lineHeadEndStyle ?? raw.LineHeadEndStyle ?? 'None'
+  const hasStart = start === 'ClosedArrow' || start === 'OpenArrow' || start === 'ROpenArrow' || start === 'RClosedArrow'
+  const hasEnd = end === 'ClosedArrow' || end === 'OpenArrow' || end === 'ROpenArrow' || end === 'RClosedArrow'
+  if (hasStart && hasEnd) return 'both'
+  if (hasStart) return 'start'
+  if (hasEnd) return 'end'
+  return 'none'
+}
+
+/** Infer simple vs arrow line mode from stored annotation. */
+export function inferLinearLineModeFromAnnot(raw) {
+  return inferArrowStyleFromAnnot(raw) === 'none' ? 'simple' : 'arrow'
+}
+
+/** Map Syncfusion fontSize back to nearest label-size preset (pt). */
+export function inferLabelSizeFromSfFontSize(sfSize, pdfScale = 1) {
+  const n = Number(sfSize)
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_MEASURE_LABEL_SIZE
+  const scale = Math.max(pdfScale, 0.25)
+  const userApprox = (n * scale) / 2.35
+  return MEASURE_LABEL_PRESETS.reduce(
+    (best, p) => (Math.abs(p.value - userApprox) < Math.abs(best - userApprox) ? p.value : best),
+    DEFAULT_MEASURE_LABEL_SIZE,
+  )
+}
+
+/** Build clipboard payload from a saved takeoff row + parsed pointsJson. */
+export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
+  const thickness = raw.Thickness ?? raw.thickness ?? defaultLineThicknessForLabelSize(DEFAULT_MEASURE_LABEL_SIZE)
+  const sfFont = raw.FontSize ?? raw.fontSize
+  const labelFontSize = inferLabelSizeFromSfFontSize(sfFont, pdfScale)
+  const arrowStyle = inferArrowStyleFromAnnot(raw)
+  return {
+    itemType: item.itemType || 'Line',
+    color: item.color ?? raw.StrokeColor ?? raw.strokeColor ?? '#EF233C',
+    category: item.category ?? 'General',
+    thickness,
+    labelFontSize,
+    arrowStyle,
+    linearLineMode: inferLinearLineModeFromAnnot(raw),
+    lineStyle: raw.lineStyle ?? (raw.borderDashArray ? 'dashed' : 'solid'),
+    length: item.length,
+    unit: item.unit ?? 'Mm',
+    pageNumber: raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1),
+    raw,
+  }
+}
+
+function parseCoordPair(val) {
+  if (typeof val === 'object' && val !== null) {
+    return { x: Number(val.x ?? val.X) || 0, y: Number(val.y ?? val.Y) || 0 }
+  }
+  const parts = String(val).split(',')
+  return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+}
+
+function extractPointsFromRaw(raw) {
+  const rawPts = raw.vertexPoints ?? raw.VertexPoints ?? []
+  let pts = (Array.isArray(rawPts) ? rawPts : [])
+    .filter(p => p && typeof p === 'object'
+      && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+  if (pts.length < 2 && raw.start && raw.end) {
+    pts = [parseCoordPair(raw.start), parseCoordPair(raw.end)]
+  }
+  return pts
+}
+
+/** Clone a linear annotation for paste with a positional offset and new id. */
+export function cloneLinearAnnotationForPaste(raw, offsetX = 30, offsetY = 30, targetPageNumber) {
+  const pts = extractPointsFromRaw(raw)
+  if (pts.length < 2) return null
+
+  const offsetPts = pts.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }))
+  const pageNum = targetPageNumber ?? raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1)
+  const pageIdx = pageNum - 1
+  const newId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `paste-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  const boundsFromPts = {
+    X: Math.min(offsetPts[0].x, offsetPts[offsetPts.length - 1].x),
+    Y: Math.min(offsetPts[0].y, offsetPts[offsetPts.length - 1].y),
+    Width: Math.max(Math.abs(offsetPts[offsetPts.length - 1].x - offsetPts[0].x), 1),
+    Height: Math.max(Math.abs(offsetPts[offsetPts.length - 1].y - offsetPts[0].y), 1),
+  }
+
+  const startStr = `${offsetPts[0].x},${offsetPts[0].y}`
+  const endStr = `${offsetPts[offsetPts.length - 1].x},${offsetPts[offsetPts.length - 1].y}`
+
+  return {
+    ...raw,
+    annotationId: newId,
+    AnnotName: newId,
+    name: newId,
+    uniqueKey: newId,
+    pageNumber: pageNum,
+    PageNumber: pageNum,
+    page: String(pageIdx),
+    pageIndex: pageIdx,
+    ShapeAnnotationType: raw.ShapeAnnotationType ?? raw.shapeAnnotationType ?? 'Distance',
+    shapeAnnotationType: raw.shapeAnnotationType ?? raw.ShapeAnnotationType ?? 'Distance',
+    AnnotType: raw.AnnotType ?? 'shape_measure',
+    IT: raw.IT ?? 'LineDimension',
+    Bounds: boundsFromPts,
+    bounds: boundsFromPts,
+    VertexPoints: offsetPts.map(p => ({ X: p.x, Y: p.y })),
+    vertexPoints: offsetPts.map(p => ({ x: p.x, y: p.y })),
+    start: startStr,
+    end: endStr,
+    Start: startStr,
+    End: endStr,
+    enableShapeLabel: false,
+    labelContent: '',
+    LabelContent: '',
+    Note: '',
+    note: '',
+    label: '',
+    text: '',
+    measurementValue: raw.measurementValue ?? raw.MeasurementValue ?? null,
+    IsPrint: true,
+    State: '',
+    Comments: [],
+  }
+}
+
 /** Map toolbar arrow style → Syncfusion distance line-head styles. */
 export function mapLinearArrowStyle(arrowStyle = 'none') {
   switch (arrowStyle) {
     case 'start':
-      return { lineHeadStartStyle: 'ClosedArrow', lineHeadEndStyle: 'Closed' }
+      return { lineHeadStartStyle: 'ClosedArrow', lineHeadEndStyle: 'None' }
     case 'end':
-      return { lineHeadStartStyle: 'Closed', lineHeadEndStyle: 'ClosedArrow' }
+      return { lineHeadStartStyle: 'None', lineHeadEndStyle: 'ClosedArrow' }
     case 'both':
       return { lineHeadStartStyle: 'ClosedArrow', lineHeadEndStyle: 'ClosedArrow' }
     default:
-      return { lineHeadStartStyle: 'Closed', lineHeadEndStyle: 'Closed' }
+      // Simple line — no arrowheads; perpendicular leader ticks come from leaderLength
+      return { lineHeadStartStyle: 'None', lineHeadEndStyle: 'None' }
   }
 }
 
@@ -82,14 +219,17 @@ export function buildMeasureLabelPatch(userPt, pdfScale, fontColor = '#111827') 
  * end-cap leaders, and arrow heads scale together from Label Size (S/M/L/XL).
  * `thicknessOverride` keeps the toolbar Thickness control as an advanced override.
  */
-export function buildLinearDistanceStyle(userPt, pdfScale, fontColor = '#111827', thicknessOverride, arrowStyle = 'none') {
+export function buildLinearDistanceStyle(
+  userPt, pdfScale, fontColor = '#111827', thicknessOverride, arrowStyle = 'none', linearLineMode = 'simple',
+) {
   const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
   const thickness = resolveLinearThickness(userPt, thicknessOverride)
+  const effectiveArrow = resolveLinearArrowStyle(arrowStyle, linearLineMode)
   return {
     thickness,
     leaderLength: preset.leaderLength,
     leaderLineExtension: preset.leaderLineExtension,
-    ...mapLinearArrowStyle(arrowStyle),
+    ...mapLinearArrowStyle(effectiveArrow),
     ...buildMeasureLabelPatch(userPt, pdfScale, fontColor),
   }
 }

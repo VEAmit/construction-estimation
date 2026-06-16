@@ -18,6 +18,7 @@ import {
   computeScaleRatio, getUnitLabel, getAreaUnitLabel,
   formatMeasureLength, formatMeasureArea,
 } from '../utils/calculations'
+import { buildLinearMeasurementClipboard } from '../utils/measureLabel'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
@@ -34,6 +35,8 @@ export default function DrawingsPage() {
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
+    measurementClipboard, setMeasurementClipboard,
+    pdfScale,
     removeTakeoffItem,
   } = useAppStore()
 
@@ -75,6 +78,7 @@ export default function DrawingsPage() {
   // Used to detect when the user actually changes a style prop (vs. selecting an annotation
   // for the first time) so we only write to the DB on genuine style changes.
   const annotStyleBaselineRef = useRef(null)
+  const pasteStyleOverrideRef = useRef(null)
 
   // ── DB update when style changes while an annotation is selected ─────────
   // PdfViewer handles the visual update via editAnnotation.
@@ -220,6 +224,11 @@ export default function DrawingsPage() {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
     if (!drw) return
 
+    const pasteOverride = pasteStyleOverrideRef.current
+    if (pasteOverride) pasteStyleOverrideRef.current = null
+    const saveColor = pasteOverride?.color ?? color ?? '#EF233C'
+    const saveCategory = pasteOverride?.category ?? category ?? 'General'
+
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
     if (annotKey && savingAnnotIdsRef.current.has(annotKey)) return
@@ -290,8 +299,8 @@ export default function DrawingsPage() {
         area:        isCount ? null : (measurement.area ?? null),
         unitWeight:  null,
         totalWeight: null,
-        color:       color ?? '#EF233C',
-        category:    category ?? 'General',
+        color:       saveColor,
+        category:    saveCategory,
         pointsJson,
       })
       addTakeoffItem(saved)
@@ -384,6 +393,41 @@ export default function DrawingsPage() {
     const annot = annotationMapRef.current[dbId]
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand])
+
+  const handleCopyMeasurement = useCallback(() => {
+    if (!selectedAnnotId) return
+    const item = takeoffItems.find(t => t.id === selectedAnnotId)
+    if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') {
+      toast.error('Select a linear measurement to copy')
+      return
+    }
+    try {
+      const raw = JSON.parse(item.pointsJson)
+      const clipboard = buildLinearMeasurementClipboard(item, raw, pdfScale)
+      setMeasurementClipboard(clipboard)
+      toast.success(`Copied ${item.mark}`, { duration: 2000 })
+    } catch {
+      toast.error('Could not copy measurement')
+    }
+  }, [selectedAnnotId, takeoffItems, pdfScale, setMeasurementClipboard])
+
+  const handlePasteMeasurement = useCallback(() => {
+    if (!measurementClipboard) {
+      toast('Copy a line measurement first (Ctrl+C)')
+      return
+    }
+    if (!selectedDrawing) return
+    pasteStyleOverrideRef.current = {
+      color: measurementClipboard.color,
+      category: measurementClipboard.category,
+    }
+    triggerPdfCommand({ type: 'pasteMeasurement', clipboard: measurementClipboard })
+  }, [measurementClipboard, selectedDrawing, triggerPdfCommand])
+
+  const canCopyMeasurement = !!selectedAnnotId && takeoffItems.some(
+    t => t.id === selectedAnnotId && t.pointsJson && (t.itemType || 'Line') === 'Line',
+  )
+  const canPasteMeasurement = !!measurementClipboard && (measurementClipboard.itemType || 'Line') === 'Line'
 
   const handleClearPending = useCallback(async () => {
     const pending = pendingMeasurementRef.current
@@ -694,7 +738,12 @@ export default function DrawingsPage() {
       </div>
 
       {/* ── Toolbar ─────────────────────────────────────────────── */}
-      <Toolbar />
+      <Toolbar
+        onCopyMeasurement={handleCopyMeasurement}
+        onPasteMeasurement={handlePasteMeasurement}
+        canCopy={canCopyMeasurement}
+        canPaste={canPasteMeasurement}
+      />
 
       {/* ── Main work area ──────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, position: 'relative' }}>

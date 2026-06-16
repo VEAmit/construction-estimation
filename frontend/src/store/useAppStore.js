@@ -81,6 +81,7 @@ export const useAppStore = create(
       fillOpacity:     0.3,
       lineStyle:       'solid',   // 'solid' | 'dashed' | 'dotted'
       arrowStyle:      'none',    // 'none' | 'start' | 'end' | 'both'
+      linearLineMode:  'simple',  // 'simple' | 'arrow' — Bluebeam-style plain vs arrow line
       fontSize:        14,        // font size (pt) for the Text annotation tool
       measureLabelFontSize: DEFAULT_MEASURE_LABEL_SIZE, // label size for line/area/perimeter (pt)
       countSession:    0,         // running count of markers in current session
@@ -95,6 +96,7 @@ export const useAppStore = create(
       setFillOpacity:    (o)     => set({ fillOpacity: o }),
       setLineStyle:      (s)     => set({ lineStyle: s }),
       setArrowStyle:     (s)     => set({ arrowStyle: s }),
+      setLinearLineMode: (m)     => set({ linearLineMode: m }),
       setFontSize:       (s)     => set({ fontSize: s }),
       setMeasureLabelFontSize: (s) => set({ measureLabelFontSize: s }),
       setCountSession:   (n)     => set({ countSession: n }),
@@ -108,6 +110,11 @@ export const useAppStore = create(
       pdfCommand: null,
       triggerPdfCommand: (cmd) => set({ pdfCommand: cmd }),
       clearPdfCommand:   ()    => set({ pdfCommand: null }),
+
+      // ── Measurement clipboard (session-only, not persisted) ──
+      measurementClipboard: null,
+      setMeasurementClipboard: (data) => set({ measurementClipboard: data }),
+      clearMeasurementClipboard: () => set({ measurementClipboard: null }),
 
       // ── UI ────────────────────────────────────────────────
       isSidebarCollapsed: false,

@@ -126,16 +126,25 @@ const LINE_STYLES = [
 ]
 
 const ARROW_STYLES = [
-  { id: 'none',  label: '—',  title: 'No arrows' },
   { id: 'end',   label: '→',  title: 'End arrow' },
   { id: 'start', label: '←',  title: 'Start arrow' },
   { id: 'both',  label: '↔',  title: 'Both arrows' },
 ]
 
+const LINE_MEASURE_MODES = [
+  { id: 'simple', label: 'Simple', title: 'Simple Line — plain measurement line (no arrowheads)' },
+  { id: 'arrow',  label: 'Arrow',  title: 'Arrow Line — measurement line with arrowheads' },
+]
+
 const ALL_MEASURE_IDS = MEASURE_TOOLS.map(t => t.id)
 const ALL_MARKUP_IDS  = MARKUP_TOOLS.map(t => t.id)
 
-export default function Toolbar() {
+export default function Toolbar({
+  onCopyMeasurement,
+  onPasteMeasurement,
+  canCopy = false,
+  canPaste = false,
+}) {
   const {
     activeTool, setActiveTool,
     pdfScale, setPdfScale,
@@ -147,6 +156,7 @@ export default function Toolbar() {
     fillOpacity,     setFillOpacity,
     lineStyle,       setLineStyle,
     arrowStyle,      setArrowStyle,
+    linearLineMode,  setLinearLineMode,
     fontSize,        setFontSize,
     measureLabelFontSize, setMeasureLabelFontSize,
     countSession,
@@ -162,11 +172,38 @@ export default function Toolbar() {
   const isLine    = activeTool === 'line' || activeTool === 'perimeter' || activeTool === 'calibrate'
   const showStyleBar = isMeasure || isMarkup
 
+  const handleLineModeChange = (mode) => {
+    setLinearLineMode(mode)
+    if (mode === 'simple') setArrowStyle('none')
+    else if (arrowStyle === 'none') setArrowStyle('both')
+  }
+
+  const handleArrowStyleChange = (id) => {
+    setLinearLineMode('arrow')
+    setArrowStyle(id)
+  }
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (canCopy && onCopyMeasurement) {
+          e.preventDefault()
+          onCopyMeasurement()
+        }
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (canPaste && onPasteMeasurement) {
+          e.preventDefault()
+          onPasteMeasurement()
+        }
+        return
+      }
+
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const all = [...NAV_TOOLS, ...MEASURE_TOOLS]
       const tool = all.find(t => t.shortcut && t.shortcut === e.key.toUpperCase())
@@ -177,7 +214,7 @@ export default function Toolbar() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setActiveTool, setPdfScale, triggerPdfCommand])
+  }, [setActiveTool, setPdfScale, triggerPdfCommand, canCopy, canPaste, onCopyMeasurement, onPasteMeasurement])
 
   // ── Auto-color from category ───────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -284,6 +321,33 @@ export default function Toolbar() {
             </svg>
             {!compact && 'Clear'}
           </button>
+
+          {(canCopy || canPaste) && (
+            <>
+              <button
+                onClick={onCopyMeasurement}
+                disabled={!canCopy}
+                title="Copy measurement (Ctrl+C)"
+                style={{ ...zBtn, opacity: canCopy ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                {!compact && 'Copy'}
+              </button>
+              <button
+                onClick={onPasteMeasurement}
+                disabled={!canPaste}
+                title="Paste measurement (Ctrl+V)"
+                style={{ ...zBtn, opacity: canPaste ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                </svg>
+                {!compact && 'Paste'}
+              </button>
+            </>
+          )}
 
           <Sep />
 
@@ -538,14 +602,37 @@ export default function Toolbar() {
                   </>
                 )}
 
-                {/* Arrow style — only for arrow + line tools */}
-                {(activeTool === 'arrow' || activeTool === 'line') && (
+                {/* Line mode — Simple vs Arrow (Linear tool only) */}
+                {activeTool === 'line' && (
+                  <>
+                    <StyleSep />
+                    <span style={{ fontSize: '10px', color: '#334155' }}>Line:</span>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      {LINE_MEASURE_MODES.map(lm => (
+                        <button key={lm.id} onClick={() => handleLineModeChange(lm.id)} title={lm.title}
+                          style={{
+                            height: '22px', padding: '0 8px',
+                            borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                            border: `1px solid ${linearLineMode === lm.id ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                            background: linearLineMode === lm.id ? 'rgba(239,35,60,.15)' : 'transparent',
+                            color: linearLineMode === lm.id ? '#EF233C' : '#475569',
+                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                          }}>
+                          {lm.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Arrow style — only when Arrow Line mode is active */}
+                {(activeTool === 'arrow' || (activeTool === 'line' && linearLineMode === 'arrow')) && (
                   <>
                     <StyleSep />
                     <span style={{ fontSize: '10px', color: '#334155' }}>Arrows:</span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {ARROW_STYLES.map(as => (
-                        <button key={as.id} onClick={() => setArrowStyle(as.id)} title={as.title}
+                        <button key={as.id} onClick={() => handleArrowStyleChange(as.id)} title={as.title}
                           style={{
                             height: '22px', padding: '0 8px',
                             borderRadius: '4px', fontSize: '13px', fontWeight: 600,

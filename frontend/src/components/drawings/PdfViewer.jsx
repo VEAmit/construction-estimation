@@ -20,7 +20,7 @@ import {
   convertFromMm, toMm, formatMeasureLength, formatMeasureArea,
   parseMeasureLabel, convertMeasureValue, getUnitLabel,
 } from '../../utils/calculations'
-import { buildMeasureLabelPatch, toSyncfusionLabelSize, buildLinearDistanceStyle, buildLinearLabelDiagramStyle } from '../../utils/measureLabel'
+import { buildMeasureLabelPatch, toSyncfusionLabelSize, buildLinearDistanceStyle, buildLinearLabelDiagramStyle, cloneLinearAnnotationForPaste, inferArrowStyleFromAnnot, inferLinearLineModeFromAnnot, inferLabelSizeFromSfFontSize } from '../../utils/measureLabel'
 import toast from 'react-hot-toast'
 
 // Syncfusion pdfium WASM files live in /public/ej2-pdfviewer-lib (copied by the Vite plugin).
@@ -118,6 +118,75 @@ function resolveLiveAnnotation(vm, annotationId) {
   ) ?? null
 }
 
+function parseAnnotIdFromPointsJson(pointsJson) {
+  if (!pointsJson) return null
+  try {
+    const raw = JSON.parse(pointsJson)
+    return raw.annotationId ?? raw.AnnotName ?? raw.name ?? null
+  } catch { return null }
+}
+
+/** Resolve which line annotation should receive live toolbar style updates. */
+function resolveLinearStyleTarget(vm, {
+  selectedAnnotDataRef, lastDrawnAnnotRef, selectedAnnotationId, annotations,
+}) {
+  if (selectedAnnotDataRef?.current) {
+    const a = selectedAnnotDataRef.current
+    const id = a.annotationId ?? a.name ?? a.AnnotName
+    if (id) return { annotId: id, item: null, annot: a }
+  }
+  if (selectedAnnotationId != null && annotations?.length) {
+    const item = annotations.find(t => t.id === selectedAnnotationId)
+    const id = parseAnnotIdFromPointsJson(item?.pointsJson)
+    if (id) {
+      const live = vm ? resolveLiveAnnotation(vm, id) : null
+      return { annotId: id, item, annot: live }
+    }
+  }
+  if (lastDrawnAnnotRef?.current) {
+    return { annotId: lastDrawnAnnotRef.current, item: null, annot: null }
+  }
+  return null
+}
+
+function resolveLinearLabelText(vm, annotId, item, displayUnit) {
+  const live = vm ? resolveLiveAnnotation(vm, annotId) : null
+  const fromLive = live?.notes ?? live?.note ?? live?.labelContent
+  if (fromLive && String(fromLive).trim()) return String(fromLive).trim()
+  if (item?.length != null) return formatMeasureLength(item.length, item.unit ?? displayUnit)
+  return null
+}
+
+/** Apply toolbar label + line visual style to one linear measurement. */
+function applyToolbarLinearStyle(vm, target, {
+  measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode, displayUnit,
+}) {
+  if (!vm || !target?.annotId) return
+  const { annotId, item, annot } = target
+  const linearStyle = buildLinearDistanceStyle(
+    measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode,
+  )
+  linearStyle.strokeColor = fontColor
+  applyLinearVisualStyleToDiagram(vm, annotId, linearStyle)
+
+  const pageNumber = annot?.pageNumber ?? annot?.PageNumber
+    ?? (item?.pointsJson ? (() => {
+      try {
+        const raw = JSON.parse(item.pointsJson)
+        return raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1)
+      } catch { return null }
+    })() : null)
+    ?? (resolveLiveAnnotation(vm, annotId)?.pageIndex ?? 0) + 1
+
+  const labelText = resolveLinearLabelText(vm, annotId, item, displayUnit)
+  if (labelText) {
+    applyCalibratedLabelToDiagram(
+      vm, annotId, pageNumber, labelText, fontColor,
+      buildLinearLabelDiagramStyle(measureLabelFontSize, pdfScale, fontColor),
+    )
+  }
+}
+
 /**
  * Write the grid-calculated label onto Syncfusion's distance/perimeter diagram text.
  * Syncfusion initDistanceLabel uses setConversion() when notes is empty → NaN without its
@@ -167,10 +236,19 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
   const live = resolveLiveAnnotation(vm, annotationId)
   if (!live?.wrapper) return false
 
+  const startHead = linearStyle.lineHeadStartStyle ?? 'None'
+  const endHead = linearStyle.lineHeadEndStyle ?? 'None'
+
   const nodePatch = {}
   if (linearStyle.thickness != null) nodePatch.thickness = linearStyle.thickness
   if (linearStyle.leaderLength != null) nodePatch.leaderHeight = linearStyle.leaderLength
   if (linearStyle.strokeColor) nodePatch.strokeColor = linearStyle.strokeColor
+  nodePatch.lineHeadStartStyle = startHead
+  nodePatch.lineHeadEndStyle = endHead
+
+  live.lineHeadStartStyle = startHead
+  live.lineHeadEndStyle = endHead
+  live.leaderHeight = linearStyle.leaderLength ?? live.leaderHeight
 
   if (Object.keys(nodePatch).length) {
     try { vm.nodePropertyChange(live, nodePatch) } catch (_) {}
@@ -178,23 +256,27 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
 
   const annMod = vm.annotation
   if (annMod?.getArrowType) {
-    if (linearStyle.lineHeadStartStyle) {
-      live.sourceDecoraterShapes = annMod.getArrowType(linearStyle.lineHeadStartStyle)
-    }
-    if (linearStyle.lineHeadEndStyle) {
-      live.taregetDecoraterShapes = annMod.getArrowType(linearStyle.lineHeadEndStyle)
-    }
+    try { live.sourceDecoraterShapes = annMod.getArrowType(startHead) } catch (_) {}
+    try { live.taregetDecoraterShapes = annMod.getArrowType(endHead) } catch (_) {}
   }
 
-  if (linearStyle.thickness != null && live.wrapper.children?.length) {
+  if (live.wrapper.children?.length) {
     for (const child of live.wrapper.children) {
       const id = String(child.id ?? '')
-      if (child.style && !child.textNodes) {
+      if (child.style && !child.textNodes && linearStyle.thickness != null) {
         child.style.strokeWidth = linearStyle.thickness
       }
       if (id.includes('srcDec') || id.includes('tarDec')) {
-        child.width = 12 * linearStyle.thickness
-        child.height = 12 * linearStyle.thickness
+        const hide = (id.includes('srcDec') && startHead === 'None')
+          || (id.includes('tarDec') && endHead === 'None')
+        if (hide) {
+          child.width = 0
+          child.height = 0
+          if (child.style) child.style.strokeWidth = 0
+        } else if (linearStyle.thickness != null) {
+          child.width = 12 * linearStyle.thickness
+          child.height = 12 * linearStyle.thickness
+        }
       }
     }
   }
@@ -208,6 +290,8 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
   if (linearStyle.thickness != null) {
     try { mod?.modifyInCollection?.('thickness', pageIdx, live, false) } catch (_) {}
   }
+  try { mod?.modifyInCollection?.('lineHeadStartStyle', pageIdx, live, false) } catch (_) {}
+  try { mod?.modifyInCollection?.('lineHeadEndStyle', pageIdx, live, false) } catch (_) {}
   try { vm.annotation?.renderAnnotations?.(pageIdx, null, null, null, null, false) } catch (_) {}
   try { vm.renderDrawing?.() } catch (_) {}
   return true
@@ -235,11 +319,11 @@ function registerAnnotationScaleRatio(mod, annotationId, drawing, displayUnit) {
   else mod.scaleRatioCollection.push(entry)
 }
 
-function patchMeasureAnnotationLabel(annot, userPt, pdfScale, fontColor = '#111827', thicknessOverride, arrowStyle) {
+function patchMeasureAnnotationLabel(annot, userPt, pdfScale, fontColor = '#111827', thicknessOverride, arrowStyle, linearLineMode = 'simple') {
   const isLine = String(annot.shapeAnnotationType ?? annot.ShapeAnnotationType ?? '').toLowerCase() === 'distance'
     || annot.IT === 'LineDimension' || annot.it === 'LineDimension'
   const stylePatch = isLine
-    ? buildLinearDistanceStyle(userPt, pdfScale, fontColor, thicknessOverride, arrowStyle)
+    ? buildLinearDistanceStyle(userPt, pdfScale, fontColor, thicknessOverride, arrowStyle, linearLineMode)
     : buildMeasureLabelPatch(userPt, pdfScale, fontColor)
   return { ...annot, ...stylePatch }
 }
@@ -299,7 +383,7 @@ export default function PdfViewer({
     pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
     pdfCommand, clearPdfCommand,
     measureColor, lineThickness, fillOpacity,
-    lineStyle, arrowStyle, fontSize,
+    lineStyle, arrowStyle, linearLineMode, fontSize,
     measureLabelFontSize, activeUnit,
     setCountSession,
   } = useAppStore()
@@ -338,6 +422,9 @@ export default function PdfViewer({
   const importedDrawingRef  = useRef(null)
   const importCompletedRef  = useRef(false)
   const explicitGridSelectRef = useRef(false)
+  const pasteStyleRef = useRef(null)
+  const suppressStyleSelectRef = useRef(null)
+  const annotationsSyncKeyRef = useRef('')
 
   useEffect(() => {
     importedAnnotIdsRef.current = new Set()
@@ -345,6 +432,7 @@ export default function PdfViewer({
     pendingLabelByAnnotRef.current = new Map()
     importedDrawingRef.current = null
     importCompletedRef.current = false
+    annotationsSyncKeyRef.current = ''
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
   }, [drawing?.id])
@@ -370,13 +458,17 @@ export default function PdfViewer({
     })
   }, [drawing?.id, annotations])
 
-  // Sync diagram labels + linear visual style for saved line measurements
+  // Sync diagram labels + linear visual style when takeoff rows are loaded (not on toolbar changes)
   useEffect(() => {
     if (!docLoaded || !annotations?.length) return
+    const syncKey = annotations.map(a => a.id).join(',')
+    if (annotationsSyncKeyRef.current === syncKey) return
+    annotationsSyncKeyRef.current = syncKey
+
     requestAnimationFrame(() => {
       const vm = viewerRef.current
       if (!vm) return
-      const { measureLabelFontSize: labelPt, lineThickness: thick, arrowStyle: arrows } = useAppStore.getState()
+      const { measureLabelFontSize: defaultLabelPt, lineThickness: defaultThick } = useAppStore.getState()
       annotations.forEach(item => {
         if (!item.pointsJson) return
         try {
@@ -392,8 +484,11 @@ export default function PdfViewer({
             ?? (parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1)
           const color = raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#111827'
           if (isLine) {
-            const storedThick = raw.Thickness ?? raw.thickness ?? thick
-            const linearStyle = buildLinearDistanceStyle(labelPt, pdfScale, color, storedThick, arrows)
+            const storedThick = raw.Thickness ?? raw.thickness ?? defaultThick
+            const storedArrows = inferArrowStyleFromAnnot(raw)
+            const storedLineMode = inferLinearLineModeFromAnnot(raw)
+            const labelPt = inferLabelSizeFromSfFontSize(raw.FontSize ?? raw.fontSize, pdfScale) ?? defaultLabelPt
+            const linearStyle = buildLinearDistanceStyle(labelPt, pdfScale, color, storedThick, storedArrows, storedLineMode)
             linearStyle.strokeColor = color
             const diagramStyle = buildLinearLabelDiagramStyle(labelPt, pdfScale, color)
             applyCalibratedLabelToDiagram(vm, id, pageNumber, text, color, diagramStyle)
@@ -404,7 +499,21 @@ export default function PdfViewer({
         } catch (_) {}
       })
     })
-  }, [docLoaded, annotations, measureLabelFontSize, pdfScale])
+  }, [docLoaded, annotations])
+
+  // Keep selectedAnnotDataRef in sync when user picks a row from the grid
+  useEffect(() => {
+    if (!selectedAnnotationId || !annotations?.length || !docLoaded) return
+    const item = annotations.find(t => t.id === selectedAnnotationId)
+    const annotId = parseAnnotIdFromPointsJson(item?.pointsJson)
+    if (!annotId) return
+    const vm = viewerRef.current
+    const live = vm ? resolveLiveAnnotation(vm, annotId) : null
+    if (live) selectedAnnotDataRef.current = live
+    else if (item?.pointsJson) {
+      try { selectedAnnotDataRef.current = JSON.parse(item.pointsJson) } catch (_) {}
+    }
+  }, [selectedAnnotationId, annotations, docLoaded])
 
   const extractMeasurementValue = (a) => {
     const direct = a.measurementValue ?? a.MeasurementValue
@@ -483,6 +592,13 @@ export default function PdfViewer({
       text:                a.text ?? a.label,
       Calibrate:           a.Calibrate ?? a.calibrate,
       calibrate:           a.calibrate ?? a.Calibrate,
+      lineHeadStartStyle: a.lineHeadStartStyle ?? a.LineHeadStartStyle,
+      lineHeadEndStyle: a.lineHeadEndStyle ?? a.LineHeadEndStyle,
+      fontSize: a.fontSize ?? a.FontSize,
+      FontSize: a.FontSize ?? a.fontSize,
+      labelSettings: a.labelSettings ?? a.LabelSettings,
+      leaderLength: a.leaderLength ?? a.LeaderLength,
+      leaderLineExtension: a.leaderLineExtension ?? a.LeaderLineExtension,
       vertexPoints:        pts,
       ...(pts.length >= 2 ? {
         start: `${pts[0].x},${pts[0].y}`,
@@ -637,7 +753,10 @@ export default function PdfViewer({
   const ensureContinuousMeasureMode = useCallback(() => {
     const vm = viewerRef.current
     if (!vm) return
-    const { activeTool: tool, pdfPage: page } = useAppStore.getState()
+    const {
+      activeTool: tool, pdfPage: page, measureColor, measureLabelFontSize: labelPt,
+      lineThickness, arrowStyle, linearLineMode, pdfScale: zoom, fillOpacity,
+    } = useAppStore.getState()
     const mode = MEASURE_MODES[tool]
     if (!mode) return
 
@@ -647,6 +766,16 @@ export default function PdfViewer({
     try { vm.annotation?.clearSelection?.() } catch (_) {}
     try { vm.annotation.setAnnotationMode('None') } catch (_) {}
     setTimeout(() => {
+      if (tool === 'line') {
+        try {
+          vm.annotation.updateMeasurementSettings('Distance', {
+            strokeColor: measureColor ?? '#EF233C',
+            fillColor: `rgba(239,35,60,${Math.min(fillOpacity ?? 0.15, 0.15)})`,
+            opacity: 1,
+            ...buildLinearDistanceStyle(labelPt, zoom, measureColor ?? '#111827', lineThickness, arrowStyle, linearLineMode),
+          })
+        } catch (_) {}
+      }
       try { vm.annotation.setAnnotationMode(mode) } catch (_) {}
     }, 40)
   }, [])
@@ -661,14 +790,34 @@ export default function PdfViewer({
     if (mod && d?.isCalibrated) {
       registerAnnotationScaleRatio(mod, annotationId, d, displayUnit)
     }
-    const { measureColor: color, lineThickness: thick, arrowStyle: arrows, measureLabelFontSize: labelPt, pdfScale: zoom } = useAppStore.getState()
-    const fontColor = annot.strokeColor ?? annot.StrokeColor ?? color ?? '#111827'
-    const linearStyle = buildLinearDistanceStyle(labelPt, zoom ?? pdfScale, fontColor, thick, arrows)
+    const { measureColor: color, lineThickness: thick, arrowStyle: arrows, measureLabelFontSize: labelPt, linearLineMode: lineMode, pdfScale: zoom } = useAppStore.getState()
+    const pasteStyle = pasteStyleRef.current
+    const effectiveLabelPt = pasteStyle?.labelFontSize ?? labelPt
+    const effectiveThick = pasteStyle?.thickness ?? thick
+    const effectiveArrows = pasteStyle?.arrowStyle ?? arrows
+    const effectiveLineMode = pasteStyle?.linearLineMode ?? lineMode ?? 'simple'
+    const fontColor = pasteStyle?.color ?? annot.strokeColor ?? annot.StrokeColor ?? color ?? '#111827'
+    const linearStyle = buildLinearDistanceStyle(effectiveLabelPt, zoom ?? pdfScale, fontColor, effectiveThick, effectiveArrows, effectiveLineMode)
     linearStyle.strokeColor = fontColor
-    const diagramStyle = buildLinearLabelDiagramStyle(labelPt, zoom ?? pdfScale, fontColor)
+    const diagramStyle = buildLinearLabelDiagramStyle(effectiveLabelPt, zoom ?? pdfScale, fontColor)
     editingAnnotRef.current = true
     const finish = () => {
+      try {
+        const live = resolveLiveAnnotation(vm, annotationId)
+        const base = live ?? annot
+        const patched = patchMeasureAnnotationLabel(
+          base, effectiveLabelPt, zoom ?? pdfScale, fontColor, effectiveThick, effectiveArrows, effectiveLineMode,
+        )
+        vm.annotation.editAnnotation({
+          ...base,
+          annotationId,
+          name: annotationId,
+          AnnotName: annotationId,
+          ...patched,
+        })
+      } catch (_) {}
       applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle)
+      pasteStyleRef.current = null
       setTimeout(() => { editingAnnotRef.current = false }, 120)
       ensureContinuousMeasureMode()
     }
@@ -690,11 +839,11 @@ export default function PdfViewer({
     editingAnnotRef.current = true
     try {
       vm.annotation.editAnnotation(
-        patchMeasureAnnotationLabel(annot, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle),
+        patchMeasureAnnotationLabel(annot, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode),
       )
     } catch (_) {}
     setTimeout(() => { editingAnnotRef.current = false }, 300)
-  }, [measureColor, measureLabelFontSize, pdfScale, lineThickness, arrowStyle])
+  }, [measureColor, measureLabelFontSize, pdfScale, lineThickness, arrowStyle, linearLineMode])
 
   const syncAnnotationLabel = useCallback((annotationId, pageNumber, labelText) => {
     const vm = viewerRef.current
@@ -781,6 +930,7 @@ export default function PdfViewer({
     if (annotationId) {
       processedAnnotsRef.current.add(annotationId)
       lastDrawnAnnotRef.current = annotationId
+      suppressStyleSelectRef.current = annotationId
     }
 
     const numericLength = isAreaAnnotation ? area : length
@@ -1327,6 +1477,98 @@ export default function PdfViewer({
         }
 
         runClear()
+      } else if (type === 'pasteMeasurement') {
+        const clipboard = payload.clipboard
+        if (!clipboard?.raw) {
+          toast('Nothing to paste — copy a line measurement first')
+          return
+        }
+        if ((clipboard.itemType || 'Line') !== 'Line') {
+          toast('Only linear measurements can be pasted')
+          return
+        }
+
+        pasteStyleRef.current = {
+          color: clipboard.color,
+          category: clipboard.category,
+          thickness: clipboard.thickness,
+          labelFontSize: clipboard.labelFontSize,
+          arrowStyle: clipboard.arrowStyle,
+          linearLineMode: clipboard.linearLineMode,
+        }
+
+        const targetPage = pdfPage ?? clipboard.pageNumber ?? 1
+        const cloned = cloneLinearAnnotationForPaste(clipboard.raw, 30, 30, targetPage)
+        if (!cloned) {
+          pasteStyleRef.current = null
+          toast.error('Could not paste — invalid line geometry')
+          return
+        }
+
+        const stylePatch = buildLinearDistanceStyle(
+          clipboard.labelFontSize,
+          pdfScale,
+          clipboard.color,
+          clipboard.thickness,
+          clipboard.arrowStyle,
+          clipboard.linearLineMode,
+        )
+        Object.assign(cloned, stylePatch, {
+          strokeColor: clipboard.color,
+          StrokeColor: clipboard.color,
+          Thickness: clipboard.thickness,
+          thickness: clipboard.thickness,
+        })
+
+        if (targetPage !== pdfPage) {
+          try { vm.navigation.goToPage(targetPage) } catch (_) {}
+        }
+        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+
+        const pageIdx = String(targetPage - 1)
+        const newId = cloned.annotationId
+        importingAnnotsRef.current = true
+        try {
+          vm.importAnnotation(JSON.stringify({
+            pdfAnnotation: {
+              [pageIdx]: {
+                measureShapeAnnotation: [cloned],
+                shapeAnnotation: [],
+              },
+            },
+          }), 'Json')
+        } catch (_) {
+          importingAnnotsRef.current = false
+          pasteStyleRef.current = null
+          toast.error('Paste failed')
+          return
+        }
+
+        setTimeout(() => {
+          importingAnnotsRef.current = false
+          const plain = { ...buildPlainAnnot(cloned), ...cloned, ...stylePatch }
+          processMeasureAnnotation(plain)
+          applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
+          const labelText = clipboard.length != null
+            ? formatMeasureLength(clipboard.length, clipboard.unit ?? getDisplayUnit())
+            : resolveLinearLabelText(vm, newId, null, getDisplayUnit())
+          if (labelText) {
+            applyCalibratedLabelToDiagram(
+              vm, newId, targetPage, labelText, clipboard.color,
+              buildLinearLabelDiagramStyle(clipboard.labelFontSize, pdfScale, clipboard.color),
+            )
+          }
+          lastDrawnAnnotRef.current = newId
+          selectedAnnotDataRef.current = resolveLiveAnnotation(vm, newId)
+          toast.success('Measurement pasted', { duration: 2000 })
+          setTimeout(() => {
+            explicitGridSelectRef.current = true
+            try { vm.annotation.selectAnnotation(newId, targetPage) } catch (_) {}
+            const { activeTool: currentTool } = useAppStore.getState()
+            const mode = MEASURE_MODES[currentTool]
+            if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
+          }, 200)
+        }, 400)
       } else if (type === 'captureAnnotations') {
         // Step 1: Exit Distance drawing mode NOW so Syncfusion commits any in-progress
         // annotation before we export. Must be synchronous (before the delay).
@@ -1577,7 +1819,7 @@ export default function PdfViewer({
       if (activeTool === 'line') {
         vm.annotation.updateMeasurementSettings('Distance', {
           strokeColor: safeHex, fillColor: fillLight, opacity: 1,
-          ...buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle),
+          ...buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle, linearLineMode),
         })
       } else if (activeTool === 'area') {
         try { vm.annotation.updateMeasurementSettings('Area', { strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick, ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
@@ -1603,10 +1845,34 @@ export default function PdfViewer({
         } catch (_) {}
       }
 
-      // ── Update the just-drawn / currently-selected annotation in-place ──
-      // Works for both: (a) explicit user click-select and (b) the annotation auto-tracked
-      // by handleAnnotationAdd immediately after it is drawn (Bluebeam-style).
-      if (selectedAnnotDataRef.current) {
+      // ── Update selected or last-drawn linear measurement in-place ──
+      if (activeTool === 'line') {
+        const target = resolveLinearStyleTarget(vm, {
+          selectedAnnotDataRef, lastDrawnAnnotRef, selectedAnnotationId, annotations,
+        })
+        if (target) {
+          editingAnnotRef.current = true
+          try {
+            applyToolbarLinearStyle(vm, target, {
+              measureLabelFontSize, pdfScale, fontColor: safeHex, lineThickness: thick,
+              arrowStyle, linearLineMode, displayUnit: getDisplayUnit(),
+            })
+            if (selectedAnnotDataRef.current) {
+              const current = selectedAnnotDataRef.current
+              const patched = patchMeasureAnnotationLabel(
+                current, measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle, linearLineMode,
+              )
+              try {
+                vm.annotation.editAnnotation(patched)
+                selectedAnnotDataRef.current = patched
+              } catch (_) {}
+            }
+          } catch (_) {}
+          setTimeout(() => { editingAnnotRef.current = false }, 300)
+        } else {
+          ensureContinuousMeasureMode()
+        }
+      } else if (selectedAnnotDataRef.current) {
         editingAnnotRef.current = true
         try {
           const current = selectedAnnotDataRef.current
@@ -1622,7 +1888,7 @@ export default function PdfViewer({
             const isLine = String(current.shapeAnnotationType ?? '').toLowerCase() === 'distance'
               || current.IT === 'LineDimension' || current.it === 'LineDimension'
             if (isLine && activeTool === 'line') {
-              Object.assign(updAnnot, buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle))
+              Object.assign(updAnnot, buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle, linearLineMode))
             } else {
               Object.assign(updAnnot, buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex))
             }
@@ -1632,48 +1898,14 @@ export default function PdfViewer({
           }
           vm.annotation.editAnnotation(updAnnot)
           selectedAnnotDataRef.current = updAnnot
-          if (activeTool === 'line' && isMeasureAnnotation(current)) {
-            const isLine = String(current.shapeAnnotationType ?? '').toLowerCase() === 'distance'
-              || current.IT === 'LineDimension' || current.it === 'LineDimension'
-            if (isLine) {
-              const annotId = current.annotationId ?? current.name ?? current.AnnotName
-              const linearStyle = buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle)
-              linearStyle.strokeColor = safeHex
-              applyLinearVisualStyleToDiagram(vm, annotId, linearStyle)
-              const noteText = current.notes ?? current.note ?? current.labelContent
-              if (noteText) {
-                applyCalibratedLabelToDiagram(
-                  vm, annotId, current.pageNumber ?? current.pageIndex + 1, noteText, safeHex,
-                  buildLinearLabelDiagramStyle(measureLabelFontSize, pdfScale, safeHex),
-                )
-              }
-            }
-          }
         } catch (_) {}
-        // Clear the suppression flag after Syncfusion finishes processing the edit event
         setTimeout(() => { editingAnnotRef.current = false }, 300)
-      } else if (activeTool === 'line') {
-        const targetId = lastDrawnAnnotRef.current
-        if (targetId) {
-          const linearStyle = buildLinearDistanceStyle(measureLabelFontSize, pdfScale, safeHex, thick, arrowStyle)
-          linearStyle.strokeColor = safeHex
-          applyLinearVisualStyleToDiagram(vm, targetId, linearStyle)
-          const live = resolveLiveAnnotation(vm, targetId)
-          const noteText = live?.notes ?? live?.note ?? live?.labelContent
-          if (noteText) {
-            applyCalibratedLabelToDiagram(
-              vm, targetId, (live?.pageIndex ?? 0) + 1, noteText, safeHex,
-              buildLinearLabelDiagramStyle(measureLabelFontSize, pdfScale, safeHex),
-            )
-          }
-        }
-        ensureContinuousMeasureMode()
       } else if (CONTINUOUS_MEASURE_TOOLS.has(activeTool)) {
         ensureContinuousMeasureMode()
       }
 
     } catch (_) {}
-  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, ensureContinuousMeasureMode])
+  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, ensureContinuousMeasureMode, selectedAnnotationId, annotations, getDisplayUnit])
 
   // ── Apply calibration scale to Syncfusion (display unit in grid is separate) ──
   useEffect(() => {
@@ -1693,44 +1925,37 @@ export default function PdfViewer({
           strokeColor: measureColor ?? '#EF233C',
           fillColor: `rgba(239,35,60,${Math.min(fillOpacity ?? 0.15, 0.15)})`,
           opacity: 1,
-          ...buildLinearDistanceStyle(measureLabelFontSize, pdfScale, measureColor ?? '#111827', lineThickness, arrowStyle),
+          ...buildLinearDistanceStyle(measureLabelFontSize, pdfScale, measureColor ?? '#111827', lineThickness, arrowStyle, linearLineMode),
         })
       } catch (_) {}
     }
-    if (selectedAnnotDataRef.current && isMeasureAnnotation(selectedAnnotDataRef.current)) {
-      editingAnnotRef.current = true
-      try {
-        const current = selectedAnnotDataRef.current
-        const fontColor = current.strokeColor ?? measureColor ?? '#111827'
-        const isLine = String(current.shapeAnnotationType ?? '').toLowerCase() === 'distance'
-          || current.IT === 'LineDimension' || current.it === 'LineDimension'
-        const patched = patchMeasureAnnotationLabel(
-          current, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle,
-        )
-        vm.annotation.editAnnotation(patched)
-        selectedAnnotDataRef.current = patched
-        if (isLine && activeTool === 'line') {
-          const annotId = current.annotationId ?? current.name ?? current.AnnotName
-          const linearStyle = buildLinearDistanceStyle(measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle)
-          linearStyle.strokeColor = fontColor
-          applyLinearVisualStyleToDiagram(vm, annotId, linearStyle)
-          const noteText = current.notes ?? current.note ?? current.labelContent
-          if (noteText) {
-            applyCalibratedLabelToDiagram(
-              vm, annotId, current.pageNumber ?? (current.pageIndex ?? 0) + 1, noteText, fontColor,
-              buildLinearLabelDiagramStyle(measureLabelFontSize, pdfScale, fontColor),
+    if (activeTool === 'line') {
+      const target = resolveLinearStyleTarget(vm, {
+        selectedAnnotDataRef, lastDrawnAnnotRef, selectedAnnotationId, annotations,
+      })
+      if (target) {
+        editingAnnotRef.current = true
+        try {
+          const fontColor = measureColor ?? '#111827'
+          applyToolbarLinearStyle(vm, target, {
+            measureLabelFontSize, pdfScale, fontColor, lineThickness,
+            arrowStyle, linearLineMode, displayUnit: getDisplayUnit(),
+          })
+          if (selectedAnnotDataRef.current) {
+            const current = selectedAnnotDataRef.current
+            const patched = patchMeasureAnnotationLabel(
+              current, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode,
             )
+            try {
+              vm.annotation.editAnnotation(patched)
+              selectedAnnotDataRef.current = patched
+            } catch (_) {}
           }
-        }
-      } catch (_) {}
-      setTimeout(() => { editingAnnotRef.current = false }, 300)
-    } else if (activeTool === 'line' && lastDrawnAnnotRef.current) {
-      const fontColor = measureColor ?? '#111827'
-      const linearStyle = buildLinearDistanceStyle(measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle)
-      linearStyle.strokeColor = fontColor
-      applyLinearVisualStyleToDiagram(vm, lastDrawnAnnotRef.current, linearStyle)
+        } catch (_) {}
+        setTimeout(() => { editingAnnotRef.current = false }, 300)
+      }
     }
-  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, measureColor, lineThickness, arrowStyle, fillOpacity, activeTool])
+  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, measureColor, lineThickness, arrowStyle, linearLineMode, fillOpacity, activeTool, selectedAnnotationId, annotations, getDisplayUnit])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
   const handleDocumentLoaded = useCallback((args) => {
@@ -1794,9 +2019,14 @@ export default function PdfViewer({
     if (isMeasureAnnotation(annotation) && !importingAnnotsRef.current) {
       scheduleMeasurementComplete(buildPlainAnnot(annotation))
     }
-    // During continuous takeoff, Syncfusion auto-selects the line just drawn — do not
-    // track it or color/style changes would target the previous line instead of the next.
-    if (!CONTINUOUS_MEASURE_TOOLS.has(tool) || explicitGridSelectRef.current) {
+    // During continuous takeoff, Syncfusion auto-selects the line just drawn — skip that
+    // one select so toolbar style changes target the next line, not the one just placed.
+    const skipAutoSelect = CONTINUOUS_MEASURE_TOOLS.has(tool)
+      && !explicitGridSelectRef.current
+      && suppressStyleSelectRef.current === id
+    if (skipAutoSelect) {
+      suppressStyleSelectRef.current = null
+    } else {
       selectedAnnotDataRef.current = annotation
       explicitGridSelectRef.current = false
     }
@@ -2132,7 +2362,7 @@ export default function PdfViewer({
             fillColor:   `rgba(239,35,60,${fillOpacity ?? 0.15})`,
             opacity: 1,
             ...buildLinearDistanceStyle(
-              measureLabelFontSize, pdfScale, measureColor ?? '#111827', lineThickness, arrowStyle,
+              measureLabelFontSize, pdfScale, measureColor ?? '#111827', lineThickness, arrowStyle, linearLineMode,
             ),
           }}
 
