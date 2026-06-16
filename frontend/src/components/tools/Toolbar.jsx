@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useBreakpoint } from '../../utils/useBreakpoint'
 import { CATEGORY_COLORS } from '../../utils/calculations'
-import { MEASURE_LABEL_PRESETS } from '../../utils/measureLabel'
+import { MEASURE_LABEL_PRESETS, defaultLineThicknessForLabelSize } from '../../utils/measureLabel'
 
 // ── Measure tools ────────────────────────────────────────────────────────
 const MEASURE_TOOLS = [
@@ -465,7 +465,10 @@ export default function Toolbar() {
                     <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {MEASURE_LABEL_PRESETS.map(p => (
-                        <button key={p.value} onClick={() => setMeasureLabelFontSize(p.value)} title={p.title}
+                        <button key={p.value} onClick={() => {
+                          setMeasureLabelFontSize(p.value)
+                          if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(p.value))
+                        }} title={p.title}
                           style={{
                             height: '22px', minWidth: '30px', padding: '0 7px',
                             borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
@@ -488,7 +491,9 @@ export default function Toolbar() {
                 {activeTool !== 'text' && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Thickness:</span>
+                    <span style={{ fontSize: '10px', color: '#334155' }}>
+                      {activeTool === 'line' ? 'Thickness (override):' : 'Thickness:'}
+                    </span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {THICKNESSES.map(t => (
                         <button key={t} onClick={() => setLineThickness(t)} title={`${t}px`}
