@@ -19,23 +19,7 @@
 .e-pdfviewer { border: none !important; }
 
 /* ─── Syncfusion measurement annotation label text ───────────
-   Primary control is PdfViewer.jsx (shapeLabelSettings + labelSettings).
-   These selectors are a fallback for any SVG text paths.   */
-#sfPdfViewer text,
-[id^="sfPdfViewer"] text,
-[id*="annotationCanvas"] text,
-.e-pdfviewer-annotationlayer text,
-.e-pdfviewer-annotation-layer text,
-.e-pv-annotation-canvas text,
-.e-pdfviewer-measure-annotations text {
-  font-size: 24px !important;
-  font-weight: 700 !important;
-  font-family: 'Arial', sans-serif !important;
-  paint-order: stroke fill !important;
-  stroke: white !important;
-  stroke-width: 4px !important;
-  stroke-linejoin: round !important;
-}
+   Labels are set via applyCalibratedLabelToDiagram in PdfViewer.jsx. */
 
 /* ─── Reset ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

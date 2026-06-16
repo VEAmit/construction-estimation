@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { takeoffService } from '../../services/takeoffService'
 import { useAppStore } from '../../store/useAppStore'
 import { exportToExcel, exportToPdf } from '../../utils/exportUtils'
@@ -50,6 +50,15 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
   const [editBuf, setEditBuf] = useState({})
   const [saving,  setSaving]  = useState(false)
   const [filter,  setFilter]  = useState('')
+
+  const prevItemCountRef = useRef(takeoffItems.length)
+  useEffect(() => {
+    if (takeoffItems.length > prevItemCountRef.current) {
+      const lastPage = Math.max(1, Math.ceil(takeoffItems.length / PAGE_SIZE))
+      setPage(lastPage)
+    }
+    prevItemCountRef.current = takeoffItems.length
+  }, [takeoffItems.length])
 
   const filtered = takeoffItems.filter(it =>
     !filter || [it.description, it.mark, it.material, it.notes]
