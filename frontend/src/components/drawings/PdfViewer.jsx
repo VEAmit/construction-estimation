@@ -29,6 +29,9 @@ import toast from 'react-hot-toast'
 // Not setting serviceUrl switches the viewer to client-side WASM rendering — no backend needed.
 const SF_RESOURCE_URL = `${window.location.origin}/ej2-pdfviewer-lib`
 
+const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
+const CONTINUOUS_MEASURE_TOOLS = new Set(['line', 'calibrate', 'area', 'perimeter'])
+
 // Map our unit key → Syncfusion DistanceMeasurementUnit string
 function toSfUnit(unit) {
   const map = { Mm: 'Millimeter', Cm: 'Centimeter', Meter: 'Meter', Feet: 'Foot', Inch: 'Inch' }
@@ -268,6 +271,7 @@ export default function PdfViewer({
   const importingAnnotsRef  = useRef(false)
   const importedDrawingRef  = useRef(null)
   const importCompletedRef  = useRef(false)
+  const explicitGridSelectRef = useRef(false)
 
   useEffect(() => {
     importedAnnotIdsRef.current = new Set()
@@ -552,6 +556,24 @@ export default function PdfViewer({
     } catch (_) {}
   }, [ensureMeasureScaleUi, measureLabelFontSize, pdfScale])
 
+  /** Bluebeam-style: after each measurement, deselect and re-enter draw mode for the active tool. */
+  const ensureContinuousMeasureMode = useCallback(() => {
+    const vm = viewerRef.current
+    if (!vm) return
+    const { activeTool: tool, pdfPage: page } = useAppStore.getState()
+    const mode = MEASURE_MODES[tool]
+    if (!mode) return
+
+    selectedAnnotDataRef.current = null
+    const pageIdx = Math.max(0, (page ?? 1) - 1)
+    try { vm.clearSelection?.(pageIdx) } catch (_) {}
+    try { vm.annotation?.clearSelection?.() } catch (_) {}
+    try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+    setTimeout(() => {
+      try { vm.annotation.setAnnotationMode(mode) } catch (_) {}
+    }, 40)
+  }, [])
+
   const applyMeasureLabelToViewer = useCallback((annot, labelText, _numericLength, pageNumber, displayUnit) => {
     const vm = viewerRef.current
     const d = drawingRef.current
@@ -564,16 +586,20 @@ export default function PdfViewer({
     }
     const fontColor = annot.strokeColor ?? annot.StrokeColor ?? useAppStore.getState().measureColor ?? '#111827'
     editingAnnotRef.current = true
+    const finish = () => {
+      setTimeout(() => { editingAnnotRef.current = false }, 120)
+      ensureContinuousMeasureMode()
+    }
     const apply = (attempt = 0) => {
       const ok = applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, fontColor)
       if (!ok && attempt < 8) {
         setTimeout(() => apply(attempt + 1), 80)
         return
       }
-      setTimeout(() => { editingAnnotRef.current = false }, 120)
+      finish()
     }
     apply()
-  }, [])
+  }, [ensureContinuousMeasureMode])
 
   const applyLabelToAnnot = useCallback((annot, labelText) => {
     const vm = viewerRef.current
@@ -682,6 +708,9 @@ export default function PdfViewer({
 
     if (labelText && annotationId && Number.isFinite(numericLength) && numericLength > 0) {
       applyMeasureLabelToViewer(a, labelText, numericLength, pageNumber, displayUnit)
+    } else if (annotationId) {
+      // Uncalibrated or zero-length — still return to ready-to-draw state
+      setTimeout(ensureContinuousMeasureMode, 100)
     }
 
     onMeasureRef.current?.({
@@ -696,7 +725,7 @@ export default function PdfViewer({
       rawAnnotation: a,
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
-  }, [getDisplayUnit, measureLabelFontSize, pdfScale, applyMeasureLabelToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [getDisplayUnit, measureLabelFontSize, pdfScale, applyMeasureLabelToViewer, ensureContinuousMeasureMode])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { processMeasureRef.current = processMeasureAnnotation }, [processMeasureAnnotation])
 
@@ -704,19 +733,12 @@ export default function PdfViewer({
   // (same pattern as the manual Save button / captureAnnotations).
   const flushMeasurementExport = useCallback((vm) => {
     if (!vm) return
-    const { activeTool: tool } = useAppStore.getState()
-    const restoreMap = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
-    const restoreMode = restoreMap[tool]
     try { vm.annotation.setAnnotationMode('None') } catch (_) {}
     setTimeout(() => {
       exportAndProcessUnsaved(vm)
-      if (restoreMode) {
-        setTimeout(() => {
-          try { vm.annotation.setAnnotationMode(restoreMode) } catch (_) {}
-        }, 80)
-      }
+      setTimeout(ensureContinuousMeasureMode, 80)
     }, 200)
-  }, [exportAndProcessUnsaved])
+  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode])
 
   const scheduleMeasurementComplete = useCallback((plainAnnot) => {
     if (!plainAnnot) return
@@ -736,11 +758,13 @@ export default function PdfViewer({
       measureCompleteTimersRef.current.delete(id)
       processMeasureRef.current?.(resolveAnnot())
       exportAndProcessUnsaved(viewerRef.current)
+      // Backup re-enter draw mode (label path also calls ensureContinuousMeasureMode)
+      setTimeout(ensureContinuousMeasureMode, 450)
     }
 
     // Process after draw completes — geometry + Syncfusion calibrate object are ready
     measureCompleteTimersRef.current.set(id, setTimeout(save, 350))
-  }, [exportAndProcessUnsaved])
+  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode])
 
   // ── ResizeObserver: give Syncfusion explicit pixel dimensions ──────────
   useEffect(() => {
@@ -1094,6 +1118,7 @@ export default function PdfViewer({
       if (type === 'fitPage') {
         vm.fitPage('FitPage')
       } else if (type === 'selectAnnotation' && payload.annotationId) {
+        explicitGridSelectRef.current = true
         // Must exit Distance drawing mode before selecting so Syncfusion renders
         // the selection handle on the annotation (it stays invisible in drawing mode).
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
@@ -1103,16 +1128,10 @@ export default function PdfViewer({
         }
         setTimeout(() => {
           try { vm.annotation.selectAnnotation(payload.annotationId, payload.pageNumber ?? 1) } catch (_) {}
-          // Restore Distance mode if user is still in Measure or Calibrate tool
+          // Restore draw mode if user is still in a measure tool (keep explicit selection)
           setTimeout(() => {
             const { activeTool: currentTool } = useAppStore.getState()
-            const RESTORE_MAP = {
-              line: 'Distance', calibrate: 'Distance',
-              area: 'Area', perimeter: 'Perimeter',
-              arrow: 'Arrow', rect: 'Square', circle: 'Circle',
-              polygon: 'Polygon', text: 'FreeText', line_ann: 'Line',
-            }
-            const mode = RESTORE_MAP[currentTool]
+            const mode = MEASURE_MODES[currentTool] ?? MARKUP_MODES[currentTool]
             if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
           }, 150)
         }, 80)
@@ -1403,8 +1422,6 @@ export default function PdfViewer({
     highlight: 'Highlight',
     line_ann:  'Line',
   }
-  const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
-
   // ── Sync activeTool → Syncfusion annotation mode ───────────────────────
   useEffect(() => {
     const vm = viewerRef.current
@@ -1531,12 +1548,13 @@ export default function PdfViewer({
         } catch (_) {}
         // Clear the suppression flag after Syncfusion finishes processing the edit event
         setTimeout(() => { editingAnnotRef.current = false }, 300)
-        // Fall through to mode re-enter below so the NEW thickness also applies to
-        // the next annotation the user draws (not just the one just updated).
+      } else if (CONTINUOUS_MEASURE_TOOLS.has(activeTool)) {
+        // Style change targets the next line — keep Linear/Area/Polyline tool active
+        ensureContinuousMeasureMode()
       }
 
     } catch (_) {}
-  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale])
+  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, ensureContinuousMeasureMode])
 
   // ── Apply calibration scale to Syncfusion (display unit in grid is separate) ──
   useEffect(() => {
@@ -1608,8 +1626,8 @@ export default function PdfViewer({
     eventAnnotations.forEach(a => {
       scheduleMeasurementComplete(buildPlainAnnot(a))
     })
-
-    if (eventAnnotations[0]) selectedAnnotDataRef.current = eventAnnotations[0]
+    // Do not set selectedAnnotDataRef here — continuous draw keeps the tool active;
+    // explicit selection uses handleAnnotationSelect (PDF click or grid row).
   }, [scheduleMeasurementComplete])
 
   const handleAnnotationPropertiesChange = useCallback((args) => {
@@ -1622,12 +1640,17 @@ export default function PdfViewer({
   const handleAnnotationSelect = useCallback((args) => {
     const annotation = args?.annotation
     const id = annotation?.annotationId
-    if (id) {
-      onAnnotationSelect?.(id)
+    if (!id) return
+    onAnnotationSelect?.(id)
+    const { activeTool: tool } = useAppStore.getState()
+    if (isMeasureAnnotation(annotation) && !importingAnnotsRef.current) {
+      scheduleMeasurementComplete(buildPlainAnnot(annotation))
+    }
+    // During continuous takeoff, Syncfusion auto-selects the line just drawn — do not
+    // track it or color/style changes would target the previous line instead of the next.
+    if (!CONTINUOUS_MEASURE_TOOLS.has(tool) || explicitGridSelectRef.current) {
       selectedAnnotDataRef.current = annotation
-      if (isMeasureAnnotation(annotation) && !importingAnnotsRef.current) {
-        scheduleMeasurementComplete(buildPlainAnnot(annotation))
-      }
+      explicitGridSelectRef.current = false
     }
   }, [onAnnotationSelect, scheduleMeasurementComplete])
 
