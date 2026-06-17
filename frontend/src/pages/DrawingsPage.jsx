@@ -38,6 +38,7 @@ export default function DrawingsPage() {
     measurementClipboard, setMeasurementClipboard,
     pdfScale,
     removeTakeoffItem,
+    setMeasureColor,
   } = useAppStore()
 
   const [lastMeasurement,  setLastMeasurement]  = useState(null)
@@ -80,13 +81,14 @@ export default function DrawingsPage() {
   const annotStyleBaselineRef = useRef(null)
   const pasteStyleOverrideRef = useRef(null)
   const blobSaveTimerRef = useRef(null)
+  /** DB row user explicitly picked for toolbar style edits — not auto-selected after draw. */
+  const [styleEditTargetId, setStyleEditTargetId] = useState(null)
 
-  // ── DB update when style changes while an annotation is selected ─────────
-  // PdfViewer handles the visual update via editAnnotation.
-  // This effect persists the new color to the DB so the record stays in sync.
+  // Persist toolbar style changes ONLY when user explicitly selected a measurement to edit.
+  // Toolbar color/thickness for the next draw must not mutate previously saved rows.
   useEffect(() => {
-    if (!selectedAnnotId) {
-      annotStyleBaselineRef.current = null
+    if (!selectedAnnotId || styleEditTargetId !== selectedAnnotId) {
+      if (!selectedAnnotId) annotStyleBaselineRef.current = null
       return
     }
     const current = { color: measureColor, thickness: lineThickness, lineStyle, arrowStyle }
@@ -114,7 +116,7 @@ export default function DrawingsPage() {
     takeoffService.update({ ...item, color: measureColor, category: measureCategory })
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})  // visual update already succeeded — silent fail
-  }, [measureColor, measureCategory, lineThickness, lineStyle, arrowStyle, selectedAnnotId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineThickness, lineStyle, arrowStyle, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -238,7 +240,7 @@ export default function DrawingsPage() {
 
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
-    const saveColor = pasteOverride?.color ?? color ?? '#EF233C'
+    const saveColor = pasteOverride?.color ?? color ?? '#111827'
     const saveCategory = pasteOverride?.category ?? category ?? 'General'
 
     const annotKey = measurement.annotationId
@@ -318,7 +320,10 @@ export default function DrawingsPage() {
       addTakeoffItem(saved)
       setShowBottom(true)
       setBottomTab('measurements')
-      setSelectedAnnotId(saved.id)
+      // Continuous draw: do not keep the new row in "style edit" mode — toolbar color is for the next mark.
+      setSelectedAnnotId(null)
+      setStyleEditTargetId(null)
+      annotStyleBaselineRef.current = null
       if (measurement.annotationId) {
         annotationMapRef.current[saved.id] = {
           annotationId: measurement.annotationId,
@@ -402,10 +407,14 @@ export default function DrawingsPage() {
 
   const handleRowSelect = useCallback((dbId) => {
     setSelectedAnnotId(dbId)
+    setStyleEditTargetId(dbId)
+    annotStyleBaselineRef.current = null
     if (!dbId) return
+    const item = takeoffItems.find(t => t.id === dbId)
+    if (item?.color) setMeasureColor(item.color)
     const annot = annotationMapRef.current[dbId]
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
-  }, [triggerPdfCommand])
+  }, [triggerPdfCommand, takeoffItems, setMeasureColor])
 
   const handleCopyMeasurement = useCallback(() => {
     if (!selectedAnnotId) return
@@ -802,11 +811,18 @@ export default function DrawingsPage() {
               onMeasure={handleMeasure}
               annotations={takeoffItems.filter(t => t.pointsJson)}
               selectedAnnotationId={selectedAnnotId}
+              styleEditTargetId={styleEditTargetId}
               onAnnotationSelect={(annotUuid) => {
-                // Map Syncfusion annotation UUID → DB item ID so the grid row highlights correctly
                 const entries = Object.entries(annotationMapRef.current)
                 const found = entries.find(([, v]) => v.annotationId === annotUuid)
-                setSelectedAnnotId(found ? Number(found[0]) : null)
+                const dbId = found ? Number(found[0]) : null
+                setSelectedAnnotId(dbId)
+                setStyleEditTargetId(dbId)
+                annotStyleBaselineRef.current = null
+                if (dbId) {
+                  const item = takeoffItems.find(t => t.id === dbId)
+                  if (item?.color) setMeasureColor(item.color)
+                }
               }}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}
