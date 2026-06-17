@@ -815,8 +815,9 @@ export default function DrawingsPage() {
                 const { selectedDrawing: drw } = useAppStore.getState()
                 if (!drw) return
                 try {
-                  // Save blob silently — do NOT refetch drawing (triggers re-import / scale reset)
+                  // Save blob silently — patch local state only (no refetch / scale reset)
                   await drawingService.saveAnnotations(drw.id, blobBase64)
+                  setSelectedDrawing({ ...drw, annotationData: blobBase64 })
                 } catch (_) {}
               }}
             />

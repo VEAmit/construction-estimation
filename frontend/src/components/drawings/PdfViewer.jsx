@@ -157,6 +157,211 @@ function resolveLinearLabelText(vm, annotId, item, displayUnit) {
   return null
 }
 
+function resolveTakeoffLabelText(item, displayUnit) {
+  if (!item) return ''
+  const unit = item.unit ?? displayUnit ?? 'Mm'
+  const isArea = item.itemType === 'Area'
+  if (isArea) {
+    const t = formatMeasureArea(item.area, unit)
+    if (t) return t
+  } else {
+    const len = item.length != null ? Number(item.length) : null
+    const t = len != null && !Number.isNaN(len) ? formatMeasureLength(len, unit) : ''
+    if (t) return t
+  }
+  const desc = String(item.description ?? '').trim()
+  return desc || ''
+}
+
+/** Restore a saved measurement label on reload — mirrors live-draw applyMeasureLabelToViewer. */
+function restoreSavedMeasureLabel(vm, {
+  annotationId, pageNumber, labelText, fontColor,
+  measureLabelFontSize, pdfScale, lineThickness, arrowStyle, linearLineMode,
+  drawing, displayUnit, isLine = true,
+}) {
+  if (!vm || !annotationId || !labelText) return false
+
+  const mod = vm.annotation?.measureAnnotationModule
+  if (mod && drawing?.isCalibrated) {
+    registerAnnotationScaleRatio(mod, annotationId, drawing, displayUnit)
+  }
+
+  const diagramStyle = buildLinearLabelDiagramStyle(measureLabelFontSize, pdfScale, fontColor)
+  if (isLine) {
+    const linearStyle = buildLinearDistanceStyle(
+      measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode,
+    )
+    linearStyle.strokeColor = fontColor
+    applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle)
+  }
+
+  const live = resolveLiveAnnotation(vm, annotationId)
+  if (live) {
+    live.notes = labelText
+    live.note = labelText
+    live.labelContent = labelText
+    const patched = patchMeasureAnnotationLabel(
+      live, measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode,
+    )
+    try {
+      vm.annotation.editAnnotation({
+        ...live,
+        annotationId,
+        name: annotationId,
+        AnnotName: annotationId,
+        notes: labelText,
+        note: labelText,
+        labelContent: labelText,
+        LabelContent: labelText,
+        ...patched,
+      })
+    } catch (_) {}
+    try {
+      const pageIdx = live.pageIndex ?? Math.max(0, (pageNumber ?? 1) - 1)
+      mod?.modifyInCollection?.('notes', pageIdx, live, false)
+    } catch (_) {}
+  }
+
+  return applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, fontColor, diagramStyle)
+}
+
+/** Apply saved labels + line styles once annotations exist on the viewer canvas. */
+function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
+  if (!vm || !items?.length) return
+  const {
+    measureLabelFontSize: labelPt, lineThickness: thick, arrowStyle: arrows,
+    linearLineMode: lineMode, activeUnit, selectedDrawing: drawing,
+  } = useAppStore.getState()
+  const displayUnit = activeUnit ?? drawing?.calibrationUnit ?? 'Mm'
+  let anyMissing = false
+  let anyLabelPending = false
+
+  for (const item of items) {
+    if (!item.pointsJson) continue
+    try {
+      const raw = JSON.parse(item.pointsJson)
+      const isLine = (item.itemType || 'Line') === 'Line'
+      const isArea = item.itemType === 'Area'
+      const text = resolveTakeoffLabelText(item, displayUnit)
+      if (!text) continue
+      const id = raw.annotationId ?? raw.AnnotName ?? raw.name ?? `db-${item.id}`
+      if (!resolveLiveAnnotation(vm, id)) {
+        anyMissing = true
+        continue
+      }
+      const pageNumber = raw.pageNumber ?? raw.PageNumber
+        ?? (parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1)
+      const color = raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#111827'
+      const itemLineMode = inferLinearLineModeFromAnnot(raw)
+      const itemArrows = inferArrowStyleFromAnnot(raw)
+      const ok = restoreSavedMeasureLabel(vm, {
+        annotationId: id,
+        pageNumber,
+        labelText: text,
+        fontColor: color,
+        measureLabelFontSize: labelPt,
+        pdfScale,
+        lineThickness: raw.Thickness ?? raw.thickness ?? thick,
+        arrowStyle: itemArrows !== 'none' ? itemArrows : arrows,
+        linearLineMode: itemLineMode === 'simple' ? 'simple' : (lineMode ?? 'simple'),
+        drawing,
+        displayUnit,
+        isLine: isLine && !isArea,
+      })
+      if (!ok) anyLabelPending = true
+    } catch (_) {}
+  }
+
+  if ((anyMissing || anyLabelPending) && attempt < 20) {
+    setTimeout(() => hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt + 1), 150)
+    return
+  }
+  try { vm.renderDrawing?.() } catch (_) {}
+}
+
+function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
+  if (!item?.pointsJson) return null
+  try {
+    const raw = JSON.parse(item.pointsJson)
+    const pageIdx = String(
+      raw.page != null ? parseInt(raw.page, 10)
+        : (raw.pageIndex != null ? parseInt(raw.pageIndex, 10) : ((raw.pageNumber ?? raw.PageNumber ?? 1) - 1)),
+    )
+
+    const rawPtsSrc = raw.vertexPoints ?? raw.VertexPoints ?? []
+    const validPts = (Array.isArray(rawPtsSrc) ? rawPtsSrc : [])
+      .filter(p => p && typeof p === 'object'
+        && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
+      .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+
+    let pts = validPts
+    if (pts.length < 2 && raw.start && raw.end) {
+      pts = [parseAnnotCoord(raw.start), parseAnnotCoord(raw.end)]
+    }
+
+    if (pts.length < 2) return null
+
+    const dxSkip = pts[pts.length - 1].x - pts[0].x
+    const dySkip = pts[pts.length - 1].y - pts[0].y
+    if (Math.sqrt(dxSkip * dxSkip + dySkip * dySkip) < 0.5) return null
+
+    const boundsFromPts = {
+      X: Math.min(pts[0].x, pts[pts.length - 1].x),
+      Y: Math.min(pts[0].y, pts[pts.length - 1].y),
+      Width: Math.max(Math.abs(pts[pts.length - 1].x - pts[0].x), 1),
+      Height: Math.max(Math.abs(pts[pts.length - 1].y - pts[0].y), 1),
+    }
+    const color = raw.StrokeColor ?? raw.strokeColor ?? item.color ?? '#EF233C'
+    const hasCoordsStr = raw.start && raw.end
+    const labelText = resolveTakeoffLabelText(item, item.unit ?? 'Mm')
+
+    const importable = {
+      ...raw,
+      ShapeAnnotationType: raw.ShapeAnnotationType ?? raw.shapeAnnotationType ?? 'Distance',
+      AnnotType: raw.AnnotType ?? 'shape_measure',
+      AnnotName: raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id,
+      Author: raw.Author ?? 'BuildTakeoff',
+      Bounds: boundsFromPts,
+      VertexPoints: pts.map(p => ({ X: p.x, Y: p.y })),
+      vertexPoints: pts.map(p => ({ x: p.x, y: p.y })),
+      StrokeColor: color,
+      strokeColor: color,
+      FillColor: raw.FillColor ?? raw.fillColor ?? 'rgba(239,35,60,0.12)',
+      Opacity: raw.Opacity ?? raw.opacity ?? 1,
+      Thickness: raw.Thickness ?? raw.thickness ?? 2,
+      FontSize: raw.FontSize ?? raw.fontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
+      fontSize: raw.fontSize ?? raw.FontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
+      labelSettings: raw.labelSettings ?? raw.LabelSettings
+        ?? buildMeasureLabelPatch(measureLabelFontSize, pdfScale, color).labelSettings,
+      enableShapeLabel: false,
+      notes: labelText || raw.notes || raw.note || '',
+      note: labelText || raw.note || raw.notes || '',
+      Note: labelText || raw.Note || raw.note || '',
+      labelContent: labelText || raw.labelContent || '',
+      LabelContent: labelText || raw.LabelContent || '',
+      label: labelText || raw.label || '',
+      text: labelText || raw.text || '',
+      Calibrate: raw.Calibrate ?? raw.calibrate ?? {
+        Ratio: '1 mm = 1 px', X: [], Distance: [], Area: [], Angle: [], Volume: [], TargetUnitConversion: 1,
+      },
+      IsPrint: true, State: '', Comments: [],
+      name: raw.name ?? raw.annotationId ?? raw.id,
+      type: raw.type ?? 'Line',
+      IT: raw.IT ?? 'LineDimension',
+      page: pageIdx,
+      pageIndex: parseInt(pageIdx, 10),
+      pageNumber: parseInt(pageIdx, 10) + 1,
+      ...(hasCoordsStr ? { start: raw.start, end: raw.end } : {
+        start: `${pts[0].x},${pts[0].y}`,
+        end: `${pts[pts.length - 1].x},${pts[pts.length - 1].y}`,
+      }),
+    }
+    return { pageIdx, importable }
+  } catch {
+    return null
+  }
+}
+
 /** Apply toolbar label + line visual style to one linear measurement. */
 function applyToolbarLinearStyle(vm, target, {
   measureLabelFontSize, pdfScale, fontColor, lineThickness, arrowStyle, linearLineMode, displayUnit,
@@ -266,7 +471,13 @@ function applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, 
 
   let updated = false
   for (const child of live.wrapper.children) {
-    if (!child?.textNodes) continue
+    const childId = String(child?.id ?? '').toLowerCase()
+    const isLabelEl = child?.textNodes
+      || childId.includes('text')
+      || childId.includes('label')
+      || childId.includes('note')
+      || (typeof child.refreshTextElement === 'function' && child.content != null)
+    if (!isLabelEl) continue
     child.content = labelText
     if (child.childNodes?.[0]) child.childNodes[0].text = labelText
     if (sfSize) child.style.fontSize = sfSize
@@ -275,6 +486,7 @@ function applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, 
     child.style.strokeColor = border
     if (typeof child.refreshTextElement === 'function') child.refreshTextElement()
     child.isDirt = true
+    child.visible = true
     updated = true
   }
   if (!updated) return false
@@ -483,6 +695,7 @@ export default function PdfViewer({
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
   const importedTakeoffIdsRef = useRef(new Set())
+  const blobFallbackImportedRef = useRef(false)
 
   useEffect(() => {
     importedAnnotIdsRef.current = new Set()
@@ -492,6 +705,7 @@ export default function PdfViewer({
     importCompletedRef.current = false
     annotationsSyncKeyRef.current = ''
     importedTakeoffIdsRef.current = new Set()
+    blobFallbackImportedRef.current = false
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
   }, [drawing?.id])
@@ -524,37 +738,10 @@ export default function PdfViewer({
     if (annotationsSyncKeyRef.current === syncKey) return
     annotationsSyncKeyRef.current = syncKey
 
-    requestAnimationFrame(() => {
-      const vm = viewerRef.current
-      if (!vm) return
-      const { measureLabelFontSize: labelPt, lineThickness: thick, arrowStyle: arrows, linearLineMode: lineMode } = useAppStore.getState()
-      annotations.forEach(item => {
-        if (!item.pointsJson) return
-        try {
-          const raw = JSON.parse(item.pointsJson)
-          const isLine = (item.itemType || 'Line') === 'Line'
-          const isArea = item.itemType === 'Area'
-          const text = isArea
-            ? formatMeasureArea(item.area, item.unit ?? 'Mm')
-            : formatMeasureLength(item.length, item.unit ?? 'Mm')
-          if (!text) return
-          const id = raw.annotationId ?? raw.AnnotName ?? raw.name ?? `db-${item.id}`
-          const pageNumber = raw.pageNumber ?? raw.PageNumber
-            ?? (parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1)
-          const color = raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#111827'
-          if (isLine) {
-            const linearStyle = buildLinearDistanceStyle(labelPt, pdfScale, color, thick, arrows, lineMode)
-            linearStyle.strokeColor = color
-            const diagramStyle = buildLinearLabelDiagramStyle(labelPt, pdfScale, color)
-            applyCalibratedLabelToDiagram(vm, id, pageNumber, text, color, diagramStyle)
-            applyLinearVisualStyleToDiagram(vm, id, linearStyle)
-          } else {
-            applyCalibratedLabelToDiagram(vm, id, pageNumber, text, color)
-          }
-        } catch (_) {}
-      })
-    })
-  }, [docLoaded, annotations])
+    const vm = viewerRef.current
+    if (!vm) return
+    hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
+  }, [docLoaded, annotations, pdfScale])
 
   // Keep selectedAnnotDataRef in sync when user picks a row from the grid
   useEffect(() => {
@@ -1009,7 +1196,17 @@ export default function PdfViewer({
       points: [],
       annotationId,
       pageNumber,
-      rawAnnotation: a,
+      rawAnnotation: (() => {
+        const vm = viewerRef.current
+        const id = annotationId
+        const live = id && vm ? resolveLiveAnnotation(vm, id) : null
+        if (live) {
+          const fromLive = buildPlainAnnot(live)
+          if (extractAnnotationPoints(fromLive).length >= 2) return fromLive
+        }
+        const plain = buildPlainAnnot(a)
+        return extractAnnotationPoints(plain).length >= 2 ? plain : a
+      })(),
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
     })
   }, [getDisplayUnit, measureLabelFontSize, pdfScale, applyMeasureLabelToViewer, ensureContinuousMeasureMode])  // eslint-disable-line react-hooks/exhaustive-deps
@@ -1036,9 +1233,14 @@ export default function PdfViewer({
     if (prev) clearTimeout(prev)
 
     const resolveAnnot = () => {
-      const live = selectedAnnotDataRef.current
-      const liveId = live?.annotationId ?? live?.name ?? live?.AnnotName
-      return (live && liveId === id) ? buildPlainAnnot(live) : plainAnnot
+      const id = plainAnnot.annotationId ?? plainAnnot.name ?? plainAnnot.AnnotName
+      const vm = viewerRef.current
+      const live = id && vm ? resolveLiveAnnotation(vm, id) : null
+      if (live) {
+        const fromLive = buildPlainAnnot(live)
+        if (extractAnnotationPoints(fromLive).length >= 2) return fromLive
+      }
+      return plainAnnot
     }
 
     const save = () => {
@@ -1074,11 +1276,41 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (!vm) return
 
-    const finishImport = () => {
+    const finishImport = (importedItems) => {
+      importingAnnotsRef.current = false
       importCompletedRef.current = true
       importedDrawingRef.current = drawing.id
-      importingAnnotsRef.current = false
       applyCalibrationToViewer(vm)
+      setTimeout(() => {
+        hydrateTakeoffItemsOnViewer(vm, importedItems?.length ? importedItems : annotations, pdfScale)
+        importedItems?.forEach(item => importedTakeoffIdsRef.current.add(item.id))
+        try { vm.renderDrawing?.() } catch (_) {}
+        // Second pass — Syncfusion may overwrite notes during calibrate refresh
+        setTimeout(() => {
+          hydrateTakeoffItemsOnViewer(vm, importedItems?.length ? importedItems : annotations, pdfScale)
+        }, 600)
+
+        // Fallback: import annotation blob if some rows still missing on canvas
+        const stillMissing = annotations.some(item => {
+          const id = parseAnnotIdFromPointsJson(item.pointsJson)
+          return id && !resolveLiveAnnotation(vm, id)
+        })
+        if (stillMissing && drawing.annotationData && !blobFallbackImportedRef.current) {
+          blobFallbackImportedRef.current = true
+          try {
+            const blob = typeof drawing.annotationData === 'string'
+              ? drawing.annotationData
+              : JSON.stringify(drawing.annotationData)
+            importingAnnotsRef.current = true
+            vm.importAnnotation(blob, 'Json')
+            setTimeout(() => {
+              importingAnnotsRef.current = false
+              hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
+              try { vm.renderDrawing?.() } catch (_) {}
+            }, 300)
+          } catch (_) {}
+        }
+      }, 250)
     }
 
     const itemsToImport = annotations.filter(item => {
@@ -1091,118 +1323,33 @@ export default function PdfViewer({
       return true
     })
 
-    // Wait for takeoff rows after PDF loads — retry so refresh never skips import
     if (!itemsToImport.length) {
-      if (annotations.length === 0 && !importCompletedRef.current) {
-        const retry = setTimeout(() => {
-          if (importCompletedRef.current || annotations.length > 0) return
-          importCompletedRef.current = true
-        }, 4000)
-        return () => clearTimeout(retry)
+      if (annotations.length > 0) {
+        hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
+        setTimeout(() => hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale), 500)
       }
       return
     }
 
     const byPage = {}
+    const importedBatch = []
     itemsToImport.forEach(item => {
-      if (!item.pointsJson) return
-      try {
-        const raw = JSON.parse(item.pointsJson)
-        const pageIdx = String(parseInt(raw.page ?? raw.pageIndex ?? '0', 10))
-
-        // Sanitize vertex points — a stored point array can contain a literal `null`
-        // entry (e.g. captured mid-draw, before the second click landed). Passing that
-        // straight into Syncfusion's renderer/exporter crashes EVERY subsequent render
-        // cycle with "Cannot read properties of null (reading 'X')", which corrupts the
-        // annotation event pipeline for the whole session (breaks new labels + grid sync).
-        const rawPtsSrc = raw.vertexPoints ?? raw.VertexPoints ?? []
-        const validPts = (Array.isArray(rawPtsSrc) ? rawPtsSrc : [])
-          .filter(p => p && typeof p === 'object'
-            && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
-          .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
-
-        let pts = validPts
-        if (pts.length < 2 && raw.start && raw.end) {
-          const parseCoord = (val) => {
-            if (typeof val === 'object' && val !== null) return { x: Number(val.x ?? val.X) || 0, y: Number(val.y ?? val.Y) || 0 }
-            const parts = String(val).split(',')
-            return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
-          }
-          pts = [parseCoord(raw.start), parseCoord(raw.end)]
-        }
-
-        const hasVertexPoints = pts.length >= 2
-        if (!hasVertexPoints) return  // not enough valid geometry — skip this corrupted/degenerate record
-
-        // Skip degenerate near-zero-length artifacts (e.g. a single click with no drag)
-        const dxSkip = pts[pts.length - 1].x - pts[0].x
-        const dySkip = pts[pts.length - 1].y - pts[0].y
-        if (Math.sqrt(dxSkip * dxSkip + dySkip * dySkip) < 0.5) {
-          console.log('[BuildTakeoff] skipping degenerate near-zero-length annotation:', raw.annotationId ?? raw.name)
-          return
-        }
-
-        // Build bounds from the sanitized vertex points
-        const boundsFromPts = {
-          X: Math.min(pts[0].x, pts[pts.length - 1].x),
-          Y: Math.min(pts[0].y, pts[pts.length - 1].y),
-          Width: Math.max(Math.abs(pts[pts.length - 1].x - pts[0].x), 1),
-          Height: Math.max(Math.abs(pts[pts.length - 1].y - pts[0].y), 1),
-        }
-        const hasCoordsStr = raw.start && raw.end
-
-        // Syncfusion v33 renderMeasureShapeAnnotations requires capital-case fields
-        let importable = {
-          ...raw,
-          // Capital fields required by the Syncfusion WASM import pipeline
-          ShapeAnnotationType: raw.ShapeAnnotationType ?? raw.shapeAnnotationType ?? 'Distance',
-          AnnotType:           raw.AnnotType ?? raw.shapeAnnotationType ?? 'shape_measure',
-          AnnotName:           raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id,
-          Author:              raw.Author ?? raw.author ?? 'BuildTakeoff',
-          Bounds:              raw.Bounds ?? (raw.bounds ?? boundsFromPts) ?? boundsFromPts,
-          // Always rebuild from sanitized `pts` — never trust raw.VertexPoints/vertexPoints
-          // directly, they're the fields most likely to carry a stored literal `null` point.
-          VertexPoints:        pts.map(p => ({ X: p.x, Y: p.y })),
-          vertexPoints:        pts.map(p => ({ x: p.x, y: p.y })),
-          StrokeColor:         raw.StrokeColor ?? raw.strokeColor ?? '#3b82f6',
-          FillColor:           raw.FillColor ?? raw.fillColor ?? 'rgba(59,130,246,0.12)',
-          Opacity:             raw.Opacity ?? raw.opacity ?? 1,
-          Thickness:           raw.Thickness ?? raw.thickness ?? 1,
-          FontSize:            raw.FontSize ?? raw.fontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
-          fontSize:            raw.fontSize ?? raw.FontSize ?? toSyncfusionLabelSize(measureLabelFontSize, pdfScale),
-          labelSettings:       raw.labelSettings ?? raw.LabelSettings ?? buildMeasureLabelPatch(measureLabelFontSize, pdfScale, raw.strokeColor ?? '#111827').labelSettings,
-          enableShapeLabel:    false,
-          labelContent:        '',
-          LabelContent:        '',
-          Note:                '',
-          note:                '',
-          label:               '',
-          text:                '',
-          Calibrate:           raw.Calibrate ?? raw.calibrate ?? {
-            Ratio: '1 mm = 1 px', X: [], Distance: [], Area: [], Angle: [], Volume: [], TargetUnitConversion: 1,
-          },
-          IsPrint: true, State: '', Comments: [],
-          // Lowercase aliases (kept for fallback paths)
-          name: raw.name ?? raw.annotationId ?? raw.id,
-          type: raw.type ?? 'Line',
-          IT:   raw.IT ?? 'LineDimension',
-          ...(hasCoordsStr ? { start: raw.start, end: raw.end } : {}),
-          ...(hasVertexPoints && !hasCoordsStr ? {
-            start: `${pts[0].x},${pts[0].y}`,
-            end:   `${pts[pts.length - 1].x},${pts[pts.length - 1].y}`,
-          } : {}),
-        }
-
-        if (!byPage[pageIdx]) byPage[pageIdx] = []
-        byPage[pageIdx].push(importable)
-
-        const id = raw.annotationId ?? raw.uniqueKey ?? raw.name
-        if (id) importedAnnotIdsRef.current.add(id)
-        importedTakeoffIdsRef.current.add(item.id)
-      } catch (_) {}
+      const built = buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale)
+      if (!built) {
+        console.warn('[BuildTakeoff] skip import — no geometry in pointsJson for item', item.id, item.mark)
+        return
+      }
+      if (!byPage[built.pageIdx]) byPage[built.pageIdx] = []
+      byPage[built.pageIdx].push(built.importable)
+      importedBatch.push(item)
+      const id = built.importable.AnnotName ?? built.importable.annotationId ?? built.importable.name
+      if (id) importedAnnotIdsRef.current.add(id)
     })
 
-    if (!Object.keys(byPage).length) return
+    if (!Object.keys(byPage).length) {
+      finishImport([])
+      return
+    }
 
     const pdfAnnotation = {}
     Object.entries(byPage).forEach(([pageIdx, annots]) => {
@@ -1221,8 +1368,8 @@ export default function PdfViewer({
     } catch (err) {
       console.error('[BuildTakeoff] pointsJson import failed:', err)
     }
-    setTimeout(finishImport, 50)
-  }, [docLoaded, drawing?.id, annotations, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
+    setTimeout(() => finishImport(importedBatch), 100)
+  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations, measureLabelFontSize, pdfScale, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
   useEffect(() => {

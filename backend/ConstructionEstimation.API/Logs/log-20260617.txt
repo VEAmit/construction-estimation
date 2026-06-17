@@ -1,0 +1,3 @@
+2026-06-17 10:25:07.448 +05:30 [INF] Database migrated successfully
+2026-06-17 10:25:09.304 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-06-17 10:25:10.618 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
