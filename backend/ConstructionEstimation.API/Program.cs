@@ -106,7 +106,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSerilogRequestLogging();
 
-if (app.Environment.IsDevelopment())
+var enableSwagger = app.Configuration.GetValue("EnableSwagger", app.Environment.IsDevelopment());
+if (enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuildTakeoff Pro API v1"));
@@ -120,5 +121,7 @@ app.MapControllers();
 // Serve uploaded files
 app.UseStaticFiles();
 
-Log.Information("BuildTakeoff Pro API starting on port 5000");
-app.Run("http://localhost:5000");
+// Port is not hardcoded here — it comes from:
+//   IIS site binding (e.g. 202, 203), ASPNETCORE_URLS env var, or launchSettings.json
+Log.Information("BuildTakeoff Pro API starting");
+app.Run();
