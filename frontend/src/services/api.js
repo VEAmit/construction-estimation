@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAppStore } from '../store/useAppStore'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: window.__APP_CONFIG__?.apiBaseUrl || '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 

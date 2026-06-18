@@ -1,0 +1,32 @@
+2026-06-18 09:38:21.386 +05:30 [INF] Database migrated successfully
+2026-06-18 09:38:22.585 +05:30 [INF] BuildTakeoff Pro API starting on http://localhost:5000
+2026-06-18 09:38:22.916 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-06-18 09:38:27.678 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 2016.5157 ms
+2026-06-18 09:38:30.094 +05:30 [INF] HTTP GET /api/projects responded 200 in 2330.5066 ms
+2026-06-18 09:38:30.439 +05:30 [INF] HTTP GET /api/projects responded 200 in 335.9336 ms
+2026-06-18 09:38:35.763 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 1985.9790 ms
+2026-06-18 09:38:36.238 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 370.2696 ms
+2026-06-18 09:38:36.239 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 353.4329 ms
+2026-06-18 09:38:36.241 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 373.6734 ms
+2026-06-18 09:38:36.253 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 381.6774 ms
+2026-06-18 09:38:36.313 +05:30 [INF] HTTP GET /api/drawings/11/file responded 304 in 468.3689 ms
+2026-06-18 09:38:37.042 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 1254.6074 ms
+2026-06-18 10:26:53.812 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 4928.2822 ms
+2026-06-18 10:26:53.922 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 8.6139 ms
+2026-06-18 10:26:53.925 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 12.1762 ms
+2026-06-18 10:26:54.241 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 324.6381 ms
+2026-06-18 10:26:54.248 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 332.2920 ms
+2026-06-18 10:26:54.280 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 460.9102 ms
+2026-06-18 10:26:57.259 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 6.3324 ms
+2026-06-18 10:26:57.277 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 11.3722 ms
+2026-06-18 10:26:57.333 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 5.5789 ms
+2026-06-18 10:26:57.334 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 6.6447 ms
+2026-06-18 10:26:59.508 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 446.4681 ms
+2026-06-18 10:26:59.814 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11/summary responded 200 in 211.9839 ms
+2026-06-18 10:26:59.826 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11/summary responded 200 in 12.5932 ms
+2026-06-18 10:26:59.860 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/11 responded 200 in 265.2517 ms
+2026-06-18 10:26:59.863 +05:30 [INF] HTTP GET /api/memberschedules/drawing/11 responded 200 in 253.5332 ms
+2026-06-18 10:27:00.161 +05:30 [INF] HTTP GET /api/drawings/project/6 responded 200 in 648.3302 ms
+2026-06-18 10:32:23.887 +05:30 [INF] Database migrated successfully
+2026-06-18 10:32:24.065 +05:30 [INF] BuildTakeoff Pro API starting on port 5000
+2026-06-18 10:32:24.119 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
