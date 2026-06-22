@@ -1,9 +1,17 @@
 import api from './api'
 
+function unwrapApiPayload(res) {
+  const body = res?.data ?? res
+  if (body == null) return null
+  if (body.data !== undefined && body.data !== null) return body.data
+  if (body.Data !== undefined && body.Data !== null) return body.Data
+  return body
+}
+
 export const takeoffService = {
   async getByDrawing(drawingId) {
     const res = await api.get(`/takeoffitems/drawing/${drawingId}`)
-    return res.data.data
+    return unwrapApiPayload(res)
   },
 
   async create(payload) {
@@ -24,12 +32,12 @@ export const takeoffService = {
       color:       data.color       ?? null,
       category:    data.category    ?? null,
     })
-    return res.data.data
+    return unwrapApiPayload(res)
   },
 
   async update(item) {
     const res = await api.put(`/takeoffitems/${item.id}`, item)
-    return res.data.data
+    return unwrapApiPayload(res)
   },
 
   async delete(id) {
@@ -38,6 +46,6 @@ export const takeoffService = {
 
   async getSummary(drawingId) {
     const res = await api.get(`/takeoffitems/drawing/${drawingId}/summary`)
-    return res.data.data
+    return unwrapApiPayload(res)
   },
 }

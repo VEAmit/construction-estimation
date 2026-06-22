@@ -34,18 +34,26 @@ export const useAppStore = create(
       // ── Drawings ──────────────────────────────────────────
       drawings: [],
       selectedDrawing: null,
-      setDrawings: (drawings) => set({ drawings }),
+      setDrawings: (drawings) =>
+        set((s) => ({
+          drawings:
+            typeof drawings === 'function'
+              ? drawings(Array.isArray(s.drawings) ? s.drawings : [])
+              : drawings,
+        })),
       setSelectedDrawing: (drawing) => set({ selectedDrawing: drawing }),
       updateDrawingCalibration: (id, scaleRatio, unit) =>
-        set((s) => ({
-          drawings: s.drawings.map((d) =>
-            d.id === id ? { ...d, scaleRatio, calibrationUnit: unit, isCalibrated: true } : d
-          ),
-          selectedDrawing:
-            s.selectedDrawing?.id === id
-              ? { ...s.selectedDrawing, scaleRatio, calibrationUnit: unit, isCalibrated: true }
-              : s.selectedDrawing,
-        })),
+        set((s) => {
+          const list = Array.isArray(s.drawings) ? s.drawings : []
+          const patch = { scaleRatio, calibrationUnit: unit, isCalibrated: true }
+          return {
+            drawings: list.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+            selectedDrawing:
+              s.selectedDrawing?.id === id
+                ? { ...s.selectedDrawing, ...patch }
+                : s.selectedDrawing,
+          }
+        }),
 
       // ── Measurements (Takeoff) ────────────────────────────
       takeoffItems: [],

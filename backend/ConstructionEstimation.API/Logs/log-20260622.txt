@@ -1,0 +1,113 @@
+2026-06-22 13:33:35.885 +05:30 [INF] Database migrated successfully
+2026-06-22 13:33:37.053 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-22 13:33:37.503 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-06-22 13:58:22.175 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 4616.3062 ms
+2026-06-22 13:58:29.142 +05:30 [INF] HTTP GET /api/projects responded 200 in 6016.7266 ms
+2026-06-22 13:58:29.648 +05:30 [INF] HTTP GET /api/projects responded 200 in 497.8904 ms
+2026-06-22 13:59:01.546 +05:30 [INF] HTTP GET /api/projects responded 200 in 61.2243 ms
+2026-06-22 13:59:03.141 +05:30 [INF] HTTP GET /api/projects responded 200 in 7.8291 ms
+2026-06-22 13:59:09.794 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 298.0790 ms
+2026-06-22 13:59:09.905 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 95.4414 ms
+2026-06-22 13:59:50.758 +05:30 [INF] Drawing WMQ-BLD1-RBG-ST-DRG-S2924[B]_Estimation uploaded for project 10
+2026-06-22 13:59:51.066 +05:30 [INF] HTTP POST /api/drawings/upload/10 responded 200 in 5141.1100 ms
+2026-06-22 13:59:51.326 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 190.1875 ms
+2026-06-22 13:59:51.885 +05:30 [INF] HTTP GET /api/drawings/52 responded 200 in 713.1919 ms
+2026-06-22 13:59:51.999 +05:30 [INF] HTTP GET /api/memberschedules/drawing/52 responded 200 in 689.9280 ms
+2026-06-22 13:59:52.007 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/52 responded 200 in 759.3019 ms
+2026-06-22 13:59:52.011 +05:30 [INF] HTTP GET /api/memberschedules/drawing/52/summary responded 200 in 619.3077 ms
+2026-06-22 13:59:52.377 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/52/summary responded 200 in 1068.2542 ms
+2026-06-22 13:59:52.505 +05:30 [INF] HTTP GET /api/drawings/52/file responded 200 in 1394.6312 ms
+2026-06-22 14:00:21.800 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 31.3742 ms
+2026-06-22 14:00:21.841 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 37.4568 ms
+2026-06-22 14:00:21.922 +05:30 [INF] HTTP GET /api/drawings/52/file responded 304 in 56.0262 ms
+2026-06-22 14:00:21.928 +05:30 [INF] HTTP GET /api/drawings/52 responded 200 in 42.9236 ms
+2026-06-22 14:00:21.947 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/52/summary responded 200 in 55.7745 ms
+2026-06-22 14:00:21.995 +05:30 [INF] HTTP GET /api/memberschedules/drawing/52 responded 200 in 103.0313 ms
+2026-06-22 14:00:21.995 +05:30 [INF] HTTP GET /api/memberschedules/drawing/52/summary responded 200 in 101.0070 ms
+2026-06-22 14:00:22.098 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/52 responded 200 in 210.2044 ms
+2026-06-22 14:38:18.379 +05:30 [INF] Database migrated successfully
+2026-06-22 14:38:19.141 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-22 14:38:19.385 +05:30 [WRN] The WebRootPath was not found: D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\wwwroot. Static files may be unavailable.
+2026-06-22 14:42:11.161 +05:30 [INF] HTTP GET /api/projects responded 200 in 5297.0113 ms
+2026-06-22 14:42:11.277 +05:30 [INF] HTTP GET /api/projects responded 200 in 111.8707 ms
+2026-06-22 14:42:15.937 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 428.2390 ms
+2026-06-22 14:42:16.014 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 69.9869 ms
+2026-06-22 14:42:27.176 +05:30 [INF] Drawing WMQ-BLD1-RBG-ST-DRG-S2924[B]_Estimation uploaded for project 10
+2026-06-22 14:42:27.235 +05:30 [INF] HTTP POST /api/drawings/upload/10 responded 200 in 1038.9496 ms
+2026-06-22 14:42:27.433 +05:30 [INF] HTTP GET /api/drawings/53 responded 200 in 110.0523 ms
+2026-06-22 14:42:27.559 +05:30 [INF] HTTP GET /api/drawings/53/file responded 200 in 281.3164 ms
+2026-06-22 14:42:27.663 +05:30 [INF] HTTP GET /api/memberschedules/drawing/53/summary responded 200 in 218.1649 ms
+2026-06-22 14:42:27.692 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 343.9152 ms
+2026-06-22 14:42:27.749 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/53 responded 200 in 424.4197 ms
+2026-06-22 14:42:27.754 +05:30 [INF] HTTP GET /api/memberschedules/drawing/53 responded 200 in 402.2718 ms
+2026-06-22 14:42:27.772 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/53/summary responded 200 in 445.5157 ms
+2026-06-22 14:42:42.746 +05:30 [INF] HTTP PUT /api/drawings/53/calibrate responded 200 in 142.4283 ms
+2026-06-22 14:42:42.766 +05:30 [INF] HTTP GET /api/drawings/53 responded 200 in 10.3107 ms
+2026-06-22 14:42:42.778 +05:30 [INF] HTTP GET /api/drawings/53 responded 200 in 2.4851 ms
+2026-06-22 14:42:43.150 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/53 responded 200 in 307.3598 ms
+2026-06-22 14:42:43.356 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/53/summary responded 200 in 6.6227 ms
+2026-06-22 14:42:45.033 +05:30 [INF] HTTP PUT /api/drawings/53/annotations responded 200 in 22.6639 ms
+2026-06-22 14:59:15.667 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 13.1176 ms
+2026-06-22 14:59:15.672 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 2.1801 ms
+2026-06-22 14:59:21.598 +05:30 [INF] Drawing detailed_rcc_building_plan uploaded for project 10
+2026-06-22 14:59:21.598 +05:30 [INF] HTTP POST /api/drawings/upload/10 responded 200 in 17.7591 ms
+2026-06-22 14:59:21.636 +05:30 [INF] HTTP GET /api/drawings/54/file responded 200 in 3.6028 ms
+2026-06-22 14:59:21.700 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 30.3979 ms
+2026-06-22 14:59:21.749 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 76.3685 ms
+2026-06-22 14:59:21.749 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54 responded 200 in 78.4018 ms
+2026-06-22 14:59:21.760 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54 responded 200 in 72.3228 ms
+2026-06-22 14:59:21.763 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54/summary responded 200 in 65.2726 ms
+2026-06-22 14:59:21.773 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 90.9105 ms
+2026-06-22 14:59:33.982 +05:30 [INF] HTTP PUT /api/drawings/54/calibrate responded 200 in 34.0005 ms
+2026-06-22 14:59:33.997 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 5.6143 ms
+2026-06-22 14:59:34.008 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 3.6908 ms
+2026-06-22 14:59:34.056 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/54 responded 200 in 4.5221 ms
+2026-06-22 14:59:34.283 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 64.3634 ms
+2026-06-22 14:59:36.131 +05:30 [INF] HTTP PUT /api/drawings/54/annotations responded 200 in 214.3929 ms
+2026-06-22 14:59:49.817 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/54 responded 200 in 8.5847 ms
+2026-06-22 14:59:49.897 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 11.1283 ms
+2026-06-22 14:59:51.729 +05:30 [INF] HTTP PUT /api/drawings/54/annotations responded 200 in 32.5089 ms
+2026-06-22 14:59:56.463 +05:30 [INF] HTTP DELETE /api/takeoffitems/157 responded 200 in 27.4323 ms
+2026-06-22 14:59:56.532 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 1.9232 ms
+2026-06-22 15:05:48.819 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 83.7783 ms
+2026-06-22 15:05:48.825 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 2.5123 ms
+2026-06-22 15:05:48.868 +05:30 [INF] HTTP GET /api/drawings/54/file responded 304 in 21.6564 ms
+2026-06-22 15:05:48.912 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 35.5931 ms
+2026-06-22 15:05:48.917 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54 responded 200 in 45.9999 ms
+2026-06-22 15:05:48.920 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 49.4322 ms
+2026-06-22 15:05:48.948 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54 responded 200 in 70.3303 ms
+2026-06-22 15:05:48.949 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54/summary responded 200 in 72.5643 ms
+2026-06-22 15:06:00.806 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 24.9132 ms
+2026-06-22 15:06:00.812 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 2.1092 ms
+2026-06-22 15:06:00.878 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54 responded 200 in 11.1239 ms
+2026-06-22 15:06:00.878 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54 responded 200 in 20.5063 ms
+2026-06-22 15:06:00.878 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 12.6349 ms
+2026-06-22 15:06:00.880 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54/summary responded 200 in 11.9469 ms
+2026-06-22 15:06:00.883 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 26.7027 ms
+2026-06-22 15:07:06.452 +05:30 [INF] Drawing structural_roof_framing_plan uploaded for project 10
+2026-06-22 15:07:06.467 +05:30 [INF] HTTP POST /api/drawings/upload/10 responded 200 in 20.4138 ms
+2026-06-22 15:07:06.531 +05:30 [INF] HTTP GET /api/drawings/55/file responded 200 in 4.3805 ms
+2026-06-22 15:07:06.603 +05:30 [INF] HTTP GET /api/drawings/55 responded 200 in 38.9855 ms
+2026-06-22 15:07:06.656 +05:30 [INF] HTTP GET /api/memberschedules/drawing/55 responded 200 in 87.2649 ms
+2026-06-22 15:07:06.656 +05:30 [INF] HTTP GET /api/memberschedules/drawing/55/summary responded 200 in 86.7581 ms
+2026-06-22 15:07:06.657 +05:30 [INF] HTTP GET /api/drawings/project/10 responded 200 in 95.2851 ms
+2026-06-22 15:07:06.663 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/55 responded 200 in 96.5735 ms
+2026-06-22 15:07:06.667 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/55/summary responded 200 in 99.6975 ms
+2026-06-22 15:07:21.656 +05:30 [INF] HTTP PUT /api/drawings/55/calibrate responded 200 in 38.3151 ms
+2026-06-22 15:07:21.667 +05:30 [INF] HTTP GET /api/drawings/55 responded 200 in 4.9026 ms
+2026-06-22 15:07:21.676 +05:30 [INF] HTTP GET /api/drawings/55 responded 200 in 1.8156 ms
+2026-06-22 15:07:21.732 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/55 responded 200 in 4.8904 ms
+2026-06-22 15:07:21.875 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/55/summary responded 200 in 6.8805 ms
+2026-06-22 15:07:23.613 +05:30 [INF] HTTP PUT /api/drawings/55/annotations responded 200 in 25.6245 ms
+2026-06-22 15:07:25.627 +05:30 [INF] HTTP GET /api/drawings/54/file responded 304 in 4.4375 ms
+2026-06-22 15:07:25.661 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54/summary responded 200 in 5.9192 ms
+2026-06-22 15:07:25.662 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54/summary responded 200 in 5.2783 ms
+2026-06-22 15:07:25.666 +05:30 [INF] HTTP GET /api/memberschedules/drawing/54 responded 200 in 10.7581 ms
+2026-06-22 15:07:25.699 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/54 responded 200 in 44.5364 ms
+2026-06-22 15:07:25.722 +05:30 [INF] HTTP GET /api/drawings/54 responded 200 in 68.3571 ms
+2026-06-22 15:07:27.851 +05:30 [INF] HTTP GET /api/drawings/55/file responded 304 in 2.2813 ms
+2026-06-22 15:07:27.905 +05:30 [INF] HTTP GET /api/memberschedules/drawing/55 responded 200 in 17.6062 ms
+2026-06-22 15:07:27.905 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/55/summary responded 200 in 19.2252 ms
+2026-06-22 15:07:27.907 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/55 responded 200 in 25.4023 ms
+2026-06-22 15:07:27.912 +05:30 [INF] HTTP GET /api/memberschedules/drawing/55/summary responded 200 in 14.2938 ms
+2026-06-22 15:07:27.916 +05:30 [INF] HTTP GET /api/drawings/55 responded 200 in 31.7994 ms

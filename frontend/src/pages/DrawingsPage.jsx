@@ -18,6 +18,17 @@ import {
   computeScaleRatio, getUnitLabel, getAreaUnitLabel,
   formatMeasureLength, formatMeasureArea,
 } from '../utils/calculations'
+import {
+  normalizeDrawing,
+  resolveCalibratedMeasure,
+  formatLineMeasureDescription,
+  formatAreaMeasureDescription,
+  formatPolylineDescription,
+  getCalibratedDrawingFromStore,
+  computeRealLengthFromDrawing,
+  recalculateTakeoffItemsAfterCalibration,
+} from '../utils/measureCalibration'
+import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
 import { buildLinearMeasurementClipboard } from '../utils/measureLabel'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
@@ -28,9 +39,9 @@ export default function DrawingsPage() {
 
   const {
     selectedProject, setSelectedProject,
-    drawings, setDrawings, selectedDrawing, setSelectedDrawing,
+    drawings: storeDrawings, setDrawings, selectedDrawing, setSelectedDrawing,
     takeoffItems, addTakeoffItem, setTakeoffItems, updateTakeoffItem,
-    setSummary, activeTool, setActiveTool,
+    setSummary, activeTool, setActiveTool, setActiveUnit, activeUnit, updateDrawingCalibration,
     memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary,
     triggerPdfCommand,
     _hydrated,
@@ -41,10 +52,17 @@ export default function DrawingsPage() {
     setMeasureColor,
   } = useAppStore()
 
+  const drawings = Array.isArray(storeDrawings) ? storeDrawings : []
+  const activeDrawing = normalizeDrawing(selectedDrawing)
+  useEffect(() => {
+    if (storeDrawings != null && !Array.isArray(storeDrawings)) setDrawings([])
+  }, [storeDrawings, setDrawings])
+
   const [lastMeasurement,  setLastMeasurement]  = useState(null)
   const [showAddModal,     setShowAddModal]      = useState(false)
   const [pendingMeas,      setPendingMeas]       = useState(null)
   const [showCalModal,     setShowCalModal]      = useState(false)
+  const [scaleSetupFirstMeasure, setScaleSetupFirstMeasure] = useState(false)
   const [calSaving,        setCalSaving]         = useState(false)
   const [autoSaving,       setAutoSaving]        = useState(false)
   const [showBottom,       setShowBottom]        = useState(true)
@@ -64,6 +82,8 @@ export default function DrawingsPage() {
   // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
   const pendingMeasurementRef = useRef(null)
   const clearedMarkRef = useRef(null)
+  const pendingCalibMeasureRef = useRef(null)
+  const calibrateOnlyRef = useRef(false)
 
   const extractAnnotIdFromPointsJson = useCallback((pointsJson) => {
     if (!pointsJson) return null
@@ -129,25 +149,45 @@ export default function DrawingsPage() {
   }, [_hydrated, selectedProject])
 
   useEffect(() => {
-    if (!selectedDrawing || activeTool !== 'line') return
-    if (selectedDrawing.isCalibrated) return
-    // Guide user without blocking — uncalibrated measurements save with pixel values
-    toast('Scale not set — lengths will appear in pixels. Use the Calibrate tool to set real-world scale.', {
-      icon: '📐', duration: 4500, id: 'calibrate-hint',
-    })
-  }, [activeTool, selectedDrawing?.isCalibrated, selectedDrawing?.id])
-
-  useEffect(() => {
     if (!selectedProject) return
+    let cancelled = false
     setSelectedDrawing(null)
     setDrawings([])
     drawingService.getByProject(selectedProject.id)
       .then(data => {
-        setDrawings(data)
-        if (data.length > 0) setSelectedDrawing(data[0])
+        if (cancelled) return
+        const list = Array.isArray(data) ? data : (data ? [data] : [])
+        const normalized = list.map(normalizeDrawing).filter(Boolean)
+        setDrawings(normalized)
+        if (normalized.length > 0) setSelectedDrawing(normalized[0])
       })
-      .catch(() => toast.error('Failed to load drawings'))
+      .catch(() => { if (!cancelled) toast.error('Failed to load drawings') })
+    return () => { cancelled = true }
   }, [selectedProject?.id])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload saved calibration from DB whenever the active drawing changes (Bluebeam-style persistence).
+  useEffect(() => {
+    if (!selectedDrawing?.id) return
+    let cancelled = false
+    drawingService.getById(selectedDrawing.id)
+      .then(data => {
+        if (cancelled) return
+        const norm = normalizeDrawing(data)
+        if (!norm) return
+        traceCalibration('drawing.select.loaded', calibrationSnapshot(norm))
+        setSelectedDrawing(norm)
+        setDrawings(prev => {
+          const list = Array.isArray(prev) ? prev : []
+          if (list.some(d => d.id === norm.id)) {
+            return list.map(d => (d.id === norm.id ? norm : normalizeDrawing(d)))
+          }
+          return [...list, norm]
+        })
+        triggerPdfCommand('refreshCalibration')
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedDrawing?.id, triggerPdfCommand])
 
   useEffect(() => {
     if (!selectedDrawing) {
@@ -168,8 +208,24 @@ export default function DrawingsPage() {
       memberScheduleService.getByDrawing(selectedDrawing.id),
       memberScheduleService.getSummary(selectedDrawing.id),
     ])
-      .then(([items, sum, members, memberSum]) => {
-        setTakeoffItems(items)
+      .then(async ([items, sum, members, memberSum]) => {
+        const drw = getCalibratedDrawingFromStore()
+        const { activeUnit } = useAppStore.getState()
+        const needsFix = drw?.isCalibrated && items.some(
+          i => (i.itemType || 'Line') === 'Line' && (/not calibrated/i.test(i.description ?? '') || i.length == null),
+        )
+        let finalItems = items
+        if (needsFix) {
+          finalItems = await recalculateTakeoffItemsAfterCalibration(
+            items,
+            drw,
+            activeUnit ?? drw.calibrationUnit ?? 'Mm',
+            (item) => takeoffService.update(item),
+            (saved) => updateTakeoffItem(saved),
+          )
+          triggerPdfCommand('rehydrateMeasureLabels')
+        }
+        setTakeoffItems(finalItems)
         setSummaryLocal(sum)
         setSummary(sum)
         setMemberScheduleItems(members)
@@ -193,7 +249,7 @@ export default function DrawingsPage() {
         )
       })
       .catch(() => toast.error('Failed to load drawing data'))
-  }, [selectedDrawing?.id, extractAnnotIdFromPointsJson])
+  }, [selectedDrawing?.id, extractAnnotIdFromPointsJson, updateTakeoffItem, triggerPdfCommand])
 
   const deletePendingMeasurement = useCallback(async (pending, { silent = false } = {}) => {
     if (!pending || persistedAnnotIdsRef.current.has(pending.annotationId)) return false
@@ -234,9 +290,17 @@ export default function DrawingsPage() {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
   }, [])
 
-  const autoSave = useCallback(async (measurement) => {
+  const pickMeasureTool = useCallback((toolId) => {
+    setActiveTool(toolId)
+  }, [setActiveTool])
+
+  const autoSave = useCallback(async (measurement, { calibratedDrawing } = {}) => {
     const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
-    if (!drw) return
+    if (!drw?.id) return false
+
+    const normDrwGuard = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
+    const needsCalib = ['Line', 'Area', 'Perimeter'].includes(measurement.measureType)
+    if (needsCalib && !normDrwGuard?.isCalibrated && !calibratedDrawing) return false
 
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
@@ -254,6 +318,22 @@ export default function DrawingsPage() {
     const isArea     = measurement.measureType === 'Area'
     const isPerim    = measurement.measureType === 'Perimeter'
     const isCount    = measurement.measureType === 'Count'
+    const normDrw    = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
+
+    const resolved = resolveCalibratedMeasure(
+      measurement.pixelLength ?? 0,
+      measurement.pixelArea ?? 0,
+      normDrw,
+      unit,
+      { isArea },
+    )
+    const saveLength = normDrw?.isCalibrated && normDrw.scaleRatio > 0
+      ? (resolved.length ?? computeRealLengthFromDrawing(measurement.pixelLength, normDrw, unit) ?? measurement.length)
+      : (measurement.length ?? resolved.length)
+    const saveArea = normDrw?.isCalibrated && normDrw.scaleRatio > 0
+      ? (resolved.area ?? measurement.area)
+      : (measurement.area ?? resolved.area)
+
     const itemType   = isArea ? 'Area' : isPerim ? 'Perimeter' : isCount ? 'Count' : 'Line'
 
     // Mark prefix per type: A# area, P# perimeter, C# count, M# line
@@ -266,16 +346,10 @@ export default function DrawingsPage() {
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
       : isArea
-        ? (measurement.area != null
-            ? formatMeasureArea(measurement.area, unit)
-            : `Area (${Math.round(measurement.pixelArea ?? 0)} px² — not calibrated)`)
+        ? formatAreaMeasureDescription(measurement.pixelArea, saveArea, unit, normDrw)
         : isPerim
-          ? (measurement.length != null
-              ? `Polyline: ${formatMeasureLength(measurement.length, unit)}`
-              : `Polyline (uncalibrated)`)
-          : (measurement.length != null
-              ? formatMeasureLength(measurement.length, unit)
-              : `${Math.round(measurement.pixelLength)} px (not calibrated)`)
+          ? formatPolylineDescription(measurement.pixelLength, saveLength, unit, normDrw)
+          : formatLineMeasureDescription(measurement.pixelLength, saveLength, unit, normDrw)
 
     // Safe serialise — skips circular refs so Syncfusion internal objects never crash this
     const safeJson = (obj) => {
@@ -296,8 +370,20 @@ export default function DrawingsPage() {
       ? safeJson(measurement.rawAnnotation)
       : (measurement.points?.length ? safeJson(measurement.points) : null)
 
-    console.log('[BuildTakeoff] autoSave — mark:', nextMark, 'length:', measurement.length,
-      'pixelLength:', measurement.pixelLength, 'drawingId:', drw.id)
+    console.log('[BuildTakeoff] autoSave — mark:', nextMark, 'length:', saveLength,
+      'pixelLength:', measurement.pixelLength, 'drawingId:', drw.id,
+      'isCalibrated:', normDrw.isCalibrated, 'scaleRatio:', normDrw.scaleRatio)
+
+    traceMeasurementDebug('measure.autoSave', {
+      drawing: normDrw,
+      pixelLength: measurement.pixelLength,
+      pixelArea: measurement.pixelArea,
+      displayUnit: unit,
+      resolved,
+      saveLength,
+      description: desc,
+      fallbackReason: /not calibrated/i.test(desc) ? 'autoSave: drawing not calibrated at save time' : null,
+    })
 
     try {
       const saved = await takeoffService.create({
@@ -309,8 +395,8 @@ export default function DrawingsPage() {
         unit,
         material:    '',
         notes:       '',
-        length:      isCount ? null : (measurement.length ?? null),
-        area:        isCount ? null : (measurement.area ?? null),
+        length:      isCount ? null : (saveLength ?? null),
+        area:        isCount ? null : (saveArea ?? null),
         unitWeight:  null,
         totalWeight: null,
         color:       saveColor,
@@ -343,17 +429,19 @@ export default function DrawingsPage() {
       scheduleAnnotationBlobSave()
       if (isCount) {
         toast.success(`${nextMark}: ${measurement.count} × ${category} saved`, { duration: 2500, icon: '🔢' })
-      } else if (isArea && measurement.area != null) {
-        toast.success(`${nextMark}: ${measurement.area.toFixed(2)} ${getAreaUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
-      } else if (measurement.length != null) {
-        toast.success(`${nextMark}: ${measurement.length.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
+      } else if (isArea && saveArea != null) {
+        toast.success(`${nextMark}: ${saveArea.toFixed(2)} ${getAreaUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
+      } else if (saveLength != null) {
+        toast.success(`${nextMark}: ${saveLength.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
       } else {
-        toast(`${nextMark}: ${Math.round(measurement.pixelLength || measurement.pixelArea || 0)} px — calibrate for real measurement`, { duration: 3000, icon: '⚠️' })
+        toast('Measurement saved — set scale using a labelled dimension on the plan', { duration: 3500, icon: '📐' })
       }
+      return true
     } catch (err) {
       console.error('[BuildTakeoff] autoSave failed:', err)
       if (measurement.annotationId) measureReleaseRef.current?.(measurement.annotationId)
       toast.error('Could not save measurement — try again')
+      return false
     } finally {
       savingAnnotIdsRef.current.delete(annotKey)
       setAutoSaving(false)
@@ -361,49 +449,144 @@ export default function DrawingsPage() {
   }, [addTakeoffItem, scheduleAnnotationBlobSave])
 
   const handleMeasure = useCallback((measurement) => {
-    setLastMeasurement(measurement)
     const { activeTool: currentTool } = useAppStore.getState()
-    if (currentTool === 'calibrate') setShowCalModal(true)
+    const normDrw = getCalibratedDrawingFromStore()
+    const needsCalib = ['Line', 'Area', 'Perimeter'].includes(measurement.measureType)
+
+    if (currentTool === 'calibrate') {
+      calibrateOnlyRef.current = true
+      pendingCalibMeasureRef.current = null
+      setScaleSetupFirstMeasure(false)
+      setLastMeasurement(measurement)
+      setShowCalModal(true)
+      return
+    }
+
+    if (needsCalib && !normDrw?.isCalibrated) {
+      calibrateOnlyRef.current = false
+      pendingCalibMeasureRef.current = measurement
+      setScaleSetupFirstMeasure(true)
+      setLastMeasurement(measurement)
+      setShowCalModal(true)
+      return
+    }
+
+    setLastMeasurement(measurement)
     autoSave(measurement)
   }, [autoSave])
 
+  const handleSaveCalib = useCallback(() => {
+    const px = lastMeasurement?.pixelLength
+    if (!px || px <= 0) {
+      toast.error('Draw a line along a labelled dimension on the plan first')
+      return
+    }
+    calibrateOnlyRef.current = true
+    pendingCalibMeasureRef.current = null
+    setScaleSetupFirstMeasure(false)
+    setShowCalModal(true)
+  }, [lastMeasurement])
+
   const handleCalibrationApply = useCallback(async (realLength, unit) => {
-    const pxLen = lastMeasurement?.pixelLength
-    if (!pxLen || pxLen === 0) { toast.error('No calibration line found'); return }
+    const drawingId = useAppStore.getState().selectedDrawing?.id ?? selectedDrawing?.id
+    if (!drawingId) { toast.error('No drawing selected'); return }
+
+    const pendingMeasure = pendingCalibMeasureRef.current
+    const calibrateOnly = calibrateOnlyRef.current
+    const pxLen = lastMeasurement?.pixelLength ?? pendingMeasure?.pixelLength
+    if (!pxLen || pxLen === 0) { toast.error('No reference line found — draw on a labelled dimension first'); return }
+
     const scaleRatio = computeScaleRatio(realLength, unit, pxLen)
-    if (!scaleRatio) { toast.error('Could not compute scale'); return }
+    if (!scaleRatio) { toast.error('Could not save scale — check the length you entered'); return }
+
     setCalSaving(true)
     try {
-      await drawingService.calibrate(selectedDrawing.id, scaleRatio, unit)
-      const updated = await drawingService.getById(selectedDrawing.id)
+      await drawingService.calibrate(drawingId, scaleRatio, unit)
+      const apiDrawing = await drawingService.getById(drawingId)
+      const updated = normalizeDrawing(mergeCalibrationState(apiDrawing, scaleRatio, unit))
+      traceCalibration('calibration.apply.success', {
+        pixelLength: pxLen, realLength, unit, scaleRatio,
+        drawing: calibrationSnapshot(updated),
+      })
       setSelectedDrawing(updated)
-      setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
-      setShowCalModal(false)
-      if (lastMeasurement?.annotationId) {
-        triggerPdfCommand({ type: 'deleteAnnotation', annotationId: lastMeasurement.annotationId, pageNumber: lastMeasurement.pageNumber ?? 1 })
+      setDrawings(prev => {
+        const list = Array.isArray(prev) ? prev : Array.isArray(useAppStore.getState().drawings) ? useAppStore.getState().drawings : []
+        const exists = list.some(d => d.id === updated.id)
+        if (!exists) return [...list, updated]
+        return list.map(d => (d.id === updated.id ? updated : normalizeDrawing(d)))
+      })
+      updateDrawingCalibration(drawingId, scaleRatio, unit)
+      setActiveUnit(unit)
+      triggerPdfCommand('refreshCalibration')
+      await recalculateTakeoffItemsAfterCalibration(
+        useAppStore.getState().takeoffItems,
+        updated,
+        unit,
+        (item) => takeoffService.update(item),
+        (saved) => updateTakeoffItem(saved),
+      )
+
+      const measureToSave = pendingMeasure && !calibrateOnly ? pendingMeasure : null
+      let savedFirst = false
+      if (measureToSave) {
+        savedFirst = await autoSave(measureToSave, { calibratedDrawing: updated })
+        if (savedFirst) triggerPdfCommand('rehydrateMeasureLabels')
+      } else {
+        triggerPdfCommand('rehydrateMeasureLabels')
+        if (lastMeasurement?.annotationId && calibrateOnly) {
+          triggerPdfCommand({ type: 'deleteAnnotation', annotationId: lastMeasurement.annotationId, pageNumber: lastMeasurement.pageNumber ?? 1 })
+        }
       }
+
+      setShowCalModal(false)
+      setScaleSetupFirstMeasure(false)
+      pendingCalibMeasureRef.current = null
+      calibrateOnlyRef.current = false
       setActiveTool('line')
-      toast.success('Scale set — draw measurement lines now', { duration: 3500, icon: '✅' })
-    } catch {
-      toast.error('Calibration failed')
+
+      if (savedFirst) {
+        toast.success('Scale saved — your first measurement was added', { duration: 3500, icon: '✅' })
+      } else if (measureToSave && !savedFirst) {
+        toast.error('Scale saved but measurement could not be added — draw the line again')
+      } else {
+        toast.success('Scale saved — you can measure now', { duration: 3500, icon: '✅' })
+      }
+    } catch (err) {
+      console.error('[BuildTakeoff] calibration apply failed:', err)
+      toast.error('Could not save scale — try again')
     } finally {
       setCalSaving(false)
     }
-  }, [lastMeasurement, selectedDrawing, triggerPdfCommand])
+  }, [lastMeasurement, selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem, autoSave])
 
   const handleQuickScale = useCallback(async (scaleRatio, unit) => {
     if (!selectedDrawing) return
     try {
       await drawingService.calibrate(selectedDrawing.id, scaleRatio, unit)
-      const updated = await drawingService.getById(selectedDrawing.id)
+      const apiDrawing = await drawingService.getById(selectedDrawing.id)
+      const updated = normalizeDrawing(mergeCalibrationState(apiDrawing, scaleRatio, unit))
       setSelectedDrawing(updated)
-      setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
+      setDrawings(prev => {
+        const list = Array.isArray(prev) ? prev : Array.isArray(useAppStore.getState().drawings) ? useAppStore.getState().drawings : []
+        return list.map(d => (d.id === updated.id ? updated : normalizeDrawing(d)))
+      })
+      updateDrawingCalibration(selectedDrawing.id, scaleRatio, unit)
+      setActiveUnit(unit)
+      triggerPdfCommand('refreshCalibration')
+      await recalculateTakeoffItemsAfterCalibration(
+        useAppStore.getState().takeoffItems,
+        updated,
+        unit,
+        (item) => takeoffService.update(item),
+        (saved) => updateTakeoffItem(saved),
+      )
+      triggerPdfCommand('rehydrateMeasureLabels')
       setActiveTool('line')
       toast.success('Scale set — ready to measure', { duration: 3000, icon: '✅' })
     } catch {
       toast.error('Failed to apply quick scale')
     }
-  }, [selectedDrawing])
+  }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem])
 
   const handleRowSelect = useCallback((dbId) => {
     setSelectedAnnotId(dbId)
@@ -486,28 +669,62 @@ export default function DrawingsPage() {
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
     try {
-      const updated = await drawingService.getById(selectedDrawing.id)
+      const updated = normalizeDrawing(await drawingService.getById(selectedDrawing.id))
       setSelectedDrawing(updated)
-      setDrawings(useAppStore.getState().drawings.map(d => d.id === updated.id ? updated : d))
+      setDrawings(prev => {
+        const list = Array.isArray(prev) ? prev : []
+        return list.map(d => (d.id === updated.id ? updated : normalizeDrawing(d)))
+      })
+      triggerPdfCommand('refreshCalibration')
     } catch { /* ignore */ }
-  }, [selectedDrawing])
+  }, [selectedDrawing, triggerPdfCommand])
 
-  const handleDrawingUploaded = (drawing) => {
-    setDrawings([...useAppStore.getState().drawings, drawing])
-    setSelectedDrawing(drawing)
+  const handleCalibrateScaleClick = useCallback(() => {
+    setActiveTool('line')
+    toast('Use Linear: draw along a dimension labelled on the plan (e.g. 6000 mm), then enter that length', { duration: 5500, icon: '📐' })
+  }, [setActiveTool])
+
+  const handleDrawingUploaded = async (drawing) => {
+    const norm = normalizeDrawing(drawing)
+    setSelectedDrawing(norm)
     setTakeoffItems([])
     setMemberScheduleItems([])
     setSummaryLocal(null)
     annotationMapRef.current = {}
     persistedAnnotIdsRef.current = new Set()
+    setActiveTool('line')
+    toast('Ready to measure — draw along a labelled dimension on the plan first', { duration: 5500, icon: '📐' })
     if (isMobile) setSidebarOpen(false)
+
+    try {
+      if (selectedProject?.id) {
+        const data = await drawingService.getByProject(selectedProject.id)
+        const list = Array.isArray(data) ? data : (data ? [data] : [])
+        const normalized = list.map(normalizeDrawing).filter(Boolean)
+        const merged = normalized.some(d => d.id === norm.id)
+          ? normalized
+          : [...normalized, norm]
+        setDrawings(merged)
+        setSelectedDrawing(merged.find(d => d.id === norm.id) ?? norm)
+      } else {
+        setDrawings(prev => {
+          const list = Array.isArray(prev) ? prev : []
+          return list.some(d => d.id === norm.id) ? list : [...list, norm]
+        })
+      }
+    } catch {
+      setDrawings(prev => {
+        const list = Array.isArray(prev) ? prev : []
+        return list.some(d => d.id === norm.id) ? list : [...list, norm]
+      })
+    }
   }
 
   const handleDrawingDeleted = (id) => {
-    const rest = useAppStore.getState().drawings.filter(d => d.id !== id)
+    const rest = (Array.isArray(useAppStore.getState().drawings) ? useAppStore.getState().drawings : []).filter(d => d.id !== id)
     setDrawings(rest)
     if (selectedDrawing?.id === id) {
-      setSelectedDrawing(rest[0] ?? null)
+      setSelectedDrawing(rest[0] ? normalizeDrawing(rest[0]) : null)
       setTakeoffItems([])
       setMemberScheduleItems([])
       setSummaryLocal(null)
@@ -629,9 +846,9 @@ export default function DrawingsPage() {
               <polyline points="9 18 15 12 9 6"/>
             </svg>
             <span style={{ fontSize: '12px', color: '#64748b', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
-              {selectedDrawing.name}
+              {activeDrawing?.name}
             </span>
-            {selectedDrawing.isCalibrated && (
+            {activeDrawing?.isCalibrated && (
               <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 700, background: 'rgba(34,197,94,.1)', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
                 CALIBRATED
               </span>
@@ -640,7 +857,7 @@ export default function DrawingsPage() {
         )}
 
         {/* Calibrated badge on mobile */}
-        {isMobile && selectedDrawing?.isCalibrated && (
+        {isMobile && activeDrawing?.isCalibrated && (
           <span style={{ fontSize: '9px', color: '#22c55e', fontWeight: 700, background: 'rgba(34,197,94,.1)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
             ✓ CAL
           </span>
@@ -761,6 +978,10 @@ export default function DrawingsPage() {
 
       {/* ── Toolbar ─────────────────────────────────────────────── */}
       <Toolbar
+        isCalibrated={!!activeDrawing?.isCalibrated}
+        calibrateLineReady={!!(lastMeasurement?.pixelLength > 0 && !activeDrawing?.isCalibrated)}
+        onPickMeasureTool={pickMeasureTool}
+        onSaveCalib={handleSaveCalib}
         onCopyMeasurement={handleCopyMeasurement}
         onPasteMeasurement={handlePasteMeasurement}
         canCopy={canCopyMeasurement}
@@ -788,9 +1009,11 @@ export default function DrawingsPage() {
             drawings={drawings}
             selectedDrawing={selectedDrawing}
             onSelect={(d) => {
-              setSelectedDrawing(d)
+              const norm = normalizeDrawing(d)
+              setSelectedDrawing(norm)
               setSelectedAnnotId(null)
               annotationMapRef.current = {}
+              if (!norm.isCalibrated) setActiveTool('line')
               if (isMobile) setSidebarOpen(false)
             }}
             onUploaded={handleDrawingUploaded}
@@ -806,7 +1029,7 @@ export default function DrawingsPage() {
             <PdfViewer
               key={`${selectedProject?.id ?? 'p'}-${selectedDrawing?.id ?? 'd'}`}
               drawingUrl={drawingUrl}
-              drawing={selectedDrawing}
+              drawing={activeDrawing}
               activeTool={activeTool}
               onMeasure={handleMeasure}
               annotations={takeoffItems.filter(t => t.pointsJson)}
@@ -882,7 +1105,7 @@ export default function DrawingsPage() {
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 {bottomTab === 'measurements' ? (
                   <MeasurementTable
-                    drawing={selectedDrawing}
+                    drawing={activeDrawing}
                     selectedId={selectedAnnotId}
                     onRowSelect={handleRowSelect}
                     onDelete={handleRowDelete}
@@ -890,7 +1113,7 @@ export default function DrawingsPage() {
                   />
                 ) : (
                   <MemberSchedulePanel
-                    drawing={selectedDrawing}
+                    drawing={activeDrawing}
                     onExport={handleExport}
                   />
                 )}
@@ -914,12 +1137,13 @@ export default function DrawingsPage() {
           }}
         >
           <RightPanel
-            drawing={selectedDrawing}
+            drawing={activeDrawing}
             lastMeasurement={lastMeasurement}
             selectedItem={selectedAnnotItem}
             summary={summary}
             onCalibrated={handleCalibrated}
             onQuickScale={handleQuickScale}
+            onCalibrateScale={handleCalibrateScaleClick}
           />
         </div>
       </div>
@@ -927,10 +1151,17 @@ export default function DrawingsPage() {
       {/* ── Modals ─────────────────────────────────────────────── */}
       {showCalModal && (
         <CalibrationModal
-          pixelLength={lastMeasurement?.pixelLength ?? 0}
+          key={`cal-${lastMeasurement?.annotationId ?? 'x'}`}
+          defaultUnit={activeDrawing?.calibrationUnit ?? activeUnit ?? 'Mm'}
+          isFirstMeasure={scaleSetupFirstMeasure}
           saving={calSaving}
           onApply={handleCalibrationApply}
-          onClose={() => setShowCalModal(false)}
+          onClose={() => {
+            setShowCalModal(false)
+            setScaleSetupFirstMeasure(false)
+            pendingCalibMeasureRef.current = null
+            calibrateOnlyRef.current = false
+          }}
         />
       )}
 

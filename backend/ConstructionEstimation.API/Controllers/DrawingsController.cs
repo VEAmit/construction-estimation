@@ -100,9 +100,16 @@ public class DrawingsController : ControllerBase
     [HttpPut("{id}/calibrate")]
     public async Task<ActionResult<ApiResponse<bool>>> Calibrate(int id, [FromBody] CalibrateRequest request)
     {
+        if (request.ScaleRatio <= 0 || string.IsNullOrWhiteSpace(request.Unit))
+            return BadRequest(ApiResponse<bool>.Fail("scaleRatio must be greater than zero and unit is required"));
+
+        var drawing = await _drawingRepo.GetByIdAsync(id);
+        if (drawing == null)
+            return NotFound(ApiResponse<bool>.Fail("Drawing not found"));
+
         var updated = await _drawingRepo.UpdateScaleAsync(id, request.ScaleRatio, request.Unit);
         if (!updated)
-            return NotFound(ApiResponse<bool>.Fail("Drawing not found"));
+            return BadRequest(ApiResponse<bool>.Fail("Could not save calibration"));
 
         return Ok(ApiResponse<bool>.Ok(true, "Scale calibrated successfully"));
     }

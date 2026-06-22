@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../../store/useAppStore'
-import { fmt, getUnitLabel, getAreaUnitLabel, convertFromMm } from '../../utils/calculations'
+import { fmt, getUnitLabel, getAreaUnitLabel } from '../../utils/calculations'
+import { normalizeDrawing, resolveCalibratedMeasure, formatLineMeasureDescription } from '../../utils/measureCalibration'
 
 const UNITS = ['Mm', 'Cm', 'Meter', 'Feet', 'Inch', 'Yd']
 
@@ -14,27 +15,20 @@ const SCALE_PRESETS = [
   { label: '1 : 1000', n: 1000 },
 ]
 
-export default function RightPanel({ drawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale }) {
-  const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems } = useAppStore()
+export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale }) {
+  const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems, activeTool } = useAppStore()
   const [quickN,       setQuickN]       = useState('')
   const [quickUnit,    setQuickUnit]    = useState('Meter')
   const [showAdvanced, setShowAdvanced] = useState(false)
 
+  const drawing = normalizeDrawing(rawDrawing)
   const unit = drawing?.calibrationUnit ?? activeUnit
 
   const memberTotalWeight = memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0)
   const memberTotalQty    = memberScheduleItems.reduce((s, m) => s + (m.quantity ?? 0), 0)
 
-  // Human-readable "1 px = X [unit]" label
-  const scaleLabel = (() => {
-    if (!drawing?.isCalibrated || !drawing?.scaleRatio) return null
-    const mmPerPx = drawing.scaleRatio
-    const val     = convertFromMm(mmPerPx, drawing.calibrationUnit)
-    const u       = getUnitLabel(drawing.calibrationUnit)
-    if (val >= 0.001) return `1 px = ${val >= 100 ? val.toFixed(1) : val >= 1 ? val.toFixed(3) : val.toFixed(5)} ${u}`
-    const inv = 1 / val
-    return `${inv.toFixed(1)} px = 1 ${u}`
-  })()
+  // User-friendly scale status (no px / ratio math)
+  const scaleLabel = drawing?.isCalibrated ? 'Scale set — measurements active' : null
 
   const showGuide  = !drawing || takeoffItems.length === 0
   const step0Done  = !!drawing
@@ -57,11 +51,11 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
             label={step0Done ? 'Drawing uploaded' : 'Upload a PDF drawing'}
             sub={step0Done ? 'Drawing ready' : 'Drop PDF in the left sidebar'} />
           <GuideStep num={2} done={step1Done} locked={!step0Done}
-            label={step1Done ? 'Scale calibrated' : 'Calibrate scale'}
-            sub={step1Done ? scaleLabel : 'Use Calibrate tool → draw a known dimension'} />
+            label={step1Done ? 'Scale set' : 'Set scale (one time)'}
+            sub={step1Done ? scaleLabel : 'Draw along a labelled dimension, enter its length'} />
           <GuideStep num={3} done={step2Done} locked={!step1Done}
             label="Measure elements"
-            sub="Use Measure tool → click two points" />
+            sub="Use Linear → click two points on the plan" />
           <GuideStep num={4} done={false} locked={!step1Done}
             label="Export report"
             sub="XLS or PDF from the top bar" />
@@ -110,9 +104,9 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
               How to calibrate:
             </div>
             {[
-              '① Click the Calibrate tool below',
-              '② Draw a line on a known dimension',
-              '③ Enter the real-world length',
+              '① Select Linear and draw on a labelled dimension',
+              '② Enter the length shown on the plan',
+              '③ All future measurements are automatic',
             ].map((step, i) => (
               <div key={i} style={{ fontSize: '10px', color: '#64748b', marginBottom: '3px', lineHeight: 1.4 }}>
                 {step}
@@ -123,14 +117,15 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
 
         {/* Calibrate / Re-calibrate button */}
         <button
-          onClick={() => setActiveTool('calibrate')}
+          onClick={() => (onCalibrateScale ?? (() => setActiveTool('calibrate')))()}
           style={{
             width: '100%', padding: '8px', borderRadius: '7px',
             background: drawing?.isCalibrated ? 'transparent' : 'rgba(245,158,11,.1)',
-            border: `1px solid ${drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.35)'}`,
+            border: `1px solid ${drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : activeTool === 'calibrate' ? '#F59E0B' : 'rgba(245,158,11,.35)'}`,
             color: drawing?.isCalibrated ? '#22c55e' : '#F59E0B',
             fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            boxShadow: !drawing?.isCalibrated && activeTool === 'calibrate' ? '0 0 0 2px rgba(245,158,11,.25)' : 'none',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#F59E0B'; e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(245,158,11,.1)' }}
           onMouseLeave={e => {
@@ -142,8 +137,13 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>
           </svg>
-          {drawing?.isCalibrated ? 'Re-calibrate Scale' : 'Calibrate Scale'}
+          {drawing?.isCalibrated ? 'Re-set Scale' : 'How to set scale'}
         </button>
+        {!drawing?.isCalibrated && (
+          <div style={{ fontSize: '10px', color: '#64748b', marginTop: '6px', lineHeight: 1.45, textAlign: 'center' }}>
+            Use <strong style={{ color: '#EF233C' }}>Linear</strong> on a labelled wall or grid dimension
+          </div>
+        )}
       </div>
 
       {/* ── Advanced: Preset Scale (collapsed by default) ── */}
@@ -263,18 +263,32 @@ export default function RightPanel({ drawing, lastMeasurement, selectedItem, sum
                   {getAreaUnitLabel(lastMeasurement.unit)}
                 </span>
               </div>
-            ) : lastMeasurement.length != null ? (
-              <div style={{ fontSize: '22px', fontWeight: 800, color: '#EF233C', lineHeight: 1 }}>
-                {fmt(lastMeasurement.length)}
-                <span style={{ fontSize: '12px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
-                  {getUnitLabel(lastMeasurement.unit)}
-                </span>
-              </div>
-            ) : (
-              <div style={{ fontSize: '14px', color: '#475569' }}>
-                {Math.round(lastMeasurement.pixelLength ?? lastMeasurement.pixelArea ?? 0)} px (not calibrated)
-              </div>
-            )}
+            ) : (() => {
+              const norm = normalizeDrawing(drawing)
+              const resolved = resolveCalibratedMeasure(
+                lastMeasurement.pixelLength ?? 0,
+                lastMeasurement.pixelArea ?? 0,
+                norm,
+                activeUnit,
+                { isArea: lastMeasurement.measureType === 'Area' },
+              )
+              const showLen = lastMeasurement.length ?? resolved.length
+              if (showLen != null) {
+                return (
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#EF233C', lineHeight: 1 }}>
+                    {fmt(showLen)}
+                    <span style={{ fontSize: '12px', color: '#475569', marginLeft: '4px', fontWeight: 400 }}>
+                      {getUnitLabel(activeUnit)}
+                    </span>
+                  </div>
+                )
+              }
+              return (
+                <div style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.45 }}>
+                  Draw along a labelled dimension to set scale
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

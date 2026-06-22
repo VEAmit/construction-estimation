@@ -27,8 +27,7 @@ function getThickness(item) {
 
 function fmtScale(drawing) {
   if (!drawing?.isCalibrated || !drawing?.scaleRatio) return '—'
-  const u = getUnitLabel(drawing.calibrationUnit ?? 'Meter')
-  return `1px=${drawing.scaleRatio.toFixed(4)}${u}`
+  return 'Set'
 }
 
 function fmtTime(iso) {
@@ -210,7 +209,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
             )}
             {!drawing?.isCalibrated && totalItems > 0 && (
               <span style={{ fontSize: '10px', color: '#f59e0b', marginLeft: 'auto' }}>
-                ⚠ Calibrate scale for real-world lengths
+                Set scale using a labelled dimension on the plan
               </span>
             )}
           </div>
@@ -360,7 +359,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                       ) : item.itemType === 'Area' ? (
                         item.area != null
                           ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.area)}</span>
-                          : <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span>
+                          : <span style={{ color: '#334155', fontSize: '10px' }}>—</span>
                       ) : (
                         item.length != null
                           ? <span style={{ fontWeight: 700, color: item.color ?? '#22c55e' }}>{fmt(item.length)}</span>

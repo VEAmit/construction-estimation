@@ -23,6 +23,9 @@ public class DrawingRepository : BaseRepository<Drawing>, IDrawingRepository
 
     public async Task<bool> UpdateScaleAsync(int drawingId, double scaleRatio, string unit)
     {
+        if (scaleRatio <= 0 || string.IsNullOrWhiteSpace(unit))
+            return false;
+
         var drawing = await GetByIdAsync(drawingId);
         if (drawing == null) return false;
 

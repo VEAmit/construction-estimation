@@ -12,7 +12,8 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
   const [search, setSearch] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
-  const filtered = drawings.filter(d => d.name.toLowerCase().includes(search.toLowerCase()))
+  const list = Array.isArray(drawings) ? drawings : []
+  const filtered = list.filter(d => d?.name?.toLowerCase().includes(search.toLowerCase()))
 
   const handleFiles = async (files) => {
     const file = files[0]
@@ -78,7 +79,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
             background: 'rgba(239,35,60,.1)', padding: '1px 7px', borderRadius: '10px',
             border: '1px solid rgba(239,35,60,.2)',
           }}>
-            {drawings.length}
+            {list.length}
           </span>
         </div>
 
@@ -158,7 +159,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '24px 12px', color: '#334155', fontSize: '12px' }}>
-            {drawings.length === 0 ? 'No drawings yet.\nUpload a PDF to start.' : 'No results found.'}
+            {list.length === 0 ? 'No drawings yet.\nUpload a PDF to start.' : 'No results found.'}
           </div>
         )}
         {filtered.map(drawing => {

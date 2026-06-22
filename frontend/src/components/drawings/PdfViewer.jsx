@@ -21,6 +21,16 @@ import {
   parseMeasureLabel, convertMeasureValue, getUnitLabel,
 } from '../../utils/calculations'
 import { buildMeasureLabelPatch, toSyncfusionLabelSize, buildLinearDistanceStyle, buildLinearLabelDiagramStyle, cloneLinearAnnotationForPaste, inferArrowStyleFromAnnot, inferLinearLineModeFromAnnot, inferLabelSizeFromSfFontSize } from '../../utils/measureLabel'
+import {
+  getCalibratedDrawing,
+  normalizeDrawing,
+  extractPixelLengthFromAnnot,
+  extractPixelAreaFromAnnot,
+  resolveCalibratedMeasure,
+  formatPdfMeasureLabel,
+  computeRealLengthFromDrawing,
+} from '../../utils/measureCalibration'
+import { calibrationSnapshot, traceCalibration, traceMeasurementDebug } from '../../utils/calibrationTrace'
 import toast from 'react-hot-toast'
 
 // Syncfusion pdfium WASM files live in /public/ej2-pdfviewer-lib (copied by the Vite plugin).
@@ -56,6 +66,32 @@ function isMeasureAnnotation(annot) {
   if (type === 'text' || type === 'freetext') return false
   if (type === 'line' && (annot.start || annot.end || annot.Start || annot.End)) return true
   return false
+}
+
+/** Syncfusion v29 exposes zoom via magnificationModule / magnification — not vm.fitPage / vm.zoomTo. */
+function getMagnification(vm) {
+  return vm?.magnificationModule ?? vm?.magnification ?? null
+}
+
+/** Tell Syncfusion the viewer uses the full container (no hidden sidebar offset in fit math). */
+function prepareViewerForFit(vm) {
+  if (!vm) return
+  try {
+    const pane = vm.viewerBase?.navigationPane
+    if (pane?.sideBarToolbar) pane.sideBarToolbar.style.display = 'none'
+    if (pane?.sideBarToolbarSplitter) pane.sideBarToolbarSplitter.style.display = 'none'
+    pane?.updateViewerContainerOnClose?.()
+    vm.updateViewerContainer?.()
+    vm.viewerBase?.onWindowResize?.()
+  } catch (_) { /* viewer mid-init */ }
+}
+
+function syncPdfScaleFromViewer(vm, setPdfScale) {
+  const mag = getMagnification(vm)
+  const zf = mag?.zoomFactor
+  if (typeof zf === 'number' && zf > 0) {
+    setPdfScale(+(zf).toFixed(2))
+  }
 }
 
 function applyGlobalMeasureLabelSettings(vm, userPt, pdfScale, fontColor = '#111827') {
@@ -1019,6 +1055,59 @@ export default function PdfViewer({
   const countMarkersRef = useRef([])
   const fallbackLabelRafRef = useRef(null)
   const prevUrlRef  = useRef(null)
+  /** Skip zoomTo on first paint — use FitPage when a new PDF loads instead. */
+  const pendingFitPageRef = useRef(true)
+  const fitPageTimerRef = useRef(null)
+  const skipZoomSyncRef = useRef(false)
+  /** Gate: don't attempt fitPage until Syncfusion has completed its first page render.
+   *  pageRenderComplete fires with real page dimensions; fitting before that gives wrong zoom. */
+  const pageReadyForFitRef = useRef(false)
+
+  const {
+    pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
+    pdfCommand, clearPdfCommand,
+    measureColor, lineThickness, fillOpacity,
+    lineStyle, arrowStyle, linearLineMode, fontSize,
+    measureLabelFontSize, activeUnit,
+    setCountSession,
+  } = useAppStore()
+
+  const fitPageToViewer = useCallback(() => {
+    const vm = viewerRef.current
+    if (!vm) return false
+    // Wait until pageRenderComplete has fired so Syncfusion knows the real page dimensions.
+    // Fitting before that produces an incorrect zoom (computed against empty/default page size).
+    if (!pageReadyForFitRef.current) return false
+    try {
+      // NOTE: do NOT call prepareViewerForFit(vm) here — vm.viewerBase.onWindowResize() inside
+      // it disrupts Syncfusion's tile rendering when called programmatically.
+      // The CSS rule (#sfPdfViewer_viewerContainer { left:0; width:100% }) already ensures the
+      // viewer content fills the full container width, so no sidebar-offset correction is needed.
+      vm.fitPage('FitPage')
+      skipZoomSyncRef.current = true
+      syncPdfScaleFromViewer(vm, setPdfScale)
+      requestAnimationFrame(() => { skipZoomSyncRef.current = false })
+      // After a programmatic zoom change, Syncfusion's tile renderer needs a nudge to repaint
+      // the newly visible tiles — without this the PDF appears white until the user scrolls.
+      setTimeout(() => {
+        try { vm.updateViewerContainer?.() } catch (_) {}
+      }, 150)
+      return true
+    } catch (_) {
+      return false
+    }
+  }, [setPdfScale])
+
+  /** Fit page after layout settles — retries until container has final size. */
+  const scheduleFitPage = useCallback(() => {
+    if (!pendingFitPageRef.current) return
+    if (fitPageTimerRef.current) clearTimeout(fitPageTimerRef.current)
+    fitPageTimerRef.current = setTimeout(() => {
+      fitPageTimerRef.current = null
+      if (!pendingFitPageRef.current) return
+      if (fitPageToViewer()) pendingFitPageRef.current = false
+    }, 80)
+  }, [fitPageToViewer])
   // Pan-drag state — full tracking state for click-and-drag scrolling.
   const panStateRef = useRef({
     dragging:  false,
@@ -1035,15 +1124,6 @@ export default function PdfViewer({
   const selectedAnnotDataRef = useRef(null)
   // Suppress handleAnnotationPropertiesChange re-saves while we are calling editAnnotation ourselves.
   const editingAnnotRef = useRef(false)
-
-  const {
-    pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
-    pdfCommand, clearPdfCommand,
-    measureColor, lineThickness, fillOpacity,
-    lineStyle, arrowStyle, linearLineMode, fontSize,
-    measureLabelFontSize, activeUnit,
-    setCountSession,
-  } = useAppStore()
 
   // Keep countMarkers ref in sync and update the store's countSession badge
   useEffect(() => {
@@ -1144,7 +1224,7 @@ export default function PdfViewer({
   const onMeasureRef        = useRef(onMeasure)
   const onAnnotationsBlobRef = useRef(onAnnotationsBlob)
   const getProtectedAnnotIdsRef = useRef(getProtectedAnnotIds)
-  useEffect(() => { drawingRef.current           = drawing          }, [drawing])
+  useEffect(() => { drawingRef.current = normalizeDrawing(drawing) }, [drawing])
   useEffect(() => { onMeasureRef.current         = onMeasure        }, [onMeasure])
   useEffect(() => { onAnnotationsBlobRef.current = onAnnotationsBlob }, [onAnnotationsBlob])
   useEffect(() => { getProtectedAnnotIdsRef.current = getProtectedAnnotIds }, [getProtectedAnnotIds])
@@ -1378,7 +1458,7 @@ export default function PdfViewer({
   const processMeasureRef = useRef(null)
 
   const getDisplayUnit = useCallback(() => {
-    const d = drawingRef.current
+    const d = getCalibratedDrawing(drawingRef)
     return useAppStore.getState().activeUnit ?? d?.calibrationUnit ?? 'Mm'
   }, [])
 
@@ -1412,9 +1492,10 @@ export default function PdfViewer({
   }, [])
 
   const applyCalibrationToViewer = useCallback((vm) => {
-    const d = drawingRef.current
+    const d = getCalibratedDrawing(drawingRef)
     if (!vm) return
     ensureMeasureScaleUi(vm)
+    traceCalibration('viewer.applyCalibration', calibrationSnapshot(d))
     if (!d?.isCalibrated || !d?.scaleRatio) return
     try {
       vm.enableShapeLabel = false
@@ -1511,7 +1592,7 @@ export default function PdfViewer({
 
   const applyMeasureLabelToViewer = useCallback((annot, labelText, _numericLength, pageNumber, displayUnit) => {
     const vm = viewerRef.current
-    const d = drawingRef.current
+    const d = getCalibratedDrawing(drawingRef)
     if (!vm || !labelText || !annot) return
     const annotationId = annot.annotationId ?? annot.AnnotName ?? annot.name
     if (!annotationId) return
@@ -1607,7 +1688,7 @@ export default function PdfViewer({
     const annotationId = a.annotationId ?? a.AnnotationId ?? a.AnnotName ?? a.name ?? a.id ?? null
     if (annotationId && processedAnnotsRef.current.has(annotationId)) return
 
-    const d = drawingRef.current
+    const d = getCalibratedDrawing(drawingRef)
     const displayUnit = getDisplayUnit()
 
     const IT = a.IT ?? a.it ?? ''
@@ -1617,36 +1698,32 @@ export default function PdfViewer({
 
     const pts = extractAnnotationPoints(a)
 
-    let length    = null
     let pixelLength = 0
-    let area      = null
     let pixelArea = 0
 
     if (isAreaAnnotation && pts.length >= 3) {
       pixelArea   = polygonArea(pts)
       pixelLength = computePixelPerimeter(pts)
-      if (d?.isCalibrated && d?.scaleRatio && pixelArea > 0) {
-        area   = pixelsAreaToReal(pixelArea, d.scaleRatio, displayUnit)
-        length = pixelsToReal(pixelLength, d.scaleRatio, displayUnit)
-      }
     } else if (pts.length >= 2) {
       pixelLength = polylineLength(pts)
-      if (d?.isCalibrated && d?.scaleRatio) {
-        length = pixelsToReal(pixelLength, d.scaleRatio, displayUnit)
-      }
     }
 
-    if (length == null) {
-      const sfVal = extractMeasurementValue(a)
-      if (sfVal != null && sfVal > 0) length = sfVal
-    }
+    pixelLength = extractPixelLengthFromAnnot(a, pixelLength)
+    pixelArea   = extractPixelAreaFromAnnot(a, pixelArea)
 
-    if ((length == null || length <= 0) && pixelLength >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
-      length = pixelsToReal(pixelLength, d.scaleRatio, displayUnit)
-    }
-    if ((area == null || area <= 0) && pixelArea >= 0.1 && d?.isCalibrated && d?.scaleRatio) {
-      area = pixelsAreaToReal(pixelArea, d.scaleRatio, displayUnit)
-    }
+    const resolved = resolveCalibratedMeasure(pixelLength, pixelArea, d, displayUnit, { isArea: isAreaAnnotation })
+    const length = resolved.length ?? computeRealLengthFromDrawing(pixelLength, d, displayUnit)
+    const area   = resolved.area
+    const { activeTool: currentTool } = useAppStore.getState()
+
+    traceMeasurementDebug('measure.processAnnotation', {
+      drawing: d,
+      pixelLength,
+      pixelArea,
+      displayUnit,
+      resolved: { length, area, isCalibrated: resolved.isCalibrated },
+      fallbackReason: length == null ? (resolved.fallbackReason ?? 'processAnnotation: length null after resolve') : null,
+    })
 
     const hasLineValue = pixelLength >= 0.1 || (length != null && length > 0)
     const hasAreaValue = pixelArea >= 0.1 || (area != null && area > 0)
@@ -1658,25 +1735,7 @@ export default function PdfViewer({
 
     const pageNumber = a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0', 10) + 1)
 
-    if (annotationId) {
-      processedAnnotsRef.current.add(annotationId)
-      lastDrawnAnnotRef.current = annotationId
-      suppressStyleSelectRef.current = annotationId
-    }
-
-    const numericLength = isAreaAnnotation ? area : length
-    const labelText = isAreaAnnotation
-      ? formatMeasureArea(area, displayUnit)
-      : formatMeasureLength(length, displayUnit)
-
-    if (labelText && annotationId && Number.isFinite(numericLength) && numericLength > 0) {
-      applyMeasureLabelToViewer(a, labelText, numericLength, pageNumber, displayUnit)
-    } else if (annotationId) {
-      // Uncalibrated or zero-length — still return to ready-to-draw state
-      setTimeout(ensureContinuousMeasureMode, 100)
-    }
-
-    onMeasureRef.current?.({
+    const measurePayload = {
       length,
       area,
       pixelLength,
@@ -1697,7 +1756,6 @@ export default function PdfViewer({
           plain = buildPlainAnnot(a)
         }
         if (extractAnnotationPoints(plain).length < 2) return a
-        // Freeze toolbar color at draw time — never persist Syncfusion's default red.
         const captureColor = pasteStyleRef.current?.color
           ?? useAppStore.getState().measureColor
         if (captureColor && /^#[0-9A-Fa-f]{6}$/.test(captureColor)) {
@@ -1707,7 +1765,35 @@ export default function PdfViewer({
         return plain
       })(),
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
-    })
+    }
+
+    if (currentTool === 'calibrate') {
+      onMeasureRef.current?.(measurePayload)
+      return
+    }
+
+    if (!d?.isCalibrated) {
+      if (annotationId) processedAnnotsRef.current.add(annotationId)
+      onMeasureRef.current?.(measurePayload)
+      return
+    }
+
+    if (annotationId) {
+      processedAnnotsRef.current.add(annotationId)
+      lastDrawnAnnotRef.current = annotationId
+      suppressStyleSelectRef.current = annotationId
+    }
+
+    const numericLength = isAreaAnnotation ? area : length
+    const labelText = formatPdfMeasureLabel(length, area, displayUnit, { isArea: isAreaAnnotation })
+
+    if (labelText && annotationId && Number.isFinite(numericLength) && numericLength > 0) {
+      applyMeasureLabelToViewer(a, labelText, numericLength, pageNumber, displayUnit)
+    } else if (annotationId) {
+      setTimeout(ensureContinuousMeasureMode, 100)
+    }
+
+    onMeasureRef.current?.(measurePayload)
   }, [getDisplayUnit, measureLabelFontSize, pdfScale, applyMeasureLabelToViewer, ensureContinuousMeasureMode])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { processMeasureRef.current = processMeasureAnnotation }, [processMeasureAnnotation])
@@ -1767,6 +1853,45 @@ export default function PdfViewer({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // ── Refit when container resizes (sidebar hidden via enableNavigationToolbar=false) ──
+  useEffect(() => {
+    const vm = viewerRef.current
+    if (!vm || !docLoaded || viewerSize.h < 80) return
+    prepareViewerForFit(vm)
+    if (pendingFitPageRef.current) {
+      scheduleFitPage()
+    }
+  }, [viewerSize.w, viewerSize.h, docLoaded, scheduleFitPage])
+
+  // ── Fit page on load + whenever viewer resizes before first manual zoom ──
+  useEffect(() => {
+    if (!docLoaded || !pdfBase64 || viewerSize.h < 80) return
+    if (!pendingFitPageRef.current) return
+
+    scheduleFitPage()
+    const t1 = setTimeout(() => scheduleFitPage(), 250)
+    const t2 = setTimeout(() => scheduleFitPage(), 600)
+    const t3 = setTimeout(() => {
+      const vm = viewerRef.current
+      if (pendingFitPageRef.current && fitPageToViewer()) {
+        pendingFitPageRef.current = false
+      } else if (vm) {
+        skipZoomSyncRef.current = true
+        syncPdfScaleFromViewer(vm, setPdfScale)
+        requestAnimationFrame(() => { skipZoomSyncRef.current = false })
+        const mag = getMagnification(vm)
+        if (mag?.zoomFactor > 0) pendingFitPageRef.current = false
+      }
+    }, 1200)
+    const t4 = setTimeout(() => {
+      if (pendingFitPageRef.current && fitPageToViewer()) {
+        pendingFitPageRef.current = false
+      }
+    }, 2000)
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
+  }, [docLoaded, pdfBase64, viewerSize.w, viewerSize.h, scheduleFitPage, fitPageToViewer, setPdfScale])
 
   // ── Import stored annotations from takeoff pointsJson (incremental + reload-safe) ──
   useEffect(() => {
@@ -1918,6 +2043,7 @@ export default function PdfViewer({
     const onWheel = (e) => {
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
+      pendingFitPageRef.current = false
       const delta = e.deltaY < 0 ? 0.1 : -0.1
       setPdfScale(s => Math.min(5, Math.max(0.25, +(s + delta).toFixed(2))))
     }
@@ -2043,7 +2169,13 @@ export default function PdfViewer({
     const payload = typeof pdfCommand === 'object'  ? pdfCommand : {}
     try {
       if (type === 'fitPage') {
-        vm.fitPage('FitPage')
+        if (fitPageToViewer()) pendingFitPageRef.current = false
+      } else if (type === 'refreshCalibration') {
+        applyCalibrationToViewer(vm)
+      } else if (type === 'rehydrateMeasureLabels') {
+        applyCalibrationToViewer(vm)
+        hydrateTakeoffLabelsOnViewer(vm, annotations, pdfScale)
+        bumpFallbackLabelLayout()
       } else if (type === 'selectAnnotation' && payload.annotationId) {
         explicitGridSelectRef.current = true
         // Must exit Distance drawing mode before selecting so Syncfusion renders
@@ -2408,7 +2540,7 @@ export default function PdfViewer({
       }
     } catch (_) { }
     clearPdfCommand()
-  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation])
+  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer])
 
   // ── Load PDF as base64 whenever drawingUrl changes ─────────────────────
   useEffect(() => {
@@ -2420,6 +2552,8 @@ export default function PdfViewer({
     }
     if (drawingUrl === prevUrlRef.current) return
     prevUrlRef.current = drawingUrl
+    pendingFitPageRef.current = true
+    pageReadyForFitRef.current = false  // reset until pageRenderComplete fires for this document
 
     setLoading(true)
     setErrorMsg(null)
@@ -2466,16 +2600,17 @@ export default function PdfViewer({
     line_ann:  'Line',
   }
   // ── Sync activeTool → Syncfusion annotation mode ───────────────────────
-  useEffect(() => {
+  const applyActiveToolToViewer = useCallback(() => {
     const vm = viewerRef.current
-    if (!vm) return
-    // Changing tool always leaves any selected annotation — clear our tracking ref
+    if (!vm || !pdfBase64 || !docLoaded) return
     selectedAnnotDataRef.current = null
     try {
       if (MEASURE_MODES[activeTool]) {
+        vm.interactionMode = 'TextSelection'
         vm.annotation.setAnnotationMode(MEASURE_MODES[activeTool])
         applyCalibrationToViewer(vm)
       } else if (MARKUP_MODES[activeTool]) {
+        vm.interactionMode = 'TextSelection'
         vm.annotation.setAnnotationMode(MARKUP_MODES[activeTool])
       } else if (activeTool === 'pan') {
         vm.annotation.setAnnotationMode('None')
@@ -2485,29 +2620,40 @@ export default function PdfViewer({
         vm.annotation.setAnnotationMode('None')
         vm.interactionMode = 'TextSelection'
       }
-    } catch (_) { /* viewer not yet mounted */ }
-  }, [activeTool, applyCalibrationToViewer])  // eslint-disable-line react-hooks/exhaustive-deps
+    } catch (_) { /* viewer not ready */ }
+  }, [activeTool, pdfBase64, docLoaded, applyCalibrationToViewer])
+
+  useEffect(() => {
+    applyActiveToolToViewer()
+  }, [applyActiveToolToViewer, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.id])
 
   // ── Sync zoom (pdfScale from store → Syncfusion zoomTo) ───────────────
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64) return
-    try { vm.zoomTo(Math.round(pdfScale * 100)) } catch (_) { }
-  }, [pdfScale, pdfBase64])
+    if (!vm || !pdfBase64 || !docLoaded) return
+    if (pendingFitPageRef.current || skipZoomSyncRef.current) return
+    try {
+      const mag = getMagnification(vm)
+      const targetPct = Math.round(pdfScale * 100)
+      const currentPct = Math.round((mag?.zoomFactor ?? 0) * 100)
+      if (Math.abs(currentPct - targetPct) <= 1) return
+      mag?.zoomTo?.(targetPct)
+    } catch (_) { }
+  }, [pdfScale, pdfBase64, docLoaded])
 
   // ── Sync page navigation ───────────────────────────────────────────────
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64) return
+    if (!vm || !pdfBase64 || !docLoaded) return
     try { vm.navigation.goToPage(pdfPage) } catch (_) { }
-  }, [pdfPage, pdfBase64])
+  }, [pdfPage, pdfBase64, docLoaded])
 
   // ── Sync color + thickness + opacity to Syncfusion ──────────────────────
   // Runs whenever any of these change so newly drawn annotations pick up the
   // current settings immediately without requiring a tool switch.
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64) return
+    if (!vm || !pdfBase64 || !docLoaded) return
 
     const hex  = measureColor ?? '#EF233C'
     const safeHex = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#EF233C'
@@ -2570,12 +2716,12 @@ export default function PdfViewer({
       }
 
     } catch (_) {}
-  }, [activeTool, pdfBase64, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, ensureContinuousMeasureMode])
+  }, [activeTool, pdfBase64, docLoaded, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, ensureContinuousMeasureMode])
 
   // ── Explicit style edit: user selected a grid/PDF row and changed toolbar color/thickness ──
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64) return
+    if (!vm || !pdfBase64 || !docLoaded) return
     if (styleEditTargetId == null || styleEditTargetId !== selectedAnnotationId) return
 
     const hex = measureColor ?? '#111827'
@@ -2595,7 +2741,7 @@ export default function PdfViewer({
   // ── Apply calibration scale to Syncfusion (display unit in grid is separate) ──
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64) return
+    if (!vm || !pdfBase64 || !docLoaded) return
     applyCalibrationToViewer(vm)
   }, [drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit, pdfBase64, applyCalibrationToViewer])
 
@@ -2639,6 +2785,14 @@ export default function PdfViewer({
   }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, lineThickness, arrowStyle, linearLineMode, fillOpacity, activeTool, annotations, getDisplayUnit, bumpFallbackLabelLayout])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
+  const handlePageRenderComplete = useCallback(() => {
+    // Mark that Syncfusion has finished rendering the first page — real page dimensions
+    // are now available, so fitPage will compute the correct zoom.
+    pageReadyForFitRef.current = true
+    if (!pendingFitPageRef.current) return
+    if (fitPageToViewer()) pendingFitPageRef.current = false
+  }, [fitPageToViewer])
+
   const handleDocumentLoaded = useCallback((args) => {
     setPdfTotalPages(args.pageCount ?? 1)
     setPdfPage(1)
@@ -2648,8 +2802,27 @@ export default function PdfViewer({
       try { vm.enableShapeLabel = false } catch (_) {}
       applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
       applyCalibrationToViewer(vm)
+      // NOTE: do NOT call fitPageToViewer() or prepareViewerForFit(vm) here.
+      // At documentLoad time the page dimensions are unknown; any fitPage call would compute
+      // an incorrect zoom. pageReadyForFitRef gates all fit attempts until pageRenderComplete
+      // fires, at which point Syncfusion knows the real page dimensions.
     }
-  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer])
+    scheduleFitPage()
+    setTimeout(() => {
+      const vm = viewerRef.current
+      if (pendingFitPageRef.current && fitPageToViewer()) {
+        pendingFitPageRef.current = false
+      } else if (vm) {
+        skipZoomSyncRef.current = true
+        syncPdfScaleFromViewer(vm, setPdfScale)
+        requestAnimationFrame(() => { skipZoomSyncRef.current = false })
+        const mag = getMagnification(vm)
+        if (mag?.zoomFactor > 0) pendingFitPageRef.current = false
+      }
+      ensureContinuousMeasureMode()
+    }, 300)
+    setTimeout(ensureContinuousMeasureMode, 800)
+  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer, ensureContinuousMeasureMode, scheduleFitPage, fitPageToViewer, setPdfScale])
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
@@ -2835,19 +3008,19 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* Uncalibrated banner — shown when drawing loaded, measure tool active, no calibration */}
+      {/* One-time scale setup hint — Linear tool, drawing not yet scaled */}
       {pdfBase64 && !loading && activeTool === 'line' && !drawing?.isCalibrated && (
         <div style={{ position:'absolute', top:'12px', left:'50%', transform:'translateX(-50%)',
           zIndex:15, display:'flex', alignItems:'center', gap:'6px',
           background:'rgba(17,24,39,.92)', border:'1px solid rgba(245,158,11,.4)',
           color:'#fbbf24', fontSize:'11px', fontWeight:600,
           padding:'6px 14px', borderRadius:'20px', pointerEvents:'none', whiteSpace:'nowrap',
-          backdropFilter:'blur(4px)' }}>
+          maxWidth:'90%', backdropFilter:'blur(4px)' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          Scale not calibrated — lengths will not be accurate
+          Draw along a labelled dimension — enter its length once to set scale
         </div>
       )}
 
@@ -2863,7 +3036,7 @@ export default function PdfViewer({
             <circle cx="12" cy="12" r="4"/>
             <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
           </svg>
-          Click start point → click end point on a known dimension
+          Click start → end on a known size (door, wall) → Save Calib
         </div>
       )}
 
@@ -3040,6 +3213,9 @@ export default function PdfViewer({
           ref={viewerRef}
           documentPath={pdfBase64}
           resourceUrl={SF_RESOURCE_URL}
+          zoomMode="FitPage"
+          enableToolbar={false}
+          enableNavigationToolbar={false}
           style={{
             height: `${viewerSize.h}px`,
             width:  `${viewerSize.w}px`,
@@ -3100,6 +3276,7 @@ export default function PdfViewer({
 
           /* ── Events ──────────────────────────────────────────────────────── */
           documentLoad={handleDocumentLoaded}
+          pageRenderComplete={handlePageRenderComplete}
           pageChange={handlePageChange}
           annotationAdd={handleAnnotationAdd}
           annotationPropertiesChange={handleAnnotationPropertiesChange}

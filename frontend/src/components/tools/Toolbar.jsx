@@ -140,6 +140,10 @@ const ALL_MEASURE_IDS = MEASURE_TOOLS.map(t => t.id)
 const ALL_MARKUP_IDS  = MARKUP_TOOLS.map(t => t.id)
 
 export default function Toolbar({
+  isCalibrated = false,
+  calibrateLineReady = false,
+  onPickMeasureTool,
+  onSaveCalib,
   onCopyMeasurement,
   onPasteMeasurement,
   canCopy = false,
@@ -183,6 +187,14 @@ export default function Toolbar({
     setArrowStyle(id)
   }
 
+  const pickTool = (toolId) => {
+    if (onPickMeasureTool && ALL_MEASURE_IDS.includes(toolId)) {
+      onPickMeasureTool(toolId)
+    } else {
+      setActiveTool(toolId)
+    }
+  }
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -207,14 +219,14 @@ export default function Toolbar({
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const all = [...NAV_TOOLS, ...MEASURE_TOOLS]
       const tool = all.find(t => t.shortcut && t.shortcut === e.key.toUpperCase())
-      if (tool) { setActiveTool(tool.id); return }
+      if (tool) { pickTool(tool.id); return }
       if (e.key === '=' || e.key === '+') { e.preventDefault(); setPdfScale(s => Math.min(5, +(s + 0.1).toFixed(2))) }
       if (e.key === '-') { e.preventDefault(); setPdfScale(s => Math.max(0.25, +(s - 0.1).toFixed(2))) }
       if (e.key === '0') { e.preventDefault(); triggerPdfCommand('fitPage') }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setActiveTool, setPdfScale, triggerPdfCommand, canCopy, canPaste, onCopyMeasurement, onPasteMeasurement])
+  }, [setActiveTool, setPdfScale, triggerPdfCommand, canCopy, canPaste, onCopyMeasurement, onPasteMeasurement, onPickMeasureTool])
 
   // ── Auto-color from category ───────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -241,6 +253,7 @@ export default function Toolbar({
       display: 'flex', flexDirection: 'column',
       flexShrink: 0,
     }}>
+      <style>{`@keyframes calibPulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(34,197,94,.4); } 50%{ box-shadow: 0 0 0 4px rgba(34,197,94,.15); } }`}</style>
 
       {/* ── Row 1: Tool groups ─────────────────────────────────────────── */}
       <div style={{
@@ -263,7 +276,13 @@ export default function Toolbar({
           <GroupLabel label="Measure" />
           {MEASURE_TOOLS.map(tool => (
             <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
-              compact={compact} onClick={() => setActiveTool(tool.id)} />
+              compact={compact}
+              titleHint={
+                !isCalibrated && ['line', 'area', 'perimeter'].includes(tool.id)
+                  ? ' — calibrate scale first'
+                  : ''
+              }
+              onClick={() => pickTool(tool.id)} />
           ))}
 
           <Sep />
@@ -296,15 +315,24 @@ export default function Toolbar({
               {compact ? `${countSession}` : `Save Count (${countSession})`}
             </button>
           ) : (isMeasure || isMarkup) ? (
-            <button onClick={() => triggerPdfCommand('captureAnnotations')} title="Save drawn annotations"
+            <button
+              onClick={() => (activeTool === 'calibrate' ? onSaveCalib?.() : triggerPdfCommand('captureAnnotations'))}
+              title={activeTool === 'calibrate' ? 'Enter real-world length for calibration line' : 'Save drawn annotations'}
               style={{
                 display: 'flex', alignItems: 'center', gap: '4px',
                 padding: '4px 10px', borderRadius: '6px',
-                border: `1px solid ${measureColor}66`,
-                background: `${measureColor}18`,
-                color: measureColor,
+                border: activeTool === 'calibrate'
+                  ? `1px solid ${calibrateLineReady ? '#22c55e' : '#F59E0B'}`
+                  : `1px solid ${measureColor}66`,
+                background: activeTool === 'calibrate'
+                  ? (calibrateLineReady ? 'rgba(34,197,94,.2)' : 'rgba(245,158,11,.2)')
+                  : `${measureColor}18`,
+                color: activeTool === 'calibrate'
+                  ? (calibrateLineReady ? '#22c55e' : '#F59E0B')
+                  : measureColor,
                 fontSize: '11px', fontWeight: 700, cursor: 'pointer',
                 whiteSpace: 'nowrap', flexShrink: 0, touchAction: 'manipulation',
+                animation: activeTool === 'calibrate' && calibrateLineReady ? 'calibPulse 1.5s ease-in-out infinite' : 'none',
               }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12"/>
@@ -725,12 +753,12 @@ export default function Toolbar({
 
 // ── Sub-components ────────────────────────────────────────────────────────
 
-function ToolBtn({ tool, active, compact, onClick }) {
+function ToolBtn({ tool, active, compact, onClick, titleHint = '' }) {
   const accentColor = tool.color ?? '#64748b'
   return (
     <button
       onClick={onClick}
-      title={tool.label + (tool.shortcut ? ` [${tool.shortcut}]` : '')}
+      title={tool.label + (tool.shortcut ? ` [${tool.shortcut}]` : '') + titleHint}
       style={{
         display: 'flex', alignItems: 'center', gap: '5px',
         padding: compact ? '5px 7px' : '5px 10px',
