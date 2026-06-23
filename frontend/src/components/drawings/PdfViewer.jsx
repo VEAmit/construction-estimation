@@ -31,6 +31,7 @@ import {
   computeRealLengthFromDrawing,
 } from '../../utils/measureCalibration'
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug } from '../../utils/calibrationTrace'
+import { probeMediaBoxFromBuffer } from '../../utils/pdfPageProbe'
 import toast from 'react-hot-toast'
 
 // Syncfusion pdfium WASM files live in /public/ej2-pdfviewer-lib (copied by the Vite plugin).
@@ -38,6 +39,142 @@ import toast from 'react-hot-toast'
 // inside it needs a fully-qualified origin to avoid blob-origin resolution issues.
 // Not setting serviceUrl switches the viewer to client-side WASM rendering — no backend needed.
 const SF_RESOURCE_URL = `${window.location.origin}/ej2-pdfviewer-lib`
+
+/** Syncfusion v33 — zoom/fit live on magnificationModule, not vm.fitPage / vm.zoomTo. */
+function getMagnification(vm) {
+  return vm?.magnificationModule ?? vm?.magnification ?? null
+}
+
+/**
+ * Tell Syncfusion the viewer uses full container width.
+ * CSS-only sidebar hide leaves ~48–200px in fit math → tiny PDF in the corner.
+ * Call only after the first page has rendered (pdfium worker ready).
+ */
+function syncViewerLayout(vm, recalcPages = false, containerWidth = null) {
+  if (!vm?.viewerBase?.viewerContainer) return
+  try {
+    const vb = vm.viewerBase
+    const hostW = containerWidth ?? vm.element?.clientWidth ?? vb.viewerContainer.parentElement?.clientWidth ?? 0
+    vb.toolbarHeight = 0
+    const pane = vb.navigationPane
+    if (pane) {
+      if (pane.sideBarToolbar) {
+        pane.sideBarToolbar.style.display = 'none'
+        pane.sideBarToolbar.style.width = '0'
+        pane.sideBarToolbar.style.minWidth = '0'
+      }
+      if (pane.sideBarToolbarSplitter) {
+        pane.sideBarToolbarSplitter.style.display = 'none'
+        pane.sideBarToolbarSplitter.style.width = '0'
+      }
+      if (pane.sideBarContentContainer) {
+        pane.sideBarContentContainer.style.display = 'none'
+        pane.sideBarContentContainer.style.width = '0'
+      }
+      // Never call updateViewerContainerOnClose() — it re-applies sidebar left offset
+      // and shrinks viewer width, which breaks fit-to-width on large drawings.
+    }
+    const vc = vb.viewerContainer
+    const fullW = hostW > 80 ? hostW : vc.clientWidth
+    vc.style.top = '0px'
+    vc.style.left = '0px'
+    vc.style.marginTop = '0px'
+    if (fullW > 0) vc.style.width = `${fullW}px`
+    for (const suffix of ['_toolbarContainer', '_annotation_toolbar', '_formdesigner_toolbar']) {
+      const tb = vb.getElement?.(suffix)
+      if (tb) {
+        tb.style.display = 'none'
+        tb.style.height = '0'
+        tb.style.minHeight = '0'
+        tb.style.maxHeight = '0'
+        tb.style.overflow = 'hidden'
+      }
+    }
+    if (vb.pageContainer && fullW > 0) {
+      vb.pageContainer.style.width = `${fullW}px`
+    }
+    if (recalcPages) vb.onWindowResize?.()
+  } catch (_) { /* viewer mid-init */ }
+}
+
+function applyFitWidthToViewer(vm, setPdfScale, containerWidth = null, pageMeta = null) {
+  const vb = vm?.viewerBase
+  if (!vb?.viewerContainer) return
+  const vc = vb.viewerContainer
+  if (vc.clientWidth < 80 || vc.clientHeight < 80) return
+
+  syncViewerLayout(vm, true, containerWidth)
+
+  const mag = getMagnification(vm)
+  if (!mag) return
+
+  // Prefer pdf.js probed size — Syncfusion highestWidth can be wrong on some landscape sheets.
+  const pageW = pageMeta?.width ?? vb.highestWidth ?? vb.getPageWidth?.(0)
+  if (!pageW || pageW <= 0) return
+
+  try {
+    const fitW = containerWidth ?? vc.getBoundingClientRect().width ?? vc.clientWidth
+    const scrollPad = mag.scrollWidth ?? 25
+    const zoomW = (fitW - scrollPad) / pageW
+    const pct = Math.max(10, Math.min(400, Math.floor(zoomW * 100)))
+    mag.fitType = 'fitToWidth'
+    mag.isAutoZoom = false
+    mag.zoomTo?.(pct)
+
+    const zf = mag.zoomFactor
+    if (typeof zf === 'number' && zf > 0 && typeof setPdfScale === 'function') {
+      setPdfScale(+(zf).toFixed(2))
+    }
+
+    alignPageInViewer(vm, pageW, mag.zoomFactor ?? pct / 100)
+
+    const pageGap = vb.pageGap ?? 8
+    if (vb.pageSize?.[0]) vb.pageSize[0].top = pageGap
+    vc.scrollTop = 0
+    vc.scrollLeft = 0
+    vb.onWindowResize?.()
+  } catch (_) {}
+}
+
+/** Center the page div and reset scroll — fixes top-left tiny render on wide media boxes. */
+function alignPageInViewer(vm, pageWidthPts, zoomFactor) {
+  if (!vm?.viewerBase || !pageWidthPts || !zoomFactor) return
+  try {
+    const vb = vm.viewerBase
+    const vc = vb.viewerContainer
+    const viewerId = vm.element?.id ?? 'sfPdfViewer'
+    const pageDiv = document.getElementById(`${viewerId}_pageDiv_0`)
+    const renderedW = pageWidthPts * zoomFactor
+    const containerW = vc.clientWidth || vc.getBoundingClientRect().width
+    if (pageDiv && containerW > 0) {
+      const left = Math.max(0, (containerW - renderedW) / 2)
+      pageDiv.style.left = `${left}px`
+    }
+    if (vb.pageContainer && containerW > 0) {
+      vb.pageContainer.style.width = `${Math.max(containerW, renderedW)}px`
+    }
+    vc.scrollTop = 0
+    vc.scrollLeft = 0
+  } catch (_) {}
+}
+
+/** After fitToWidth retiles the page, finalize layout without changing zoom again. */
+function finalizeViewerLayout(vm, containerWidth = null) {
+  if (!vm?.viewerBase?.viewerContainer) return
+  syncViewerLayout(vm, true, containerWidth)
+  const vc = vm.viewerBase.viewerContainer
+  vc.scrollTop = 0
+  vc.scrollLeft = 0
+}
+
+function applyViewerZoomPct(vm, pct) {
+  if (!vm || !Number.isFinite(pct)) return
+  try {
+    const mag = getMagnification(vm)
+    if (mag) mag.fitType = null
+    mag?.zoomTo?.(Math.round(pct))
+  } catch (_) {}
+}
 
 const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
 const CONTINUOUS_MEASURE_TOOLS = new Set(['line', 'calibrate', 'area', 'perimeter'])
@@ -66,32 +203,6 @@ function isMeasureAnnotation(annot) {
   if (type === 'text' || type === 'freetext') return false
   if (type === 'line' && (annot.start || annot.end || annot.Start || annot.End)) return true
   return false
-}
-
-/** Syncfusion v29 exposes zoom via magnificationModule / magnification — not vm.fitPage / vm.zoomTo. */
-function getMagnification(vm) {
-  return vm?.magnificationModule ?? vm?.magnification ?? null
-}
-
-/** Tell Syncfusion the viewer uses the full container (no hidden sidebar offset in fit math). */
-function prepareViewerForFit(vm) {
-  if (!vm) return
-  try {
-    const pane = vm.viewerBase?.navigationPane
-    if (pane?.sideBarToolbar) pane.sideBarToolbar.style.display = 'none'
-    if (pane?.sideBarToolbarSplitter) pane.sideBarToolbarSplitter.style.display = 'none'
-    pane?.updateViewerContainerOnClose?.()
-    vm.updateViewerContainer?.()
-    vm.viewerBase?.onWindowResize?.()
-  } catch (_) { /* viewer mid-init */ }
-}
-
-function syncPdfScaleFromViewer(vm, setPdfScale) {
-  const mag = getMagnification(vm)
-  const zf = mag?.zoomFactor
-  if (typeof zf === 'number' && zf > 0) {
-    setPdfScale(+(zf).toFixed(2))
-  }
 }
 
 function applyGlobalMeasureLabelSettings(vm, userPt, pdfScale, fontColor = '#111827') {
@@ -659,16 +770,18 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
   if (!item?.pointsJson) return null
   try {
     const raw = JSON.parse(item.pointsJson)
+    const fallbackId = `bt-${item.id ?? Date.now()}`
     const rawShape = String(raw.ShapeAnnotationType ?? raw.shapeAnnotationType ?? '').toLowerCase()
     const rawIT = String(raw.IT ?? raw.it ?? '').toLowerCase()
     const isAreaLike = item.itemType === 'Area'
       || rawIT === 'area'
       || rawIT === 'polylinedimension'
       || rawShape === 'polygon'
-    const pageIdx = String(
-      raw.page != null ? parseInt(raw.page, 10)
-        : (raw.pageIndex != null ? parseInt(raw.pageIndex, 10) : ((raw.pageNumber ?? raw.PageNumber ?? 1) - 1)),
-    )
+    const pageIndexRaw = raw.page != null ? parseInt(raw.page, 10)
+      : (raw.pageIndex != null ? parseInt(raw.pageIndex, 10)
+        : (Number(raw.pageNumber ?? raw.PageNumber ?? 1) - 1))
+    if (!Number.isFinite(pageIndexRaw)) return null
+    const pageIdx = String(Math.max(0, pageIndexRaw))
 
     const rawPtsSrc = raw.vertexPoints ?? raw.VertexPoints ?? []
     const validPts = (Array.isArray(rawPtsSrc) ? rawPtsSrc : [])
@@ -707,13 +820,10 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
       : null
 
     const importable = {
-      ...raw,
-      // Syncfusion import expects base geometry type ('Line'/'Polygon'), not measure type ('Distance').
-      // It internally maps Line + LineDimension -> Distance and builds the label text node.
       ShapeAnnotationType: isAreaLike ? 'Polygon' : 'Line',
       shapeAnnotationType: isAreaLike ? 'Polygon' : 'Line',
       AnnotType: raw.AnnotType ?? 'shape_measure',
-      AnnotName: raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id,
+      AnnotName: raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id ?? fallbackId,
       Author: raw.Author ?? 'BuildTakeoff',
       Bounds: boundsFromPts,
       VertexPoints: pts.map(p => ({ X: p.x, Y: p.y })),
@@ -750,11 +860,20 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
       LabelContent: labelText || raw.LabelContent || '',
       label: labelText || raw.label || '',
       text: labelText || raw.text || '',
-      Calibrate: raw.Calibrate ?? raw.calibrate ?? {
-        Ratio: '1 mm = 1 px', X: [], Distance: [], Area: [], Angle: [], Volume: [], TargetUnitConversion: 1,
-      },
+      Calibrate: (() => {
+        const cal = raw.Calibrate ?? raw.calibrate ?? {}
+        return {
+          Ratio: typeof cal.Ratio === 'string' ? cal.Ratio : '1 mm = 1 px',
+          X: Array.isArray(cal.X) ? cal.X : [],
+          Distance: Array.isArray(cal.Distance) ? cal.Distance : [],
+          Area: Array.isArray(cal.Area) ? cal.Area : [],
+          Angle: Array.isArray(cal.Angle) ? cal.Angle : [],
+          Volume: Array.isArray(cal.Volume) ? cal.Volume : [],
+          TargetUnitConversion: typeof cal.TargetUnitConversion === 'number' ? cal.TargetUnitConversion : 1,
+        }
+      })(),
       IsPrint: true, State: '', Comments: [],
-      name: raw.name ?? raw.annotationId ?? raw.id,
+      name: raw.name ?? raw.annotationId ?? raw.id ?? fallbackId,
       type: raw.type ?? (isAreaLike ? 'Polygon' : 'Line'),
       IT: raw.IT ?? (isAreaLike ? 'Area' : 'LineDimension'),
       Indent: raw.Indent ?? (isAreaLike ? 'PolygonDimension' : 'LineDimension'),
@@ -1044,7 +1163,8 @@ export default function PdfViewer({
 }) {
   const viewerRef   = useRef(null)
   const containerRef = useRef(null)
-  const [pdfBase64, setPdfBase64]     = useState(null)
+  const pageMetaRef = useRef(null)
+  const [pdfBase64, setPdfBase64]       = useState(null)
   const [loading,   setLoading]       = useState(false)
   const [errorMsg,  setErrorMsg]      = useState(null)
   const [viewerSize, setViewerSize]   = useState({ w: 0, h: 0 })
@@ -1055,13 +1175,8 @@ export default function PdfViewer({
   const countMarkersRef = useRef([])
   const fallbackLabelRafRef = useRef(null)
   const prevUrlRef  = useRef(null)
-  /** Skip zoomTo on first paint — use FitPage when a new PDF loads instead. */
-  const pendingFitPageRef = useRef(true)
-  const fitPageTimerRef = useRef(null)
-  const skipZoomSyncRef = useRef(false)
-  /** Gate: don't attempt fitPage until Syncfusion has completed its first page render.
-   *  pageRenderComplete fires with real page dimensions; fitting before that gives wrong zoom. */
-  const pageReadyForFitRef = useRef(false)
+  const firstRenderDoneRef = useRef(false)
+  const fitPassRef = useRef(0)
 
   const {
     pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
@@ -1071,43 +1186,6 @@ export default function PdfViewer({
     measureLabelFontSize, activeUnit,
     setCountSession,
   } = useAppStore()
-
-  const fitPageToViewer = useCallback(() => {
-    const vm = viewerRef.current
-    if (!vm) return false
-    // Wait until pageRenderComplete has fired so Syncfusion knows the real page dimensions.
-    // Fitting before that produces an incorrect zoom (computed against empty/default page size).
-    if (!pageReadyForFitRef.current) return false
-    try {
-      // NOTE: do NOT call prepareViewerForFit(vm) here — vm.viewerBase.onWindowResize() inside
-      // it disrupts Syncfusion's tile rendering when called programmatically.
-      // The CSS rule (#sfPdfViewer_viewerContainer { left:0; width:100% }) already ensures the
-      // viewer content fills the full container width, so no sidebar-offset correction is needed.
-      vm.fitPage('FitPage')
-      skipZoomSyncRef.current = true
-      syncPdfScaleFromViewer(vm, setPdfScale)
-      requestAnimationFrame(() => { skipZoomSyncRef.current = false })
-      // After a programmatic zoom change, Syncfusion's tile renderer needs a nudge to repaint
-      // the newly visible tiles — without this the PDF appears white until the user scrolls.
-      setTimeout(() => {
-        try { vm.updateViewerContainer?.() } catch (_) {}
-      }, 150)
-      return true
-    } catch (_) {
-      return false
-    }
-  }, [setPdfScale])
-
-  /** Fit page after layout settles — retries until container has final size. */
-  const scheduleFitPage = useCallback(() => {
-    if (!pendingFitPageRef.current) return
-    if (fitPageTimerRef.current) clearTimeout(fitPageTimerRef.current)
-    fitPageTimerRef.current = setTimeout(() => {
-      fitPageTimerRef.current = null
-      if (!pendingFitPageRef.current) return
-      if (fitPageToViewer()) pendingFitPageRef.current = false
-    }, 80)
-  }, [fitPageToViewer])
   // Pan-drag state — full tracking state for click-and-drag scrolling.
   const panStateRef = useRef({
     dragging:  false,
@@ -1141,6 +1219,32 @@ export default function PdfViewer({
   const bumpFallbackLabelLayout = useCallback(() => {
     setFallbackLabelTick(t => t + 1)
   }, [])
+
+  const applyFitWidth = useCallback(() => {
+    const containerW = containerRef.current?.clientWidth
+    applyFitWidthToViewer(viewerRef.current, setPdfScale, containerW, pageMetaRef.current)
+  }, [setPdfScale])
+
+  // Two-pass fit: first pageRenderComplete fits, second finalizes after retile.
+  const handlePageRenderComplete = useCallback(() => {
+    const vm = viewerRef.current
+    if (!vm) return
+    if (fitPassRef.current === 0) {
+      fitPassRef.current = 1
+      applyFitWidth()
+      return
+    }
+    if (fitPassRef.current === 1) {
+      fitPassRef.current = 2
+      finalizeViewerLayout(vm, containerRef.current?.clientWidth)
+      const meta = pageMetaRef.current
+      const mag = getMagnification(vm)
+      if (meta && mag?.zoomFactor) {
+        alignPageInViewer(vm, meta.width, mag.zoomFactor)
+      }
+      firstRenderDoneRef.current = true
+    }
+  }, [applyFitWidth])
 
   const updateFallbackMeasureLabels = useCallback(() => {
     const vm = viewerRef.current
@@ -1854,45 +1958,6 @@ export default function PdfViewer({
     return () => ro.disconnect()
   }, [])
 
-  // ── Refit when container resizes (sidebar hidden via enableNavigationToolbar=false) ──
-  useEffect(() => {
-    const vm = viewerRef.current
-    if (!vm || !docLoaded || viewerSize.h < 80) return
-    prepareViewerForFit(vm)
-    if (pendingFitPageRef.current) {
-      scheduleFitPage()
-    }
-  }, [viewerSize.w, viewerSize.h, docLoaded, scheduleFitPage])
-
-  // ── Fit page on load + whenever viewer resizes before first manual zoom ──
-  useEffect(() => {
-    if (!docLoaded || !pdfBase64 || viewerSize.h < 80) return
-    if (!pendingFitPageRef.current) return
-
-    scheduleFitPage()
-    const t1 = setTimeout(() => scheduleFitPage(), 250)
-    const t2 = setTimeout(() => scheduleFitPage(), 600)
-    const t3 = setTimeout(() => {
-      const vm = viewerRef.current
-      if (pendingFitPageRef.current && fitPageToViewer()) {
-        pendingFitPageRef.current = false
-      } else if (vm) {
-        skipZoomSyncRef.current = true
-        syncPdfScaleFromViewer(vm, setPdfScale)
-        requestAnimationFrame(() => { skipZoomSyncRef.current = false })
-        const mag = getMagnification(vm)
-        if (mag?.zoomFactor > 0) pendingFitPageRef.current = false
-      }
-    }, 1200)
-    const t4 = setTimeout(() => {
-      if (pendingFitPageRef.current && fitPageToViewer()) {
-        pendingFitPageRef.current = false
-      }
-    }, 2000)
-
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
-  }, [docLoaded, pdfBase64, viewerSize.w, viewerSize.h, scheduleFitPage, fitPageToViewer, setPdfScale])
-
   // ── Import stored annotations from takeoff pointsJson (incremental + reload-safe) ──
   useEffect(() => {
     if (!docLoaded || !drawing?.id) return
@@ -1900,7 +1965,11 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (!vm) return
 
-    const finishImport = (importedItems) => {
+    // wasImported=true means vm.importAnnotation() was called just before this finishImport.
+    // Syncfusion's internal canvas repaint from importAnnotation overrides any FitWidth
+    // that fired in the 300ms/700ms timeouts from handleDocumentLoaded, so we must
+    // re-apply FitWidth after Syncfusion's renderDrawing() settles.
+    const finishImport = (importedItems, wasImported = false) => {
       importingAnnotsRef.current = false
       importCompletedRef.current = true
       importedDrawingRef.current = drawing.id
@@ -1909,6 +1978,10 @@ export default function PdfViewer({
         hydrateTakeoffItemsOnViewer(vm, importedItems?.length ? importedItems : annotations, pdfScale)
         importedItems?.forEach(item => importedTakeoffIdsRef.current.add(item.id))
         try { vm.renderDrawing?.() } catch (_) {}
+        // Re-apply FitWidth after Syncfusion finishes its canvas repaint from importAnnotation.
+        // renderDrawing() re-paints synchronously but Syncfusion's internal scroll/zoom
+        // settling is async — 300ms gives it time to complete before we override.
+        if (wasImported) setTimeout(() => applyFitWidth(), 300)
         // Second pass — Syncfusion may overwrite notes during calibrate refresh
         setTimeout(() => {
           const batch = importedItems?.length ? importedItems : annotations
@@ -1944,6 +2017,8 @@ export default function PdfViewer({
               hydrateTakeoffLabelsOnViewer(vm, annotations, pdfScale)
               bumpFallbackLabelLayout()
               try { vm.renderDrawing?.() } catch (_) {}
+              // Re-apply FitWidth after blob-fallback renderDrawing settles too
+              setTimeout(() => applyFitWidth(), 300)
             }, 300)
           } catch (_) {}
         }
@@ -2013,8 +2088,8 @@ export default function PdfViewer({
     } catch (err) {
       console.error('[BuildTakeoff] pointsJson import failed:', err)
     }
-    setTimeout(() => finishImport(importedBatch), 100)
-  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations, measureLabelFontSize, pdfScale, applyCalibrationToViewer, bumpFallbackLabelLayout])  // eslint-disable-line react-hooks/exhaustive-deps
+    setTimeout(() => finishImport(importedBatch, true), 100)
+  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations, measureLabelFontSize, pdfScale, applyCalibrationToViewer, bumpFallbackLabelLayout, applyFitWidth])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
   useEffect(() => {
@@ -2043,7 +2118,6 @@ export default function PdfViewer({
     const onWheel = (e) => {
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
-      pendingFitPageRef.current = false
       const delta = e.deltaY < 0 ? 0.1 : -0.1
       setPdfScale(s => Math.min(5, Math.max(0.25, +(s + delta).toFixed(2))))
     }
@@ -2169,7 +2243,7 @@ export default function PdfViewer({
     const payload = typeof pdfCommand === 'object'  ? pdfCommand : {}
     try {
       if (type === 'fitPage') {
-        if (fitPageToViewer()) pendingFitPageRef.current = false
+        applyFitWidthToViewer(vm, setPdfScale, containerRef.current?.clientWidth, pageMetaRef.current)
       } else if (type === 'refreshCalibration') {
         applyCalibrationToViewer(vm)
       } else if (type === 'rehydrateMeasureLabels') {
@@ -2540,25 +2614,28 @@ export default function PdfViewer({
       }
     } catch (_) { }
     clearPdfCommand()
-  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer])
+  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale])
 
   // ── Load PDF as base64 whenever drawingUrl changes ─────────────────────
   useEffect(() => {
     if (!drawingUrl) {
       setPdfBase64(null)
+      pageMetaRef.current = null
       setErrorMsg(null)
       prevUrlRef.current = null
       return
     }
     if (drawingUrl === prevUrlRef.current) return
     prevUrlRef.current = drawingUrl
-    pendingFitPageRef.current = true
-    pageReadyForFitRef.current = false  // reset until pageRenderComplete fires for this document
 
     setLoading(true)
     setErrorMsg(null)
     setPdfBase64(null)
+    pageMetaRef.current = null
     setDocLoaded(false)
+    firstRenderDoneRef.current = false
+    fitPassRef.current = 0
+    setPdfScale(1.2)
     importedDrawingRef.current = null
     importCompletedRef.current = false
 
@@ -2567,18 +2644,26 @@ export default function PdfViewer({
         if (res.status === 404) throw Object.assign(new Error('Drawing file not found on server. Please re-upload.'), { code: 404 })
         if (res.status === 401) throw Object.assign(new Error('Authentication error — please log in again.'), { code: 401 })
         if (!res.ok)            throw new Error(`Server error (${res.status})`)
+        const ct = res.headers.get('content-type') ?? ''
+        if (ct && !ct.includes('pdf') && !ct.includes('octet-stream')) {
+          throw new Error('Server did not return a PDF file')
+        }
         return res.blob()
       })
       .then(blob => new Promise((resolve, reject) => {
         const reader = new FileReader()
-        reader.onload  = () => resolve(reader.result)
-        reader.onerror = reject
+        reader.onload = () => resolve({ dataUrl: reader.result, blob })
+        reader.onerror = () => reject(new Error('Failed to read PDF file'))
         reader.readAsDataURL(blob)
       }))
-      .then(dataUrl => {
-        // Keep the full data URL — Syncfusion client-side (WASM) mode detects the
-        // 'pdf;base64,' prefix, converts to Uint8Array, and feeds it to pdfium.
-        // Stripping the prefix was only needed for the server-side Load endpoint.
+      .then(async ({ dataUrl, blob }) => {
+        // Lightweight MediaBox parse — never use pdf.js here (conflicts with Syncfusion pdfium WASM).
+        try {
+          const buf = await blob.arrayBuffer()
+          pageMetaRef.current = probeMediaBoxFromBuffer(buf)
+        } catch {
+          pageMetaRef.current = null
+        }
         setPdfBase64(dataUrl)
       })
       .catch(err => {
@@ -2587,7 +2672,7 @@ export default function PdfViewer({
         toast.error(msg)
       })
       .finally(() => setLoading(false))
-  }, [drawingUrl])
+  }, [drawingUrl, setPdfScale])
 
   // ── Markup tool → Syncfusion annotation mode map ──────────────────────
   const MARKUP_MODES = {
@@ -2627,19 +2712,19 @@ export default function PdfViewer({
     applyActiveToolToViewer()
   }, [applyActiveToolToViewer, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.id])
 
-  // ── Sync zoom (pdfScale from store → Syncfusion zoomTo) ───────────────
+  // ── Sync zoom after first page render (user +/- toolbar) ───────────────
   useEffect(() => {
     const vm = viewerRef.current
-    if (!vm || !pdfBase64 || !docLoaded) return
-    if (pendingFitPageRef.current || skipZoomSyncRef.current) return
-    try {
-      const mag = getMagnification(vm)
-      const targetPct = Math.round(pdfScale * 100)
-      const currentPct = Math.round((mag?.zoomFactor ?? 0) * 100)
-      if (Math.abs(currentPct - targetPct) <= 1) return
-      mag?.zoomTo?.(targetPct)
-    } catch (_) { }
+    if (!vm || !pdfBase64 || !docLoaded || !firstRenderDoneRef.current) return
+    applyViewerZoomPct(vm, pdfScale * 100)
   }, [pdfScale, pdfBase64, docLoaded])
+
+  // ── Reflow when container resizes (fixes scroll-to-see-PDF symptom) ───
+  useEffect(() => {
+    if (!docLoaded || !firstRenderDoneRef.current) return
+    const containerW = containerRef.current?.clientWidth
+    syncViewerLayout(viewerRef.current, true, containerW)
+  }, [viewerSize.w, viewerSize.h, docLoaded])
 
   // ── Sync page navigation ───────────────────────────────────────────────
   useEffect(() => {
@@ -2785,44 +2870,41 @@ export default function PdfViewer({
   }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, lineThickness, arrowStyle, linearLineMode, fillOpacity, activeTool, annotations, getDisplayUnit, bumpFallbackLabelLayout])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
-  const handlePageRenderComplete = useCallback(() => {
-    // Mark that Syncfusion has finished rendering the first page — real page dimensions
-    // are now available, so fitPage will compute the correct zoom.
-    pageReadyForFitRef.current = true
-    if (!pendingFitPageRef.current) return
-    if (fitPageToViewer()) pendingFitPageRef.current = false
-  }, [fitPageToViewer])
-
   const handleDocumentLoaded = useCallback((args) => {
     setPdfTotalPages(args.pageCount ?? 1)
     setPdfPage(1)
     setDocLoaded(true)
+    firstRenderDoneRef.current = false
+    fitPassRef.current = 0
     const vm = viewerRef.current
     if (vm) {
       try { vm.enableShapeLabel = false } catch (_) {}
+      // Fallback page size from Syncfusion if MediaBox probe missed
+      if (!pageMetaRef.current) {
+        const vb = vm.viewerBase
+        const ps = vb?.pageSize?.[0]
+        if (ps?.width > 0) {
+          pageMetaRef.current = { width: ps.width, height: ps.height ?? ps.width }
+        } else if (vb?.highestWidth > 0) {
+          pageMetaRef.current = { width: vb.highestWidth, height: vb.highestWidth }
+        }
+      }
       applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
       applyCalibrationToViewer(vm)
-      // NOTE: do NOT call fitPageToViewer() or prepareViewerForFit(vm) here.
-      // At documentLoad time the page dimensions are unknown; any fitPage call would compute
-      // an incorrect zoom. pageReadyForFitRef gates all fit attempts until pageRenderComplete
-      // fires, at which point Syncfusion knows the real page dimensions.
+      syncViewerLayout(vm, true, containerRef.current?.clientWidth)
     }
-    scheduleFitPage()
-    setTimeout(() => {
-      const vm = viewerRef.current
-      if (pendingFitPageRef.current && fitPageToViewer()) {
-        pendingFitPageRef.current = false
-      } else if (vm) {
-        skipZoomSyncRef.current = true
-        syncPdfScaleFromViewer(vm, setPdfScale)
-        requestAnimationFrame(() => { skipZoomSyncRef.current = false })
-        const mag = getMagnification(vm)
-        if (mag?.zoomFactor > 0) pendingFitPageRef.current = false
-      }
-      ensureContinuousMeasureMode()
-    }, 300)
+    setTimeout(ensureContinuousMeasureMode, 300)
     setTimeout(ensureContinuousMeasureMode, 800)
-  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer, ensureContinuousMeasureMode, scheduleFitPage, fitPageToViewer, setPdfScale])
+    // Single fallback fit if pageRenderComplete hasn't finished yet
+    setTimeout(() => {
+      if (fitPassRef.current < 2 && viewerRef.current) {
+        applyFitWidth()
+        finalizeViewerLayout(viewerRef.current, containerRef.current?.clientWidth)
+        fitPassRef.current = 2
+        firstRenderDoneRef.current = true
+      }
+    }, 1200)
+  }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer, ensureContinuousMeasureMode, applyFitWidth])
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
@@ -2916,11 +2998,41 @@ export default function PdfViewer({
 
         /* ── Sidebar content panel (should already be empty but hide just in case) ── */
         #sfPdfViewer_sideBarPanel,
-        #sfPdfViewer .e-pv-sidebar-panel { display: none !important; width: 0 !important; }
+        #sfPdfViewer .e-pv-sidebar-panel,
+        #sfPdfViewer_sideBarContentContainer,
+        #sfPdfViewer .e-pv-sidebar-content-container { display: none !important; width: 0 !important; }
+
+        /* Collapse hidden Syncfusion toolbar (~56px top gap on large pages) */
+        #sfPdfViewer .e-pv-toolbar,
+        #sfPdfViewer_toolbarContainer,
+        #sfPdfViewer_annotation_toolbar,
+        #sfPdfViewer_formdesigner_toolbar {
+          display: none !important;
+          height: 0 !important;
+          min-height: 0 !important;
+          max-height: 0 !important;
+          overflow: hidden !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        #sfPdfViewer .e-pv-main-container,
+        #sfPdfViewer .e-pv-viewer-main-container,
+        #sfPdfViewer_viewerMainContainer { height: 100% !important; }
 
         /* ── Expand the viewer content to fill the full width left by the sidebar ── */
         #sfPdfViewer_viewerContainer,
-        #sfPdfViewer .e-pv-viewer-container { left: 0 !important; width: 100% !important; }
+        #sfPdfViewer .e-pv-viewer-container {
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          margin-top: 0 !important;
+        }
+
+        #sfPdfViewer_pageContainer,
+        #sfPdfViewer .e-pv-page-container {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
 
         /* Pan mode — grab cursor + let drag reach the scroll container */
         .bt-pan-active #sfPdfViewer,
@@ -2934,7 +3046,7 @@ export default function PdfViewer({
         .bt-pan-active #sfPdfViewer_viewerContainer { touch-action: none; }
       `}</style>
 
-      {/* Loading overlay */}
+      {/* Loading overlay — only while fetching from server */}
       {loading && (
         <div style={{ position:'absolute', inset:0, zIndex:20,
           display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
@@ -3209,18 +3321,20 @@ export default function PdfViewer({
         const db = parseInt(distHex.slice(5, 7), 16) || 39
         return (
         <PdfViewerComponent
+          key={drawingUrl ?? 'pdf-viewer'}
           id="sfPdfViewer"
           ref={viewerRef}
           documentPath={pdfBase64}
           resourceUrl={SF_RESOURCE_URL}
-          zoomMode="FitPage"
-          enableToolbar={false}
-          enableNavigationToolbar={false}
+          initialRenderPages={1}
           style={{
             height: `${viewerSize.h}px`,
             width:  `${viewerSize.w}px`,
             display: 'block',
           }}
+
+          enableNavigationToolbar={false}
+          enableToolbar={false}
 
           /* ── Toolbar: hide Syncfusion's own toolbar — we use our custom Toolbar ──
                NOTE: do NOT set annotationToolbarItems:[] — empty array causes Syncfusion
