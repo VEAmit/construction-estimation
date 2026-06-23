@@ -20,7 +20,7 @@ import {
   convertFromMm, toMm, formatMeasureLength, formatMeasureArea,
   parseMeasureLabel, convertMeasureValue, getUnitLabel,
 } from '../../utils/calculations'
-import { buildMeasureLabelPatch, toSyncfusionLabelSize, buildLinearDistanceStyle, buildLinearLabelDiagramStyle, cloneLinearAnnotationForPaste, inferArrowStyleFromAnnot, inferLinearLineModeFromAnnot, inferLabelSizeFromSfFontSize } from '../../utils/measureLabel'
+import { buildMeasureLabelPatch, toSyncfusionLabelSize, buildLinearDistanceStyle, buildLinearLabelDiagramStyle, cloneLinearAnnotationForPaste, inferArrowStyleFromAnnot, inferLinearLineModeFromAnnot, inferLabelSizeFromSfFontSize, computeLinearLabelGap, getLinearAnnotationMidpoint } from '../../utils/measureLabel'
 import {
   getCalibratedDrawing,
   normalizeDrawing,
@@ -179,6 +179,13 @@ function applyViewerZoomPct(vm, pct) {
 const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
 const CONTINUOUS_MEASURE_TOOLS = new Set(['line', 'calibrate', 'area', 'perimeter'])
 
+/** Set from PdfViewer mount — schedules HTML label overlay with retries after hydrate/import. */
+let scheduleMeasureLabelLayoutFn = null
+/** Probed MediaBox — more accurate than Syncfusion pageWidth for coord mapping. */
+let getPageMetaForCoords = () => null
+
+const MEASURE_LABEL_GAP_PX = 12
+
 // Map our unit key → Syncfusion DistanceMeasurementUnit string
 function toSfUnit(unit) {
   const map = { Mm: 'Millimeter', Cm: 'Centimeter', Meter: 'Meter', Feet: 'Foot', Inch: 'Inch' }
@@ -256,6 +263,145 @@ function extractAnnotationPoints(a) {
   return pts
 }
 
+function resolveDiagramSvg(vm, pageIndex) {
+  const rootId = vm?.element?.id ?? 'sfPdfViewer'
+  const hostIds = [
+    `${rootId}_diagram_${pageIndex}`,
+    `${rootId}_diagram_div_${pageIndex}`,
+    `${rootId}_annotationCanvas_${pageIndex}`,
+    `${rootId}_annotationCanvas_div_${pageIndex}`,
+  ]
+  for (const id of hostIds) {
+    const host = document.getElementById(id)
+    if (!host) continue
+    const svg = host.tagName?.toLowerCase() === 'svg' ? host : host.querySelector?.('svg')
+    if (svg) return svg
+  }
+  return resolvePdfPageElement(vm, pageIndex)?.querySelector?.('svg') ?? null
+}
+
+function svgDiagramPointToContainer(svg, x, y, container) {
+  if (!svg?.createSVGPoint || !container) return null
+  const pt = svg.createSVGPoint()
+  pt.x = x
+  pt.y = y
+  const ctm = svg.getScreenCTM?.()
+  if (!ctm) return null
+  const screen = pt.matrixTransform(ctm)
+  const cr = container.getBoundingClientRect()
+  return { left: screen.x - cr.left, top: screen.y - cr.top }
+}
+
+/** Map stored vertex points through the diagram SVG — same space Syncfusion uses to draw the line. */
+function getPositionFromDiagramPoints(pts, pageIndex, vm, container, gapPx) {
+  if (!pts?.length || pts.length < 2 || !container) return null
+  const svg = resolveDiagramSvg(vm, pageIndex)
+  if (!svg) return null
+  const p0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, container)
+  const p1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
+  const midX = (pts[0].x + pts[pts.length - 1].x) / 2
+  const midY = (pts[0].y + pts[pts.length - 1].y) / 2
+  const pm = svgDiagramPointToContainer(svg, midX, midY, container)
+  if (!p0 || !p1 || !pm) return null
+  return offsetAboveLineScreen(p0, p1, pm, gapPx)
+}
+
+function collectMeasureLinePoints(live, raw) {
+  if (live?.vertexPoints?.length >= 2) {
+    return live.vertexPoints
+      .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+      .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+  }
+  return extractAnnotationPoints(raw ?? live)
+}
+
+/** Label anchor — midpoint via PDF coordinate mapping (zoom-aware, always tracks the drawn line). */
+function getMeasureLabelScreenPosition(live, raw, pageIndex, vm, container) {
+  if (!container) return null
+  const pts = collectMeasureLinePoints(live, raw)
+  if (pts.length < 2) return null
+  return getPositionFromPdfPoints(pts, pageIndex, vm, container, MEASURE_LABEL_GAP_PX)
+}
+
+function isLabelPositionOnPage(left, top, pageIndex, vm, container) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl || !container) return false
+  const pr = pageEl.getBoundingClientRect()
+  const cr = container.getBoundingClientRect()
+  const sx = left + cr.left
+  const sy = top + cr.top
+  return sx >= pr.left - 24 && sx <= pr.right + 24
+    && sy >= pr.top - 48 && sy <= pr.bottom + 24
+}
+
+function resolveAnnotationPageIndex(source, raw) {
+  const idx = source?.pageIndex ?? raw?.pageIndex
+  if (idx != null && Number.isFinite(Number(idx))) return Math.max(0, Number(idx))
+  const pageNumber = source?.pageNumber ?? source?.PageNumber ?? raw?.pageNumber ?? raw?.PageNumber
+    ?? (parseInt(source?.page ?? raw?.page ?? '0', 10) + 1)
+  return Math.max(0, pageNumber - 1)
+}
+
+function offsetAboveLineScreen(p0, p1, pm, gapPx) {
+  if (!pm) return null
+  return { left: pm.left, top: pm.top - gapPx, nx: 0, ny: -1 }
+}
+
+function getPositionFromPdfPoints(pts, pageIndex, vm, container, gapPx) {
+  if (!pts?.length || pts.length < 2 || !container) return null
+  const p0 = pdfPointToContainerCoords(pts[0].x, pts[0].y, pageIndex, vm, container)
+  const p1 = pdfPointToContainerCoords(
+    pts[pts.length - 1].x, pts[pts.length - 1].y, pageIndex, vm, container,
+  )
+  const midX = (pts[0].x + pts[pts.length - 1].x) / 2
+  const midY = (pts[0].y + pts[pts.length - 1].y) / 2
+  const pm = pdfPointToContainerCoords(midX, midY, pageIndex, vm, container)
+  return offsetAboveLineScreen(p0, p1, pm, gapPx)
+}
+
+/** Nudge overlapping labels apart while keeping them above their line. */
+function resolveMeasureLabelCollisions(layout, minGap = 18) {
+  if (layout.length < 2) return layout
+  const out = layout.map(e => ({ ...e }))
+  out.sort((a, b) => a.top - b.top || a.left - b.left)
+  for (let i = 1; i < out.length; i++) {
+    for (let j = 0; j < i; j++) {
+      if (Math.abs(out[i].left - out[j].left) < 72 && Math.abs(out[i].top - out[j].top) < minGap) {
+        out[i].top = Math.min(out[i].top, out[j].top - minGap)
+      }
+    }
+  }
+  return out
+}
+
+function buildLinearLabelOverlayEntry({
+  vm, container, item, raw, live, displayUnit, measureLabelFontSize, pdfScale, key,
+}) {
+  const text = item
+    ? resolveTakeoffLabelText(item, displayUnit)
+    : resolveLinearLabelText(vm, key, null, displayUnit)
+  if (!text || text.includes('NaN')) return null
+  if (!raw && !live) return null
+
+  const source = live ?? raw
+  const pageIndex = resolveAnnotationPageIndex(source, raw)
+  const pos = getMeasureLabelScreenPosition(live, raw ?? live, pageIndex, vm, container)
+  if (!pos) return null
+
+  const color = resolveMeasurementColor({ item, raw, annot: live })
+
+  return {
+    key: key ?? raw?.AnnotName ?? raw?.annotationId ?? raw?.name ?? live?.annotationId ?? live?.name,
+    left: pos.left,
+    top: pos.top,
+    nx: pos.nx,
+    ny: pos.ny,
+    text,
+    color,
+    fontSizePt: measureLabelFontSize,
+  }
+}
+
 /** Resolve the live Syncfusion diagram object for an annotation id. */
 function resolveLiveAnnotation(vm, annotationId) {
   if (!vm || !annotationId) return null
@@ -320,14 +466,14 @@ function ensureDistanceLabelChildren(vm, live, labelText, fontColor, measureLabe
   }
   live.shapeAnnotationType = 'Distance'
   live.measureType = live.measureType || 'Distance'
-  if (!live.leaderHeight || live.leaderHeight < 1) {
+  if (live.leaderHeight == null || live.leaderHeight < 1) {
     const style = buildLinearDistanceStyle(
       measureLabelFontSize, pdfScale, fontColor,
       live.thickness ?? live.Thickness ?? 2,
       inferArrowStyleFromAnnot(live),
       inferLinearLineModeFromAnnot(live),
     )
-    live.leaderHeight = style.leaderLength ?? 30
+    live.leaderHeight = style.leaderLength ?? style.syncLeaderHeight ?? 8
   }
   if (fontColor) {
     live.strokeColor = live.strokeColor ?? fontColor
@@ -445,6 +591,10 @@ function resolvePdfPageElement(vm, pageIndex) {
 }
 
 function getPdfPageSize(vm, pageIndex) {
+  const meta = getPageMetaForCoords()
+  if (meta?.width > 0 && meta?.height > 0) {
+    return { width: meta.width, height: meta.height }
+  }
   const vb = vm?.viewerBase
   if (!vb) return null
   const w = Array.isArray(vb.pageWidth) ? vb.pageWidth[pageIndex] : vb.pageWidth
@@ -472,11 +622,85 @@ function pdfPointToContainerCoords(pdfX, pdfY, pageIndex, vm, containerEl) {
   }
 }
 
+/** Map a screen click to PDF page coordinates (inverse of pdfPointToContainerCoords). */
+function containerClientToPdfPoint(clientX, clientY, pageIndex, vm) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl) return null
+  const pageRect = pageEl.getBoundingClientRect()
+  const pageSize = getPdfPageSize(vm, pageIndex)
+  const relX = clientX - pageRect.left
+  const relY = clientY - pageRect.top
+  if (pageSize && pageRect.width > 0 && pageRect.height > 0) {
+    return {
+      x: relX * (pageSize.width / pageRect.width),
+      y: relY * (pageSize.height / pageRect.height),
+    }
+  }
+  return { x: relX, y: relY }
+}
+
+/** Hide perpendicular end-cap leaders and reposition the value label above the line. */
+function hideLinearEndCaps(live, startHead = 'None', endHead = 'None') {
+  if (!live?.wrapper?.children?.length) return
+  for (const child of live.wrapper.children) {
+    const id = String(child.id ?? '').toLowerCase()
+    if (id.includes('leader')) {
+      child.visible = false
+      child.width = 0
+      child.height = 0
+      if (child.style) child.style.strokeWidth = 0
+      continue
+    }
+    if (id.includes('srcdec') || id.includes('tardec')) {
+      const hide = (id.includes('srcdec') && startHead === 'None')
+        || (id.includes('tardec') && endHead === 'None')
+      if (hide) {
+        child.visible = false
+        child.width = 0
+        child.height = 0
+        if (child.style) child.style.strokeWidth = 0
+      }
+    }
+    if (id.includes('selector') || id.includes('endpoint') || id.includes('handle') || id.includes('resize')) {
+      child.visible = false
+      child.width = 0
+      child.height = 0
+    }
+  }
+}
+
+/** Hide Syncfusion's native distance label text — HTML overlay renders the value above the line. */
+function hideSyncfusionNativeMeasureLabelText(live) {
+  if (!live?.wrapper?.children?.length) return
+  for (const child of live.wrapper.children) {
+    if (!isDistanceLabelDiagramChild(child)) continue
+    child.visible = false
+    if (child.style) child.style.opacity = 0
+    child.isDirt = true
+  }
+}
+
+function applyBluebeamLinearChrome(live, linearStyle) {
+  if (!live?.wrapper?.children?.length || !linearStyle) return
+
+  const syncLeaderHeight = linearStyle.syncLeaderHeight ?? linearStyle.leaderLength ?? 8
+  if (syncLeaderHeight > 0) {
+    live.leaderHeight = syncLeaderHeight
+    live.leaderLength = syncLeaderHeight
+    live.LeaderLength = syncLeaderHeight
+  }
+
+  const startHead = linearStyle.lineHeadStartStyle ?? live.lineHeadStartStyle ?? 'None'
+  const endHead = linearStyle.lineHeadEndStyle ?? live.lineHeadEndStyle ?? 'None'
+  hideLinearEndCaps(live, startHead, endHead)
+  hideSyncfusionNativeMeasureLabelText(live)
+}
+
 /** Push label text onto Syncfusion distance diagram children (with render refresh). */
 function applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, fontColor, diagramStyle) {
   if (!vm || !annotationId || !labelText) return false
   const live = resolveLiveAnnotation(vm, annotationId)
-  if (!live?.wrapper?.children?.length) return false
+  if (!live) return false
 
   live.notes = labelText
   live.note = labelText
@@ -484,6 +708,10 @@ function applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, 
 
   const labelStyle = diagramStyle ?? {}
   const sfSize = labelStyle.fontSize
+  const { measureLabelFontSize: labelPt, pdfScale: zoom } = useAppStore.getState()
+  ensureDistanceLabelChildren(vm, live, labelText, fontColor ?? labelStyle.fontColor, labelPt, zoom ?? 1)
+
+  if (!live.wrapper?.children?.length) return false
   const fill = labelStyle.labelFillColor ?? 'rgba(255,255,255,0.94)'
   const border = labelStyle.labelBorderColor ?? 'rgba(0,0,0,0.2)'
   const color = labelStyle.fontColor ?? fontColor
@@ -504,6 +732,15 @@ function applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, 
     updated = true
   }
   if (!updated) return false
+
+  applyBluebeamLinearChrome(live, {
+    labelGap: labelStyle.labelGap,
+    fontSize: sfSize,
+    syncLeaderHeight: labelStyle.syncLeaderHeight ?? labelStyle.leaderLength ?? 8,
+    leaderLength: labelStyle.syncLeaderHeight ?? labelStyle.leaderLength ?? 8,
+    lineHeadStartStyle: labelStyle.lineHeadStartStyle,
+    lineHeadEndStyle: labelStyle.lineHeadEndStyle,
+  })
 
   const pageIdx = live.pageIndex ?? Math.max(0, (pageNumber ?? 1) - 1)
   const mod = vm.annotation?.measureAnnotationModule
@@ -632,6 +869,7 @@ function hydrateTakeoffLabelsOnViewer(vm, items, pdfScale, attempt = 0) {
     return
   }
   try { vm.renderDrawing?.() } catch (_) {}
+  try { scheduleMeasureLabelLayoutFn?.() } catch (_) {}
 }
 
 function resolveTakeoffLabelText(item, displayUnit) {
@@ -740,20 +978,34 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
       const color = resolveMeasurementColor({ item, raw })
       const itemLineMode = inferLinearLineModeFromAnnot(raw)
       const itemArrows = inferArrowStyleFromAnnot(raw)
-      const ok = restoreSavedMeasureLabel(vm, {
-        annotationId: id,
-        pageNumber,
-        labelText: text,
-        fontColor: color,
-        measureLabelFontSize: labelPt,
-        pdfScale,
-        lineThickness: raw.Thickness ?? raw.thickness ?? thick,
-        arrowStyle: itemArrows !== 'none' ? itemArrows : arrows,
-        linearLineMode: itemLineMode === 'simple' ? 'simple' : (lineMode ?? 'simple'),
-        drawing,
-        displayUnit,
-        isLine: isLine && !isArea,
-      })
+      // On attempt 0 apply the full visual style (thickness, arrows) from stored data.
+      // On retries only re-try the label — do NOT re-apply thickness/arrows or they
+      // will revert any toolbar thickness change the user made during the retry window.
+      const ok = attempt === 0
+        ? restoreSavedMeasureLabel(vm, {
+            annotationId: id,
+            pageNumber,
+            labelText: text,
+            fontColor: color,
+            measureLabelFontSize: labelPt,
+            pdfScale,
+            lineThickness: raw.Thickness ?? raw.thickness ?? thick,
+            arrowStyle: itemArrows !== 'none' ? itemArrows : arrows,
+            linearLineMode: itemLineMode === 'simple' ? 'simple' : (lineMode ?? 'simple'),
+            drawing,
+            displayUnit,
+            isLine: isLine && !isArea,
+          })
+        : restoreSavedMeasureLabelOnly(vm, {
+            annotationId: id,
+            pageNumber,
+            labelText: text,
+            fontColor: color,
+            measureLabelFontSize: labelPt,
+            pdfScale,
+            drawing,
+            displayUnit,
+          })
       if (!ok) anyLabelPending = true
     } catch (_) {}
   }
@@ -764,6 +1016,7 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
   }
   hydrateTakeoffLabelsOnViewer(vm, items, pdfScale)
   try { vm.renderDrawing?.() } catch (_) {}
+  try { scheduleMeasureLabelLayoutFn?.() } catch (_) {}
 }
 
 function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
@@ -838,8 +1091,8 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
       FontColor: color,
       fontColor: color,
       Subject: raw.Subject ?? 'Distance calculation',
-      LeaderLength: raw.LeaderLength ?? raw.leaderLength ?? linearStyle?.leaderLength ?? 30,
-      LeaderLineExtension: raw.LeaderLineExtension ?? raw.leaderLineExtension ?? linearStyle?.leaderLineExtension ?? 2,
+      LeaderLength: raw.LeaderLength ?? raw.leaderLength ?? linearStyle?.leaderLength ?? linearStyle?.syncLeaderHeight ?? 8,
+      LeaderLineExtension: raw.LeaderLineExtension ?? raw.leaderLineExtension ?? linearStyle?.leaderLineExtension ?? 0,
       LineHeadStart: raw.LineHeadStart ?? raw.lineHeadStartStyle ?? linearStyle?.lineHeadStartStyle ?? 'None',
       LineHeadEnd: raw.LineHeadEnd ?? raw.lineHeadEndStyle ?? linearStyle?.lineHeadEndStyle ?? 'None',
       labelSettings: raw.labelSettings ?? raw.LabelSettings
@@ -1071,23 +1324,15 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
         if (linearStyle.thickness != null) child.style.strokeWidth = linearStyle.thickness
         if (linearStyle.strokeColor) child.style.strokeColor = linearStyle.strokeColor
       }
-      if (id.includes('srcDec') || id.includes('tarDec')) {
-        const hide = (id.includes('srcDec') && startHead === 'None')
-          || (id.includes('tarDec') && endHead === 'None')
-        if (hide) {
-          child.width = 0
-          child.height = 0
-          if (child.style) child.style.strokeWidth = 0
-        } else if (linearStyle.thickness != null) {
-          child.width = 12 * linearStyle.thickness
-          child.height = 12 * linearStyle.thickness
-        }
-      }
     }
   }
 
   if (live.shapeAnnotationType === 'Distance' && live.vertexPoints?.length) {
     try { vm.drawing?.updateConnector?.(live, live.vertexPoints) } catch (_) {}
+  }
+
+  if (live.wrapper.children?.length) {
+    applyBluebeamLinearChrome(live, linearStyle)
   }
 
   const pageIdx = live.pageIndex ?? 0
@@ -1097,6 +1342,9 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
   }
   if (linearStyle.strokeColor) {
     try { mod?.modifyInCollection?.('strokeColor', pageIdx, live, false) } catch (_) {}
+  }
+  if (linearStyle.leaderLength != null) {
+    try { mod?.modifyInCollection?.('leaderHeight', pageIdx, live, false) } catch (_) {}
   }
   try { mod?.modifyInCollection?.('lineHeadStartStyle', pageIdx, live, false) } catch (_) {}
   try { mod?.modifyInCollection?.('lineHeadEndStyle', pageIdx, live, false) } catch (_) {}
@@ -1133,7 +1381,12 @@ function patchMeasureAnnotationLabel(annot, userPt, pdfScale, fontColor = '#1118
   const stylePatch = isLine
     ? buildLinearDistanceStyle(userPt, pdfScale, fontColor, thicknessOverride, arrowStyle, linearLineMode)
     : buildMeasureLabelPatch(userPt, pdfScale, fontColor)
-  return { ...annot, ...stylePatch }
+  const patch = { ...annot, ...stylePatch }
+  // Mirror lowercase → uppercase so vm.annotation.editAnnotation stores the new value.
+  // Without this, ...live spreads Thickness: OLD which editAnnotation re-renders with old stroke.
+  if (stylePatch.thickness != null) patch.Thickness = stylePatch.thickness
+  if (stylePatch.leaderLength != null) patch.LeaderLength = stylePatch.leaderLength
+  return patch
 }
 
 function Step({ n, text }) {
@@ -1249,46 +1502,47 @@ export default function PdfViewer({
   const updateFallbackMeasureLabels = useCallback(() => {
     const vm = viewerRef.current
     const container = containerRef.current
-    if (!vm || !container || !docLoaded || !annotations?.length) {
+    if (!vm || !container || !docLoaded) {
       setFallbackLabelLayout([])
       return
     }
     const displayUnit = activeUnit ?? drawing?.calibrationUnit ?? 'Mm'
     const layout = []
-    for (const item of annotations) {
+    const seenKeys = new Set()
+
+    const pushEntry = (entry) => {
+      if (!entry || seenKeys.has(entry.key)) return
+      seenKeys.add(entry.key)
+      layout.push(entry)
+    }
+
+    for (const item of annotations ?? []) {
       if (!item.pointsJson) continue
       const itemType = item.itemType || 'Line'
-      if (itemType !== 'Line' && itemType !== 'Area') continue
-      const text = resolveTakeoffLabelText(item, displayUnit)
-      if (!text) continue
+      if (itemType !== 'Line') continue
       let raw
       try { raw = JSON.parse(item.pointsJson) } catch { continue }
       const live = resolveLiveForTakeoffItem(vm, raw)
-      if (live && hasVisibleSyncfusionMeasureLabel(live, text)) continue
-
-      const pts = extractAnnotationPoints(raw)
-      const anchor = getMeasureLabelAnchorFromPoints(pts, itemType)
-      if (!anchor) continue
-      const pageNumber = raw.pageNumber ?? raw.PageNumber
-        ?? (parseInt(raw.page ?? raw.pageIndex ?? '0', 10) + 1)
-      const pageIndex = Math.max(0, pageNumber - 1)
-      const leader = Number(live?.leaderHeight ?? raw.LeaderLength ?? raw.leaderLength ?? 30) || 30
-      const labelY = anchor.y - leader
-      const pos = pdfPointToContainerCoords(anchor.x, labelY, pageIndex, vm, container)
-      if (!pos) continue
-      const color = resolveMeasurementColor({ item, raw })
       const key = raw.AnnotName ?? raw.annotationId ?? raw.name ?? `db-${item.id}`
-      layout.push({
-        key,
-        left: pos.left,
-        top: pos.top,
-        text,
-        color,
-        fontSizePt: measureLabelFontSize,
-      })
+      pushEntry(buildLinearLabelOverlayEntry({
+        vm, container, item, raw, live, displayUnit, measureLabelFontSize, pdfScale, key,
+      }))
     }
+
+    for (const live of vm.annotations ?? []) {
+      if (!isLinearMeasureAnnotation(live)) continue
+      const id = live.annotationId ?? live.name ?? live.AnnotName
+      if (!id || seenKeys.has(id)) continue
+      const notes = String(live.notes ?? live.note ?? live.labelContent ?? '').trim()
+      if (!notes || notes.includes('NaN')) continue
+      pushEntry(buildLinearLabelOverlayEntry({
+        vm, container, item: null, raw: live, live, displayUnit,
+        measureLabelFontSize, pdfScale, key: id,
+      }))
+    }
+
     setFallbackLabelLayout(layout)
-  }, [annotations, docLoaded, activeUnit, drawing?.calibrationUnit, measureLabelFontSize])
+  }, [annotations, docLoaded, activeUnit, drawing?.calibrationUnit, measureLabelFontSize, pdfScale])
 
   const scheduleFallbackLabelLayout = useCallback(() => {
     if (fallbackLabelRafRef.current) cancelAnimationFrame(fallbackLabelRafRef.current)
@@ -1297,6 +1551,23 @@ export default function PdfViewer({
       updateFallbackMeasureLabels()
     })
   }, [updateFallbackMeasureLabels])
+
+  const scheduleLabelLayoutWithRetries = useCallback(() => {
+    scheduleFallbackLabelLayout()
+    setTimeout(scheduleFallbackLabelLayout, 250)
+    setTimeout(scheduleFallbackLabelLayout, 700)
+    setTimeout(scheduleFallbackLabelLayout, 1500)
+  }, [scheduleFallbackLabelLayout])
+
+  useEffect(() => {
+    scheduleMeasureLabelLayoutFn = scheduleLabelLayoutWithRetries
+    return () => { scheduleMeasureLabelLayoutFn = null }
+  }, [scheduleLabelLayoutWithRetries])
+
+  useEffect(() => {
+    getPageMetaForCoords = () => pageMetaRef.current
+    return () => { getPageMetaForCoords = () => null }
+  }, [])
 
   useEffect(() => {
     scheduleFallbackLabelLayout()
@@ -1344,6 +1615,8 @@ export default function PdfViewer({
   const importCompletedRef  = useRef(false)
   const explicitGridSelectRef = useRef(false)
   const pasteStyleRef = useRef(null)
+  const pastePlacementRef = useRef(null)
+  const [pastePlacementActive, setPastePlacementActive] = useState(false)
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
   const importedTakeoffIdsRef = useRef(new Set())
@@ -1360,6 +1633,8 @@ export default function PdfViewer({
     blobFallbackImportedRef.current = false
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
+    pastePlacementRef.current = null
+    setPastePlacementActive(false)
   }, [drawing?.id])
 
   useEffect(() => {
@@ -1395,9 +1670,9 @@ export default function PdfViewer({
     hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
     setTimeout(() => {
       hydrateTakeoffLabelsOnViewer(vm, annotations, pdfScale)
-      bumpFallbackLabelLayout()
+      scheduleLabelLayoutWithRetries()
     }, 500)
-  }, [docLoaded, annotations, pdfScale, bumpFallbackLabelLayout])
+  }, [docLoaded, annotations, pdfScale, scheduleLabelLayoutWithRetries])
 
   // Keep selectedAnnotDataRef in sync when user picks a row from the grid
   useEffect(() => {
@@ -1733,8 +2008,17 @@ export default function PdfViewer({
         })
       } catch (_) {}
       applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle)
+      applyCalibratedLabelToDiagram(vm, annotationId, pageNumber, labelText, fontColor, {
+        ...diagramStyle,
+        syncLeaderHeight: linearStyle.syncLeaderHeight ?? linearStyle.leaderLength,
+        leaderLength: linearStyle.leaderLength,
+        lineHeadStartStyle: linearStyle.lineHeadStartStyle,
+        lineHeadEndStyle: linearStyle.lineHeadEndStyle,
+      })
+      scheduleLabelLayoutWithRetries()
       pasteStyleRef.current = null
       setTimeout(() => { editingAnnotRef.current = false }, 120)
+      setTimeout(scheduleLabelLayoutWithRetries, 80)
       ensureContinuousMeasureMode()
     }
     const apply = (attempt = 0) => {
@@ -1746,7 +2030,7 @@ export default function PdfViewer({
       finish()
     }
     apply()
-  }, [ensureContinuousMeasureMode, pdfScale])
+  }, [ensureContinuousMeasureMode, pdfScale, scheduleLabelLayoutWithRetries])
 
   const applyLabelToAnnot = useCallback((annot, labelText) => {
     const vm = viewerRef.current
@@ -1902,6 +2186,141 @@ export default function PdfViewer({
 
   useEffect(() => { processMeasureRef.current = processMeasureAnnotation }, [processMeasureAnnotation])
 
+  const cancelPastePlacement = useCallback(() => {
+    pastePlacementRef.current = null
+    setPastePlacementActive(false)
+  }, [])
+
+  const commitPasteLinearMeasurement = useCallback((clipboard, offsetX, offsetY, targetPage) => {
+    const vm = viewerRef.current
+    if (!vm || !clipboard?.raw) return false
+
+    pasteStyleRef.current = {
+      color: clipboard.color,
+      category: clipboard.category,
+      thickness: clipboard.thickness,
+      labelFontSize: clipboard.labelFontSize,
+      arrowStyle: clipboard.arrowStyle,
+      linearLineMode: clipboard.linearLineMode,
+    }
+
+    const cloned = cloneLinearAnnotationForPaste(clipboard.raw, offsetX, offsetY, targetPage)
+    if (!cloned) {
+      pasteStyleRef.current = null
+      toast.error('Could not paste — invalid line geometry')
+      return false
+    }
+
+    const stylePatch = buildLinearDistanceStyle(
+      clipboard.labelFontSize,
+      pdfScale,
+      clipboard.color,
+      clipboard.thickness,
+      clipboard.arrowStyle,
+      clipboard.linearLineMode,
+    )
+    Object.assign(cloned, stylePatch, {
+      strokeColor: clipboard.color,
+      StrokeColor: clipboard.color,
+      Thickness: clipboard.thickness,
+      thickness: clipboard.thickness,
+    })
+
+    if (targetPage !== pdfPage) {
+      try { vm.navigation.goToPage(targetPage) } catch (_) {}
+    }
+    try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+
+    const pageIdx = String(targetPage - 1)
+    const newId = cloned.annotationId
+    importingAnnotsRef.current = true
+    try {
+      vm.importAnnotation(JSON.stringify({
+        pdfAnnotation: {
+          [pageIdx]: {
+            measureShapeAnnotation: [cloned],
+            shapeAnnotation: [],
+          },
+        },
+      }), 'Json')
+    } catch (_) {
+      importingAnnotsRef.current = false
+      pasteStyleRef.current = null
+      toast.error('Paste failed')
+      return false
+    }
+
+    setTimeout(() => {
+      importingAnnotsRef.current = false
+      const plain = { ...buildPlainAnnot(cloned), ...cloned, ...stylePatch }
+      processMeasureAnnotation(plain)
+      applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
+      const labelText = clipboard.length != null
+        ? formatMeasureLength(clipboard.length, clipboard.unit ?? getDisplayUnit())
+        : resolveLinearLabelText(vm, newId, null, getDisplayUnit())
+      if (labelText) {
+        applyCalibratedLabelToDiagram(
+          vm, newId, targetPage, labelText, clipboard.color,
+          buildLinearLabelDiagramStyle(clipboard.labelFontSize, pdfScale, clipboard.color),
+        )
+      }
+      lastDrawnAnnotRef.current = newId
+      selectedAnnotDataRef.current = resolveLiveAnnotation(vm, newId)
+      toast.success('Measurement pasted', { duration: 2000 })
+      setTimeout(() => {
+        explicitGridSelectRef.current = true
+        try { vm.annotation.selectAnnotation(newId, targetPage) } catch (_) {}
+        const { activeTool: currentTool } = useAppStore.getState()
+        const mode = MEASURE_MODES[currentTool]
+        if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
+      }, 200)
+    }, 400)
+    return true
+  }, [pdfScale, pdfPage, processMeasureAnnotation, getDisplayUnit])
+
+  const handlePastePlacementClick = useCallback((e) => {
+    const pending = pastePlacementRef.current
+    if (!pending?.clipboard?.raw) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const vm = viewerRef.current
+    if (!vm) return
+
+    const targetPage = pdfPage ?? pending.clipboard.pageNumber ?? 1
+    const pageIndex = Math.max(0, targetPage - 1)
+    const clickPt = containerClientToPdfPoint(e.clientX, e.clientY, pageIndex, vm)
+    if (!clickPt) {
+      toast.error('Could not place measurement — click on the drawing')
+      return
+    }
+
+    const mid = getLinearAnnotationMidpoint(pending.clipboard.raw)
+    if (!mid) {
+      cancelPastePlacement()
+      toast.error('Could not paste — invalid line geometry')
+      return
+    }
+
+    const offsetX = clickPt.x - mid.x
+    const offsetY = clickPt.y - mid.y
+    const ok = commitPasteLinearMeasurement(pending.clipboard, offsetX, offsetY, targetPage)
+    cancelPastePlacement()
+    if (!ok) toast.error('Paste failed')
+  }, [pdfPage, commitPasteLinearMeasurement, cancelPastePlacement])
+
+  useEffect(() => {
+    if (!pastePlacementActive) return
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        cancelPastePlacement()
+        toast('Paste cancelled', { duration: 1500 })
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [pastePlacementActive, cancelPastePlacement])
+
   // Exit draw mode before export — Syncfusion only commits finished annotations in None mode
   // (same pattern as the manual Save button / captureAnnotations).
   const flushMeasurementExport = useCallback((vm) => {
@@ -1990,13 +2409,13 @@ export default function PdfViewer({
         }, 600)
         setTimeout(() => {
           hydrateTakeoffLabelsOnViewer(vm, importedItems?.length ? importedItems : annotations, pdfScale)
-          bumpFallbackLabelLayout()
+          scheduleLabelLayoutWithRetries()
         }, 1200)
         setTimeout(() => {
           hydrateTakeoffLabelsOnViewer(vm, importedItems?.length ? importedItems : annotations, pdfScale)
-          bumpFallbackLabelLayout()
+          scheduleLabelLayoutWithRetries()
         }, 2200)
-        setTimeout(() => bumpFallbackLabelLayout(), 3000)
+        setTimeout(() => scheduleLabelLayoutWithRetries(), 3000)
 
         // Fallback: import annotation blob if some rows still missing on canvas
         const stillMissing = annotations.some(item => {
@@ -2015,7 +2434,7 @@ export default function PdfViewer({
               importingAnnotsRef.current = false
               hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
               hydrateTakeoffLabelsOnViewer(vm, annotations, pdfScale)
-              bumpFallbackLabelLayout()
+              scheduleLabelLayoutWithRetries()
               try { vm.renderDrawing?.() } catch (_) {}
               // Re-apply FitWidth after blob-fallback renderDrawing settles too
               setTimeout(() => applyFitWidth(), 300)
@@ -2083,13 +2502,15 @@ export default function PdfViewer({
     importingAnnotsRef.current = true
     try {
       if (typeof vm.importAnnotation === 'function') {
-        vm.importAnnotation(JSON.stringify({ pdfAnnotation }), 'Json')
+        // Strip undefined values — Syncfusion may call .toString() on missing fields
+        const json = JSON.stringify({ pdfAnnotation }, (_k, v) => (v === undefined ? null : v))
+        vm.importAnnotation(json, 'Json')
       }
     } catch (err) {
       console.error('[BuildTakeoff] pointsJson import failed:', err)
     }
     setTimeout(() => finishImport(importedBatch, true), 100)
-  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations, measureLabelFontSize, pdfScale, applyCalibrationToViewer, bumpFallbackLabelLayout, applyFitWidth])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docLoaded, drawing?.id, drawing?.annotationData, annotations, measureLabelFontSize, pdfScale, applyCalibrationToViewer, scheduleLabelLayoutWithRetries, applyFitWidth])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mouse-up fallback: Bluebeam-style auto-save when line draw completes ──
   useEffect(() => {
@@ -2248,8 +2669,8 @@ export default function PdfViewer({
         applyCalibrationToViewer(vm)
       } else if (type === 'rehydrateMeasureLabels') {
         applyCalibrationToViewer(vm)
-        hydrateTakeoffLabelsOnViewer(vm, annotations, pdfScale)
-        bumpFallbackLabelLayout()
+        hydrateTakeoffItemsOnViewer(vm, annotations, pdfScale)
+        scheduleLabelLayoutWithRetries()
       } else if (type === 'selectAnnotation' && payload.annotationId) {
         explicitGridSelectRef.current = true
         // Must exit Distance drawing mode before selecting so Syncfusion renders
@@ -2389,87 +2810,10 @@ export default function PdfViewer({
           return
         }
 
-        pasteStyleRef.current = {
-          color: clipboard.color,
-          category: clipboard.category,
-          thickness: clipboard.thickness,
-          labelFontSize: clipboard.labelFontSize,
-          arrowStyle: clipboard.arrowStyle,
-          linearLineMode: clipboard.linearLineMode,
-        }
-
-        const targetPage = pdfPage ?? clipboard.pageNumber ?? 1
-        const cloned = cloneLinearAnnotationForPaste(clipboard.raw, 30, 30, targetPage)
-        if (!cloned) {
-          pasteStyleRef.current = null
-          toast.error('Could not paste — invalid line geometry')
-          return
-        }
-
-        const stylePatch = buildLinearDistanceStyle(
-          clipboard.labelFontSize,
-          pdfScale,
-          clipboard.color,
-          clipboard.thickness,
-          clipboard.arrowStyle,
-          clipboard.linearLineMode,
-        )
-        Object.assign(cloned, stylePatch, {
-          strokeColor: clipboard.color,
-          StrokeColor: clipboard.color,
-          Thickness: clipboard.thickness,
-          thickness: clipboard.thickness,
-        })
-
-        if (targetPage !== pdfPage) {
-          try { vm.navigation.goToPage(targetPage) } catch (_) {}
-        }
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
-
-        const pageIdx = String(targetPage - 1)
-        const newId = cloned.annotationId
-        importingAnnotsRef.current = true
-        try {
-          vm.importAnnotation(JSON.stringify({
-            pdfAnnotation: {
-              [pageIdx]: {
-                measureShapeAnnotation: [cloned],
-                shapeAnnotation: [],
-              },
-            },
-          }), 'Json')
-        } catch (_) {
-          importingAnnotsRef.current = false
-          pasteStyleRef.current = null
-          toast.error('Paste failed')
-          return
-        }
-
-        setTimeout(() => {
-          importingAnnotsRef.current = false
-          const plain = { ...buildPlainAnnot(cloned), ...cloned, ...stylePatch }
-          processMeasureAnnotation(plain)
-          applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
-          const labelText = clipboard.length != null
-            ? formatMeasureLength(clipboard.length, clipboard.unit ?? getDisplayUnit())
-            : resolveLinearLabelText(vm, newId, null, getDisplayUnit())
-          if (labelText) {
-            applyCalibratedLabelToDiagram(
-              vm, newId, targetPage, labelText, clipboard.color,
-              buildLinearLabelDiagramStyle(clipboard.labelFontSize, pdfScale, clipboard.color),
-            )
-          }
-          lastDrawnAnnotRef.current = newId
-          selectedAnnotDataRef.current = resolveLiveAnnotation(vm, newId)
-          toast.success('Measurement pasted', { duration: 2000 })
-          setTimeout(() => {
-            explicitGridSelectRef.current = true
-            try { vm.annotation.selectAnnotation(newId, targetPage) } catch (_) {}
-            const { activeTool: currentTool } = useAppStore.getState()
-            const mode = MEASURE_MODES[currentTool]
-            if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
-          }, 200)
-        }, 400)
+        pastePlacementRef.current = { clipboard }
+        setPastePlacementActive(true)
+        toast('Click on the drawing to place the measurement', { duration: 3500 })
       } else if (type === 'saveAnnotationBlob') {
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
         setTimeout(() => {
@@ -2609,12 +2953,13 @@ export default function PdfViewer({
             }
             const mode = RESTORE_MAP[currentTool]
             if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
+            scheduleLabelLayoutWithRetries()
           }
         }, 500)
       }
     } catch (_) { }
     clearPdfCommand()
-  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale])
+  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale, scheduleLabelLayoutWithRetries, annotations, pdfScale])
 
   // ── Load PDF as base64 whenever drawingUrl changes ─────────────────────
   useEffect(() => {
@@ -2879,14 +3224,15 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (vm) {
       try { vm.enableShapeLabel = false } catch (_) {}
-      // Fallback page size from Syncfusion if MediaBox probe missed
+      // Fallback page size from Syncfusion if MediaBox probe missed.
+      // vb.pageWidth/pageHeight are in PDF points; vb.pageSize[0] is CSS pixels at current
+      // zoom and must NOT be used as the denominator in pdfPointToContainerCoords.
       if (!pageMetaRef.current) {
         const vb = vm.viewerBase
-        const ps = vb?.pageSize?.[0]
-        if (ps?.width > 0) {
-          pageMetaRef.current = { width: ps.width, height: ps.height ?? ps.width }
-        } else if (vb?.highestWidth > 0) {
-          pageMetaRef.current = { width: vb.highestWidth, height: vb.highestWidth }
+        const w = Array.isArray(vb?.pageWidth) ? vb.pageWidth[0] : vb?.pageWidth
+        const h = Array.isArray(vb?.pageHeight) ? vb.pageHeight[0] : vb?.pageHeight
+        if (Number(w) > 0 && Number(h) > 0) {
+          pageMetaRef.current = { width: Number(w), height: Number(h) }
         }
       }
       applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
@@ -2936,16 +3282,19 @@ export default function PdfViewer({
     eventAnnotations.forEach(a => {
       scheduleMeasurementComplete(buildPlainAnnot(a))
     })
+    setTimeout(() => bumpFallbackLabelLayout(), 120)
+    setTimeout(() => bumpFallbackLabelLayout(), 450)
     // Do not set selectedAnnotDataRef here — continuous draw keeps the tool active;
     // explicit selection uses handleAnnotationSelect (PDF click or grid row).
-  }, [scheduleMeasurementComplete])
+  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout])
 
   const handleAnnotationPropertiesChange = useCallback((args) => {
     if (importingAnnotsRef.current || editingAnnotRef.current) return
     const a = args?.annotation
     if (!a) return
     scheduleMeasurementComplete(buildPlainAnnot(a))
-  }, [scheduleMeasurementComplete])
+    setTimeout(() => bumpFallbackLabelLayout(), 120)
+  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout])
 
   const handleAnnotationSelect = useCallback((args) => {
     const annotation = args?.annotation
@@ -3044,6 +3393,15 @@ export default function PdfViewer({
         #sfPdfViewer .e-overlay,
         .e-dlg-overlay.e-fade { display: none !important; pointer-events: none !important; }
         .bt-pan-active #sfPdfViewer_viewerContainer { touch-action: none; }
+
+        /* Hide bulky Syncfusion distance end-cap handles (leaders stay in DOM for label math). */
+        #sfPdfViewer [id*="leader1_"],
+        #sfPdfViewer [id*="leader2_"],
+        #sfPdfViewer [id*="Leader1_"],
+        #sfPdfViewer [id*="Leader2_"] {
+          visibility: hidden !important;
+          stroke-width: 0 !important;
+        }
       `}</style>
 
       {/* Loading overlay — only while fetching from server */}
@@ -3202,8 +3560,8 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* Fallback value labels — only when Syncfusion native label is missing after reload */}
-      {pdfBase64 && !loading && fallbackLabelLayout.length > 0 && (
+      {/* Measurement value labels — temporarily disabled; re-enable by removing false && */}
+      {false && pdfBase64 && !loading && fallbackLabelLayout.length > 0 && (
         <div
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, zIndex: 11, pointerEvents: 'none', overflow: 'hidden' }}
@@ -3221,7 +3579,7 @@ export default function PdfViewer({
                   left: `${entry.left}px`,
                   top: `${entry.top}px`,
                   transform: 'translate(-50%, -100%)',
-                  fontSize: `${entry.fontSizePt}px`,
+                  fontSize: `${entry.fontSizePt * Math.max(pdfScale, 0.5)}px`,
                   fontWeight: 600,
                   color: entry.color ?? '#111827',
                   background: 'rgba(255,255,255,0.94)',
@@ -3238,6 +3596,35 @@ export default function PdfViewer({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Paste placement overlay — click to position copied measurement ── */}
+      {pdfBase64 && !loading && pastePlacementActive && (
+        <div
+          style={{ position: 'absolute', inset: 0, zIndex: 13, cursor: 'crosshair' }}
+          onClick={handlePastePlacementClick}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(15,23,42,0.92)',
+              color: '#e2e8f0',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '6px 14px',
+              borderRadius: 6,
+              border: '1px solid #334155',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Click to place measurement · Esc to cancel
+          </div>
         </div>
       )}
 

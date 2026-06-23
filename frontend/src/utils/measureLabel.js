@@ -8,12 +8,19 @@ export const MEASURE_LABEL_PRESETS = [
 
 export const DEFAULT_MEASURE_LABEL_SIZE = 14
 
-/** Visual scale tied to each label-size preset (line + arrows + end caps). */
+/** Visual scale tied to each label-size preset (line weight + label gap). */
 const LINE_LABEL_VISUAL_SCALE = {
-  10: { defaultThickness: 1, leaderLength: 22, leaderLineExtension: 2 },
-  14: { defaultThickness: 2, leaderLength: 30, leaderLineExtension: 2 },
-  18: { defaultThickness: 3, leaderLength: 38, leaderLineExtension: 3 },
-  24: { defaultThickness: 5, leaderLength: 48, leaderLineExtension: 4 },
+  10: { defaultThickness: 1, syncLeaderHeight: 6, leaderLineExtension: 0, labelGap: 10 },
+  14: { defaultThickness: 1.5, syncLeaderHeight: 8, leaderLineExtension: 0, labelGap: 14 },
+  18: { defaultThickness: 2, syncLeaderHeight: 10, leaderLineExtension: 0, labelGap: 18 },
+  24: { defaultThickness: 3, syncLeaderHeight: 12, leaderLineExtension: 0, labelGap: 24 },
+}
+
+/** PDF-space gap between the measurement line and the label (scales with zoom). */
+export function computeLinearLabelGap(userPt, pdfScale = 1) {
+  const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
+  const scale = Math.max(pdfScale, 0.25)
+  return (preset.labelGap ?? 14) / scale
 }
 
 export function defaultLineThicknessForLabelSize(userPt) {
@@ -111,7 +118,7 @@ function parseCoordPair(val) {
   return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
 }
 
-function extractPointsFromRaw(raw) {
+export function extractPointsFromRaw(raw) {
   const rawPts = raw.vertexPoints ?? raw.VertexPoints ?? []
   let pts = (Array.isArray(rawPts) ? rawPts : [])
     .filter(p => p && typeof p === 'object'
@@ -121,6 +128,15 @@ function extractPointsFromRaw(raw) {
     pts = [parseCoordPair(raw.start), parseCoordPair(raw.end)]
   }
   return pts
+}
+
+/** Midpoint of a linear annotation — used for click-to-place paste offsets. */
+export function getLinearAnnotationMidpoint(raw) {
+  const pts = extractPointsFromRaw(raw)
+  if (pts.length < 2) return null
+  const a = pts[0]
+  const b = pts[pts.length - 1]
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
 /** Clone a linear annotation for paste with a positional offset and new id. */
@@ -191,7 +207,6 @@ export function mapLinearArrowStyle(arrowStyle = 'none') {
     case 'both':
       return { lineHeadStartStyle: 'ClosedArrow', lineHeadEndStyle: 'ClosedArrow' }
     default:
-      // Simple line — no arrowheads; perpendicular leader ticks come from leaderLength
       return { lineHeadStartStyle: 'None', lineHeadEndStyle: 'None' }
   }
 }
@@ -216,8 +231,8 @@ export function buildMeasureLabelPatch(userPt, pdfScale, fontColor = '#111827') 
 
 /**
  * Unified Bluebeam-style linear measure appearance: label text, line weight,
- * end-cap leaders, and arrow heads scale together from Label Size (S/M/L/XL).
- * `thicknessOverride` keeps the toolbar Thickness control as an advanced override.
+ * and arrow heads scale together from Label Size (S/M/L/XL).
+ * Simple lines use no end-cap leaders; labels sit above the line via labelGap.
  */
 export function buildLinearDistanceStyle(
   userPt, pdfScale, fontColor = '#111827', thicknessOverride, arrowStyle = 'none', linearLineMode = 'simple',
@@ -225,10 +240,14 @@ export function buildLinearDistanceStyle(
   const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
   const thickness = resolveLinearThickness(userPt, thicknessOverride)
   const effectiveArrow = resolveLinearArrowStyle(arrowStyle, linearLineMode)
+  const labelGap = computeLinearLabelGap(userPt, pdfScale)
+  const syncLeaderHeight = preset.syncLeaderHeight ?? 8
   return {
     thickness,
-    leaderLength: preset.leaderLength,
+    leaderLength: syncLeaderHeight,
+    syncLeaderHeight,
     leaderLineExtension: preset.leaderLineExtension,
+    labelGap,
     ...mapLinearArrowStyle(effectiveArrow),
     ...buildMeasureLabelPatch(userPt, pdfScale, fontColor),
   }
@@ -237,10 +256,14 @@ export function buildLinearDistanceStyle(
 /** Style fields applied to live Syncfusion diagram text (label halo + size). */
 export function buildLinearLabelDiagramStyle(userPt, pdfScale, fontColor = '#111827') {
   const patch = buildMeasureLabelPatch(userPt, pdfScale, fontColor)
+  const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
   return {
     fontSize: patch.fontSize,
     fontColor: patch.fontColor,
     labelFillColor: patch.labelFillColor,
     labelBorderColor: patch.labelBorderColor,
+    labelGap: computeLinearLabelGap(userPt, pdfScale),
+    syncLeaderHeight: preset.syncLeaderHeight ?? 8,
+    leaderLength: preset.syncLeaderHeight ?? 8,
   }
 }

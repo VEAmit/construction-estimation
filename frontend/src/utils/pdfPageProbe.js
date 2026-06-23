@@ -2,19 +2,41 @@
  * Read PDF /MediaBox from raw bytes — no pdf.js worker (avoids conflict with Syncfusion pdfium).
  * Used only for fit-to-width math when page dimensions vary (A4 vs A2 landscape).
  */
+function _parseMediaBoxText(text) {
+  const match = text.match(/\/MediaBox\s*\[\s*([-\d.\s]+)\]/i)
+  if (!match) return null
+  const parts = match[1].trim().split(/\s+/).map(Number).filter(n => Number.isFinite(n))
+  if (parts.length < 4) return null
+  const width = Math.abs(parts[2] - parts[0])
+  const height = Math.abs(parts[3] - parts[1])
+  if (width < 10 || height < 10) return null
+  return { width, height }
+}
+
 export function probeMediaBoxFromBuffer(buffer) {
   try {
     const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
-    const sample = bytes.subarray(0, Math.min(bytes.length, 128 * 1024))
-    const text = new TextDecoder('latin1').decode(sample)
-    const match = text.match(/\/MediaBox\s*\[\s*([-\d.\s]+)\]/i)
-    if (!match) return null
-    const parts = match[1].trim().split(/\s+/).map(Number).filter(n => Number.isFinite(n))
-    if (parts.length < 4) return null
-    const width = Math.abs(parts[2] - parts[0])
-    const height = Math.abs(parts[3] - parts[1])
-    if (width < 10 || height < 10) return null
-    return { width, height }
+    const CHUNK = 512 * 1024  // 512 KB per scan window
+
+    // Scan the head of the file (MediaBox is usually in the first few KB)
+    const headEnd = Math.min(bytes.length, CHUNK)
+    const headResult = _parseMediaBoxText(new TextDecoder('latin1').decode(bytes.subarray(0, headEnd)))
+    if (headResult) return headResult
+
+    // Scan the tail — some linearized or non-standard PDFs place the catalog near the end
+    if (bytes.length > headEnd) {
+      const tailStart = Math.max(headEnd, bytes.length - CHUNK)
+      const tailResult = _parseMediaBoxText(new TextDecoder('latin1').decode(bytes.subarray(tailStart)))
+      if (tailResult) return tailResult
+    }
+
+    // Full-file fallback for very unusual PDF layouts (construction drawings with embedded rasters)
+    if (bytes.length > 2 * CHUNK) {
+      const fullResult = _parseMediaBoxText(new TextDecoder('latin1').decode(bytes))
+      if (fullResult) return fullResult
+    }
+
+    return null
   } catch {
     return null
   }

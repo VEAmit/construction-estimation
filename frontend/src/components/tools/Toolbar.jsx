@@ -550,8 +550,8 @@ export default function Toolbar({
                   </>
                 )}
 
-                {/* Label size — Bluebeam-style presets for measurement tools */}
-                {isMeasure && !isCount && (
+                {/* Label size — hidden while measurement labels are disabled */}
+                {false && isMeasure && !isCount && (
                   <>
                     <StyleSep />
                     <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
