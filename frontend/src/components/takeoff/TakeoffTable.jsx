@@ -249,7 +249,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                 <line x1="3" y1="9" x2="21" y2="9"/>
               </svg>
             </div>
-            <p style={{ fontSize: '12px', color: '#334155' }}>
+            <p style={{ fontSize: '12px', color: '#EF233C', fontWeight: 600 }}>
               {takeoffItems.length === 0
                 ? 'Draw on the PDF — measurements save automatically (Bluebeam-style)'
                 : 'No matching measurements'}

@@ -146,7 +146,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <div style={{ fontSize: '11px', color: dragOver ? '#EF233C' : '#475569' }}>
+            <div style={{ fontSize: '11px', color: dragOver ? '#EF233C' : '#EF233C', fontWeight: 600 }}>
               Drop PDF or <span style={{ color: '#EF233C', fontWeight: 700 }}>browse</span>
             </div>
             <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }}
@@ -158,7 +158,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
       {/* Drawing list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
         {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '24px 12px', color: '#334155', fontSize: '12px' }}>
+          <div style={{ textAlign: 'center', padding: '24px 12px', color: '#EF233C', fontSize: '12px', fontWeight: 600 }}>
             {list.length === 0 ? 'No drawings yet.\nUpload a PDF to start.' : 'No results found.'}
           </div>
         )}
@@ -213,12 +213,12 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
               <button onClick={e => handleDelete(e, drawing)} style={{
                 position: 'absolute', top: '6px', right: '6px',
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: '#334155', padding: '2px', borderRadius: '4px',
-                opacity: active ? 1 : 0, transition: 'opacity .15s, color .15s',
+                color: '#EF233C', padding: '2px', borderRadius: '4px',
+                opacity: active ? 1 : 0.75, transition: 'opacity .15s, color .15s',
                 display: 'flex', alignItems: 'center',
               }}
                 onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.opacity = 1 }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#334155' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#EF233C'; e.currentTarget.style.opacity = active ? 1 : 0.75 }}
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="3 6 5 6 21 6"/>

@@ -4,6 +4,7 @@ import { fmt, getUnitLabel, getAreaUnitLabel } from '../../utils/calculations'
 import { normalizeDrawing, resolveCalibratedMeasure, formatLineMeasureDescription } from '../../utils/measureCalibration'
 
 const UNITS = ['Mm', 'Cm', 'Meter', 'Feet', 'Inch', 'Yd']
+const PANEL_ACCENT = '#EF233C'
 
 const SCALE_PRESETS = [
   { label: '1 : 10',   n: 10   },
@@ -108,7 +109,7 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
               '② Enter the length shown on the plan',
               '③ All future measurements are automatic',
             ].map((step, i) => (
-              <div key={i} style={{ fontSize: '10px', color: '#64748b', marginBottom: '3px', lineHeight: 1.4 }}>
+              <div key={i} style={{ fontSize: '10px', color: PANEL_ACCENT, marginBottom: '3px', lineHeight: 1.4 }}>
                 {step}
               </div>
             ))}
@@ -140,8 +141,8 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
           {drawing?.isCalibrated ? 'Re-set Scale' : 'How to set scale'}
         </button>
         {!drawing?.isCalibrated && (
-          <div style={{ fontSize: '10px', color: '#64748b', marginTop: '6px', lineHeight: 1.45, textAlign: 'center' }}>
-            Use <strong style={{ color: '#EF233C' }}>Linear</strong> on a labelled wall or grid dimension
+          <div style={{ fontSize: '10px', color: PANEL_ACCENT, marginTop: '6px', lineHeight: 1.45, textAlign: 'center' }}>
+            Use <strong style={{ color: PANEL_ACCENT }}>Linear</strong> on a labelled wall or grid dimension
           </div>
         )}
       </div>
@@ -156,7 +157,7 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
               width: '100%', padding: '10px 12px',
               background: 'transparent', border: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', color: '#334155', fontSize: '10px',
+              cursor: 'pointer', color: PANEL_ACCENT, fontSize: '10px',
               fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em',
             }}
           >
@@ -171,7 +172,7 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
 
           {showAdvanced && (
             <div style={{ padding: '0 12px 12px' }}>
-              <p style={{ fontSize: '10px', color: '#334155', marginBottom: '8px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '10px', color: PANEL_ACCENT, marginBottom: '8px', lineHeight: 1.5 }}>
                 Only use if you know the exact drawing scale (e.g. 1:100). For best accuracy, use the Calibrate tool above instead.
               </p>
               <div style={{ display: 'flex', gap: '5px', marginBottom: '6px' }}>
@@ -253,7 +254,7 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
             borderRadius: '8px', padding: '10px',
             borderLeft: `3px solid ${lastMeasurement.measureType === 'Area' ? '#22c55e' : lastMeasurement.measureType === 'Perimeter' ? '#8b5cf6' : '#EF233C'}`,
           }}>
-            <div style={{ fontSize: '10px', color: '#475569', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '6px' }}>
+            <div style={{ fontSize: '10px', color: PANEL_ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '6px' }}>
               {lastMeasurement.measureType === 'Area' ? 'Area Measurement' : lastMeasurement.measureType === 'Perimeter' ? 'Perimeter' : 'Line Measurement'}
             </div>
             {lastMeasurement.measureType === 'Area' && lastMeasurement.area != null ? (
@@ -447,8 +448,8 @@ function GuideStep({ num, done, locked, label, sub }) {
           : num}
       </div>
       <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: done ? '#22c55e' : '#94a3b8' }}>{label}</div>
-        {sub && <div style={{ fontSize: '10px', color: '#334155', marginTop: '1px' }}>{sub}</div>}
+        <div style={{ fontSize: '11px', fontWeight: 600, color: done ? '#22c55e' : PANEL_ACCENT }}>{label}</div>
+        {sub && <div style={{ fontSize: '10px', color: PANEL_ACCENT, marginTop: '1px' }}>{sub}</div>}
       </div>
     </div>
   )
@@ -457,7 +458,7 @@ function GuideStep({ num, done, locked, label, sub }) {
 function SectionLabel({ children }) {
   return (
     <div style={{
-      fontSize: '10px', fontWeight: 800, color: '#334155', textTransform: 'uppercase',
+      fontSize: '10px', fontWeight: 800, color: PANEL_ACCENT, textTransform: 'uppercase',
       letterSpacing: '.1em', marginBottom: '8px',
     }}>
       {children}
@@ -481,7 +482,7 @@ function StatCard({ label, value, color }) {
       borderLeft: `3px solid ${color}`, border: `1px solid rgba(255,255,255,.06)`,
       borderLeftWidth: '3px', borderLeftColor: color,
     }}>
-      <div style={{ fontSize: '10px', color: '#334155', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '10px', color: PANEL_ACCENT, marginBottom: '2px' }}>{label}</div>
       <div style={{ fontSize: '14px', fontWeight: 800, color: '#f1f5f9' }}>{value}</div>
     </div>
   )

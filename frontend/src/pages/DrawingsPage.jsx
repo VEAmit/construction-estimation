@@ -50,7 +50,26 @@ export default function DrawingsPage() {
     pdfScale,
     removeTakeoffItem,
     setMeasureColor,
+    setLineThickness,
   } = useAppStore()
+
+  const readThicknessFromPointsJson = useCallback((pointsJson) => {
+    if (!pointsJson) return null
+    try {
+      const d = JSON.parse(pointsJson)
+      const t = d.Thickness ?? d.thickness
+      return t != null && Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const syncToolbarFromTakeoffItem = useCallback((item) => {
+    if (!item) return
+    if (item.color) setMeasureColor(item.color)
+    const t = readThicknessFromPointsJson(item.pointsJson)
+    if (t != null) setLineThickness(t)
+  }, [readThicknessFromPointsJson, setMeasureColor, setLineThickness])
 
   const drawings = Array.isArray(storeDrawings) ? storeDrawings : []
   const activeDrawing = normalizeDrawing(selectedDrawing)
@@ -89,11 +108,22 @@ export default function DrawingsPage() {
     if (!pointsJson) return null
     try {
       const stored = typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson
-      return stored.annotationId ?? stored.AnnotName ?? stored.uniqueKey ?? stored.name ?? null
+      return stored.AnnotName ?? stored.annotationId ?? stored.uniqueKey ?? stored.name ?? null
     } catch {
       return null
     }
   }, [])
+
+  const resolveMeasurementDbId = useCallback((annotId) => {
+    const pending = pendingMeasurementRef.current
+    if (!annotId) return pending?.dbId ?? null
+    if (pending?.annotationId === annotId) return pending.dbId ?? null
+    const fromMap = Object.entries(annotationMapRef.current).find(([, v]) => v.annotationId === annotId)
+    if (fromMap) return Number(fromMap[0])
+    const items = useAppStore.getState().takeoffItems ?? []
+    const item = items.find(t => extractAnnotIdFromPointsJson(t.pointsJson) === annotId)
+    return item?.id ?? null
+  }, [extractAnnotIdFromPointsJson])
 
   // Track style values at the moment an annotation is selected.
   // Used to detect when the user actually changes a style prop (vs. selecting an annotation
@@ -104,11 +134,10 @@ export default function DrawingsPage() {
   /** DB row user explicitly picked for toolbar style edits — not auto-selected after draw. */
   const [styleEditTargetId, setStyleEditTargetId] = useState(null)
 
-  // Persist toolbar style changes ONLY when user explicitly selected a measurement to edit.
-  // Toolbar color/thickness for the next draw must not mutate previously saved rows.
+  // Persist toolbar style changes when a measurement row is selected.
   useEffect(() => {
-    if (!selectedAnnotId || styleEditTargetId !== selectedAnnotId) {
-      if (!selectedAnnotId) annotStyleBaselineRef.current = null
+    if (!selectedAnnotId) {
+      annotStyleBaselineRef.current = null
       return
     }
     const current = { color: measureColor, thickness: lineThickness, lineStyle, arrowStyle }
@@ -122,7 +151,6 @@ export default function DrawingsPage() {
     const prev = annotStyleBaselineRef.current
     const styleChanged =
       prev.color !== current.color ||
-      prev.thickness !== current.thickness ||
       prev.lineStyle !== current.lineStyle ||
       prev.arrowStyle !== current.arrowStyle
 
@@ -132,11 +160,12 @@ export default function DrawingsPage() {
     const item = takeoffItems.find(t => t.id === selectedAnnotId)
     if (!item) return
 
-    // Persist color + category (Bluebeam tool-chest style)
-    takeoffService.update({ ...item, color: measureColor, category: measureCategory })
+    const optimistic = { ...item, color: measureColor, category: measureCategory }
+    updateTakeoffItem(optimistic)
+    takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
-      .catch(() => {})  // visual update already succeeded — silent fail
-  }, [measureColor, measureCategory, lineThickness, lineStyle, arrowStyle, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(() => {})
+  }, [measureColor, measureCategory, lineStyle, arrowStyle, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -366,9 +395,34 @@ export default function DrawingsPage() {
       } catch { return null }
     }
 
-    const pointsJson = measurement.rawAnnotation
-      ? safeJson(measurement.rawAnnotation)
-      : (measurement.points?.length ? safeJson(measurement.points) : null)
+    const buildPointsJson = () => {
+      if (!measurement.rawAnnotation) {
+        return measurement.points?.length ? safeJson(measurement.points) : null
+      }
+      try {
+        const seen = new WeakSet()
+        const raw = JSON.parse(JSON.stringify(measurement.rawAnnotation, (_, v) => {
+          if (typeof v === 'object' && v !== null) {
+            if (seen.has(v)) return undefined
+            seen.add(v)
+          }
+          return v
+        }))
+        const thick = pendingMeasurementRef.current?.pendingThickness
+          ?? useAppStore.getState().lineThickness
+          ?? raw.thickness
+          ?? raw.Thickness
+          ?? 2
+        raw.thickness = Number(thick) > 0 ? Number(thick) : 2
+        raw.Thickness = raw.thickness
+        if (pendingMeasurementRef.current) {
+          pendingMeasurementRef.current.rawPointsJson = raw
+        }
+        return JSON.stringify(raw)
+      } catch {
+        return safeJson(measurement.rawAnnotation)
+      }
+    }
 
     console.log('[BuildTakeoff] autoSave — mark:', nextMark, 'length:', saveLength,
       'pixelLength:', measurement.pixelLength, 'drawingId:', drw.id,
@@ -386,6 +440,7 @@ export default function DrawingsPage() {
     })
 
     try {
+      const pointsJson = buildPointsJson()
       const saved = await takeoffService.create({
         drawingId:   drw.id,
         itemType,
@@ -403,7 +458,18 @@ export default function DrawingsPage() {
         category:    saveCategory,
         pointsJson,
       })
-      addTakeoffItem(saved)
+      let finalSaved = saved
+      const latestThick = pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness
+      if (latestThick != null && pointsJson) {
+        try {
+          const raw = JSON.parse(pointsJson)
+          if (Number(raw.thickness) !== Number(latestThick)) {
+            const patchedJson = JSON.stringify({ ...raw, thickness: Number(latestThick), Thickness: Number(latestThick) })
+            finalSaved = await takeoffService.update({ ...saved, pointsJson: patchedJson })
+          }
+        } catch (_) {}
+      }
+      addTakeoffItem(finalSaved)
       setShowBottom(true)
       setBottomTab('measurements')
       // Continuous draw: do not keep the new row in "style edit" mode — toolbar color is for the next mark.
@@ -411,17 +477,19 @@ export default function DrawingsPage() {
       setStyleEditTargetId(null)
       annotStyleBaselineRef.current = null
       if (measurement.annotationId) {
-        annotationMapRef.current[saved.id] = {
+        annotationMapRef.current[finalSaved.id] = {
           annotationId: measurement.annotationId,
           pageNumber:   measurement.pageNumber ?? 1,
         }
         persistedAnnotIdsRef.current.add(measurement.annotationId)
       }
       pendingMeasurementRef.current = {
-        dbId: saved.id,
+        dbId: finalSaved.id,
         annotationId: measurement.annotationId,
-        mark: saved.mark,
+        mark: finalSaved.mark,
         pageNumber: measurement.pageNumber ?? 1,
+        pendingThickness: pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness,
+        rawPointsJson: pendingMeasurementRef.current?.rawPointsJson ?? null,
       }
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
@@ -469,6 +537,17 @@ export default function DrawingsPage() {
       setLastMeasurement(measurement)
       setShowCalModal(true)
       return
+    }
+
+    // New mark — toolbar thickness applies to this line, not a previously selected row.
+    setSelectedAnnotId(null)
+    setStyleEditTargetId(null)
+    annotStyleBaselineRef.current = null
+    pendingMeasurementRef.current = {
+      annotationId: measurement.annotationId,
+      dbId: null,
+      pendingThickness: useAppStore.getState().lineThickness,
+      rawPointsJson: null,
     }
 
     setLastMeasurement(measurement)
@@ -594,10 +673,64 @@ export default function DrawingsPage() {
     annotStyleBaselineRef.current = null
     if (!dbId) return
     const item = takeoffItems.find(t => t.id === dbId)
-    if (item?.color) setMeasureColor(item.color)
+    syncToolbarFromTakeoffItem(item)
     const annot = annotationMapRef.current[dbId]
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
-  }, [triggerPdfCommand, takeoffItems, setMeasureColor])
+  }, [triggerPdfCommand, takeoffItems, syncToolbarFromTakeoffItem])
+
+  const handleMeasurementThicknessChange = useCallback((itemId, thickness, annotId = null) => {
+    const pending = pendingMeasurementRef.current
+    const pendingMatch = annotId && pending?.annotationId
+      && (pending.annotationId === annotId || extractAnnotIdFromPointsJson(pending.rawPointsJson) === annotId)
+
+    if (pendingMatch || (!itemId && pending?.annotationId && !annotId)) {
+      pending.pendingThickness = thickness
+      pendingMeasurementRef.current = pending
+    }
+
+    let targetId = itemId
+    if (targetId == null && annotId) {
+      targetId = resolveMeasurementDbId(annotId)
+      if (targetId == null) {
+        const byAnnot = (useAppStore.getState().takeoffItems ?? []).find(
+          t => extractAnnotIdFromPointsJson(t.pointsJson) === annotId,
+        )
+        targetId = byAnnot?.id ?? null
+      }
+    }
+    if (targetId == null && pending?.annotationId) {
+      targetId = resolveMeasurementDbId(pending.annotationId)
+    }
+    if (targetId == null && pending?.dbId) targetId = pending.dbId
+    if (targetId == null) {
+      if (pendingMatch || pending?.pendingThickness != null) return
+      return
+    }
+
+    const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === targetId)
+    if (!item?.pointsJson) return
+    try {
+      const raw = JSON.parse(item.pointsJson)
+      const existing = raw.thickness ?? raw.Thickness
+      if (existing != null && Number(existing) === Number(thickness)) return
+      const pointsJson = JSON.stringify({ ...raw, thickness, Thickness: thickness })
+      const optimistic = { ...item, pointsJson }
+      updateTakeoffItem(optimistic)
+      takeoffService.update(optimistic).then(saved => updateTakeoffItem(saved)).catch(() => {})
+      if (pendingMeasurementRef.current) {
+        pendingMeasurementRef.current.pendingThickness = thickness
+        pendingMeasurementRef.current.dbId = targetId
+      }
+      if (selectedAnnotId === targetId) {
+        annotStyleBaselineRef.current = {
+          color: measureColor,
+          thickness,
+          lineStyle,
+          arrowStyle,
+        }
+      }
+    } catch (_) {}
+  }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson])
 
   const handleCopyMeasurement = useCallback(() => {
     if (!selectedAnnotId) return
@@ -1036,17 +1169,31 @@ export default function DrawingsPage() {
               selectedAnnotationId={selectedAnnotId}
               styleEditTargetId={styleEditTargetId}
               onAnnotationSelect={(annotUuid) => {
+                let dbId = null
                 const entries = Object.entries(annotationMapRef.current)
                 const found = entries.find(([, v]) => v.annotationId === annotUuid)
-                const dbId = found ? Number(found[0]) : null
+                if (found) dbId = Number(found[0])
+                if (dbId == null) {
+                  const item = takeoffItems.find(t => {
+                    if (!t.pointsJson) return false
+                    try {
+                      const s = JSON.parse(t.pointsJson)
+                      const id = s.AnnotName ?? s.annotationId ?? s.name
+                      return id === annotUuid
+                    } catch { return false }
+                  })
+                  dbId = item?.id ?? null
+                }
                 setSelectedAnnotId(dbId)
                 setStyleEditTargetId(dbId)
                 annotStyleBaselineRef.current = null
                 if (dbId) {
                   const item = takeoffItems.find(t => t.id === dbId)
-                  if (item?.color) setMeasureColor(item.color)
+                  syncToolbarFromTakeoffItem(item)
                 }
               }}
+              onMeasurementThicknessChange={handleMeasurementThicknessChange}
+              resolveMeasurementDbId={resolveMeasurementDbId}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}
               onClearPending={handleClearPending}

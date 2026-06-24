@@ -138,6 +138,7 @@ const LINE_MEASURE_MODES = [
 
 const ALL_MEASURE_IDS = MEASURE_TOOLS.map(t => t.id)
 const ALL_MARKUP_IDS  = MARKUP_TOOLS.map(t => t.id)
+const STYLE_LABEL_COLOR = '#EF233C'
 
 export default function Toolbar({
   isCalibrated = false,
@@ -342,7 +343,11 @@ export default function Toolbar({
           ) : null}
 
           <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Undo last measurement (removes from PDF and grid)"
-            style={{ ...zBtn, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
+            style={{
+              ...zBtn,
+              display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px',
+              touchAction: 'manipulation', color: '#EF233C', borderColor: 'rgba(239,35,60,.35)',
+            }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -463,7 +468,7 @@ export default function Toolbar({
                 </div>
                 <StyleSep />
                 {/* Color swatches */}
-                <span style={{ fontSize: '10px', color: '#334155', marginRight: '2px' }}>Color:</span>
+                <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700, marginRight: '2px' }}>Color:</span>
                 <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
                   {COLORS.map(hex => (
                     <button key={hex} onClick={() => setMeasureColor(hex)} title={hex}
@@ -507,7 +512,7 @@ export default function Toolbar({
               /* ── Normal measure/markup style controls ── */
               <>
                 {/* Color swatches */}
-                <span style={{ fontSize: '10px', color: '#334155', marginRight: '2px' }}>Color:</span>
+                <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700, marginRight: '2px' }}>Color:</span>
                 <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
                   {COLORS.map(hex => (
                     <button key={hex} onClick={() => setMeasureColor(hex)} title={hex}
@@ -531,7 +536,7 @@ export default function Toolbar({
                 {activeTool === 'text' && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Size:</span>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700 }}>Size:</span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {FONT_SIZES.map(s => (
                         <button key={s} onClick={() => setFontSize(s)} title={`${s}pt`}
@@ -583,12 +588,17 @@ export default function Toolbar({
                 {activeTool !== 'text' && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700 }}>
                       {activeTool === 'line' ? 'Thickness (override):' : 'Thickness:'}
                     </span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {THICKNESSES.map(t => (
-                        <button key={t} onClick={() => setLineThickness(t)} title={`${t}px`}
+                        <button key={t} onClick={() => {
+                          setLineThickness(t)
+                          if (activeTool === 'line') {
+                            triggerPdfCommand({ type: 'applyLineThickness', thickness: t })
+                          }
+                        }} title={`${t}px`}
                           style={{
                             height: '22px', padding: '0 7px',
                             borderRadius: '4px', fontSize: '10px', fontWeight: 600,
@@ -657,7 +667,7 @@ export default function Toolbar({
                 {(activeTool === 'arrow' || (activeTool === 'line' && linearLineMode === 'arrow')) && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Arrows:</span>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700 }}>Arrows:</span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {ARROW_STYLES.map(as => (
                         <button key={as.id} onClick={() => handleArrowStyleChange(as.id)} title={as.title}
@@ -680,7 +690,7 @@ export default function Toolbar({
                 {(activeTool === 'area' || isMarkup) && activeTool !== 'text' && (
                   <>
                     <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Fill:</span>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700 }}>Fill:</span>
                     <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                       {OPACITIES.map(o => (
                         <button key={o} onClick={() => setFillOpacity(o)} title={`${Math.round(o * 100)}% opacity`}
