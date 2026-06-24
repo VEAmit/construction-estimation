@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { drawingService } from '../../services/drawingService'
 import { useAppStore } from '../../store/useAppStore'
 import { fmtSize } from '../../utils/calculations'
+import ConfirmModal from '../common/ConfirmModal'
 import toast from 'react-hot-toast'
 
 export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, onUploaded, onDeleted }) {
@@ -11,6 +12,8 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
   const [uploadProgress, setUploadProgress] = useState(0)
   const [search, setSearch] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const list = Array.isArray(drawings) ? drawings : []
   const filtered = list.filter(d => d?.name?.toLowerCase().includes(search.toLowerCase()))
@@ -41,15 +44,23 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
     handleFiles(e.dataTransfer.files)
   }
 
-  const handleDelete = async (e, drawing) => {
+  const handleDeleteClick = (e, drawing) => {
     e.stopPropagation()
-    if (!confirm(`Delete "${drawing.name}"?`)) return
+    setDeleteTarget(drawing)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return
+    setDeleting(true)
     try {
-      await drawingService.delete(drawing.id)
+      await drawingService.delete(deleteTarget.id)
       toast.success('Drawing deleted')
-      onDeleted(drawing.id)
+      onDeleted(deleteTarget.id)
+      setDeleteTarget(null)
     } catch {
       toast.error('Failed to delete drawing')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -210,7 +221,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
               </div>
 
               {/* Delete button */}
-              <button onClick={e => handleDelete(e, drawing)} style={{
+              <button onClick={e => handleDeleteClick(e, drawing)} style={{
                 position: 'absolute', top: '6px', right: '6px',
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: '#EF233C', padding: '2px', borderRadius: '4px',
@@ -230,6 +241,18 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
           )
         })}
       </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete drawing"
+        message={deleteTarget ? `Delete "${deleteTarget.name}"?` : ''}
+        confirmLabel="OK"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        loading={deleting}
+        danger
+      />
     </div>
   )
 }

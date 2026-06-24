@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { projectService } from '../services/projectService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
+import ConfirmModal from '../components/common/ConfirmModal'
 import toast from 'react-hot-toast'
 
 const emptyForm = { name: '', projectNumber: '', clientName: '', description: '' }
@@ -16,7 +17,9 @@ export default function DashboardPage() {
   const [creating,   setCreating]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [form,       setForm]       = useState(emptyForm)
-  const [search,     setSearch]     = useState('')
+  const [search,       setSearch]       = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting,     setDeleting]     = useState(false)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') setShowCreate(false) }
@@ -57,15 +60,23 @@ export default function DashboardPage() {
     navigate('/drawings')
   }
 
-  const handleDelete = async (e, project) => {
+  const handleDeleteClick = (e, project) => {
     e.stopPropagation()
-    if (!confirm(`Delete project "${project.name}"? This will also delete all drawings.`)) return
+    setDeleteTarget(project)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return
+    setDeleting(true)
     try {
-      await projectService.delete(project.id)
-      setProjects(projects.filter(p => p.id !== project.id))
+      await projectService.delete(deleteTarget.id)
+      setProjects(projects.filter(p => p.id !== deleteTarget.id))
       toast.success('Project deleted')
+      setDeleteTarget(null)
     } catch {
       toast.error('Failed to delete project')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -278,18 +289,34 @@ export default function DashboardPage() {
                     }}>
                       ● {project.status ?? 'Active'}
                     </span>
-                    <button onClick={e => handleDelete(e, project)} style={{
-                      background: 'none', border: 'none', cursor: 'pointer', color: '#EF233C',
-                      padding: '4px', borderRadius: '4px', transition: 'color .15s',
-                      display: 'flex', alignItems: 'center', touchAction: 'manipulation',
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#EF233C'}
+                    <button
+                      onClick={e => handleDeleteClick(e, project)}
+                      title="Delete project"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px',
+                        background: 'rgba(239,35,60,.12)', color: '#EF233C',
+                        border: '1px solid rgba(239,35,60,.25)',
+                        cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
+                        touchAction: 'manipulation',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(239,35,60,.2)'
+                        e.currentTarget.style.borderColor = 'rgba(239,35,60,.45)'
+                        e.currentTarget.style.color = '#ff6b6b'
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(239,35,60,.12)'
+                        e.currentTarget.style.borderColor = 'rgba(239,35,60,.25)'
+                        e.currentTarget.style.color = '#EF233C'
+                      }}
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
                       </svg>
+                      {!isMobile && 'Delete'}
                     </button>
                   </div>
                 </div>
@@ -436,6 +463,20 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete project"
+        message={deleteTarget
+          ? `Delete project "${deleteTarget.name}"? This will also delete all drawings.`
+          : ''}
+        confirmLabel="OK"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        loading={deleting}
+        danger
+      />
     </div>
   )
 }
