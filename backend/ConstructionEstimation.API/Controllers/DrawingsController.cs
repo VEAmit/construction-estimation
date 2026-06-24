@@ -98,6 +98,7 @@ public class DrawingsController : ControllerBase
     }
 
     [HttpPut("{id}/calibrate")]
+    [HttpPost("{id}/calibrate")]
     public async Task<ActionResult<ApiResponse<bool>>> Calibrate(int id, [FromBody] CalibrateRequest request)
     {
         if (request.ScaleRatio <= 0 || string.IsNullOrWhiteSpace(request.Unit))
@@ -125,6 +126,7 @@ public class DrawingsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [HttpPost("{id}/delete")]
     public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
     {
         var drawing = await _drawingRepo.GetByIdAsync(id);

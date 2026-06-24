@@ -57,7 +57,7 @@ export const drawingService = {
   },
   async calibrate(id, scaleRatio, unit) {
     traceCalibration('calibration.save.request', { drawingId: id, scaleRatio, unit })
-    await api.put(`/drawings/${id}/calibrate`, { scaleRatio, unit })
+    await api.post(`/drawings/${id}/calibrate`, { scaleRatio, unit })
     const verified = normalizeDrawing(await this.getById(id))
     traceCalibration('calibration.save.verified', calibrationSnapshot(verified))
     if (!verified?.isCalibrated) {
@@ -72,6 +72,6 @@ export const drawingService = {
     await api.put(`/drawings/${id}/annotations`, { annotationData })
   },
   async delete(id) {
-    await api.delete(`/drawings/${id}`)
+    await api.post(`/drawings/${id}/delete`)
   },
 }

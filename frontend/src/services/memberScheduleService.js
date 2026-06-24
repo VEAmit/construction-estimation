@@ -40,6 +40,6 @@ export const memberScheduleService = {
   },
 
   async delete(id) {
-    await api.delete(`/memberschedules/${id}`)
+    await api.post(`/memberschedules/${id}/delete`)
   },
 }

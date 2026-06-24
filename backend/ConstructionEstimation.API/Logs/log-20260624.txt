@@ -389,3 +389,11 @@
 2026-06-24 12:38:36.535 +05:30 [INF] HTTP GET /api/memberschedules/drawing/79 responded 200 in 34.5802 ms
 2026-06-24 12:38:38.807 +05:30 [INF] HTTP GET /api/projects responded 200 in 13.7618 ms
 2026-06-24 12:38:38.819 +05:30 [INF] HTTP GET /api/projects responded 200 in 4.5183 ms
+2026-06-24 13:42:05.444 +05:30 [INF] HTTP GET /api/drawings/project/12 responded 200 in 135.0363 ms
+2026-06-24 13:42:05.451 +05:30 [INF] HTTP GET /api/drawings/project/12 responded 200 in 2.2627 ms
+2026-06-24 13:42:05.481 +05:30 [INF] HTTP GET /api/drawings/80/file responded 304 in 3.4394 ms
+2026-06-24 13:42:05.529 +05:30 [INF] HTTP GET /api/drawings/80 responded 200 in 8.7344 ms
+2026-06-24 13:42:05.534 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/80 responded 200 in 12.5614 ms
+2026-06-24 13:42:05.539 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/80/summary responded 200 in 17.5060 ms
+2026-06-24 13:42:05.558 +05:30 [INF] HTTP GET /api/memberschedules/drawing/80 responded 200 in 35.5100 ms
+2026-06-24 13:42:05.588 +05:30 [INF] HTTP GET /api/memberschedules/drawing/80/summary responded 200 in 65.3376 ms

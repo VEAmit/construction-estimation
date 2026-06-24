@@ -27,6 +27,6 @@ export const projectService = {
     return res.data.data
   },
   async delete(id) {
-    await api.delete(`/projects/${id}`)
+    await api.post(`/projects/${id}/delete`)
   },
 }

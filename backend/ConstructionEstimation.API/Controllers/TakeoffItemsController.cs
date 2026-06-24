@@ -111,6 +111,7 @@ public class TakeoffItemsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [HttpPost("{id}/delete")]
     public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
     {
         var deleted = await _repo.DeleteAsync(id);

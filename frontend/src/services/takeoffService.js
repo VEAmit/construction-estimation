@@ -41,7 +41,7 @@ export const takeoffService = {
   },
 
   async delete(id) {
-    await api.delete(`/takeoffitems/${id}`)
+    await api.post(`/takeoffitems/${id}/delete`)
   },
 
   async getSummary(drawingId) {
