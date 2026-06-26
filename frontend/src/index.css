@@ -31,6 +31,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
   background: #080B12;
   color: #f1f5f9;
+  color-scheme: dark;
 }
 
 #root { height: 100%; width: 100%; }
@@ -148,6 +149,25 @@ html, body {
   background: var(--panel2);
 }
 .inp:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(239,35,60,.15); }
+
+/* ─── Dark theme selects (dropdown list + options) ───── */
+select.app-select {
+  background: var(--panel);
+  color: var(--txt);
+  color-scheme: dark;
+  border: 1px solid var(--bdr2);
+  border-radius: var(--r);
+  outline: none;
+  cursor: pointer;
+}
+select.app-select:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px rgba(239,35,60,.15);
+}
+select.app-select option {
+  background: #111827;
+  color: #f1f5f9;
+}
 
 /* ─── Btn base ───────────────────────────────────────── */
 .btn { display: inline-flex; align-items: center; gap: 5px;

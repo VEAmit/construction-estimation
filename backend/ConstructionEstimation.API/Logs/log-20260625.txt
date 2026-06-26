@@ -1,0 +1,290 @@
+2026-06-25 11:08:58.199 +05:30 [INF] Database migrated successfully
+2026-06-25 11:08:58.803 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-25 11:14:21.258 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 12400.4177 ms
+2026-06-25 11:14:21.610 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 91.1680 ms
+2026-06-25 11:14:24.043 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/79 responded 200 in 1452.6591 ms
+2026-06-25 11:14:24.046 +05:30 [INF] HTTP GET /api/memberschedules/drawing/79/summary responded 200 in 1454.8350 ms
+2026-06-25 11:14:24.048 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/79/summary responded 200 in 1457.1188 ms
+2026-06-25 11:14:24.061 +05:30 [INF] HTTP GET /api/memberschedules/drawing/79 responded 200 in 1473.7653 ms
+2026-06-25 11:14:24.099 +05:30 [INF] HTTP GET /api/drawings/79 responded 200 in 1562.5564 ms
+2026-06-25 11:15:29.349 +05:30 [INF] Drawing 123456.pdf uploaded for project 11
+2026-06-25 11:15:29.449 +05:30 [INF] HTTP POST /api/drawings/upload/11 responded 200 in 4114.7037 ms
+2026-06-25 11:15:32.018 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 8.1338 ms
+2026-06-25 11:15:32.189 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 179.2666 ms
+2026-06-25 11:15:32.193 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 182.1511 ms
+2026-06-25 11:15:32.237 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 4.9767 ms
+2026-06-25 11:15:32.238 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 228.3733 ms
+2026-06-25 11:15:32.247 +05:30 [INF] HTTP GET /api/drawings/81/file responded 200 in 406.0614 ms
+2026-06-25 11:15:32.335 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 323.7979 ms
+2026-06-25 11:16:00.286 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 11:16:00.476 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 11:16:00.490 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 10621.2751 ms
+2026-06-25 11:34:37.272 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 2359.8334 ms
+2026-06-25 11:34:37.375 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 99.4737 ms
+2026-06-25 11:34:37.456 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 49.4415 ms
+2026-06-25 11:34:37.504 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 7.4431 ms
+2026-06-25 11:34:37.585 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 88.3712 ms
+2026-06-25 11:34:37.622 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 124.6080 ms
+2026-06-25 11:34:37.863 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 365.2016 ms
+2026-06-25 11:34:37.863 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 364.6973 ms
+2026-06-25 11:34:47.232 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 11:34:47.238 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 11:34:47.239 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1502.1429 ms
+2026-06-25 11:35:19.057 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 174.7501 ms
+2026-06-25 11:35:19.133 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 55.2529 ms
+2026-06-25 11:35:19.196 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 5.1525 ms
+2026-06-25 11:35:19.199 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 9.4713 ms
+2026-06-25 11:35:19.284 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 92.1619 ms
+2026-06-25 11:35:19.284 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 96.7701 ms
+2026-06-25 11:35:19.290 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 98.0612 ms
+2026-06-25 11:35:28.107 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 11:35:28.112 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 11:35:28.114 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 2644.9162 ms
+2026-06-25 11:41:36.287 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 11:41:36.289 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 11:41:36.290 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1204.7525 ms
+2026-06-25 11:47:05.790 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 479.7155 ms
+2026-06-25 11:47:05.820 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 23.5509 ms
+2026-06-25 11:47:05.846 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 3.3840 ms
+2026-06-25 11:47:05.914 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 49.4588 ms
+2026-06-25 11:47:05.948 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 74.9835 ms
+2026-06-25 11:47:05.990 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 117.0060 ms
+2026-06-25 11:47:05.990 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 115.9758 ms
+2026-06-25 11:47:05.998 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 127.4742 ms
+2026-06-25 11:47:10.339 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 11:47:10.344 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 11:47:10.347 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1502.5461 ms
+2026-06-25 12:05:59.897 +05:30 [INF] Saved 63 extracted members for drawing 81
+2026-06-25 12:05:59.899 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 1785.3343 ms
+2026-06-25 12:06:00.243 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 218.7184 ms
+2026-06-25 12:06:01.051 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 1026.5834 ms
+2026-06-25 12:07:05.852 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 12:07:05.854 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 12:07:05.854 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1271.8874 ms
+2026-06-25 12:10:38.646 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 7.2691 ms
+2026-06-25 12:10:38.651 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 9.0966 ms
+2026-06-25 12:10:39.198 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 555.9864 ms
+2026-06-25 12:10:39.236 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 591.9532 ms
+2026-06-25 12:10:54.312 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 4.7073 ms
+2026-06-25 12:10:54.312 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 4.1291 ms
+2026-06-25 12:10:54.316 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 6.7323 ms
+2026-06-25 12:10:54.319 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 9.7956 ms
+2026-06-25 12:10:55.578 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 3.9798 ms
+2026-06-25 12:10:55.578 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 3.6127 ms
+2026-06-25 12:10:55.580 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 5.7418 ms
+2026-06-25 12:10:55.583 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 8.0938 ms
+2026-06-25 12:13:13.027 +05:30 [INF] HTTP PUT /api/memberschedules/317 responded 200 in 287.1623 ms
+2026-06-25 12:16:20.495 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 12:16:20.575 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 12:16:20.575 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1172.3498 ms
+2026-06-25 12:21:32.982 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 722.7301 ms
+2026-06-25 12:21:33.008 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 23.1413 ms
+2026-06-25 12:21:33.034 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 3.4727 ms
+2026-06-25 12:21:33.068 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 13.4174 ms
+2026-06-25 12:21:33.082 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 22.5408 ms
+2026-06-25 12:21:33.096 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 33.5717 ms
+2026-06-25 12:21:33.362 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 299.3720 ms
+2026-06-25 12:21:33.381 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 314.7757 ms
+2026-06-25 12:21:38.819 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 12:21:38.821 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 12:21:38.822 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 2201.4541 ms
+2026-06-25 12:24:59.278 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 2.9980 ms
+2026-06-25 12:24:59.283 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 9.5339 ms
+2026-06-25 12:24:59.339 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 18.5949 ms
+2026-06-25 12:24:59.542 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 220.2210 ms
+2026-06-25 12:24:59.556 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 234.4707 ms
+2026-06-25 12:24:59.556 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 234.4478 ms
+2026-06-25 12:24:59.558 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 285.5323 ms
+2026-06-25 12:24:59.568 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 4.6835 ms
+2026-06-25 12:24:59.606 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 36.4016 ms
+2026-06-25 12:24:59.673 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 3.6137 ms
+2026-06-25 12:24:59.673 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 2.0666 ms
+2026-06-25 12:24:59.687 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 1.9565 ms
+2026-06-25 12:24:59.707 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 363.0406 ms
+2026-06-25 12:24:59.707 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 386.0532 ms
+2026-06-25 12:24:59.718 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 1.6220 ms
+2026-06-25 12:24:59.720 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 2.8912 ms
+2026-06-25 12:24:59.726 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 2.4922 ms
+2026-06-25 12:27:18.913 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 12:27:18.916 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 12:27:18.916 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1415.1606 ms
+2026-06-25 12:27:25.282 +05:30 [INF] Saved 63 extracted members for drawing 81
+2026-06-25 12:27:25.284 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 707.6918 ms
+2026-06-25 12:27:25.659 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 3.1912 ms
+2026-06-25 12:27:25.659 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 3.6472 ms
+2026-06-25 12:28:59.773 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 12:28:59.776 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 12:28:59.790 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1133.3661 ms
+2026-06-25 13:42:56.098 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 13:42:56.133 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 13:42:56.133 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1463.1990 ms
+2026-06-25 13:43:47.133 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 13:43:47.135 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 13:43:47.135 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1226.4066 ms
+2026-06-25 13:44:10.801 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 13:44:10.807 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 13:44:10.808 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1093.5199 ms
+2026-06-25 17:07:40.331 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 4864.5016 ms
+2026-06-25 17:07:40.348 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 4932.0509 ms
+2026-06-25 17:07:40.377 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 4920.6334 ms
+2026-06-25 17:07:40.449 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 5032.8806 ms
+2026-06-25 17:17:23.181 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 7614.4695 ms
+2026-06-25 17:17:24.106 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 627.0092 ms
+2026-06-25 17:17:26.772 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 577.0730 ms
+2026-06-25 17:17:27.342 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 1628.0170 ms
+2026-06-25 17:17:31.459 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 5661.9295 ms
+2026-06-25 17:17:33.706 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 7513.7086 ms
+2026-06-25 17:17:33.706 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 7968.8022 ms
+2026-06-25 17:17:33.706 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 8013.2450 ms
+2026-06-25 17:17:34.395 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 203.2332 ms
+2026-06-25 17:17:34.586 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 187.3464 ms
+2026-06-25 17:17:34.811 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 19.1837 ms
+2026-06-25 17:17:35.370 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 558.4752 ms
+2026-06-25 17:17:35.377 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 592.3398 ms
+2026-06-25 17:17:35.646 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 860.4106 ms
+2026-06-25 17:17:35.805 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 971.9520 ms
+2026-06-25 17:17:40.072 +05:30 [INF] HTTP GET /api/drawings/81/file responded 200 in 5452.4166 ms
+2026-06-25 17:18:45.296 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:18:45.827 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 17:18:45.958 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 44422.2434 ms
+2026-06-25 17:20:39.044 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:20:39.105 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 17:20:39.135 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 3523.8238 ms
+2026-06-25 17:20:52.570 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:20:52.572 +05:30 [INF] Extracted 63 members from drawing 81
+2026-06-25 17:20:52.572 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 2357.0127 ms
+2026-06-25 17:24:48.143 +05:30 [INF] Database migrated successfully
+2026-06-25 17:24:49.168 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-25 17:24:50.863 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 401 in 494.6558 ms
+2026-06-25 17:24:50.966 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 401 in 7.0063 ms
+2026-06-25 17:24:58.081 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 3721.3220 ms
+2026-06-25 17:25:00.601 +05:30 [INF] HTTP GET /api/projects responded 200 in 1704.2233 ms
+2026-06-25 17:25:00.684 +05:30 [INF] HTTP GET /api/projects responded 200 in 78.7620 ms
+2026-06-25 17:25:04.911 +05:30 [INF] HTTP GET /api/drawings/project/12 responded 200 in 138.6034 ms
+2026-06-25 17:25:04.927 +05:30 [INF] HTTP GET /api/drawings/project/12 responded 200 in 10.1053 ms
+2026-06-25 17:25:05.096 +05:30 [INF] HTTP GET /api/drawings/80/file responded 304 in 124.0183 ms
+2026-06-25 17:25:05.096 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/80/summary responded 200 in 54.1741 ms
+2026-06-25 17:25:05.105 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/80 responded 200 in 49.7362 ms
+2026-06-25 17:25:05.134 +05:30 [INF] HTTP GET /api/drawings/80 responded 200 in 90.7943 ms
+2026-06-25 17:25:05.169 +05:30 [INF] HTTP GET /api/memberschedules/drawing/80 responded 200 in 126.3625 ms
+2026-06-25 17:25:05.348 +05:30 [INF] HTTP GET /api/memberschedules/drawing/80/summary responded 200 in 305.6421 ms
+2026-06-25 17:25:14.074 +05:30 [INF] HTTP GET /api/projects responded 200 in 44.0646 ms
+2026-06-25 17:25:14.090 +05:30 [INF] HTTP GET /api/projects responded 200 in 7.9819 ms
+2026-06-25 17:25:15.458 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 63.3070 ms
+2026-06-25 17:25:15.520 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 51.6540 ms
+2026-06-25 17:25:15.586 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 14.0635 ms
+2026-06-25 17:25:15.586 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 12.0881 ms
+2026-06-25 17:25:15.590 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 14.9067 ms
+2026-06-25 17:25:15.602 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 25.7919 ms
+2026-06-25 17:25:15.606 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 28.8248 ms
+2026-06-25 17:25:37.127 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:25:38.677 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 17:25:38.685 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 7537.7792 ms
+2026-06-25 17:26:17.143 +05:30 [INF] Upserted 36 extracted members for drawing 81
+2026-06-25 17:26:17.144 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 1040.3038 ms
+2026-06-25 17:26:17.218 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 7.1715 ms
+2026-06-25 17:26:17.219 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 7.2131 ms
+2026-06-25 17:29:57.098 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:29:57.103 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 17:29:57.104 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1104.8486 ms
+2026-06-25 17:30:09.707 +05:30 [INF] Upserted 36 extracted members for drawing 81
+2026-06-25 17:30:09.707 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 98.0116 ms
+2026-06-25 17:30:09.717 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 2.3335 ms
+2026-06-25 17:30:09.725 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 9.4395 ms
+2026-06-25 17:35:27.762 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 1836.9635 ms
+2026-06-25 17:35:27.782 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 1909.2730 ms
+2026-06-25 17:35:27.782 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 1903.4848 ms
+2026-06-25 17:35:27.785 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 1914.8892 ms
+2026-06-25 17:35:27.797 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 1873.9666 ms
+2026-06-25 17:35:28.070 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 2200.6168 ms
+2026-06-25 17:35:28.211 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 4.8692 ms
+2026-06-25 17:35:28.211 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 5.4010 ms
+2026-06-25 17:35:28.261 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 55.2278 ms
+2026-06-25 17:35:28.262 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 5.0325 ms
+2026-06-25 17:35:28.267 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 12.1903 ms
+2026-06-25 17:35:28.309 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 51.0347 ms
+2026-06-25 17:35:28.983 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 174.2633 ms
+2026-06-25 17:35:29.016 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 206.0392 ms
+2026-06-25 17:35:29.016 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 206.1072 ms
+2026-06-25 17:35:29.059 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 249.5614 ms
+2026-06-25 17:35:29.087 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 275.8086 ms
+2026-06-25 17:35:51.576 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 251.0249 ms
+2026-06-25 17:35:51.579 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 248.8376 ms
+2026-06-25 17:35:51.579 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 249.7006 ms
+2026-06-25 17:35:52.137 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 811.1720 ms
+2026-06-25 17:36:55.065 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 209.2738 ms
+2026-06-25 17:36:55.095 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 25.4674 ms
+2026-06-25 17:36:55.152 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 5.6820 ms
+2026-06-25 17:36:55.154 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 9.7833 ms
+2026-06-25 17:36:55.157 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 4.8124 ms
+2026-06-25 17:36:55.168 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 19.8683 ms
+2026-06-25 17:36:55.168 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 21.0856 ms
+2026-06-25 17:37:01.208 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:37:01.213 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 17:37:01.213 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1046.8579 ms
+2026-06-25 17:37:18.840 +05:30 [INF] Upserted 36 extracted members for drawing 81
+2026-06-25 17:37:18.840 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 87.1262 ms
+2026-06-25 17:37:18.854 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 5.7823 ms
+2026-06-25 17:37:18.855 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 6.1100 ms
+2026-06-25 17:37:35.848 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 17:37:35.852 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 17:37:35.852 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1046.2997 ms
+2026-06-25 20:04:02.054 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 2362.9529 ms
+2026-06-25 20:04:02.091 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 31.4816 ms
+2026-06-25 20:04:02.184 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 4.2590 ms
+2026-06-25 20:04:02.197 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 17.5769 ms
+2026-06-25 20:04:02.213 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 31.4708 ms
+2026-06-25 20:04:02.473 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 280.4042 ms
+2026-06-25 20:04:02.484 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 288.9572 ms
+2026-06-25 20:04:02.745 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 599.5370 ms
+2026-06-25 22:54:13.170 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 357.1362 ms
+2026-06-25 22:54:13.250 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 76.2457 ms
+2026-06-25 22:54:13.277 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 2.9193 ms
+2026-06-25 22:54:13.405 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 10.9357 ms
+2026-06-25 22:54:13.410 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 12.4246 ms
+2026-06-25 22:54:13.493 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 5.7271 ms
+2026-06-25 22:54:13.589 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 190.7723 ms
+2026-06-25 22:54:13.604 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 205.7819 ms
+2026-06-25 22:57:24.082 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 22:57:25.741 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 22:57:25.927 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 5866.8759 ms
+2026-06-25 22:57:32.090 +05:30 [INF] Upserted 36 extracted members for drawing 81
+2026-06-25 22:57:32.090 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 271.5448 ms
+2026-06-25 22:57:32.128 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 30.6424 ms
+2026-06-25 22:57:32.128 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 30.9261 ms
+2026-06-25 22:57:41.680 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 79.4675 ms
+2026-06-25 22:57:41.769 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 85.9807 ms
+2026-06-25 22:57:41.827 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 6.1170 ms
+2026-06-25 22:57:41.836 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 18.4574 ms
+2026-06-25 22:57:41.837 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 17.1243 ms
+2026-06-25 22:57:41.838 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 14.8911 ms
+2026-06-25 22:57:41.847 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 24.1248 ms
+2026-06-25 23:02:05.050 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 23:02:05.061 +05:30 [INF] Extracted 36 members from drawing 81
+2026-06-25 23:02:05.062 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1261.9817 ms
+2026-06-25 23:19:28.990 +05:30 [INF] Database migrated successfully
+2026-06-25 23:19:29.579 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-25 23:20:21.662 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 3089.7285 ms
+2026-06-25 23:20:21.947 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 206.1782 ms
+2026-06-25 23:20:22.498 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 434.5656 ms
+2026-06-25 23:20:22.555 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 405.0172 ms
+2026-06-25 23:20:22.555 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 491.5475 ms
+2026-06-25 23:20:22.558 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 409.7901 ms
+2026-06-25 23:20:22.759 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 609.1840 ms
+2026-06-25 23:20:37.964 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 23:20:40.602 +05:30 [INF] Extracted 77 members from drawing 81
+2026-06-25 23:20:40.795 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 13472.3586 ms
+2026-06-25 23:22:08.897 +05:30 [INF] Upserted 77 extracted members for drawing 81
+2026-06-25 23:22:08.899 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 1133.4393 ms
+2026-06-25 23:22:08.919 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 12.6702 ms
+2026-06-25 23:22:08.934 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 27.3580 ms
+2026-06-25 23:22:21.487 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 23:22:21.502 +05:30 [INF] Extracted 77 members from drawing 81
+2026-06-25 23:22:21.502 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1309.6925 ms
+2026-06-25 23:22:24.763 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-25 23:22:24.773 +05:30 [INF] Extracted 77 members from drawing 81
+2026-06-25 23:22:24.774 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 1038.7261 ms
+2026-06-25 23:22:26.998 +05:30 [INF] Upserted 77 extracted members for drawing 81
+2026-06-25 23:22:26.999 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 268.6757 ms
+2026-06-25 23:22:27.087 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 82.5219 ms
+2026-06-25 23:22:27.251 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 246.4673 ms

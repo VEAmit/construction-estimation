@@ -383,9 +383,13 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
         <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
           <SectionLabel>Member Schedule</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <StatCard label="Members"      value={memberScheduleItems.length}           color="#EF233C" />
-            <StatCard label="Total Qty"    value={memberTotalQty}                       color="#F59E0B" />
-            <StatCard label="Total Weight" value={`${memberTotalWeight.toFixed(1)} kg`} color="#22C55E" />
+            <StatCard label="Members" value={memberScheduleItems.length} color="#EF233C" />
+            {memberTotalQty > 0 && (
+              <StatCard label="Total Qty" value={memberTotalQty} color="#F59E0B" />
+            )}
+            {memberTotalWeight > 0 && (
+              <StatCard label="Total Weight" value={`${memberTotalWeight.toFixed(1)} kg`} color="#22C55E" />
+            )}
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { extractionService } from '../../services/extractionService'
+import { sortMembersByMark } from '../../utils/extractionNormalize'
 
 const MEMBER_TYPES = ['Beam', 'Column', 'Rafter', 'Purlin', 'Girt', 'Brace', 'Plate', 'Other']
 
@@ -72,13 +73,6 @@ const s = {
     padding: '5px 8px', width: '100%', fontSize: 12,
     outline: 'none',
   },
-  confBadge: (c) => ({
-    display: 'inline-block',
-    padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-    background: c >= 0.8 ? 'rgba(34,197,94,.12)' : c >= 0.6 ? 'rgba(245,158,11,.12)' : 'rgba(239,68,68,.12)',
-    color: c >= 0.8 ? '#4ade80' : c >= 0.6 ? '#fbbf24' : '#f87171',
-    border: `1px solid ${c >= 0.8 ? 'rgba(34,197,94,.25)' : c >= 0.6 ? 'rgba(245,158,11,.25)' : 'rgba(239,68,68,.25)'}`,
-  }),
   deleteBtn: {
     background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', color: '#f87171',
     cursor: 'pointer', padding: '3px 7px', borderRadius: 5,
@@ -129,8 +123,7 @@ function blankRow() {
   return {
     _id: Math.random().toString(36).slice(2),
     mark: '', memberSize: '', memberType: 'Other',
-    unitWeight: 0, length: 0, quantity: 1,
-    description: '', confidence: 0,
+    description: '',
   }
 }
 
@@ -146,16 +139,12 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     setError(null)
     try {
       const data = await extractionService.extract(drawingId)
-      const initialRows = (data.members ?? []).map(m => ({
+      const initialRows = sortMembersByMark(data.members ?? []).map(m => ({
         _id: Math.random().toString(36).slice(2),
         mark: m.mark ?? '',
         memberSize: m.memberSize ?? '',
         memberType: m.memberType ?? 'Other',
-        unitWeight: m.unitWeight ?? 0,
-        length: m.length ?? 0,
-        quantity: m.quantity ?? 1,
         description: m.description ?? '',
-        confidence: m.confidence ?? 0,
       }))
       setResult(data)
       setRows(initialRows)
@@ -178,7 +167,8 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     if (rows.length === 0) return
     setPhase('saving')
     try {
-      const saved = await extractionService.confirm(drawingId, rows)
+      const payload = rows.map(({ _id, ...r }) => r)
+      const saved = await extractionService.confirm(drawingId, payload)
       setPhase('done')
       onSaved(saved)
     } catch (err) {
@@ -216,9 +206,10 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
               <div style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
                 Scan and Extract Structural Members
               </div>
-              <div style={{ color: '#64748b', fontSize: 13, marginBottom: 24, maxWidth: 420, margin: '0 auto 24px' }}>
-                Scans <strong style={{ color: '#94a3b8' }}>{drawingName}</strong> for steel section sizes,
-                member marks and lengths using OCR pattern recognition.
+              <div style={{ color: '#64748b', fontSize: 13, marginBottom: 24, maxWidth: 480, margin: '0 auto 24px' }}>
+                Reads <strong style={{ color: '#94a3b8' }}>Mark</strong>, <strong style={{ color: '#94a3b8' }}>Section size</strong>, and <strong style={{ color: '#94a3b8' }}>Type</strong> from{' '}
+                <strong style={{ color: '#94a3b8' }}>{drawingName}</strong> (e.g. SC2, 360UB45).
+                Length, qty and weight are added later in the Member Schedule panel.
               </div>
               {error && (
                 <div style={{ ...s.statusBar, background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)', marginBottom: 16 }}>
@@ -256,7 +247,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                 border: `1px solid ${rows.length > 0 ? 'rgba(34,197,94,.25)' : 'rgba(245,158,11,.25)'}`,
               }}>
                 {rows.length > 0
-                  ? `Found ${rows.length} member(s) — review and edit before saving`
+                  ? `Found ${rows.length} member(s) from the PDF — review Mark, Section & Type, then save`
                   : 'No members detected automatically — add rows manually or try a different drawing'}
               </div>
 
@@ -270,14 +261,24 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                 <table style={s.table}>
                   <thead>
                     <tr>
-                      {['Mark','Section Size','Type','Unit Wt (kg/m)','Length (m)','Qty','Description','Conf',''].map(h => (
-                        <th key={h} style={s.th}>{h}</th>
+                      {[
+                        ['Mark (on drawing)', 'mark'],
+                        ['Section size', 'size'],
+                        ['Type', 'type'],
+                        ['PDF source line', 'desc'],
+                        ['', 'del'],
+                      ].map(([h]) => (
+                        <th key={h || 'x'} style={s.th} title={
+                          h === 'Mark (on drawing)' ? 'Member reference from PDF e.g. SC2, C1, B1'
+                          : h === 'Section size' ? 'Steel section from PDF e.g. 360UB45 (45 kg/m is part of this, not a separate column)'
+                          : undefined
+                        }>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 && (
-                      <tr><td colSpan={9} style={{ ...s.td, ...s.emptyMsg }}>No rows — click "+ Add Row" to add manually</td></tr>
+                      <tr><td colSpan={5} style={{ ...s.td, ...s.emptyMsg }}>No rows — click "+ Add Row" to add manually</td></tr>
                     )}
                     {rows.map((row, idx) => (
                       <tr key={row._id} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.02)' }}>
@@ -290,34 +291,14 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                             onChange={e => updateRow(row._id, 'memberSize', e.target.value)} />
                         </td>
                         <td style={s.td}>
-                          <select style={s.select} value={row.memberType}
+                          <select className="app-select" style={s.select} value={row.memberType}
                             onChange={e => updateRow(row._id, 'memberType', e.target.value)}>
                             {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </td>
                         <td style={s.td}>
-                          <input style={{ ...s.input, width: 80 }} type="number" min={0} step={0.1}
-                            value={row.unitWeight}
-                            onChange={e => updateRow(row._id, 'unitWeight', e.target.value)} />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, width: 80 }} type="number" min={0} step={0.001}
-                            value={row.length}
-                            onChange={e => updateRow(row._id, 'length', e.target.value)} />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, width: 55 }} type="number" min={1} step={1}
-                            value={row.quantity}
-                            onChange={e => updateRow(row._id, 'quantity', e.target.value)} />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, width: 160 }} value={row.description}
+                          <input style={{ ...s.input, width: 200 }} value={row.description}
                             onChange={e => updateRow(row._id, 'description', e.target.value)} />
-                        </td>
-                        <td style={s.td}>
-                          <span style={s.confBadge(row.confidence)}>
-                            {row.confidence > 0 ? `${Math.round(row.confidence * 100)}%` : '—'}
-                          </span>
                         </td>
                         <td style={s.td}>
                           <button style={s.deleteBtn} onClick={() => deleteRow(row._id)} title="Remove row">✕</button>
@@ -355,7 +336,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                 {rows.length} member(s) saved to Member Schedule
               </div>
               <div style={{ color: '#64748b', fontSize: 13 }}>
-                You can view and edit them in the Member Schedule panel below.
+                Add length, qty and unit weight in the Member Schedule panel below.
               </div>
             </div>
           )}
@@ -371,7 +352,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
           </span>
           <div style={{ display: 'flex', gap: 10 }}>
             {phase === 'preview' && (
-              <button style={s.cancelBtn} onClick={() => setPhase('idle')}>← Re-scan</button>
+              <button style={s.cancelBtn} onClick={runExtraction}>← Re-scan</button>
             )}
             <button style={s.cancelBtn} onClick={onClose}>
               {phase === 'done' ? 'Close' : 'Cancel'}

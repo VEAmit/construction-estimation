@@ -1,0 +1,24 @@
+2026-06-26 09:06:45.574 +05:30 [INF] Database migrated successfully
+2026-06-26 09:06:46.300 +05:30 [INF] BuildTakeoff Pro API starting
+2026-06-26 09:09:32.349 +05:30 [INF] HTTP GET /api/projects responded 401 in 2313.4607 ms
+2026-06-26 09:09:32.701 +05:30 [INF] HTTP GET /api/projects responded 401 in 6.6606 ms
+2026-06-26 09:09:39.889 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 3653.5176 ms
+2026-06-26 09:09:42.150 +05:30 [INF] HTTP GET /api/projects responded 200 in 2191.3363 ms
+2026-06-26 09:09:42.327 +05:30 [INF] HTTP GET /api/projects responded 200 in 169.6273 ms
+2026-06-26 09:09:55.415 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 582.5491 ms
+2026-06-26 09:09:55.598 +05:30 [INF] HTTP GET /api/drawings/project/11 responded 200 in 117.8362 ms
+2026-06-26 09:09:55.813 +05:30 [INF] HTTP GET /api/drawings/81/file responded 304 in 193.6750 ms
+2026-06-26 09:09:55.882 +05:30 [INF] HTTP GET /api/drawings/81 responded 200 in 180.1898 ms
+2026-06-26 09:09:56.086 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 364.0144 ms
+2026-06-26 09:09:56.108 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 355.3092 ms
+2026-06-26 09:09:56.170 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81 responded 200 in 468.1891 ms
+2026-06-26 09:09:56.173 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/81/summary responded 200 in 470.9917 ms
+2026-06-26 09:11:27.209 +05:30 [INF] Drawing 81: extraction method=Text, lines=1957
+2026-06-26 09:11:27.784 +05:30 [INF] Extracted 77 members from drawing 81
+2026-06-26 09:11:27.796 +05:30 [INF] HTTP POST /api/extraction/drawing/81 responded 200 in 8317.7113 ms
+2026-06-26 09:12:06.739 +05:30 [INF] Upserted 78 extracted members for drawing 81
+2026-06-26 09:12:06.741 +05:30 [INF] HTTP POST /api/extraction/drawing/81/confirm responded 200 in 1056.2403 ms
+2026-06-26 09:12:06.812 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81 responded 200 in 63.0111 ms
+2026-06-26 09:12:06.958 +05:30 [INF] HTTP GET /api/memberschedules/drawing/81/summary responded 200 in 208.4702 ms
+2026-06-26 09:15:33.499 +05:30 [INF] HTTP PUT /api/memberschedules/431 responded 200 in 83.3144 ms
+2026-06-26 09:15:50.722 +05:30 [INF] HTTP POST /api/memberschedules/431/delete responded 200 in 61.8179 ms

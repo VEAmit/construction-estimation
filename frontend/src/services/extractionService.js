@@ -1,19 +1,24 @@
 import api from './api'
+import { normalizeExtractedMember, dedupeUniqueByMark, sortMembersByMark } from '../utils/extractionNormalize'
 
 export const extractionService = {
   async extract(drawingId) {
     const res = await api.post(`/extraction/drawing/${drawingId}`)
-    return res.data.data
+    const data = res.data.data
+    const members = sortMembersByMark(
+      dedupeUniqueByMark((data?.members ?? data?.Members ?? []).map(normalizeExtractedMember))
+    )
+    return { ...data, members }
   },
 
   async confirm(drawingId, members) {
-    const items = members.map(m => ({
+    const items = sortMembersByMark(dedupeUniqueByMark(members)).map(m => ({
       mark: m.mark ?? '',
       memberSize: m.memberSize ?? '',
       memberType: m.memberType ?? 'Other',
-      unitWeight: parseFloat(m.unitWeight) || 0,
-      length: parseFloat(m.length) || 0,
-      quantity: parseInt(m.quantity, 10) || 1,
+      unitWeight: 0,
+      length: 0,
+      quantity: 0,
       description: m.description ?? '',
       takeoffItemId: m.takeoffItemId ?? null,
     }))

@@ -890,7 +890,7 @@ export default function DrawingsPage() {
       setMemberScheduleSummary(memberSum)
       setBottomTab('members')
       setShowBottom(true)
-      toast.success(`${count} member(s) saved to schedule`, { duration: 3000, icon: '🔩' })
+      toast.success(`${count} member(s) saved — schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
     } catch { /* ignore */ }
     setShowExtractModal(false)
   }, [selectedDrawing])

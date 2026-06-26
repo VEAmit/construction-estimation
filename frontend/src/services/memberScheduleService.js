@@ -18,7 +18,7 @@ export const memberScheduleService = {
       memberType: payload.memberType ?? '',
       unitWeight: payload.unitWeight ?? 0,
       length: payload.length ?? 0,
-      quantity: payload.quantity ?? 1,
+      quantity: payload.quantity ?? 0,
       description: payload.description ?? '',
       takeoffItemId: payload.takeoffItemId ?? null,
     })

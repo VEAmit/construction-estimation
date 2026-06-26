@@ -20,44 +20,45 @@ public class ExtractionService
     );
 
     private static readonly Regex HollowSectionPattern = new(
-        @"\b(\d{2,3})[xX×](\d{2,3})(?:[xX×](\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
+        @"\b(\d{2,3})\s*[xX×]\s*(\d{2,3})(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
-    private static readonly Regex MemberMarkPattern = new(
-        @"\b([RBCPGFHKM][1-9][0-9]?)\b",
-        RegexOptions.Compiled
+    // Reid bars on precast plans — "R1 - RB12 REID BARS x 540 LONG..."
+    private static readonly Regex ReidBarPattern = new(
+        @"\b(RB\d+)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
+
+    // Marks as shown on drawings: SC2, B1, C7, FB1 — UB/UC or hollow (75 x 5 SHS)
+    private static readonly Regex PdfScheduleMarkPattern = new(
+        @"\b([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]\s*(?:\d+\s*)?(?:(?:\d+\s*[xX×]\s*)+\d+(?:\.\d+)?\s*)?(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS|RB\d+)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Table row: mark then section at line start — "SC2  360UB45" or "B1 610 UB 113"
+    private static readonly Regex TableRowMarkPattern = new(
+        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s+\d{2,4}\s*(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Drawing list format (COLUMNS / BEAMS / PAD FOOTINGS on structural plans)
+    private static readonly Regex DrawingListLinePattern = new(
+        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*(.+)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    private static readonly string[] DrawingListSections = {
+        "COLUMNS", "BEAMS", "RAFTERS", "PURLINS", "GIRTS", "BRACES",
+        "FLOOR BEAMS", "FLOORBEAMS", "ROOF BEAMS", "PAD FOOTINGS", "STRUTS",
+        "SECONDARY MEMBERS", "OTHERS", "OTHER",
+    };
 
     private static readonly string[] ScheduleHeaders = {
         "member schedule", "steel schedule", "section schedule",
         "beam schedule", "column schedule", "purlin schedule",
         "member mark", "section size", "unit weight",
     };
-
-    private static readonly Dictionary<string, double> SectionWeights =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            {"150UB14.0",14.0},{"150UB18.0",18.0},
-            {"180UB16.1",16.1},{"180UB18.1",18.1},{"180UB22.2",22.2},
-            {"200UB18.2",18.2},{"200UB22.3",22.3},{"200UB25.4",25.4},{"200UB29.8",29.8},
-            {"250UB25.7",25.7},{"250UB31.4",31.4},{"250UB37.3",37.3},
-            {"310UB32.0",32.0},{"310UB40.4",40.4},{"310UB46.2",46.2},
-            {"360UB44.7",44.7},{"360UB50.7",50.7},{"360UB56.7",56.7},
-            {"410UB53.7",53.7},{"410UB59.7",59.7},
-            {"460UB67.1",67.1},{"460UB74.6",74.6},{"460UB82.1",82.1},
-            {"530UB82.0",82.0},{"530UB92.4",92.4},
-            {"610UB101",101.0},{"610UB113",113.0},{"610UB125",125.0},
-            {"100UC14.8",14.8},
-            {"150UC23.4",23.4},{"150UC30.0",30.0},{"150UC37.2",37.2},
-            {"200UC46.2",46.2},{"200UC52.2",52.2},{"200UC59.5",59.5},
-            {"250UC72.9",72.9},{"250UC89.5",89.5},
-            {"310UC96.8",96.8},{"310UC118",118.0},{"310UC137",137.0},
-            {"360UC144",144.0},{"360UC179",179.0},
-            {"75PFC",5.92},{"100PFC",8.33},{"125PFC",11.9},{"150PFC",17.7},
-            {"180PFC",22.2},{"200PFC",29.9},{"230PFC",36.0},{"250PFC",35.5},
-            {"300PFC",46.0},{"380PFC",55.0},
-        };
 
     public ExtractionService(ILogger<ExtractionService> logger, IWebHostEnvironment env)
     {
@@ -229,20 +230,164 @@ public class ExtractionService
     private List<ExtractedMemberDto> ParseMembers(List<string> lines, string fullText)
     {
         var results = new List<ExtractedMemberDto>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // COLUMNS / BEAMS lists on footing plans (SC2 - 360 UB 45, C1 - 610 UB 113)
+        results.AddRange(ParseDrawingLists(lines));
 
         var scheduleStart = FindScheduleSection(lines);
         if (scheduleStart >= 0)
-        {
-            foreach (var m in ParseScheduleTable(lines, scheduleStart))
-                if (seen.Add($"{m.Mark}|{m.MemberSize}")) results.Add(m);
-        }
+            results.AddRange(ParseScheduleTable(lines, scheduleStart));
 
-        foreach (var m in ParseByPattern(lines, fullText))
-            if (seen.Add($"{m.Mark}|{m.MemberSize}")) results.Add(m);
+        results.AddRange(ParseByPattern(lines, fullText));
+
+        // One row per mark — prefer drawing list > schedule > pattern
+        results = MergePreferBestRows(results);
+        return results.Where(IsValidExtractedMember)
+            .OrderBy(r => r.Mark, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Only rows with a real PDF mark + section — drops note lines (PROVIDE, REINFORCEMENT, etc.).</summary>
+    private static bool IsValidExtractedMember(ExtractedMemberDto r)
+    {
+        if (string.IsNullOrWhiteSpace(r.Mark) || string.IsNullOrWhiteSpace(r.MemberSize))
+            return false;
+        if (!Regex.IsMatch(r.Mark, @"^[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
+            return false;
+        // Auto-guess marks M1/M2 — not used on structural drawings
+        if (Regex.IsMatch(r.Mark, @"^M\d+$", RegexOptions.IgnoreCase))
+            return false;
+
+        var desc = r.Description.ToUpperInvariant();
+        if (Regex.IsMatch(desc, @"\b(PROVIDE|REINFORCEMENT|WELD\s+AT|WELD\s+ON|SLOTTED\s+HOLES)\b"))
+            return false;
+
+        return SteelSectionPattern.IsMatch(r.MemberSize)
+            || HollowSectionPattern.IsMatch(r.MemberSize)
+            || ReidBarPattern.IsMatch(r.MemberSize)
+            || (r.Confidence >= 0.95 && r.MemberSize.Length >= 2);
+    }
+
+    /// <summary>
+    /// Parses COLUMNS, BEAMS, PAD FOOTINGS blocks — "SC2 - 360 UB 45: REFER TO DETAIL..."
+    /// </summary>
+    private List<ExtractedMemberDto> ParseDrawingLists(List<string> lines)
+    {
+        var results = new List<ExtractedMemberDto>();
+        bool inList = false;
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length < 2) continue;
+
+            if (IsDrawingListHeader(line))
+            {
+                inList = true;
+                continue;
+            }
+
+            if (inList && (IsStopLine(line) || IsDrawingListHeader(line)))
+            {
+                inList = false;
+                if (IsDrawingListHeader(line)) inList = true;
+            }
+
+            ExtractedMemberDto? member = null;
+            if (inList)
+                member = TryParseDrawingListLine(line);
+            else if (DrawingListLinePattern.IsMatch(line))
+                member = TryParseDrawingListLine(line);
+
+            if (member != null) results.Add(member);
+        }
 
         return results;
     }
+
+    private static bool IsDrawingListHeader(string line)
+    {
+        var upper = line.Trim().ToUpperInvariant();
+        var compact = upper.Replace(" ", "");
+        return DrawingListSections.Any(s =>
+        {
+            var section = s.ToUpperInvariant();
+            var sectionCompact = section.Replace(" ", "");
+            return upper == section || upper.StartsWith(section + " ", StringComparison.Ordinal)
+                || compact == sectionCompact || compact.StartsWith(sectionCompact, StringComparison.Ordinal);
+        });
+    }
+
+    private ExtractedMemberDto? TryParseDrawingListLine(string line)
+    {
+        var listMatch = DrawingListLinePattern.Match(line);
+        if (!listMatch.Success) return null;
+
+        var mark = listMatch.Groups[1].Value.ToUpperInvariant();
+        var rest = listMatch.Groups[2].Value.Trim();
+
+        // Drop trailing note after colon — "360 UB 45: REFER TO DETAIL..."
+        var noteIdx = rest.IndexOf(':');
+        if (noteIdx > 0) rest = rest[..noteIdx].Trim();
+
+        var sectionMatch = SteelSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
+        if (sectionMatch.Success)
+        {
+            var sectionRaw = sectionMatch.Value.Trim();
+            return new ExtractedMemberDto(
+                mark, NormalizeSection(sectionRaw), DetectMemberType(mark, sectionRaw),
+                0, 0, 0, TruncateLine(line), 0.95);
+        }
+
+        var reidMatch = ReidBarPattern.Match(rest);
+        if (reidMatch.Success)
+        {
+            var reidSize = reidMatch.Groups[1].Value.ToUpperInvariant();
+            return new ExtractedMemberDto(
+                mark, reidSize, "Other",
+                0, 0, 0, TruncateLine(line), 0.95);
+        }
+
+        // OR1, STR1, FJ1, etc. — keep specification text from the PDF list line
+        var sizeLabel = Regex.Replace(rest, @"\s+", " ").Trim();
+        if (sizeLabel.Length > 48) sizeLabel = sizeLabel[..48];
+        if (sizeLabel.Length < 2) return null;
+
+        return new ExtractedMemberDto(
+            mark, sizeLabel, DetectMemberType(mark, sizeLabel),
+            0, 0, 0, TruncateLine(line), 0.95);
+    }
+
+    private static List<ExtractedMemberDto> MergePreferBestRows(List<ExtractedMemberDto> rows)
+    {
+        var best = new Dictionary<string, ExtractedMemberDto>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var key = row.Mark.Trim();
+            if (string.IsNullOrEmpty(key)) continue;
+            if (!best.TryGetValue(key, out var existing) || PreferExtractedRow(row, existing))
+                best[key] = row;
+        }
+        return best.Values.ToList();
+    }
+
+    /// <summary>Drawing list (0.95) beats schedule (0.90) beats pattern (0.70).</summary>
+    private static bool PreferExtractedRow(ExtractedMemberDto candidate, ExtractedMemberDto current)
+    {
+        if (candidate.Confidence > current.Confidence) return true;
+        if (candidate.Confidence < current.Confidence) return false;
+
+        var candPattern = IsPatternDescription(candidate.Description);
+        var curPattern = IsPatternDescription(current.Description);
+        if (curPattern && !candPattern) return true;
+        if (!curPattern && candPattern) return false;
+
+        return candidate.MemberSize.Length > current.MemberSize.Length;
+    }
+
+    private static bool IsPatternDescription(string description)
+        => description.TrimStart().StartsWith("Pattern:", StringComparison.OrdinalIgnoreCase);
 
     private static int FindScheduleSection(List<string> lines)
     {
@@ -258,9 +403,6 @@ public class ExtractionService
     private List<ExtractedMemberDto> ParseScheduleTable(List<string> lines, int startIdx)
     {
         var results = new List<ExtractedMemberDto>();
-        var categoryCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        string currentCategory = "Other";
-        string currentPrefix = "M";
 
         int headerIdx = startIdx;
         for (int i = startIdx; i < Math.Min(startIdx + 8, lines.Count); i++)
@@ -279,32 +421,13 @@ public class ExtractionService
             if (line.Length < 2) continue;
             if (IsStopLine(line) && i > headerIdx + 3) break;
 
-            if (IsSubHeader(line))
-            {
-                currentCategory = line.Trim();
-                currentPrefix = GetMarkPrefix(currentCategory);
-                continue;
-            }
+            if (IsSubHeader(line)) continue;
 
-            var member = TryParseScheduleRow(line, currentPrefix, categoryCounters);
+            var member = TryParseScheduleRow(line);
             if (member != null) results.Add(member);
         }
 
         return results;
-    }
-
-    private static string GetMarkPrefix(string category)
-    {
-        var upper = category.ToUpperInvariant();
-        if (upper.Contains("RAFTER")) return "R";
-        if (upper.Contains("ROOF BEAM") || upper.Contains("FLOOR BEAM")) return "B";
-        if (upper.Contains("BEAM")) return "B";
-        if (upper.Contains("COLUMN") || upper.Contains("POST")) return "C";
-        if (upper.Contains("PURLIN")) return "P";
-        if (upper.Contains("GIRT")) return "G";
-        if (upper.Contains("BRACE")) return "K";
-        if (upper.Contains("FASCIA")) return "F";
-        return "M";
     }
 
     private static bool IsStopLine(string line)
@@ -318,46 +441,25 @@ public class ExtractionService
         new(StringComparer.OrdinalIgnoreCase)
         {
             "RAFTERS","BEAMS","COLUMNS","PURLINS","GIRTS","BRACES",
-            "FLOOR BEAMS","ROOF BEAMS","PORTAL FRAMES","SECONDARY MEMBERS"
+            "FLOOR BEAMS","FLOORBEAMS","ROOF BEAMS","PORTAL FRAMES",
+            "SECONDARY MEMBERS","OTHERS","OTHER"
         };
 
     private static bool IsSubHeader(string line) => SubHeaders.Contains(line.Trim());
 
-    private ExtractedMemberDto? TryParseScheduleRow(
-        string line,
-        string categoryPrefix = "M",
-        Dictionary<string, int>? counters = null)
+    private ExtractedMemberDto? TryParseScheduleRow(string line)
     {
         var sectionMatch = SteelSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(line);
         if (!sectionMatch.Success) return null;
 
-        // Use extracted mark if present, otherwise auto-assign from category
-        var markMatch = MemberMarkPattern.Match(line);
-        string mark;
-        if (markMatch.Success)
-        {
-            mark = markMatch.Value;
-        }
-        else
-        {
-            counters ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            if (!counters.TryGetValue(categoryPrefix, out var seq)) seq = 0;
-            seq++;
-            counters[categoryPrefix] = seq;
-            mark = $"{categoryPrefix}{seq}";
-        }
-
         var sectionRaw = sectionMatch.Value.Trim();
+        var mark = ExtractPdfMark(line, sectionMatch) ?? NormalizeSection(sectionRaw);
         var memberType = DetectMemberType(mark, sectionRaw);
-        var unitWeight = LookupUnitWeight(sectionRaw);
-
-        double length = 0; int qty = 1;
-        ExtractLengthAndQty(line, ref length, ref qty);
 
         return new ExtractedMemberDto(
             mark, NormalizeSection(sectionRaw), memberType,
-            unitWeight, length, qty,
+            0, 0, 0,
             $"Schedule: {TruncateLine(line)}",
             0.90
         );
@@ -366,131 +468,154 @@ public class ExtractionService
     private List<ExtractedMemberDto> ParseByPattern(List<string> lines, string fullText)
     {
         var results = new List<ExtractedMemberDto>();
-        var counters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        string currentPrefix = "M";
 
         foreach (var line in lines)
         {
-            // Track sub-headers to infer mark prefix for upcoming pattern-matched rows
-            if (IsSubHeader(line))
-            {
-                currentPrefix = GetMarkPrefix(line.Trim());
-                continue;
-            }
+            if (IsSubHeader(line)) continue;
+            // Already parsed as drawing-list row (SC2 - 360 UB 45)
+            if (DrawingListLinePattern.IsMatch(line.Trim())) continue;
 
             foreach (Match sm in SteelSectionPattern.Matches(line))
             {
-                var markMatch = MemberMarkPattern.Match(line);
-                string mark;
-                if (markMatch.Success)
-                {
-                    mark = markMatch.Value;
-                }
-                else
-                {
-                    // Auto-assign using context prefix
-                    var prefix = string.IsNullOrEmpty(InferMarkFromContext(line, sm.Value).TrimEnd('?'))
-                        ? currentPrefix
-                        : InferMarkFromContext(line, sm.Value).TrimEnd('?');
-                    if (!counters.TryGetValue(prefix, out var seq)) seq = 0;
-                    seq++;
-                    counters[prefix] = seq;
-                    mark = $"{prefix}{seq}";
-                }
+                if (IsNoisePatternLine(line, sm)) continue;
+                TryAddPatternRow(results, line, sm);
+            }
 
-                var sectionRaw = sm.Value.Trim();
-                var memberType = DetectMemberType(mark, sectionRaw);
-                var unitWeight = LookupUnitWeight(sectionRaw);
+            foreach (Match hm in HollowSectionPattern.Matches(line))
+            {
+                if (IsNoisePatternLine(line, hm)) continue;
+                TryAddPatternRow(results, line, hm);
+            }
 
-                double length = 0; int qty = 1;
-                ExtractLengthAndQty(line, ref length, ref qty);
-                if (length == 0) length = InferDefaultLength(memberType);
-
+            var reidMatch = ReidBarPattern.Match(line);
+            if (reidMatch.Success && !IsNoisePatternLine(line, reidMatch))
+            {
+                var mark = ExtractPdfMark(line, reidMatch) ?? reidMatch.Groups[1].Value.ToUpperInvariant();
                 results.Add(new ExtractedMemberDto(
-                    mark, NormalizeSection(sectionRaw), memberType,
-                    unitWeight, length, qty,
-                    $"Pattern: {TruncateLine(line)}",
-                    0.70
-                ));
+                    mark, reidMatch.Groups[1].Value.ToUpperInvariant(), "Other",
+                    0, 0, 0, $"Pattern: {TruncateLine(line)}", 0.70));
             }
         }
 
         return results;
     }
 
+    private void TryAddPatternRow(List<ExtractedMemberDto> results, string line, Match sm)
+    {
+        var sectionRaw = sm.Value.Trim();
+        var mark = ExtractPdfMark(line, sm) ?? NormalizeSection(sectionRaw);
+        var memberType = DetectMemberType(mark, sectionRaw);
+
+        results.Add(new ExtractedMemberDto(
+            mark, NormalizeSection(sectionRaw), memberType,
+            0, 0, 0,
+            $"Pattern: {TruncateLine(line)}",
+            0.70
+        ));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
-    private static void ExtractLengthAndQty(string line, ref double length, ref int qty)
+    /// <summary>
+    /// Reads member mark exactly as written on the drawing (e.g. SC2, B1, C7) — never auto M1/M2.
+    /// </summary>
+    private static string? ExtractPdfMark(string line, Match sectionMatch)
     {
-        var qtyMatch = Regex.Match(line, @"(?:qty|x|×|\/)\s*(\d{1,2})\s*(?:off|nr|no\.?|pcs)?",
+        // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113"
+        var leading = Regex.Match(line.Trim(),
+            @"^([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*",
             RegexOptions.IgnoreCase);
-        if (qtyMatch.Success && int.TryParse(qtyMatch.Groups[1].Value, out var q) && q is >= 1 and <= 99)
-            qty = q;
+        if (leading.Success) return leading.Groups[1].Value.ToUpperInvariant();
 
-        var mmMatch = Regex.Match(line, @"\b(\d{3,5})\s*mm\b", RegexOptions.IgnoreCase);
-        if (mmMatch.Success && double.TryParse(mmMatch.Groups[1].Value, out var mm))
-        { length = Math.Round(mm / 1000.0, 3); return; }
+        var tableMark = TableRowMarkPattern.Match(line);
+        if (tableMark.Success) return tableMark.Groups[1].Value.ToUpperInvariant();
 
-        var mMatch = Regex.Match(line, @"\b(\d{1,2}(?:\.\d{1,3})?)\s*m\b", RegexOptions.IgnoreCase);
-        if (mMatch.Success && double.TryParse(mMatch.Groups[1].Value, out var m))
-        { length = m; return; }
+        var schedMark = PdfScheduleMarkPattern.Match(line);
+        if (schedMark.Success) return schedMark.Groups[1].Value.ToUpperInvariant();
 
-        var bareMatch = Regex.Match(line, @"\b(\d{4,5})\b");
-        if (bareMatch.Success && double.TryParse(bareMatch.Groups[1].Value, out var bare)
-            && bare is >= 1000 and <= 25000)
-            length = Math.Round(bare / 1000.0, 3);
+        var labelMark = Regex.Match(line,
+            @"(?:Schedule|Pattern|SCHEDULE|PATTERN)\s*:\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]",
+            RegexOptions.IgnoreCase);
+        if (labelMark.Success) return labelMark.Groups[1].Value.ToUpperInvariant();
+
+        if (sectionMatch.Index > 0)
+        {
+            var before = line[..sectionMatch.Index].Trim();
+            var dashMark = Regex.Match(before,
+                @"([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]?\s*$",
+                RegexOptions.IgnoreCase);
+            if (dashMark.Success) return dashMark.Groups[1].Value.ToUpperInvariant();
+
+            var tokens = before.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length > 0)
+            {
+                var last = tokens[^1].Trim().TrimEnd('-', '–', '—');
+                if (Regex.IsMatch(last, @"^[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
+                    return last.ToUpperInvariant();
+            }
+        }
+
+        // B1, C7 only — not M1 auto-fallback (exclude M to avoid false matches)
+        var memberMark = Regex.Match(line, @"(?<![A-Z])([BCPRGFHK]\d{1,2})\b");
+        if (memberMark.Success && memberMark.Index < sectionMatch.Index)
+            return memberMark.Groups[1].Value.ToUpperInvariant();
+
+        return null;
+    }
+
+    private static bool IsNoisePatternLine(string line, Match sectionMatch)
+    {
+        var upper = line.ToUpperInvariant();
+        if (upper.Contains("REINFORCEMENT")) return true;
+        if (upper.Contains("PROVIDE")) return true;
+        if (upper.Contains("WELD AT") || upper.Contains("WELD ON")) return true;
+        if (upper.Contains("GENERAL NOTE") || upper.StartsWith("NOTE ")) return true;
+        return false;
     }
 
     private static string DetectMemberType(string mark, string section)
     {
         var m = mark.ToUpperInvariant();
         var s = section.ToUpperInvariant();
-        if (m.StartsWith("B")) return "Beam";
-        if (m.StartsWith("C") || s.Contains("UC")) return "Column";
+        if (m.StartsWith("SC") || m.StartsWith("MC")) return "Column";
+        if (m.StartsWith("FB") || m.StartsWith("WB")) return "Beam";
+        if (m.StartsWith("RB") || m.StartsWith("RF")) return "Rafter";
+        if (m.StartsWith("B") && !m.StartsWith("BF")) return "Beam";
+        if (m.StartsWith("C") && !s.StartsWith("CHS")) return "Column";
+        if (m.StartsWith("R") && ReidBarPattern.IsMatch(section)) return "Other";
         if (m.StartsWith("R") || m.StartsWith("F")) return "Rafter";
         if (m.StartsWith("P") || s.Contains("PFC")) return "Purlin";
         if (m.StartsWith("G")) return "Girt";
         if (m.StartsWith("K") || m.StartsWith("H")) return "Brace";
         if (s.Contains("RHS") || s.Contains("SHS") || s.Contains("CHS")) return "Brace";
+        if (s.Contains("EA") || s.Contains("UA")) return "Angle";
         if (s.Contains("UB")) return "Beam";
+        if (s.Contains("UC")) return "Column";
         return "Other";
     }
 
-    private static double LookupUnitWeight(string section)
-    {
-        var normalized = NormalizeSection(section);
-        if (SectionWeights.TryGetValue(normalized, out var w)) return w;
-        if (SectionWeights.TryGetValue(normalized.Replace(" ", ""), out var w2)) return w2;
-        var m = Regex.Match(normalized, @"(UB|UC)\s*(\d{1,3}(?:\.\d+)?)$", RegexOptions.IgnoreCase);
-        if (m.Success && double.TryParse(m.Groups[2].Value, out var wt)) return wt;
-        return 0;
-    }
-
     private static string NormalizeSection(string raw)
-        => Regex.Replace(raw.Trim(), @"\s+", "").ToUpperInvariant();
-
-    private static string InferMarkFromContext(string line, string _)
     {
-        var upper = line.ToUpperInvariant();
-        if (upper.Contains("RAFTER") || upper.Contains("ROOF")) return "R?";
-        if (upper.Contains("BEAM")) return "B?";
-        if (upper.Contains("COLUMN") || upper.Contains("POST")) return "C?";
-        if (upper.Contains("PURLIN")) return "P?";
-        if (upper.Contains("GIRT")) return "G?";
-        if (upper.Contains("BRACE")) return "K?";
-        return "?";
+        var trimmed = raw.Trim();
+
+        // "75 x 5 SHS" / "150 x 150 x 6 SHS" / "150 x 10 EA"
+        var hollow = Regex.Match(trimmed,
+            @"^(\d{2,3})\s*[xX×]\s*(\d{2,3})(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)$",
+            RegexOptions.IgnoreCase);
+        if (hollow.Success)
+        {
+            var wall = hollow.Groups[3].Success ? $"X{hollow.Groups[3].Value}" : "";
+            return $"{hollow.Groups[1].Value}X{hollow.Groups[2].Value}{wall}{hollow.Groups[4].Value}".ToUpperInvariant();
+        }
+
+        // "360 UB 45" → "360UB45" so weight suffix is preserved from PDF
+        var spaced = Regex.Match(trimmed,
+            @"^(\d{2,4})\s*(UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS|WB|WC)\s+(\d{1,3}(?:\.\d+)?)$",
+            RegexOptions.IgnoreCase);
+        if (spaced.Success)
+            return $"{spaced.Groups[1].Value}{spaced.Groups[2].Value}{spaced.Groups[3].Value}".ToUpperInvariant();
+        return Regex.Replace(trimmed, @"\s+", "").ToUpperInvariant();
     }
-
-    private static double InferDefaultLength(string memberType) => memberType switch
-    {
-        "Rafter" => 6.0,
-        "Beam"   => 6.0,
-        "Column" => 3.6,
-        "Purlin" => 6.0,
-        "Girt"   => 6.0,
-        "Brace"  => 3.0,
-        _        => 0
-    };
 
     private static string TruncateLine(string line)
         => line.Length > 60 ? line[..60] + "..." : line;
