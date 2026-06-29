@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore'
 import {
   pixelsToReal, pixelsAreaToReal, polylineLength,
   formatMeasureLength, formatMeasureArea,
+  parseMeasureLabel, convertMeasureValue, convertFromMm, getUnitLabel,
 } from './calculations'
 import {
   calibrationSnapshot,
@@ -86,6 +87,186 @@ export function extractPixelLengthFromAnnot(a, computedPx = 0) {
   }
 
   return computedPx
+}
+
+/**
+ * Syncfusion display unit — always matches the right-panel Display Unit (default mm).
+ */
+export function getSyncfusionNativeUnit(drawing) {
+  const d = normalizeDrawing(drawing)
+  const active = useAppStore.getState().activeUnit
+  return active ?? d?.calibrationUnit ?? 'Mm'
+}
+
+/** PDF points → display unit per point (1 pt = 1/72 in) for uncalibrated on-line preview. */
+export function uncalibratedDestPerPdfPoint(displayUnit = 'Mm') {
+  return convertFromMm(25.4 / 72, normalizeCalibrationUnit(displayUnit))
+}
+
+/** Give Syncfusion a default ratio so live labels show mm (not NaN) before calibration. */
+export function applyUncalibratedMeasureRatioToViewer(vm, displayUnit = 'Mm') {
+  if (!vm) return
+  const mod = vm.annotation?.measureAnnotationModule
+  const key = normalizeCalibrationUnit(displayUnit)
+  const destPerPx = uncalibratedDestPerPdfPoint(key)
+  const unitLabel = getUnitLabel(key)
+  const depthMmPerPoint = 25.4 / 72
+  const sfUnitMap = { Mm: 'Millimeter', Cm: 'Centimeter', Meter: 'Meter', Feet: 'Foot', Inch: 'Inch' }
+  const sfUnit = sfUnitMap[key] ?? 'Millimeter'
+  const distPatch = {
+    displayUnit: sfUnit,
+    conversionUnit: sfUnit,
+    depth: depthMmPerPoint,
+    scaleRatio: 1,
+  }
+  try {
+    vm.measurementSettings = { ...(vm.measurementSettings ?? {}), ...distPatch }
+  } catch (_) {}
+  try { vm.annotation?.updateMeasurementSettings('Distance', distPatch) } catch (_) {}
+  if (!mod) return
+  mod.measureRatioObject = {
+    ratio: destPerPx,
+    unit: 'px',
+    displayUnit: unitLabel,
+    destValue: destPerPx,
+    srcValue: 1,
+    volumeDepth: depthMmPerPoint,
+    depthValue: depthMmPerPoint,
+    ratioString: `1 px = ${destPerPx} ${unitLabel}`,
+  }
+  const entry = {
+    id: 'buildtakeoff-uncalibrated-default',
+    annotName: 'buildtakeoff-uncalibrated-default',
+    displayUnit: unitLabel,
+    unit: 'px',
+    ratio: destPerPx,
+    destValue: destPerPx,
+    srcValue: 1,
+    volumeDepth: depthMmPerPoint,
+    depthValue: depthMmPerPoint,
+    ratioString: `1 px = ${destPerPx} ${unitLabel}`,
+  }
+  if (!mod.scaleRatioCollection) mod.scaleRatioCollection = []
+  const idx = mod.scaleRatioCollection.findIndex(
+    r => r.id === entry.id || r.annotName === entry.annotName,
+  )
+  if (idx >= 0) Object.assign(mod.scaleRatioCollection[idx], entry)
+  else mod.scaleRatioCollection.push(entry)
+  if (mod.sourceTextBox) mod.sourceTextBox.value = 1
+  if (mod.destTextBox) mod.destTextBox.value = destPerPx
+}
+
+/** Per-line ratio entry while drawing (Syncfusion reads scaleRatioCollection by annot id). */
+export function registerUncalibratedScaleForAnnotation(mod, annotationId, displayUnit = 'Mm') {
+  if (!mod?.scaleRatioCollection || !annotationId) return
+  const key = normalizeCalibrationUnit(displayUnit)
+  const destPerPx = uncalibratedDestPerPdfPoint(key)
+  const unitLabel = getUnitLabel(key)
+  const depthMmPerPoint = 25.4 / 72
+  const entry = {
+    id: annotationId,
+    annotName: annotationId,
+    displayUnit: unitLabel,
+    unit: 'px',
+    ratio: destPerPx,
+    destValue: destPerPx,
+    srcValue: 1,
+    volumeDepth: depthMmPerPoint,
+    depthValue: depthMmPerPoint,
+    ratioString: `1 px = ${destPerPx} ${unitLabel}`,
+  }
+  const idx = mod.scaleRatioCollection.findIndex(r => r.annotName === annotationId)
+  if (idx >= 0) Object.assign(mod.scaleRatioCollection[idx], entry)
+  else mod.scaleRatioCollection.push(entry)
+}
+
+/** PDF user-space points → real length in the user's display unit (72 pt = 1 in). */
+export function lengthFromPdfPoints(pixelLength, targetUnit = 'Mm') {
+  const px = pixelLength ?? 0
+  if (px < 0.1) return null
+  const len = convertMeasureValue(px / 72, 'Inch', targetUnit)
+  return Number.isFinite(len) && len > 0 ? len : null
+}
+
+/** Resolve real length in display unit when drawing is not calibrated yet. */
+export function resolveUncalibratedMeasureLength(pixelLength, annot, targetUnit = 'Mm') {
+  const fromPx = lengthFromPdfPoints(pixelLength, targetUnit)
+  if (fromPx != null) return fromPx
+
+  const tryFromText = (text) => {
+    const raw = String(text ?? '').trim()
+    if (!raw || /nan/i.test(raw)) return null
+    const parsed = parseMeasureLabel(raw)
+    if (!parsed?.value || parsed.value <= 0 || !Number.isFinite(parsed.value) || parsed.isArea) return null
+    return parsed.unit
+      ? convertMeasureValue(parsed.value, parsed.unit, targetUnit)
+      : parsed.value
+  }
+
+  const displayed = extractDisplayedMeasureFromAnnot(annot, targetUnit)
+  if (displayed.length != null && displayed.length > 0 && Number.isFinite(displayed.length)) {
+    return displayed.length
+  }
+
+  for (const field of [
+    annot?.Note, annot?.note, annot?.notes, annot?.labelContent, annot?.LabelContent, annot?.label, annot?.text,
+  ]) {
+    const hit = tryFromText(field)
+    if (hit != null) return hit
+  }
+
+  for (const child of annot?.wrapper?.children ?? []) {
+    const text = String(child?.content ?? child?.childNodes?.[0]?.text ?? '').trim()
+    const hit = tryFromText(text)
+    if (hit != null) return hit
+  }
+
+  return null
+}
+
+/** Read the value Syncfusion shows on the line (e.g. "1.48 mm") when scale is not set yet. */
+export function extractDisplayedMeasureFromAnnot(a, targetUnit = 'Mm') {
+  if (!a) return { length: null, area: null }
+
+  const tryParse = (text) => {
+    const parsed = parseMeasureLabel(String(text ?? '').trim())
+    if (!parsed?.value || parsed.value <= 0) return null
+    const fromUnit = parsed.unit ?? targetUnit
+    const value = fromUnit !== targetUnit
+      ? convertMeasureValue(parsed.value, fromUnit, targetUnit)
+      : parsed.value
+    if (parsed.isArea) return { length: null, area: value }
+    return { length: value, area: null }
+  }
+
+  const labelText = [
+    a?.Note, a?.note, a?.notes, a?.labelContent, a?.LabelContent, a?.label, a?.text,
+  ].map(v => String(v ?? '').trim()).find(t => t && !t.includes('NaN'))
+  if (labelText) {
+    const hit = tryParse(labelText)
+    if (hit) return hit
+  }
+
+  const mv = a?.measurementValue ?? a?.MeasurementValue
+  if (mv != null && Number(mv) > 0) return { length: Number(mv), area: null }
+
+  const cal = a?.Calibrate ?? a?.calibrate
+  if (cal) {
+    const dist = cal?.Distance ?? cal?.distance
+    let val = null
+    if (Array.isArray(dist) && dist.length > 0) val = Number(dist[0])
+    else if (typeof dist === 'number') val = dist
+    if (val != null && val > 0) return { length: val, area: null }
+  }
+
+  for (const child of a?.wrapper?.children ?? []) {
+    const text = String(child?.content ?? child?.childNodes?.[0]?.text ?? '').trim()
+    if (!text || text.includes('NaN')) continue
+    const hit = tryParse(text)
+    if (hit) return hit
+  }
+
+  return { length: null, area: null }
 }
 
 export function extractPixelAreaFromAnnot(a, computedPxArea = 0) {
@@ -242,7 +423,7 @@ export function formatPolylineDescription(pixelLength, length, unit, drawing) {
   return 'Polyline — pending scale setup'
 }
 
-/** Label text for PDF overlay — empty when uncalibrated (Syncfusion shows px warning). */
+/** Label text for PDF overlay (same format as the measurement grid). */
 export function formatPdfMeasureLabel(length, area, displayUnit, { isArea = false } = {}) {
   if (isArea) return area != null ? formatMeasureArea(area, displayUnit) : ''
   return length != null ? formatMeasureLength(length, displayUnit) : ''

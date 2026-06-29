@@ -27,6 +27,8 @@ import {
   getCalibratedDrawingFromStore,
   computeRealLengthFromDrawing,
   recalculateTakeoffItemsAfterCalibration,
+  extractDisplayedMeasureFromAnnot,
+  resolveUncalibratedMeasureLength,
 } from '../utils/measureCalibration'
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
 import { buildLinearMeasurementClipboard } from '../utils/measureLabel'
@@ -222,6 +224,7 @@ export default function DrawingsPage() {
     if (!selectedDrawing) {
       setTakeoffItems([])
       setMemberScheduleItems([])
+      useAppStore.getState().clearSelectedMemberScheduleItem?.()
       setSummaryLocal(null)
       annotationMapRef.current = {}
       persistedAnnotIdsRef.current = new Set()
@@ -321,15 +324,30 @@ export default function DrawingsPage() {
 
   const pickMeasureTool = useCallback((toolId) => {
     setActiveTool(toolId)
-  }, [setActiveTool])
+    triggerPdfCommand('ensureMeasureMode')
+  }, [setActiveTool, triggerPdfCommand])
 
   const autoSave = useCallback(async (measurement, { calibratedDrawing } = {}) => {
-    const { selectedDrawing: drw, takeoffItems: current, measureColor: color, measureCategory: category, activeUnit } = useAppStore.getState()
+    const {
+      selectedDrawing: drw, takeoffItems: current, measureColor: color,
+      measureCategory: category, activeUnit,
+      selectedMemberScheduleItem, lastMeasureMember,
+    } = useAppStore.getState()
+    const linkedMember = selectedMemberScheduleItem ?? lastMeasureMember
+    const memberMark = String(
+      measurement.memberMark
+      ?? measurement.drawingMark
+      ?? linkedMember?.mark
+      ?? linkedMember?.Mark
+      ?? '',
+    ).trim()
     if (!drw?.id) return false
 
     const normDrwGuard = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
     const needsCalib = ['Line', 'Area', 'Perimeter'].includes(measurement.measureType)
-    if (needsCalib && !normDrwGuard?.isCalibrated && !calibratedDrawing) return false
+    // Save immediately — calibration can be applied later via the right panel (no blocking popup).
+    void needsCalib
+    void normDrwGuard
 
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
@@ -356,21 +374,43 @@ export default function DrawingsPage() {
       unit,
       { isArea },
     )
-    const saveLength = normDrw?.isCalibrated && normDrw.scaleRatio > 0
+    let saveLength = normDrw?.isCalibrated && normDrw.scaleRatio > 0
       ? (resolved.length ?? computeRealLengthFromDrawing(measurement.pixelLength, normDrw, unit) ?? measurement.length)
       : (measurement.length ?? resolved.length)
-    const saveArea = normDrw?.isCalibrated && normDrw.scaleRatio > 0
+    let saveArea = normDrw?.isCalibrated && normDrw.scaleRatio > 0
       ? (resolved.area ?? measurement.area)
       : (measurement.area ?? resolved.area)
 
+    if (!isCount && measurement.rawAnnotation) {
+      const displayed = extractDisplayedMeasureFromAnnot(measurement.rawAnnotation, unit)
+      if ((saveLength == null || saveLength <= 0) && displayed.length != null) saveLength = displayed.length
+      if ((saveArea == null || saveArea <= 0) && displayed.area != null) saveArea = displayed.area
+    }
+
+    // Prefer Syncfusion computed length only when it is a valid finite number
+    if (!isCount && !isArea && measurement.length != null && measurement.length > 0
+        && Number.isFinite(measurement.length)) {
+      saveLength = measurement.length
+    }
+
+    if (!isCount && !isArea && (saveLength == null || saveLength <= 0)) {
+      const fb = resolveUncalibratedMeasureLength(
+        measurement.pixelLength ?? 0,
+        measurement.rawAnnotation,
+        unit,
+      )
+      if (fb != null && Number.isFinite(fb) && fb > 0) saveLength = fb
+    }
+
     const itemType   = isArea ? 'Area' : isPerim ? 'Perimeter' : isCount ? 'Count' : 'Line'
 
-    // Mark prefix per type: A# area, P# perimeter, C# count, M# line
+    // Mark: member schedule name when measuring that member (e.g. PF7); otherwise M1/A1/P1/C1
     const prefix     = isArea ? 'A' : isPerim ? 'P' : isCount ? 'C' : 'M'
     const sameType   = current.filter(t => (t.itemType || 'Line') === itemType)
     const reuseMark  = clearedMarkRef.current
     if (reuseMark) clearedMarkRef.current = null
-    const nextMark   = reuseMark ?? `${prefix}${sameType.length + 1}`
+    const defaultMark = `${prefix}${sameType.length + 1}`
+    const nextMark   = reuseMark ?? (memberMark || defaultMark)
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
@@ -439,6 +479,12 @@ export default function DrawingsPage() {
       fallbackReason: /not calibrated/i.test(desc) ? 'autoSave: drawing not calibrated at save time' : null,
     })
 
+    const memberType = linkedMember?.memberType?.trim() ?? ''
+    const saveCategoryFinal = memberType || saveCategory
+    const saveMaterial = memberMark
+    const msiId = linkedMember?.id ?? measurement.memberScheduleId
+    const saveNotes = msiId ? `msi:${msiId}` : ''
+
     try {
       const pointsJson = buildPointsJson()
       const saved = await takeoffService.create({
@@ -448,14 +494,14 @@ export default function DrawingsPage() {
         description: desc,
         quantity:    isCount ? measurement.count : 1,
         unit,
-        material:    '',
-        notes:       '',
+        material:    saveMaterial,
+        notes:       saveNotes,
         length:      isCount ? null : (saveLength ?? null),
         area:        isCount ? null : (saveArea ?? null),
         unitWeight:  null,
         totalWeight: null,
         color:       saveColor,
-        category:    saveCategory,
+        category:    saveCategoryFinal,
         pointsJson,
       })
       let finalSaved = saved
@@ -500,9 +546,11 @@ export default function DrawingsPage() {
       } else if (isArea && saveArea != null) {
         toast.success(`${nextMark}: ${saveArea.toFixed(2)} ${getAreaUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
       } else if (saveLength != null) {
-        toast.success(`${nextMark}: ${saveLength.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
+        const memberHint = memberMark && nextMark !== memberMark ? ` → ${memberMark}` : ''
+        toast.success(`${nextMark}${memberHint}: ${saveLength.toFixed(3)} ${getUnitLabel(unit)}`, { duration: 2500, icon: '📐' })
       } else {
-        toast('Measurement saved — set scale using a labelled dimension on the plan', { duration: 3500, icon: '📐' })
+        const memberHint = memberMark && nextMark !== memberMark ? ` → ${memberMark}` : ''
+        toast(`${nextMark}${memberHint} saved${normDrw?.isCalibrated ? '' : ' — set scale for real lengths'}`, { duration: 3500, icon: '📐' })
       }
       return true
     } catch (err) {
@@ -518,22 +566,11 @@ export default function DrawingsPage() {
 
   const handleMeasure = useCallback((measurement) => {
     const { activeTool: currentTool } = useAppStore.getState()
-    const normDrw = getCalibratedDrawingFromStore()
-    const needsCalib = ['Line', 'Area', 'Perimeter'].includes(measurement.measureType)
 
     if (currentTool === 'calibrate') {
       calibrateOnlyRef.current = true
       pendingCalibMeasureRef.current = null
       setScaleSetupFirstMeasure(false)
-      setLastMeasurement(measurement)
-      setShowCalModal(true)
-      return
-    }
-
-    if (needsCalib && !normDrw?.isCalibrated) {
-      calibrateOnlyRef.current = false
-      pendingCalibMeasureRef.current = measurement
-      setScaleSetupFirstMeasure(true)
       setLastMeasurement(measurement)
       setShowCalModal(true)
       return
@@ -1146,7 +1183,10 @@ export default function DrawingsPage() {
               setSelectedDrawing(norm)
               setSelectedAnnotId(null)
               annotationMapRef.current = {}
-              if (!norm.isCalibrated) setActiveTool('line')
+              if (!norm.isCalibrated) {
+                setActiveTool('line')
+                setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
+              }
               if (isMobile) setSidebarOpen(false)
             }}
             onUploaded={handleDrawingUploaded}

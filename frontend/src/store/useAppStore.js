@@ -80,6 +80,17 @@ export const useAppStore = create(
         set((s) => ({ memberScheduleItems: s.memberScheduleItems.filter((m) => m.id !== id) })),
       setMemberScheduleSummary: (summary) => set({ memberScheduleSummary: summary }),
 
+      // ── Bluebeam-style: selected member for linked measurements ──
+      selectedMemberScheduleItem: null,
+      lastMeasureMember: null,
+      setSelectedMemberScheduleItem: (item) => set((s) => ({
+        selectedMemberScheduleItem: item,
+        lastMeasureMember: item ?? s.lastMeasureMember,
+        ...(item?.memberType ? { measureCategory: item.memberType } : {}),
+        activeUnit: 'Mm',
+      })),
+      clearSelectedMemberScheduleItem: () => set({ selectedMemberScheduleItem: null, lastMeasureMember: null }),
+
       // ── Tool state ────────────────────────────────────────
       activeTool: 'select',
       activeUnit: 'Mm',

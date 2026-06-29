@@ -58,10 +58,12 @@ const LABEL_UNIT_MAP = {
 export function parseMeasureLabel(text) {
   if (!text) return null
   const m = String(text).trim().match(/([\d.]+)\s*(mm²|cm²|m²|ft²|in²|yd²|mm|cm|m|ft|in|yd)?/i)
-  if (!m || !Number.isFinite(parseFloat(m[1]))) return null
+  if (!m) return null
+  const value = parseFloat(m[1])
+  if (!Number.isFinite(value) || value <= 0) return null
   const token = (m[2] || '').toLowerCase().replace(/²/g, '')
   return {
-    value: parseFloat(m[1]),
+    value,
     unit: LABEL_UNIT_MAP[token] ?? null,
     isArea: /²/.test(m[2] || ''),
   }

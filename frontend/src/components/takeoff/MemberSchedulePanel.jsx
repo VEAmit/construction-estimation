@@ -24,7 +24,11 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
   const {
     memberScheduleItems, addMemberScheduleItem,
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
+    selectedMemberScheduleItem, setSelectedMemberScheduleItem, lastMeasureMember,
+    setActiveTool, triggerPdfCommand,
   } = useAppStore()
+
+  const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
 
   const [editId, setEditId] = useState(null)
   const [editBuf, setEditBuf] = useState({})
@@ -95,6 +99,15 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
   const startEdit = (item) => { setEditId(item.id); setEditBuf({ ...item }) }
   const cancelEdit = () => { setEditId(null); setEditBuf({}) }
+
+  const handleSelectMember = useCallback((item) => {
+    if (!item?.mark) return
+    setSelectedMemberScheduleItem(item)
+    setActiveTool('line')
+    triggerPdfCommand({ type: 'searchText', query: item.mark })
+    setTimeout(() => triggerPdfCommand({ type: 'ensureMeasureMode' }), 500)
+    toast.success(`${item.mark} selected — draw linear measurements`, { duration: 2200, icon: '📐' })
+  }, [setSelectedMemberScheduleItem, setActiveTool, triggerPdfCommand])
 
   const linkableItems = takeoffItems.filter(t => t.itemType === 'Line')
 
@@ -180,6 +193,16 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
         {hasEstimation && totalWeight > 0 && (
           <span style={{ fontSize: '11px', color: '#475569', marginLeft: '8px' }}>
             Total steel: <strong style={{ color: '#22c55e' }}>{totalWeight.toFixed(1)} kg</strong>
+          </span>
+        )}
+
+        {activeMeasureMember && (
+          <span style={{
+            fontSize: '10px', color: '#4ade80', fontWeight: 700, marginLeft: '8px',
+            background: 'rgba(34,197,94,.1)', padding: '2px 8px', borderRadius: '10px',
+            border: '1px solid rgba(34,197,94,.25)',
+          }}>
+            Measuring: {activeMeasureMember.mark}
           </span>
         )}
 
@@ -272,15 +295,26 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
               </tr>
             ) : memberScheduleItems.map((item) => {
               const isEditing = editId === item.id
+              const isSelected = selectedMemberScheduleItem?.id === item.id
+                || activeMeasureMember?.id === item.id
               const row = isEditing ? editBuf : item
 
               return (
                 <Fragment key={item.id}>
                   <tr
                     style={{ borderBottom: '1px solid rgba(255,255,255,.04)',
-                      background: isEditing ? 'rgba(239,35,60,.06)' : 'transparent' }}
-                    onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(255,255,255,.03)' }}
-                    onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = 'transparent' }}
+                      background: isEditing
+                        ? 'rgba(239,35,60,.06)'
+                        : isSelected
+                        ? 'rgba(34,197,94,.08)'
+                        : 'transparent',
+                      cursor: isEditing ? 'default' : 'pointer',
+                      outline: isSelected ? '1px solid rgba(34,197,94,.35)' : 'none',
+                      outlineOffset: '-1px',
+                    }}
+                    onClick={() => { if (!isEditing) handleSelectMember(item) }}
+                    onMouseEnter={e => { if (!isEditing && !isSelected) e.currentTarget.style.background = 'rgba(255,255,255,.03)' }}
+                    onMouseLeave={e => { if (!isEditing && !isSelected) e.currentTarget.style.background = 'transparent' }}
                   >
                     <td style={{ padding: '0 0 0 4px', width: '4px' }}>
                       <div style={{ width: '3px', height: '28px', background: '#EF233C', borderRadius: '2px' }} />
@@ -317,7 +351,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                           <button onClick={cancelEdit} style={ab('#475569')}>✕</button>
                         </span>
                       ) : (
-                        <span style={{ display: 'flex', gap: '3px' }}>
+                        <span style={{ display: 'flex', gap: '3px' }} onClick={e => e.stopPropagation()}>
                           <button onClick={() => startEdit(item)} style={ab('#EF233C')} title="Edit">✎</button>
                           <button onClick={() => handleDelete(item.id, item.mark)} style={ab('#f87171')} title="Delete">✕</button>
                         </span>

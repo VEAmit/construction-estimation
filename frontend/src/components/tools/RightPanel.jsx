@@ -17,7 +17,8 @@ const SCALE_PRESETS = [
 ]
 
 export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale }) {
-  const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems, activeTool } = useAppStore()
+  const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems, activeTool, selectedMemberScheduleItem, lastMeasureMember } = useAppStore()
+  const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
   const [quickN,       setQuickN]       = useState('')
   const [quickUnit,    setQuickUnit]    = useState('Meter')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -382,6 +383,16 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
       {memberScheduleItems.length > 0 && (
         <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
           <SectionLabel>Member Schedule</SectionLabel>
+          {activeMeasureMember && (
+            <div style={{
+              marginBottom: '8px', padding: '8px 10px', borderRadius: '6px',
+              background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.25)',
+              fontSize: '11px', color: '#4ade80', fontWeight: 700,
+            }}>
+              Selected: {activeMeasureMember.mark}
+              {activeMeasureMember.memberType ? ` · ${activeMeasureMember.memberType}` : ''}
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <StatCard label="Members" value={memberScheduleItems.length} color="#EF233C" />
             {memberTotalQty > 0 && (

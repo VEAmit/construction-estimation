@@ -3,6 +3,7 @@ import { takeoffService } from '../../services/takeoffService'
 import { useAppStore } from '../../store/useAppStore'
 import { exportToExcel, exportToPdf } from '../../utils/exportUtils'
 import { fmt, getUnitLabel, getAreaUnitLabel } from '../../utils/calculations'
+import { getMeasurementMemberMark } from '../../utils/memberMeasureLink'
 import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 25
@@ -60,7 +61,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
   }, [takeoffItems.length])
 
   const filtered = takeoffItems.filter(it =>
-    !filter || [it.description, it.mark, it.material, it.notes]
+    !filter || [it.description, it.mark, it.material, it.notes, it.category, getMeasurementMemberMark(it, memberScheduleItems)]
       .some(v => v?.toLowerCase().includes(filter.toLowerCase()))
   )
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
@@ -268,7 +269,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Pg', 'Type', 'Mark', 'Description', 'Category', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Material', 'Qty', 'Time', ''].map((h, i) => (
+                {['', '#', 'Pg', 'Meas.', 'Mark', 'Member', 'Description', 'Member Type', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Qty', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -338,6 +339,11 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                         ? <input value={row.mark ?? ''} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '56px' }} />
                         : item.mark || '—'}
                     </td>
+                    <td style={{ ...td, color: '#22c55e', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {isEditing
+                        ? <input value={row.material ?? ''} onChange={e => setEditBuf(b => ({ ...b, material: e.target.value }))} placeholder="PF7" style={{ ...ei, width: '56px' }} />
+                        : getMeasurementMemberMark(item, memberScheduleItems) || '—'}
+                    </td>
                     <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {isEditing
                         ? <input value={row.description ?? ''} onChange={e => setEditBuf(b => ({ ...b, description: e.target.value }))} style={{ ...ei, width: '160px' }} />
@@ -384,13 +390,6 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                     </td>
                     <td style={{ ...td, fontWeight: 700, color: item.totalWeight != null ? '#f59e0b' : '#1e293b', whiteSpace: 'nowrap' }}>
                       {item.totalWeight != null ? `${item.totalWeight.toFixed(1)} kg` : '—'}
-                    </td>
-                    <td style={td}>
-                      {isEditing
-                        ? <input value={row.material ?? ''} onChange={e => setEditBuf(b => ({ ...b, material: e.target.value }))} style={{ ...ei, width: '80px' }} />
-                        : item.material
-                          ? <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', background: 'rgba(239,35,60,.08)', color: '#94a3b8' }}>{item.material}</span>
-                          : '—'}
                     </td>
                     <td style={td}>
                       {isEditing
