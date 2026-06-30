@@ -94,8 +94,30 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
   const sfFont = raw.FontSize ?? raw.fontSize
   const labelFontSize = inferLabelSizeFromSfFontSize(sfFont, pdfScale)
   const arrowStyle = inferArrowStyleFromAnnot(raw)
+  const copyJson = JSON.parse(JSON.stringify({
+    annotationId: raw.AnnotName ?? raw.annotationId ?? raw.name,
+    shapeAnnotationType: raw.shapeAnnotationType ?? raw.ShapeAnnotationType ?? 'Distance',
+    IT: raw.IT ?? raw.it ?? 'LineDimension',
+    pageNumber: raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1),
+    page: raw.page ?? String((raw.pageNumber ?? raw.PageNumber ?? 1) - 1),
+    vertexPoints: extractPointsFromRaw(raw),
+    start: raw.start ?? raw.Start,
+    end: raw.end ?? raw.End,
+    strokeColor: raw.StrokeColor ?? raw.strokeColor,
+    thickness,
+    Calibrate: raw.Calibrate ?? raw.calibrate,
+    calibrate: raw.calibrate ?? raw.Calibrate,
+    lineHeadStartStyle: raw.lineHeadStartStyle ?? raw.LineHeadStart,
+    lineHeadEndStyle: raw.lineHeadEndStyle ?? raw.LineHeadEnd,
+    leaderLength: raw.leaderLength ?? raw.LeaderLength,
+    leaderLineExtension: raw.leaderLineExtension ?? raw.LeaderLineExtension,
+    fontSize: raw.fontSize ?? raw.FontSize,
+    labelSettings: raw.labelSettings ?? raw.LabelSettings,
+  }))
   return {
     itemType: item.itemType || 'Line',
+    mark: item.mark ?? '',
+    material: item.material ?? item.mark ?? '',
     color: item.color ?? raw.StrokeColor ?? raw.strokeColor ?? '#EF233C',
     category: item.category ?? 'General',
     thickness,
@@ -105,7 +127,8 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     lineStyle: raw.lineStyle ?? (raw.borderDashArray ? 'dashed' : 'solid'),
     length: item.length,
     unit: item.unit ?? 'Mm',
-    pageNumber: raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1),
+    pageNumber: copyJson.pageNumber,
+    copyJson,
     raw,
   }
 }
@@ -116,6 +139,24 @@ function parseCoordPair(val) {
   }
   const parts = String(val).split(',')
   return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0 }
+}
+
+/** True when a saved line has enough geometry to copy/paste reliably. */
+export function isValidLinearMeasurementForCopy(item, raw = null) {
+  if (!item || (item.itemType || 'Line') !== 'Line') return false
+  const savedLen = Number(item.length)
+  if (Number.isFinite(savedLen) && savedLen >= 0.5) return true
+  try {
+    const parsed = raw ?? (item.pointsJson ? JSON.parse(item.pointsJson) : null)
+    if (!parsed) return false
+    const pts = extractPointsFromRaw(parsed)
+    if (pts.length < 2) return false
+    const dx = pts[pts.length - 1].x - pts[0].x
+    const dy = pts[pts.length - 1].y - pts[0].y
+    return Math.hypot(dx, dy) >= 0.5
+  } catch {
+    return false
+  }
 }
 
 export function extractPointsFromRaw(raw) {
@@ -137,6 +178,21 @@ export function getLinearAnnotationMidpoint(raw) {
   const a = pts[0]
   const b = pts[pts.length - 1]
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+}
+
+/** Syncfusion viewer date format (M/d/yyyy h:mm:ss a) — required for saveMeasureShapeAnnotations. */
+function viewerModifiedDate(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return viewerModifiedDate(new Date())
+  const M = d.getMonth() + 1
+  const day = d.getDate()
+  const y = d.getFullYear()
+  let h = d.getHours()
+  const m = String(d.getMinutes()).padStart(2, '0')
+  const s = String(d.getSeconds()).padStart(2, '0')
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${M}/${day}/${y} ${h}:${m}:${s} ${ampm}`
 }
 
 /** Clone a linear annotation for paste with a positional offset and new id. */
@@ -190,10 +246,15 @@ export function cloneLinearAnnotationForPaste(raw, offsetX = 30, offsetY = 30, t
     note: '',
     label: '',
     text: '',
+    State: '',
+    StateModel: '',
+    Comments: [],
+    Author: 'BuildTakeoff',
+    Subject: 'Distance calculation',
     measurementValue: raw.measurementValue ?? raw.MeasurementValue ?? null,
     IsPrint: true,
-    State: '',
-    Comments: [],
+    ModifiedDate: viewerModifiedDate(),
+    CreationDate: viewerModifiedDate(),
   }
 }
 

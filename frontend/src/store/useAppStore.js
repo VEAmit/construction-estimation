@@ -135,6 +135,11 @@ export const useAppStore = create(
       setMeasurementClipboard: (data) => set({ measurementClipboard: data }),
       clearMeasurementClipboard: () => set({ measurementClipboard: null }),
 
+      /** PDF point where the user clicked before paste (copy → click → Ctrl+V). */
+      pasteAnchor: null,
+      setPasteAnchor: (anchor) => set({ pasteAnchor: anchor }),
+      clearPasteAnchor: () => set({ pasteAnchor: null }),
+
       // ── UI ────────────────────────────────────────────────
       isSidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed })),

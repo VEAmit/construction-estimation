@@ -31,7 +31,7 @@ import {
   resolveUncalibratedMeasureLength,
 } from '../utils/measureCalibration'
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
-import { buildLinearMeasurementClipboard } from '../utils/measureLabel'
+import { buildLinearMeasurementClipboard, isValidLinearMeasurementForCopy } from '../utils/measureLabel'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
@@ -48,7 +48,8 @@ export default function DrawingsPage() {
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
-    measurementClipboard, setMeasurementClipboard,
+    measurementClipboard, setMeasurementClipboard, clearMeasurementClipboard,
+    pasteAnchor, setPasteAnchor, clearPasteAnchor,
     pdfScale,
     removeTakeoffItem,
     setMeasureColor,
@@ -91,12 +92,14 @@ export default function DrawingsPage() {
   const [summary,          setSummaryLocal]      = useState(null)
   const [selectedAnnotId,  setSelectedAnnotId]   = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
+  const [ctxMenu, setCtxMenu] = useState(null) // { x, y } | null — right-click context menu
 
   // Mobile panel drawer state
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [rightOpen,    setRightOpen]    = useState(false)
 
   const annotationMapRef = useRef({})
+  const lastCopyTargetRef = useRef(null)
   const persistedAnnotIdsRef = useRef(new Set())
   const savingAnnotIdsRef = useRef(new Set())
   const measureReleaseRef = useRef(null)
@@ -327,7 +330,7 @@ export default function DrawingsPage() {
     triggerPdfCommand('ensureMeasureMode')
   }, [setActiveTool, triggerPdfCommand])
 
-  const autoSave = useCallback(async (measurement, { calibratedDrawing } = {}) => {
+  const autoSave = useCallback(async (measurement, { calibratedDrawing, isPaste = false } = {}) => {
     const {
       selectedDrawing: drw, takeoffItems: current, measureColor: color,
       measureCategory: category, activeUnit,
@@ -343,6 +346,21 @@ export default function DrawingsPage() {
     ).trim()
     if (!drw?.id) return false
 
+    if (isPaste && measurement.annotationId) {
+      const items = useAppStore.getState().takeoffItems ?? []
+      const dup = items.some(t => {
+        if (!t.pointsJson) return false
+        try {
+          const raw = JSON.parse(t.pointsJson)
+          const aid = raw.annotationId ?? raw.AnnotName ?? raw.name
+          return aid === measurement.annotationId
+        } catch {
+          return false
+        }
+      })
+      if (dup) return true
+    }
+
     const normDrwGuard = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
     const needsCalib = ['Line', 'Area', 'Perimeter'].includes(measurement.measureType)
     // Save immediately — calibration can be applied later via the right panel (no blocking popup).
@@ -353,6 +371,7 @@ export default function DrawingsPage() {
     if (pasteOverride) pasteStyleOverrideRef.current = null
     const saveColor = pasteOverride?.color ?? color ?? '#111827'
     const saveCategory = pasteOverride?.category ?? category ?? 'General'
+    const saveMaterialOverride = pasteOverride?.material
 
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
@@ -481,7 +500,7 @@ export default function DrawingsPage() {
 
     const memberType = linkedMember?.memberType?.trim() ?? ''
     const saveCategoryFinal = memberType || saveCategory
-    const saveMaterial = memberMark
+    const saveMaterial = saveMaterialOverride ?? memberMark
     const msiId = linkedMember?.id ?? measurement.memberScheduleId
     const saveNotes = msiId ? `msi:${msiId}` : ''
 
@@ -518,10 +537,16 @@ export default function DrawingsPage() {
       addTakeoffItem(finalSaved)
       setShowBottom(true)
       setBottomTab('measurements')
-      // Continuous draw: do not keep the new row in "style edit" mode — toolbar color is for the next mark.
-      setSelectedAnnotId(null)
-      setStyleEditTargetId(null)
-      annotStyleBaselineRef.current = null
+      if (isPaste) {
+        setSelectedAnnotId(finalSaved.id)
+        setStyleEditTargetId(null)
+        annotStyleBaselineRef.current = null
+      } else {
+        // Continuous draw: do not keep the new row in "style edit" mode — toolbar color is for the next mark.
+        setSelectedAnnotId(null)
+        setStyleEditTargetId(null)
+        annotStyleBaselineRef.current = null
+      }
       if (measurement.annotationId) {
         annotationMapRef.current[finalSaved.id] = {
           annotationId: measurement.annotationId,
@@ -537,10 +562,11 @@ export default function DrawingsPage() {
         pendingThickness: pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness,
         rawPointsJson: pendingMeasurementRef.current?.rawPointsJson ?? null,
       }
+      lastCopyTargetRef.current = finalSaved.id
       takeoffService.getSummary(drw.id)
         .then(sum => { setSummaryLocal(sum); setSummary(sum) })
         .catch(() => {})
-      scheduleAnnotationBlobSave()
+      if (!isPaste) scheduleAnnotationBlobSave()
       if (isCount) {
         toast.success(`${nextMark}: ${measurement.count} × ${category} saved`, { duration: 2500, icon: '🔢' })
       } else if (isArea && saveArea != null) {
@@ -564,7 +590,7 @@ export default function DrawingsPage() {
     }
   }, [addTakeoffItem, scheduleAnnotationBlobSave])
 
-  const handleMeasure = useCallback((measurement) => {
+  const handleMeasure = useCallback((measurement, opts = {}) => {
     const { activeTool: currentTool } = useAppStore.getState()
 
     if (currentTool === 'calibrate') {
@@ -576,19 +602,23 @@ export default function DrawingsPage() {
       return
     }
 
-    // New mark — toolbar thickness applies to this line, not a previously selected row.
-    setSelectedAnnotId(null)
-    setStyleEditTargetId(null)
-    annotStyleBaselineRef.current = null
-    pendingMeasurementRef.current = {
-      annotationId: measurement.annotationId,
-      dbId: null,
-      pendingThickness: useAppStore.getState().lineThickness,
-      rawPointsJson: null,
+    if (!opts.isPaste) {
+      // New mark — toolbar thickness applies to this line, not a previously selected row.
+      setSelectedAnnotId(null)
+      setStyleEditTargetId(null)
+      annotStyleBaselineRef.current = null
+      pendingMeasurementRef.current = {
+        annotationId: measurement.annotationId,
+        dbId: null,
+        mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+        pageNumber: measurement.pageNumber ?? 1,
+        pendingThickness: useAppStore.getState().lineThickness,
+        rawPointsJson: measurement.rawAnnotation ?? null,
+      }
     }
 
     setLastMeasurement(measurement)
-    autoSave(measurement)
+    autoSave(measurement, opts)
   }, [autoSave])
 
   const handleSaveCalib = useCallback(() => {
@@ -709,6 +739,7 @@ export default function DrawingsPage() {
     setStyleEditTargetId(dbId)
     annotStyleBaselineRef.current = null
     if (!dbId) return
+    lastCopyTargetRef.current = dbId
     const item = takeoffItems.find(t => t.id === dbId)
     syncToolbarFromTakeoffItem(item)
     const annot = annotationMapRef.current[dbId]
@@ -769,22 +800,64 @@ export default function DrawingsPage() {
     } catch (_) {}
   }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson])
 
+  const resolveCopyTargetId = useCallback(() => {
+    const isValid = (item) => item && isValidLinearMeasurementForCopy(item)
+    const candidates = [
+      selectedAnnotId,
+      styleEditTargetId,
+      lastCopyTargetRef.current,
+      pendingMeasurementRef.current?.dbId,
+    ].filter(id => id != null)
+    for (const id of candidates) {
+      const item = takeoffItems.find(t => t.id === id)
+      if (isValid(item)) return id
+    }
+    const lines = takeoffItems.filter(t => isValid(t))
+    return lines.length ? lines[lines.length - 1].id : null
+  }, [selectedAnnotId, styleEditTargetId, takeoffItems])
+
   const handleCopyMeasurement = useCallback(() => {
-    if (!selectedAnnotId) return
-    const item = takeoffItems.find(t => t.id === selectedAnnotId)
+    const targetId = resolveCopyTargetId()
+    let item = targetId ? takeoffItems.find(t => t.id === targetId) : null
+
+    if (!item?.pointsJson) {
+      const pendingRaw = pendingMeasurementRef.current?.rawPointsJson ?? lastMeasurement?.rawAnnotation
+      const isLine = (lastMeasurement?.measureType ?? 'Line') === 'Line'
+      if (pendingRaw && isLine) {
+        const raw = typeof pendingRaw === 'string' ? JSON.parse(pendingRaw) : pendingRaw
+        item = item ?? {
+          id: pendingMeasurementRef.current?.dbId ?? targetId,
+          itemType: 'Line',
+          mark: pendingMeasurementRef.current?.mark ?? lastMeasurement?.memberMark ?? lastMeasurement?.drawingMark ?? 'Line',
+          material: lastMeasurement?.memberMark ?? lastMeasurement?.drawingMark ?? '',
+          color: measureColor,
+          category: measureCategory ?? 'General',
+          length: lastMeasurement?.length,
+          unit: activeUnit,
+          pointsJson: JSON.stringify(raw),
+        }
+      }
+    }
+
     if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') {
-      toast.error('Select a linear measurement to copy')
+      toast.error('Draw or select a linear measurement to copy')
+      return
+    }
+    if (!isValidLinearMeasurementForCopy(item)) {
+      toast.error('Line is too short to copy — select a longer measurement or delete tiny/degenerate lines')
       return
     }
     try {
       const raw = JSON.parse(item.pointsJson)
       const clipboard = buildLinearMeasurementClipboard(item, raw, pdfScale)
       setMeasurementClipboard(clipboard)
-      toast.success(`Copied ${item.mark}`, { duration: 2000 })
+      clearPasteAnchor()
+      if (item.id) lastCopyTargetRef.current = item.id
+      toast.success(`Copied ${item.mark} — click destination on plan (Pan), then Ctrl+V`, { duration: 3500 })
     } catch {
       toast.error('Could not copy measurement')
     }
-  }, [selectedAnnotId, takeoffItems, pdfScale, setMeasurementClipboard])
+  }, [resolveCopyTargetId, takeoffItems, lastMeasurement, measureColor, measureCategory, activeUnit, pdfScale, setMeasurementClipboard, clearPasteAnchor])
 
   const handlePasteMeasurement = useCallback(() => {
     if (!measurementClipboard) {
@@ -792,16 +865,25 @@ export default function DrawingsPage() {
       return
     }
     if (!selectedDrawing) return
+    const anchor = useAppStore.getState().pasteAnchor
+    if (!anchor) {
+      toast('Click on the drawing (Pan tool) where you want to paste, then press Ctrl+V', { duration: 4500, icon: '📍' })
+      return
+    }
     pasteStyleOverrideRef.current = {
       color: measurementClipboard.color,
       category: measurementClipboard.category,
+      material: measurementClipboard.material ?? measurementClipboard.mark ?? '',
     }
-    triggerPdfCommand({ type: 'pasteMeasurement', clipboard: measurementClipboard })
+    triggerPdfCommand({ type: 'pasteAtPoint', clipboard: measurementClipboard, anchor })
   }, [measurementClipboard, selectedDrawing, triggerPdfCommand])
 
-  const canCopyMeasurement = !!selectedAnnotId && takeoffItems.some(
-    t => t.id === selectedAnnotId && t.pointsJson && (t.itemType || 'Line') === 'Line',
+  const copyTargetId = resolveCopyTargetId()
+  const hasPendingLineCopy = !!(
+    (pendingMeasurementRef.current?.rawPointsJson ?? lastMeasurement?.rawAnnotation)
+    && (lastMeasurement?.measureType ?? 'Line') === 'Line'
   )
+  const canCopyMeasurement = !!copyTargetId || hasPendingLineCopy
   const canPasteMeasurement = !!measurementClipboard && (measurementClipboard.itemType || 'Line') === 'Line'
 
   const handleClearPending = useCallback(async () => {
@@ -835,6 +917,42 @@ export default function DrawingsPage() {
       throw new Error('delete failed')
     }
   }, [selectedAnnotId, selectedDrawing, triggerPdfCommand, removeTakeoffItem, setSummary])
+
+  const handlePdfAreaContextMenu = useCallback((e) => {
+    e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
+
+  useEffect(() => {
+    if (!ctxMenu) return
+    const onKey = (e) => { if (e.key === 'Escape') closeCtxMenu() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ctxMenu, closeCtxMenu])
+
+  // Capture-phase Ctrl+C / Ctrl+V — runs before Syncfusion's bubble-phase listeners
+  // so the PDF viewer cannot intercept our copy/paste shortcuts.
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (!((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C' || e.key === 'v' || e.key === 'V'))) return
+      const isC = e.key === 'c' || e.key === 'C'
+      if (isC) {
+        e.preventDefault()
+        e.stopPropagation()
+        handleCopyMeasurement()
+      } else if (canPasteMeasurement) {
+        e.preventDefault()
+        e.stopPropagation()
+        handlePasteMeasurement()
+      }
+    }
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -1198,7 +1316,11 @@ export default function DrawingsPage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
           {/* PDF Viewer */}
-          <div style={{ flex: showBottom ? '1 1 60%' : '1 1 100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div
+            style={{ flex: showBottom ? '1 1 60%' : '1 1 100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative' }}
+            onContextMenu={handlePdfAreaContextMenu}
+            onClick={ctxMenu ? closeCtxMenu : undefined}
+          >
             <PdfViewer
               key={`${selectedProject?.id ?? 'p'}-${selectedDrawing?.id ?? 'd'}`}
               drawingUrl={drawingUrl}
@@ -1226,6 +1348,7 @@ export default function DrawingsPage() {
                 }
                 setSelectedAnnotId(dbId)
                 setStyleEditTargetId(dbId)
+                if (dbId) lastCopyTargetRef.current = dbId
                 annotStyleBaselineRef.current = null
                 if (dbId) {
                   const item = takeoffItems.find(t => t.id === dbId)
@@ -1247,6 +1370,64 @@ export default function DrawingsPage() {
                 } catch (_) {}
               }}
             />
+
+            {/* Right-click context menu */}
+            {ctxMenu && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: ctxMenu.y,
+                  left: ctxMenu.x,
+                  zIndex: 9999,
+                  background: '#0D1526',
+                  border: '1px solid rgba(239,35,60,0.4)',
+                  borderRadius: 6,
+                  minWidth: 160,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  overflow: 'hidden',
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                {canCopyMeasurement && (
+                  <button
+                    onClick={() => { handleCopyMeasurement(); closeCtxMenu() }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: 13, cursor: 'pointer' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    Copy Measurement
+                  </button>
+                )}
+                {canPasteMeasurement && (
+                  <button
+                    onClick={() => { handlePasteMeasurement(); closeCtxMenu() }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: 13, cursor: 'pointer' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    Paste Measurement
+                  </button>
+                )}
+                {!canCopyMeasurement && !canPasteMeasurement && (
+                  <div style={{ padding: '9px 16px', color: '#64748b', fontSize: 13 }}>
+                    Select a measurement to copy
+                  </div>
+                )}
+                {canCopyMeasurement && (
+                  <>
+                    <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '2px 0' }} />
+                    <button
+                      onClick={() => { handleRowDelete(selectedAnnotId); closeCtxMenu() }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#f87171', fontSize: 13, cursor: 'pointer' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bottom data panel */}

@@ -307,6 +307,24 @@ function resolveDiagramSvg(vm, pageIndex) {
   return resolvePdfPageElement(vm, pageIndex)?.querySelector?.('svg') ?? null
 }
 
+/** Measure lines render on the annotation canvas — prefer that SVG for paste/click mapping. */
+function resolveMeasureDiagramSvg(vm, pageIndex) {
+  const rootId = vm?.element?.id ?? 'sfPdfViewer'
+  const hostIds = [
+    `${rootId}_annotationCanvas_${pageIndex}`,
+    `${rootId}_annotationCanvas_div_${pageIndex}`,
+    `${rootId}_diagram_${pageIndex}`,
+    `${rootId}_diagram_div_${pageIndex}`,
+  ]
+  for (const id of hostIds) {
+    const host = document.getElementById(id)
+    if (!host) continue
+    const svg = host.tagName?.toLowerCase() === 'svg' ? host : host.querySelector?.('svg')
+    if (svg) return svg
+  }
+  return resolvePdfPageElement(vm, pageIndex)?.querySelector?.('svg') ?? null
+}
+
 function svgDiagramPointToContainer(svg, x, y, container) {
   if (!svg?.createSVGPoint || !container) return null
   const pt = svg.createSVGPoint()
@@ -317,6 +335,31 @@ function svgDiagramPointToContainer(svg, x, y, container) {
   const screen = pt.matrixTransform(ctm)
   const cr = container.getBoundingClientRect()
   return { left: screen.x - cr.left, top: screen.y - cr.top }
+}
+
+/** Map a screen click to Syncfusion diagram SVG coordinates (same space as vertexPoints). */
+function screenClientToDiagramPoint(clientX, clientY, pageIndex, vm) {
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+  if (!svg?.createSVGPoint) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX
+  pt.y = clientY
+  const ctm = svg.getScreenCTM?.()
+  if (!ctm) return null
+  try {
+    const diagramPt = pt.matrixTransform(ctm.inverse())
+    if (!Number.isFinite(diagramPt.x) || !Number.isFinite(diagramPt.y)) return null
+    return { x: diagramPt.x, y: diagramPt.y }
+  } catch {
+    return null
+  }
+}
+
+/** Map diagram SVG coordinates to container-relative pixels (for crosshair overlay). */
+function diagramPointToContainerCoords(diagramX, diagramY, pageIndex, vm, containerEl) {
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+  if (!svg || !containerEl) return null
+  return svgDiagramPointToContainer(svg, diagramX, diagramY, containerEl)
 }
 
 /** Map stored vertex points through the diagram SVG — same space Syncfusion uses to draw the line. */
@@ -688,6 +731,220 @@ function containerClientToPdfPoint(clientX, clientY, pageIndex, vm) {
     }
   }
   return { x: relX, y: relY }
+}
+
+/** Map container-relative pixels to diagram SVG coordinates. */
+function containerScreenToDiagramPoint(containerLeft, containerTop, containerEl, pageIndex, vm) {
+  if (!containerEl) return null
+  const cr = containerEl.getBoundingClientRect()
+  return screenClientToDiagramPoint(cr.left + containerLeft, cr.top + containerTop, pageIndex, vm)
+}
+
+/** Paste anchor from click — diagram SVG space aligned with how lines are drawn. */
+function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerEl) {
+  if (containerEl) {
+    const cr = containerEl.getBoundingClientRect()
+    const diagramPt = containerScreenToDiagramPoint(
+      clientX - cr.left, clientY - cr.top, containerEl, pageIndex, vm,
+    )
+    if (diagramPt) return diagramPt
+  }
+  return screenClientToDiagramPoint(clientX, clientY, pageIndex, vm)
+    ?? containerClientToPdfPoint(clientX, clientY, pageIndex, vm)
+}
+
+/** Read the visible measure line endpoints from the rendered SVG (handles leader offset). */
+function extractVisibleLineScreenEndpoints(wrapper, container) {
+  if (!wrapper || !container) return null
+  const cr = container.getBoundingClientRect()
+  const svg = wrapper.ownerSVGElement
+  const mkPt = svg?.createSVGPoint?.()
+  if (!mkPt) return null
+
+  const lines = []
+  wrapper.querySelectorAll('line').forEach(el => {
+    const id = String(el.id ?? '').toLowerCase()
+    if (id.includes('leader') || id.includes('handle') || id.includes('selector')
+      || id.includes('resize') || id.includes('endpoint')) return
+    const ctm = el.getScreenCTM?.()
+    if (!ctm) return
+    const x1 = parseFloat(el.getAttribute('x1'))
+    const y1 = parseFloat(el.getAttribute('y1'))
+    const x2 = parseFloat(el.getAttribute('x2'))
+    const y2 = parseFloat(el.getAttribute('y2'))
+    if (![x1, y1, x2, y2].every(Number.isFinite)) return
+    mkPt.x = x1
+    mkPt.y = y1
+    const s0 = mkPt.matrixTransform(ctm)
+    mkPt.x = x2
+    mkPt.y = y2
+    const s1 = mkPt.matrixTransform(ctm)
+    const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
+    if (len < 2) return
+    lines.push({
+      p0: { left: s0.x - cr.left, top: s0.y - cr.top },
+      p1: { left: s1.x - cr.left, top: s1.y - cr.top },
+      len,
+    })
+  })
+
+  if (!lines.length) return null
+  lines.sort((a, b) => b.len - a.len)
+  return lines[0]
+}
+
+/** Screen endpoints of a linear measure — prefers live DOM line over stored vertexPoints. */
+function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) {
+  if (!containerEl) return null
+  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
+  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
+  if (live?.wrapper) {
+    const visual = extractVisibleLineScreenEndpoints(live.wrapper, containerEl)
+    if (visual) return visual
+  }
+
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+  if (!svg) return null
+  const pts = extractAnnotationPoints(live ?? sourceRaw)
+  if (pts.length < 2) return null
+  const p0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, containerEl)
+  const p1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, containerEl)
+  if (!p0 || !p1) return null
+  return { p0, p1, len: Math.hypot(p1.left - p0.left, p1.top - p0.top) }
+}
+
+/** Nudge a live pasted line so its visible midpoint matches the click anchor on screen. */
+function nudgeLiveLinearMeasureToScreenAnchor(vm, annotId, anchor, containerEl, pageIndex) {
+  if (!vm || !annotId || !anchor || !containerEl) return false
+  const live = resolveLiveAnnotation(vm, annotId)
+  if (!live?.wrapper) return false
+
+  let targetLeft = anchor.screenLeft
+  let targetTop = anchor.screenTop
+  if (!Number.isFinite(targetLeft) || !Number.isFinite(targetTop)) {
+    const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+    if (!svg) return false
+    const ac = svgDiagramPointToContainer(svg, anchor.x, anchor.y, containerEl)
+    if (!ac) return false
+    targetLeft = ac.left
+    targetTop = ac.top
+  }
+
+  const visual = extractVisibleLineScreenEndpoints(live.wrapper, containerEl)
+  if (!visual) return false
+
+  const midLeft = (visual.p0.left + visual.p1.left) / 2
+  const midTop = (visual.p0.top + visual.p1.top) / 2
+  const errLeft = targetLeft - midLeft
+  const errTop = targetTop - midTop
+  if (Math.abs(errLeft) < 1 && Math.abs(errTop) < 1) return false
+
+  const midNew = containerScreenToDiagramPoint(midLeft + errLeft, midTop + errTop, containerEl, pageIndex, vm)
+  const midOld = containerScreenToDiagramPoint(midLeft, midTop, containerEl, pageIndex, vm)
+  if (!midNew || !midOld) return false
+
+  const dx = midNew.x - midOld.x
+  const dy = midNew.y - midOld.y
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return false
+
+  const basePts = live.vertexPoints?.length >= 2
+    ? live.vertexPoints
+    : extractAnnotationPoints(live)
+  if (basePts.length < 2) return false
+
+  const newPts = basePts.map(p => ({
+    x: (Number(p.x ?? p.X) || 0) + dx,
+    y: (Number(p.y ?? p.Y) || 0) + dy,
+  }))
+  live.vertexPoints = newPts
+  live.VertexPoints = newPts.map(p => ({ X: p.x, Y: p.y }))
+  if (newPts.length >= 2) {
+    live.start = `${newPts[0].x},${newPts[0].y}`
+    live.end = `${newPts[newPts.length - 1].x},${newPts[newPts.length - 1].y}`
+    live.Start = live.start
+    live.End = live.end
+  }
+
+  try { vm.drawing?.updateConnector?.(live, newPts) } catch (_) {}
+  try { vm.annotation?.renderAnnotations?.(pageIndex, null, null, null, null, false) } catch (_) {}
+  try { vm.renderDrawing?.() } catch (_) {}
+  return true
+}
+
+/**
+ * Compute paste translation so the line's on-screen midpoint lands on the anchor.
+ * Diagram coords first (scroll/zoom safe); screen DOM mapping as refinement.
+ */
+function computeLinearPasteOffsetForAnchor(sourceRaw, anchor, pageIndex, vm, containerEl) {
+  if (!containerEl || !anchor) return null
+
+  const diagramOffset = computeLinearPasteOffsetDiagramFallback(
+    sourceRaw, anchor, pageIndex, vm, containerEl,
+  )
+  if (!diagramOffset) return null
+
+  const visual = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
+  if (!visual) return diagramOffset
+
+  const ep0 = visual.p0
+  const ep1 = visual.p1
+  const midLeft = (ep0.left + ep1.left) / 2
+  const midTop = (ep0.top + ep1.top) / 2
+
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+  if (!svg || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return diagramOffset
+
+  const anchorScreen = svgDiagramPointToContainer(svg, anchor.x, anchor.y, containerEl)
+  if (!anchorScreen) return diagramOffset
+
+  const dLeft = anchorScreen.left - midLeft
+  const dTop = anchorScreen.top - midTop
+  if (Math.abs(dLeft) < 1 && Math.abs(dTop) < 1) return diagramOffset
+
+  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
+  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
+  const pts = extractAnnotationPoints(live ?? sourceRaw)
+  if (pts.length < 2) return diagramOffset
+
+  const newP0 = containerScreenToDiagramPoint(ep0.left + dLeft, ep0.top + dTop, containerEl, pageIndex, vm)
+  const newP1 = containerScreenToDiagramPoint(
+    ep1.left + dLeft, ep1.top + dTop, containerEl, pageIndex, vm,
+  )
+  if (!newP0 || !newP1) return diagramOffset
+
+  const offsetX = newP0.x - pts[0].x
+  const offsetY = newP0.y - pts[0].y
+  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return diagramOffset
+
+  return { offsetX, offsetY }
+}
+
+/** Fallback paste offset — diagram midpoint aligned to anchor click. */
+function computeLinearPasteOffsetDiagramFallback(sourceRaw, anchor, pageIndex, vm, containerEl) {
+  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
+  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
+  const pts = extractAnnotationPoints(live ?? sourceRaw)
+  if (pts.length < 2 || !anchor) return null
+
+  let anchorX = anchor.x
+  let anchorY = anchor.y
+  if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null
+
+  const midX = (pts[0].x + pts[pts.length - 1].x) / 2
+  const midY = (pts[0].y + pts[pts.length - 1].y) / 2
+  return { offsetX: anchorX - midX, offsetY: anchorY - midY }
+}
+
+/** Convert screen pixels to PDF page coordinate units at the current zoom. */
+function screenPixelsToPdfUnits(pixels, pageIndex, vm) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl) return Math.max(8, pixels)
+  const pageRect = pageEl.getBoundingClientRect()
+  const pageSize = getPdfPageSize(vm, pageIndex)
+  if (pageSize && pageRect.width > 0 && pageRect.height > 0) {
+    return pixels * (pageSize.width / pageRect.width)
+  }
+  return Math.max(8, pixels)
 }
 
 /** Hide perpendicular end-cap leaders and reposition the value label above the line. */
@@ -1155,9 +1412,19 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
       )
       : null
 
+    const isLinearMeasure = !isAreaLike && (
+      rawIT === 'linedimension'
+      || rawShape === 'distance'
+      || rawShape === 'line'
+      || (item.itemType || 'Line') === 'Line'
+    )
+    const linearShapeType = (rawShape === 'distance' || rawIT === 'linedimension')
+      ? 'Distance'
+      : 'Line'
+
     const importable = {
-      ShapeAnnotationType: isAreaLike ? 'Polygon' : 'Line',
-      shapeAnnotationType: isAreaLike ? 'Polygon' : 'Line',
+      ShapeAnnotationType: isAreaLike ? 'Polygon' : (isLinearMeasure ? linearShapeType : 'Line'),
+      shapeAnnotationType: isAreaLike ? 'Polygon' : (isLinearMeasure ? linearShapeType : 'Line'),
       AnnotType: raw.AnnotType ?? 'shape_measure',
       AnnotName: raw.AnnotName ?? raw.annotationId ?? raw.name ?? raw.id ?? fallbackId,
       Author: raw.Author ?? 'BuildTakeoff',
@@ -1225,6 +1492,414 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
   } catch {
     return null
   }
+}
+
+/** Syncfusion requires Calibrate.X/Distance entries with Unit — empty arrays crash on .unit access. */
+function defaultCalibrateUnitEntry(displayUnit = 'mm') {
+  const u = String(displayUnit || 'mm').toLowerCase()
+  return {
+    ConversionFactor: u === 'mm' ? 0.013888889 : 1,
+    Denominator: 100,
+    FormatDenominator: false,
+    FractionalType: 'D',
+    Unit: u,
+  }
+}
+
+function normalizeCalibrateArray(arr, fallbackEntry) {
+  if (!Array.isArray(arr) || !arr.length) return [{ ...fallbackEntry }]
+  return arr.map(item => ({
+    ConversionFactor: item?.ConversionFactor ?? item?.conversionFactor ?? fallbackEntry.ConversionFactor,
+    Denominator: item?.Denominator ?? item?.denominator ?? 100,
+    FormatDenominator: item?.FormatDenominator ?? item?.formatDenominator ?? false,
+    FractionalType: item?.FractionalType ?? item?.fractionalType ?? 'D',
+    Unit: item?.Unit ?? item?.unit ?? fallbackEntry.Unit,
+  }))
+}
+
+function resolveCalibrateRatioForRender(cal, drawing, displayUnit) {
+  if (typeof cal?.Ratio === 'string' && cal.Ratio.includes('=')) return cal.Ratio
+  if (drawing?.isCalibrated && drawing.scaleRatio > 0) {
+    const u = getUnitLabel(displayUnit)
+    const destPerPx = convertFromMm(drawing.scaleRatio, displayUnit)
+    if (destPerPx != null && Number.isFinite(destPerPx)) {
+      return `1 px = ${destPerPx} ${u}`
+    }
+  }
+  const u = String(getUnitLabel(displayUnit) || 'mm').toLowerCase()
+  return `1 ${u} = 1 px`
+}
+
+/** Syncfusion viewer modifiedDate — must match stickyNotesAnnotationModule.getDateAndTime (M/d/yyyy h:mm:ss a). */
+function syncfusionViewerModifiedDate(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return syncfusionViewerModifiedDate(new Date())
+  const M = d.getMonth() + 1
+  const day = d.getDate()
+  const y = d.getFullYear()
+  let h = d.getHours()
+  const m = String(d.getMinutes()).padStart(2, '0')
+  const s = String(d.getSeconds()).padStart(2, '0')
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${M}/${day}/${y} ${h}:${m}:${s} ${ampm}`
+}
+
+function getSyncfusionViewerModifiedDate(vm, value) {
+  try {
+    const mod = vm?.annotation?.stickyNotesAnnotationModule
+    if (mod && typeof mod.getDateAndTime === 'function') {
+      return mod.getDateAndTime(value ?? new Date())
+    }
+  } catch (_) {}
+  return syncfusionViewerModifiedDate(value)
+}
+
+function isValidSyncfusionViewerModifiedDate(val) {
+  if (typeof val !== 'string' || !val.trim()) return false
+  if (/^D:\d/.test(val)) return false
+  return /\d{1,2}\/\d{1,2}\/\d{4}/.test(val)
+}
+
+function ensureLiveMeasureDates(live, vm = null) {
+  if (!live) return
+  const viewerDate = getSyncfusionViewerModifiedDate(vm)
+  const md = live.modifiedDate ?? live.ModifiedDate
+  if (!isValidSyncfusionViewerModifiedDate(md)) {
+    live.modifiedDate = viewerDate
+    live.ModifiedDate = viewerDate
+  } else {
+    live.modifiedDate = md
+    live.ModifiedDate = md
+  }
+  const cd = live.creationDate ?? live.CreationDate
+  if (!isValidSyncfusionViewerModifiedDate(cd)) {
+    live.creationDate = live.modifiedDate
+    live.CreationDate = live.modifiedDate
+  }
+  if (live.review && typeof live.review === 'object') {
+    if (!isValidSyncfusionViewerModifiedDate(live.review.modifiedDate)) {
+      live.review.modifiedDate = live.modifiedDate
+    }
+  }
+  if (Array.isArray(live.comments)) {
+    for (const c of live.comments) {
+      if (c && typeof c === 'object' && !isValidSyncfusionViewerModifiedDate(c.modifiedDate)) {
+        c.modifiedDate = live.modifiedDate
+      }
+      if (c?.review && !isValidSyncfusionViewerModifiedDate(c.review.modifiedDate)) {
+        c.review.modifiedDate = live.modifiedDate
+      }
+    }
+  }
+}
+
+/** Push date fields into Syncfusion measure collection (live node alone is not enough for saveMeasureShapeAnnotations). */
+function syncLiveMeasureDatesToCollection(vm, live, pageIndex) {
+  const mod = vm?.annotation?.measureAnnotationModule
+  if (!mod || !live) return
+  ensureLiveMeasureDates(live, vm)
+  const pageIdx = pageIndex ?? live.pageIndex ?? 0
+  for (const key of ['modifiedDate', 'creationDate', 'rotateAngle']) {
+    try { mod.modifyInCollection?.(key, pageIdx, live, false) } catch (_) {}
+  }
+}
+
+/** Fix pasted measure dates in Syncfusion session storage (saveMeasureShapeAnnotations reads this). */
+function patchMeasureShapeSessionStorage(vm) {
+  const base = vm?.pdfViewerBase
+  const docId = base?.documentId
+  if (!docId) return
+  const storageKey = `${docId}_annotations_shape_measure`
+  let raw = null
+  try {
+    raw = base.annotationStorage?.[storageKey]
+      ?? base.sessionStorageManager?.getItem?.(storageKey)
+  } catch (_) {}
+  if (!raw || typeof raw !== 'string') return
+  try {
+    const collection = JSON.parse(raw)
+    if (!Array.isArray(collection)) return
+    let changed = false
+    const viewerDate = getSyncfusionViewerModifiedDate(vm)
+    for (const pageObj of collection) {
+      const annots = pageObj?.annotations
+      if (!Array.isArray(annots)) continue
+      for (const annot of annots) {
+        if (!annot || typeof annot !== 'object') continue
+        if (!isValidSyncfusionViewerModifiedDate(annot.modifiedDate)) {
+          annot.modifiedDate = viewerDate
+          changed = true
+        }
+        if (annot.review && typeof annot.review === 'object'
+          && !isValidSyncfusionViewerModifiedDate(annot.review.modifiedDate)) {
+          annot.review.modifiedDate = annot.modifiedDate
+          changed = true
+        }
+      }
+    }
+    if (!changed) return
+    const str = JSON.stringify(collection)
+    if (base.annotationStorage) base.annotationStorage[storageKey] = str
+    try { base.sessionStorageManager?.setItem?.(storageKey, str) } catch (_) {}
+  } catch (_) {}
+}
+
+/** Ensure Syncfusion measure-shape render has no undefined fields (avoids .toString() / .unit crashes). */
+function sanitizeLinearMeasureShape(importable, displayUnit = 'Mm', drawing = null) {
+  const cal = importable.Calibrate ?? importable.calibrate ?? {}
+  const xEntry = defaultCalibrateUnitEntry(displayUnit)
+  const distEntry = { ...xEntry, ConversionFactor: 1 }
+  const bounds = importable.Bounds ?? importable.bounds ?? {}
+  const bx = bounds.X ?? bounds.x ?? 0
+  const by = bounds.Y ?? bounds.y ?? 0
+  const bw = bounds.Width ?? bounds.width ?? 1
+  const bh = bounds.Height ?? bounds.height ?? 1
+  return {
+    ...importable,
+    AnnotType: importable.AnnotType ?? 'shape_measure',
+    IT: importable.IT ?? importable.it ?? 'LineDimension',
+    Indent: importable.Indent ?? importable.indent ?? 'LineDimension',
+    Author: importable.Author ?? 'BuildTakeoff',
+    BorderDashArray: importable.BorderDashArray ?? importable.borderDashArray ?? 0,
+    BorderStyle: importable.BorderStyle ?? 'Solid',
+    CloudIntensity: importable.CloudIntensity ?? 0,
+    Comments: importable.Comments ?? [],
+    EnableShapeLabel: importable.EnableShapeLabel ?? false,
+    FillColor: importable.FillColor ?? importable.fillColor ?? 'rgba(239,35,60,0.12)',
+    IsCloudShape: importable.IsCloudShape ?? false,
+    IsCommentLock: importable.IsCommentLock ?? false,
+    IsLocked: importable.IsLocked ?? false,
+    IsPrint: importable.IsPrint ?? true,
+    ModifiedDate: importable.ModifiedDate ?? getSyncfusionViewerModifiedDate(null),
+    CreationDate: importable.CreationDate ?? importable.ModifiedDate ?? getSyncfusionViewerModifiedDate(null),
+    Note: importable.Note ?? importable.note ?? '',
+    note: importable.note ?? importable.Note ?? '',
+    Opacity: importable.Opacity ?? importable.opacity ?? 1,
+    RectangleDifference: importable.RectangleDifference ?? [],
+    RotateAngle: importable.RotateAngle ?? 'RotateAngle0',
+    State: importable.State ?? '',
+    StateModel: importable.StateModel ?? '',
+    Subject: importable.Subject ?? 'Distance calculation',
+    Caption: importable.Caption ?? true,
+    CaptionPosition: importable.CaptionPosition ?? 'Top',
+    LeaderLength: importable.LeaderLength ?? importable.leaderLength ?? 8,
+    LeaderLineExtension: importable.LeaderLineExtension ?? importable.leaderLineExtension ?? 0,
+    LeaderLineOffset: importable.LeaderLineOffset ?? 0,
+    Bounds: {
+      X: bx, Y: by, Width: bw, Height: bh,
+      Left: bounds.Left ?? bx,
+      Top: bounds.Top ?? by,
+      Right: bounds.Right ?? (bx + bw),
+      Bottom: bounds.Bottom ?? (by + bh),
+    },
+    Calibrate: {
+      Ratio: resolveCalibrateRatioForRender(cal, drawing, displayUnit),
+      X: normalizeCalibrateArray(cal.X, xEntry),
+      Distance: normalizeCalibrateArray(cal.Distance, distEntry),
+      Area: Array.isArray(cal.Area) && cal.Area.length
+        ? normalizeCalibrateArray(cal.Area, { ...xEntry, Unit: `sq ${xEntry.Unit}` })
+        : [],
+      Angle: Array.isArray(cal.Angle) ? cal.Angle : [],
+      Volume: Array.isArray(cal.Volume) ? cal.Volume : [],
+      TargetUnitConversion: typeof cal.TargetUnitConversion === 'number' ? cal.TargetUnitConversion : 1,
+    },
+  }
+}
+
+/** Render one linear measurement on the viewer without import/export APIs. */
+function renderLinearMeasurementOnViewer(vm, importable, pageIndex, displayUnit, drawing) {
+  const mod = vm?.annotation?.measureAnnotationModule
+  if (!mod?.renderMeasureShapeAnnotations) return false
+  const shape = sanitizeLinearMeasureShape(importable, displayUnit, drawing)
+  const viewerDate = getSyncfusionViewerModifiedDate(vm)
+  shape.ModifiedDate = isValidSyncfusionViewerModifiedDate(shape.ModifiedDate) ? shape.ModifiedDate : viewerDate
+  shape.CreationDate = isValidSyncfusionViewerModifiedDate(shape.CreationDate) ? shape.CreationDate : viewerDate
+  try {
+    mod.renderMeasureShapeAnnotations([shape], pageIndex, true, false)
+  } catch (err) {
+    console.error('[BuildTakeoff] renderMeasureShapeAnnotations failed:', err)
+    return false
+  }
+  try { vm.annotation?.renderAnnotations?.(pageIndex, null, null, null, null, false) } catch (_) {}
+  try { vm.renderDrawing?.() } catch (_) {}
+  patchMeasureShapeSessionStorage(vm)
+  const annotId = shape.AnnotName ?? shape.name ?? shape.annotationId
+  if (annotId) {
+    try { patchLiveLinearMeasureIntegrity(vm, annotId, shape, pageIndex) } catch (_) {}
+    setTimeout(() => {
+      try { patchLiveLinearMeasureIntegrity(vm, annotId, shape, pageIndex) } catch (_) {}
+    }, 50)
+    if (resolveLiveAnnotation(vm, annotId)) return true
+    if (resolveLiveAnnotationByPoints(vm, shape)) return true
+  }
+  // renderMeasureShapeAnnotations succeeded — live node may register on next tick
+  return true
+}
+
+function collectAllLiveMeasureAnnotations(vm) {
+  if (!vm) return []
+  const seen = new Set()
+  const out = []
+  const push = (a) => {
+    if (!a || !isLinearMeasureAnnotation(a)) return
+    const id = resolveStableAnnotationId(a) ?? a.annotName ?? a.id ?? a.name
+    if (id && seen.has(id)) return
+    if (id) seen.add(id)
+    out.push({ live: a, id, pageIndex: a.pageIndex ?? 0 })
+  }
+  Object.values(vm.nameTable ?? {}).forEach(push)
+  ;(vm.annotations ?? []).forEach(push)
+  return out
+}
+
+/** Minimal in-place patch for export — never calls editAnnotation (avoids corrupting in-progress draws). */
+function patchLiveAnnotationForExport(live, displayUnit = 'Mm', vm = null) {
+  if (!live) return
+  if (extractAnnotationPoints(live).length < 2) return
+
+  ensureLiveMeasureDates(live, vm)
+
+  if (!live.rotateAngle && !live.RotateAngle) {
+    live.rotateAngle = 'RotateAngle0'
+    live.RotateAngle = 'RotateAngle0'
+  }
+
+  const ratio = live.calibrate?.ratio ?? live.Calibrate?.Ratio
+  if (!ratio || typeof ratio !== 'string' || !ratio.includes('=')) {
+    const u = String(getUnitLabel(displayUnit) || 'mm').toLowerCase()
+    const fallback = `1 ${u} = 1 px`
+    if (live.calibrate && typeof live.calibrate === 'object') {
+      live.calibrate.ratio = fallback
+    } else {
+      live.calibrate = { ratio: fallback, x: [], distance: [], area: [], angle: [], volume: [] }
+    }
+  }
+}
+
+/** Patch every complete live linear measure before export — read-only safe, no editAnnotation. */
+function patchAllLiveMeasureAnnotationsForExport(vm, displayUnit) {
+  if (!vm) return
+  for (const { live, pageIndex } of collectAllLiveMeasureAnnotations(vm)) {
+    try {
+      patchLiveAnnotationForExport(live, displayUnit, vm)
+      syncLiveMeasureDatesToCollection(vm, live, pageIndex)
+    } catch (_) {}
+  }
+  patchMeasureShapeSessionStorage(vm)
+}
+
+/** Full re-sync for pasted/imported lines only — safe before next draw, not during in-progress native draw. */
+function patchImportedLinearMeasures(vm, displayUnit, drawing, importedIds) {
+  if (!vm || !importedIds?.size) return
+  for (const { live, id, pageIndex } of collectAllLiveMeasureAnnotations(vm)) {
+    if (!importedIds.has(id)) continue
+    const shape = sanitizeLinearMeasureShape({
+      AnnotName: id,
+      name: id,
+      ModifiedDate: live.modifiedDate ?? live.ModifiedDate,
+      CreationDate: live.creationDate ?? live.CreationDate,
+      RotateAngle: live.rotateAngle ?? live.RotateAngle ?? 'RotateAngle0',
+      Calibrate: live.Calibrate ?? live.calibrate,
+      calibrate: live.calibrate ?? live.Calibrate,
+      vertexPoints: live.vertexPoints,
+      VertexPoints: live.vertexPoints,
+      Bounds: live.bounds ?? live.Bounds,
+      ShapeAnnotationType: 'Distance',
+    }, displayUnit, drawing)
+    try { patchLiveLinearMeasureIntegrity(vm, id, shape, pageIndex) } catch (_) {}
+  }
+}
+
+function prepareMeasureAnnotationsForNextDraw(vm, displayUnit, drawing, importedIds) {
+  if (!vm) return
+  patchAllLiveMeasureAnnotationsForExport(vm, displayUnit)
+  patchImportedLinearMeasures(vm, displayUnit, drawing, importedIds)
+  patchMeasureShapeSessionStorage(vm)
+}
+
+/** Full integrity patch for pasted renders — may call editAnnotation to sync calibrate on canvas. */
+function patchLiveLinearMeasureIntegrity(vm, annotId, shape, pageIndex) {
+  const live = resolveLiveAnnotation(vm, annotId)
+  if (!live) return
+
+  ensureLiveMeasureDates(live, vm)
+  const modifiedDate = live.modifiedDate ?? live.ModifiedDate
+  const creationDate = live.creationDate ?? live.CreationDate
+
+  Object.assign(live, {
+    modifiedDate,
+    ModifiedDate: modifiedDate,
+    creationDate,
+    CreationDate: creationDate,
+  })
+
+  if (!shape?.Calibrate) {
+    syncLiveMeasureDatesToCollection(vm, live, pageIndex)
+    return
+  }
+
+  const ratio = typeof shape.Calibrate.Ratio === 'string' && shape.Calibrate.Ratio.includes('=')
+    ? shape.Calibrate.Ratio
+    : '1 mm = 1 px'
+  const rotateAngle = shape.RotateAngle ?? 'RotateAngle0'
+  const borderDash = shape.BorderDashArray ?? 0
+
+  const toFmt = (entry, fallbackUnit = 'mm') => ({
+    unit: String(entry?.Unit ?? entry?.unit ?? fallbackUnit).toLowerCase(),
+    fractionalType: entry?.FractionalType ?? entry?.fractionalType ?? 'D',
+    conversionFactor: Number(entry?.ConversionFactor ?? entry?.conversionFactor ?? 0.013888889),
+    denominator: Number(entry?.Denominator ?? entry?.denominator ?? 100),
+    formatDenominator: entry?.FormatDenominator ?? entry?.formatDenominator ?? false,
+  })
+
+  const xEntry = (shape.Calibrate.X ?? [])[0]
+  const distEntry = (shape.Calibrate.Distance ?? [])[0]
+  const xArr = [toFmt(xEntry)]
+  const distArr = [toFmt(distEntry ?? xEntry, xArr[0].unit)]
+
+  const calibrate = {
+    ratio,
+    x: xArr,
+    distance: distArr,
+    area: [],
+    angle: [],
+    volume: [],
+    targetUnitConversion: shape.Calibrate.TargetUnitConversion ?? 1,
+  }
+
+  Object.assign(live, {
+    rotateAngle,
+    RotateAngle: rotateAngle,
+    borderDashArray: String(borderDash),
+    BorderDashArray: borderDash,
+    calibrate,
+    Calibrate: shape.Calibrate,
+  })
+
+  try {
+    vm.annotation.editAnnotation({
+      ...live,
+      annotationId: annotId,
+      name: annotId,
+      AnnotName: annotId,
+      modifiedDate,
+      ModifiedDate: modifiedDate,
+      creationDate,
+      CreationDate: creationDate,
+      rotateAngle,
+      RotateAngle: rotateAngle,
+      borderDashArray: borderDash,
+      BorderDashArray: borderDash,
+    })
+  } catch (_) {}
+
+  const mod = vm.annotation?.measureAnnotationModule
+  const pageIdx = pageIndex ?? live.pageIndex ?? 0
+  try { mod?.modifyInCollection?.('modifiedDate', pageIdx, live, false) } catch (_) {}
+  try { mod?.modifyInCollection?.('creationDate', pageIdx, live, false) } catch (_) {}
+  try { mod?.modifyInCollection?.('rotateAngle', pageIdx, live, false) } catch (_) {}
+  try { vm.annotation?.renderAnnotations?.(pageIdx, null, null, null, null, false) } catch (_) {}
 }
 
 /** Apply toolbar label + line visual style to one linear measurement. */
@@ -1725,6 +2400,7 @@ export default function PdfViewer({
     measureLabelFontSize, activeUnit,
     setCountSession,
     selectedMemberScheduleItem, lastMeasureMember,
+    measurementClipboard, setPasteAnchor, pasteAnchor, clearPasteAnchor,
   } = useAppStore()
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
   // Pan-drag state — full tracking state for click-and-drag scrolling.
@@ -1963,7 +2639,10 @@ export default function PdfViewer({
   const explicitGridSelectRef = useRef(false)
   const pasteStyleRef = useRef(null)
   const pastePlacementRef = useRef(null)
+  const pasteCommitInProgressRef = useRef(null)
   const [pastePlacementActive, setPastePlacementActive] = useState(false)
+  const [pasteCursorPos, setPasteCursorPos] = useState(null) // {left,top} container-relative px
+  const [pasteAnchorScreen, setPasteAnchorScreen] = useState(null)
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
   const importedTakeoffIdsRef = useRef(new Set())
@@ -2144,7 +2823,11 @@ export default function PdfViewer({
 
   const exportAndProcessUnsaved = useCallback((vm) => {
     if (!vm?.exportAnnotationsAsObject) return
+    if (measureCompleteTimersRef.current.size > 0) return
+    if (pasteCommitInProgressRef.current) return
     try {
+      const displayUnit = getDisplayUnit()
+      patchAllLiveMeasureAnnotationsForExport(vm, displayUnit)
       const result = vm.exportAnnotationsAsObject()
       const processExport = (raw) => {
         if (!raw) return
@@ -2325,6 +3008,14 @@ export default function PdfViewer({
     try { vm.annotation.setAnnotationMode('None') } catch (_) {}
     setTimeout(() => {
       if (tool === 'line' || tool === 'calibrate') {
+        try {
+          prepareMeasureAnnotationsForNextDraw(
+            vm,
+            useAppStore.getState().activeUnit ?? 'Mm',
+            getCalibratedDrawing(drawingRef),
+            importedAnnotIdsRef.current,
+          )
+        } catch (_) {}
         const hex = measureColor ?? '#111827'
         const r = parseInt(hex.slice(1, 3), 16) || 17
         const g = parseInt(hex.slice(3, 5), 16) || 24
@@ -2724,11 +3415,17 @@ export default function PdfViewer({
   const cancelPastePlacement = useCallback(() => {
     pastePlacementRef.current = null
     setPastePlacementActive(false)
+    setPasteCursorPos(null)
   }, [])
 
-  const commitPasteLinearMeasurement = useCallback((clipboard, offsetX, offsetY, targetPage) => {
+  const commitPasteLinearMeasurement = useCallback((clipboard, offsetX, offsetY, targetPage, pasteAnchor = null) => {
     const vm = viewerRef.current
-    if (!vm || !clipboard?.raw) return false
+    if (!vm || !(clipboard?.copyJson ?? clipboard?.raw)) return false
+
+    if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+      toast.error('Could not paste — invalid placement offset')
+      return false
+    }
 
     pasteStyleRef.current = {
       color: clipboard.color,
@@ -2739,7 +3436,8 @@ export default function PdfViewer({
       linearLineMode: clipboard.linearLineMode,
     }
 
-    const cloned = cloneLinearAnnotationForPaste(clipboard.raw, offsetX, offsetY, targetPage)
+    const sourceRaw = clipboard.copyJson ?? clipboard.raw
+    const cloned = cloneLinearAnnotationForPaste(sourceRaw, offsetX, offsetY, targetPage)
     if (!cloned) {
       pasteStyleRef.current = null
       toast.error('Could not paste — invalid line geometry')
@@ -2768,54 +3466,288 @@ export default function PdfViewer({
 
     const pageIdx = String(targetPage - 1)
     const newId = cloned.annotationId
-    importingAnnotsRef.current = true
-    try {
-      vm.importAnnotation(JSON.stringify({
-        pdfAnnotation: {
-          [pageIdx]: {
-            measureShapeAnnotation: [cloned],
-            shapeAnnotation: [],
-          },
-        },
-      }), 'Json')
-    } catch (_) {
-      importingAnnotsRef.current = false
+
+    const ptsForSave = extractAnnotationPoints(cloned)
+    const pxLen = polylineLength(ptsForSave)
+    const rawAnnotForSave = {
+      annotationId: newId,
+      AnnotName: newId,
+      name: newId,
+      shapeAnnotationType: 'Distance',
+      ShapeAnnotationType: 'Distance',
+      IT: 'LineDimension',
+      type: 'Line',
+      pageNumber: targetPage,
+      page: pageIdx,
+      vertexPoints: ptsForSave,
+      VertexPoints: ptsForSave.map(p => ({ X: p.x, Y: p.y })),
+      strokeColor: clipboard.color,
+      StrokeColor: clipboard.color,
+      thickness: clipboard.thickness,
+      Thickness: clipboard.thickness,
+      FontSize: stylePatch.fontSize,
+      fontSize: stylePatch.fontSize,
+      LeaderLength: stylePatch.leaderLength,
+      leaderLength: stylePatch.leaderLength,
+      LeaderLineExtension: stylePatch.leaderLineExtension,
+      leaderLineExtension: stylePatch.leaderLineExtension,
+      LineHeadStart: stylePatch.lineHeadStartStyle ?? 'None',
+      lineHeadStartStyle: stylePatch.lineHeadStartStyle ?? 'None',
+      LineHeadEnd: stylePatch.lineHeadEndStyle ?? 'None',
+      lineHeadEndStyle: stylePatch.lineHeadEndStyle ?? 'None',
+      labelSettings: stylePatch.labelSettings,
+      Calibrate: cloned.Calibrate ?? cloned.calibrate,
+      calibrate: cloned.calibrate ?? cloned.Calibrate,
+      start: ptsForSave.length >= 2 ? `${ptsForSave[0].x},${ptsForSave[0].y}` : '',
+      end: ptsForSave.length >= 2 ? `${ptsForSave[ptsForSave.length - 1].x},${ptsForSave[ptsForSave.length - 1].y}` : '',
+    }
+
+    const fakeItem = {
+      id: newId,
+      itemType: 'Line',
+      color: clipboard.color,
+      category: clipboard.category ?? 'General',
+      length: clipboard.length,
+      unit: clipboard.unit,
+      pointsJson: JSON.stringify(rawAnnotForSave),
+    }
+    const builtClone = buildImportableFromTakeoffItem(fakeItem, measureLabelFontSize, pdfScale)
+    if (!builtClone) {
       pasteStyleRef.current = null
+      toast.error('Could not paste — invalid geometry after offset')
+      return false
+    }
+    const displayUnit = getDisplayUnit()
+    const d = getCalibratedDrawing(drawingRef)
+    const clonedImportable = sanitizeLinearMeasureShape({
+      ...builtClone.importable,
+      ShapeAnnotationType: 'Distance',
+      shapeAnnotationType: 'Distance',
+      IT: 'LineDimension',
+      AnnotName: newId,
+      name: newId,
+      ModifiedDate: getSyncfusionViewerModifiedDate(vm),
+      CreationDate: getSyncfusionViewerModifiedDate(vm),
+      State: '',
+      StateModel: '',
+      Author: 'BuildTakeoff',
+      Subject: 'Distance calculation',
+    }, displayUnit, d)
+
+    const pageIndex = targetPage - 1
+    pasteCommitInProgressRef.current = newId
+    importingAnnotsRef.current = true
+    importedAnnotIdsRef.current.add(newId)
+    processedAnnotsRef.current.add(newId)
+
+    try {
+      if (!renderLinearMeasurementOnViewer(vm, clonedImportable, pageIndex, displayUnit, d)) {
+        throw new Error('renderLinearMeasurementOnViewer failed')
+      }
+      const liveRendered = resolveLiveAnnotation(vm, newId)
+        ?? resolveLiveAnnotationByPoints(vm, clonedImportable)
+      const liveId = liveRendered ? resolveStableAnnotationId(liveRendered) : null
+      if (liveId) {
+        importedAnnotIdsRef.current.add(liveId)
+        processedAnnotsRef.current.add(liveId)
+      }
+      try {
+        patchLiveLinearMeasureIntegrity(vm, newId, clonedImportable, pageIndex)
+        if (liveId && liveId !== newId) {
+          patchLiveLinearMeasureIntegrity(vm, liveId, clonedImportable, pageIndex)
+        }
+        prepareMeasureAnnotationsForNextDraw(vm, displayUnit, d, importedAnnotIdsRef.current)
+      } catch (_) {}
+      const mod = vm.annotation?.measureAnnotationModule
+      try {
+        if (mod && d?.isCalibrated) {
+          registerAnnotationScaleRatio(mod, newId, d, displayUnit)
+        }
+      } catch (_) {}
+    } catch (err) {
+      console.error('[BuildTakeoff] paste render failed:', err)
+      importingAnnotsRef.current = false
+      pasteCommitInProgressRef.current = null
+      pasteStyleRef.current = null
+      importedAnnotIdsRef.current.delete(newId)
+      processedAnnotsRef.current.delete(newId)
       toast.error('Paste failed')
       return false
     }
 
+    let pasteFinalized = false
     setTimeout(() => {
-      importingAnnotsRef.current = false
-      const plain = { ...buildPlainAnnot(cloned), ...cloned, ...stylePatch }
-      processMeasureAnnotation(plain)
-      applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
-      const labelText = clipboard.length != null
-        ? formatMeasureLength(clipboard.length, clipboard.unit ?? getDisplayUnit())
-        : resolveLinearLabelText(vm, newId, null, getDisplayUnit())
-      if (labelText) {
-        applyCalibratedLabelToDiagram(
-          vm, newId, targetPage, labelText, clipboard.color,
-          buildLinearLabelDiagramStyle(clipboard.labelFontSize, pdfScale, clipboard.color),
-        )
+      try {
+        const pageIndexNum = targetPage - 1
+        const finalizePasteCommit = () => {
+          if (pasteFinalized) return
+          pasteFinalized = true
+
+          try {
+            prepareMeasureAnnotationsForNextDraw(
+              vm, getDisplayUnit(), getCalibratedDrawing(drawingRef), importedAnnotIdsRef.current,
+            )
+          } catch (_) {}
+
+          const liveAfter = resolveLiveAnnotation(vm, newId)
+          const finalPts = liveAfter?.vertexPoints?.length >= 2
+            ? liveAfter.vertexPoints.map(p => ({
+              x: Number(p.x ?? p.X) || 0,
+              y: Number(p.y ?? p.Y) || 0,
+            }))
+            : ptsForSave
+
+          const finalRawAnnot = {
+            ...rawAnnotForSave,
+            vertexPoints: finalPts,
+            VertexPoints: finalPts.map(p => ({ X: p.x, Y: p.y })),
+            start: finalPts.length >= 2 ? `${finalPts[0].x},${finalPts[0].y}` : '',
+            end: finalPts.length >= 2
+              ? `${finalPts[finalPts.length - 1].x},${finalPts[finalPts.length - 1].y}`
+              : '',
+          }
+
+          const pastePayload = {
+            length: clipboard.length,
+            area: null,
+            pixelLength: pxLen > 0 ? pxLen : 1,
+            pixelArea: 0,
+            unit: clipboard.unit ?? getDisplayUnit(),
+            points: [],
+            annotationId: newId,
+            pageNumber: targetPage,
+            memberMark: '',
+            drawingMark: null,
+            memberScheduleId: null,
+            rawAnnotation: {
+              ...finalRawAnnot,
+              Calibrate: clonedImportable.Calibrate,
+              calibrate: clonedImportable.Calibrate,
+            },
+            measureType: 'Line',
+          }
+          onMeasureRef.current?.(pastePayload, { isPaste: true })
+
+          hideLineMeasureLabelOnViewer(vm, newId)
+          const labelText = clipboard.length != null
+            ? formatMeasureLength(clipboard.length, clipboard.unit ?? getDisplayUnit())
+            : resolveLinearLabelText(vm, newId, null, getDisplayUnit())
+          if (labelText) {
+            applyCalibratedLabelToDiagram(
+              vm, newId, targetPage, labelText, clipboard.color,
+              buildLinearLabelDiagramStyle(clipboard.labelFontSize, pdfScale, clipboard.color),
+            )
+          }
+          lastDrawnAnnotRef.current = newId
+          selectedAnnotDataRef.current = null
+          toast.success('Measurement pasted', { duration: 2000 })
+          setTimeout(() => {
+            try {
+              prepareMeasureAnnotationsForNextDraw(
+                vm, getDisplayUnit(), getCalibratedDrawing(drawingRef), importedAnnotIdsRef.current,
+              )
+            } catch (_) {}
+            const { activeTool: currentTool } = useAppStore.getState()
+            if (CONTINUOUS_MEASURE_TOOLS.has(currentTool)) {
+              ensureContinuousMeasureModeRef.current?.()
+            } else {
+              try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+            }
+          }, 200)
+
+          importingAnnotsRef.current = false
+          pasteCommitInProgressRef.current = null
+          pasteStyleRef.current = null
+        }
+
+        const runFinalize = (attempt = 0) => {
+          const live = resolveLiveAnnotation(vm, newId)
+          if (!live && attempt < 12) {
+            setTimeout(() => runFinalize(attempt + 1), 50)
+            return
+          }
+          applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
+          finalizePasteCommit()
+        }
+
+        requestAnimationFrame(() => runFinalize(0))
+      } catch (err) {
+        console.error('[BuildTakeoff] paste commit failed:', err)
+        importingAnnotsRef.current = false
+        pasteCommitInProgressRef.current = null
+        toast.error('Paste failed — try again')
       }
-      lastDrawnAnnotRef.current = newId
-      selectedAnnotDataRef.current = resolveLiveAnnotation(vm, newId)
-      toast.success('Measurement pasted', { duration: 2000 })
-      setTimeout(() => {
-        explicitGridSelectRef.current = true
-        try { vm.annotation.selectAnnotation(newId, targetPage) } catch (_) {}
-        const { activeTool: currentTool } = useAppStore.getState()
-        const mode = MEASURE_MODES[currentTool]
-        if (mode) { try { vm.annotation.setAnnotationMode(mode) } catch (_) {} }
-      }, 200)
-    }, 400)
+    }, 200)
     return true
-  }, [pdfScale, pdfPage, processMeasureAnnotation, getDisplayUnit])
+  }, [pdfScale, pdfPage, getDisplayUnit, measureLabelFontSize])
+
+  // Stable ref so the pdfCommand useEffect can call commitPasteLinearMeasurement
+  // without it being listed in that effect's dependency array.
+  const commitPasteRef = useRef(null)
+  useEffect(() => { commitPasteRef.current = commitPasteLinearMeasurement }, [commitPasteLinearMeasurement])
+
+  // Copy → click on plan → Ctrl+V: record PDF click as paste destination while clipboard has data.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || !pdfBase64) return
+
+    let downX = 0
+    let downY = 0
+
+    const onMouseDown = (e) => {
+      if (e.button !== 0) return
+      downX = e.clientX
+      downY = e.clientY
+    }
+
+    const onMouseUp = (e) => {
+      const { measurementClipboard: clip, activeTool } = useAppStore.getState()
+      if (!clip || pastePlacementActive) return
+      if (importingAnnotsRef.current) return
+      if (e.button !== 0) return
+      if (Math.abs(e.clientX - downX) > 6 || Math.abs(e.clientY - downY) > 6) return
+
+      const drawTools = ['line', 'area', 'perimeter', 'calibrate']
+      if (drawTools.includes(activeTool) && !e.shiftKey) return
+
+      const vm = viewerRef.current
+      if (!vm) return
+      const page = useAppStore.getState().pdfPage ?? 1
+      const pageIndex = Math.max(0, page - 1)
+      const pt = resolvePasteAnchorFromClick(e.clientX, e.clientY, pageIndex, vm, el)
+      if (!pt) return
+
+      setPasteAnchor({ x: pt.x, y: pt.y, pageNumber: page })
+      toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
+    }
+
+    el.addEventListener('mousedown', onMouseDown, true)
+    el.addEventListener('mouseup', onMouseUp, true)
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown, true)
+      el.removeEventListener('mouseup', onMouseUp, true)
+    }
+  }, [pdfBase64, pastePlacementActive, setPasteAnchor])
+
+  // Screen position for paste-anchor crosshair (updates on zoom/scroll/page).
+  useEffect(() => {
+    if (!pasteAnchor || !viewerRef.current || !containerRef.current) {
+      setPasteAnchorScreen(null)
+      return
+    }
+    const pageIndex = Math.max(0, (pasteAnchor.pageNumber ?? 1) - 1)
+    const pos = diagramPointToContainerCoords(
+      pasteAnchor.x, pasteAnchor.y, pageIndex, viewerRef.current, containerRef.current,
+    ) ?? pdfPointToContainerCoords(
+      pasteAnchor.x, pasteAnchor.y, pageIndex, viewerRef.current, containerRef.current,
+    )
+    setPasteAnchorScreen(pos)
+  }, [pasteAnchor, pdfScale, pdfPage, fallbackLabelTick, canvasSelectionTick])
 
   const handlePastePlacementClick = useCallback((e) => {
     const pending = pastePlacementRef.current
-    if (!pending?.clipboard?.raw) return
+    const sourceRaw = pending?.clipboard?.copyJson ?? pending?.clipboard?.raw
+    if (!sourceRaw) return
     e.preventDefault()
     e.stopPropagation()
 
@@ -2824,22 +3756,25 @@ export default function PdfViewer({
 
     const targetPage = pdfPage ?? pending.clipboard.pageNumber ?? 1
     const pageIndex = Math.max(0, targetPage - 1)
-    const clickPt = containerClientToPdfPoint(e.clientX, e.clientY, pageIndex, vm)
+    const clickPt = resolvePasteAnchorFromClick(e.clientX, e.clientY, pageIndex, vm, containerRef.current)
     if (!clickPt) {
       toast.error('Could not place measurement — click on the drawing')
       return
     }
 
-    const mid = getLinearAnnotationMidpoint(pending.clipboard.raw)
-    if (!mid) {
+    const anchor = { x: clickPt.x, y: clickPt.y }
+    const offset = computeLinearPasteOffsetForAnchor(
+      sourceRaw, anchor, pageIndex, vm, containerRef.current,
+    )
+    if (!offset) {
       cancelPastePlacement()
       toast.error('Could not paste — invalid line geometry')
       return
     }
 
-    const offsetX = clickPt.x - mid.x
-    const offsetY = clickPt.y - mid.y
-    const ok = commitPasteLinearMeasurement(pending.clipboard, offsetX, offsetY, targetPage)
+    const ok = commitPasteLinearMeasurement(
+      pending.clipboard, offset.offsetX, offset.offsetY, targetPage, anchor,
+    )
     cancelPastePlacement()
     if (!ok) toast.error('Paste failed')
   }, [pdfPage, commitPasteLinearMeasurement, cancelPastePlacement])
@@ -2887,6 +3822,7 @@ export default function PdfViewer({
         const fromLive = buildPlainAnnot(live)
         if (extractAnnotationPoints(fromLive).length >= 2) return fromLive
       }
+      if (extractAnnotationPoints(plainAnnot).length >= 2) return plainAnnot
       return plainAnnot
     }
 
@@ -2909,9 +3845,12 @@ export default function PdfViewer({
       if (displayed.length != null && displayed.length > 0) return true
 
       const pts = extractAnnotationPoints(live ?? annot)
-      if (polylineLength(pts) >= 0.1 && attempt >= 1) return true
+      if (polylineLength(pts) >= 0.1) return true
 
-      return attempt >= 5
+      const eventPts = extractAnnotationPoints(plainAnnot)
+      if (polylineLength(eventPts) >= 0.1 && attempt >= 3) return true
+
+      return attempt >= 15
     }
 
     const finishMeasure = (attempt = 0) => {
@@ -3110,7 +4049,10 @@ export default function PdfViewer({
     const onMouseUp = () => {
       if (importingAnnotsRef.current || editingAnnotRef.current) return
       clearTimeout(mouseUpTimer)
-      mouseUpTimer = setTimeout(() => exportAndProcessUnsaved(viewerRef.current), 400)
+      mouseUpTimer = setTimeout(() => {
+        if (measureCompleteTimersRef.current.size > 0) return
+        exportAndProcessUnsaved(viewerRef.current)
+      }, 400)
     }
     el.addEventListener('mouseup', onMouseUp, true)
     return () => {
@@ -3214,12 +4156,31 @@ export default function PdfViewer({
       if (dx !== 0 || dy !== 0) applyScroll(dx, dy)
     }
 
-    const onMouseUp = () => {
+    const onMouseUp = (e) => {
       if (!state.dragging) return
+      const wasClick = !state.hasMoved
       state.dragging = false
       state.scrollEls = null
       state.hasMoved = false
       outer.style.cursor = 'grab'
+
+      if (wasClick && e?.button === 0 && !pastePlacementActive && !importingAnnotsRef.current) {
+        const clip = useAppStore.getState().measurementClipboard
+        if (clip) {
+          const vm = viewerRef.current
+          if (vm) {
+            const page = useAppStore.getState().pdfPage ?? 1
+            const pageIndex = Math.max(0, page - 1)
+            const pt = resolvePasteAnchorFromClick(
+              e.clientX, e.clientY, pageIndex, vm, containerRef.current,
+            )
+            if (pt) {
+              setPasteAnchor({ x: pt.x, y: pt.y, pageNumber: page })
+              toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
+            }
+          }
+        }
+      }
     }
 
     const viewerRoot = document.getElementById('sfPdfViewer')
@@ -3238,7 +4199,7 @@ export default function PdfViewer({
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [activeTool, docLoaded])
+  }, [activeTool, docLoaded, setPasteAnchor, pastePlacementActive])
 
   // ── Handle imperative viewer commands (fitPage, selectAnnotation, …) ───
   useEffect(() => {
@@ -3270,6 +4231,11 @@ export default function PdfViewer({
         setTimeout(() => applyActiveToolToViewerRef.current?.(), 120)
         setTimeout(() => applyActiveToolToViewerRef.current?.(), 450)
       } else if (type === 'ensureMeasureMode') {
+        try {
+          prepareMeasureAnnotationsForNextDraw(
+            vm, getDisplayUnit(), getCalibratedDrawing(drawingRef), importedAnnotIdsRef.current,
+          )
+        } catch (_) {}
         applyActiveToolToViewerRef.current?.()
       } else if (type === 'selectAnnotation' && payload.annotationId) {
         explicitGridSelectRef.current = true
@@ -3401,9 +4367,62 @@ export default function PdfViewer({
         }
 
         runClear()
+      } else if (type === 'pasteWithFixedOffset') {
+        // Direct paste: places the clone immediately with a fixed 15-screen-pixel
+        // offset from the original — no extra click required.
+        const clipboard = payload.clipboard
+        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
+          toast('Nothing to paste — copy a line measurement first')
+          return
+        }
+        if ((clipboard.itemType || 'Line') !== 'Line') {
+          toast('Only linear measurements can be pasted')
+          return
+        }
+        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+        const { pdfPage: currentPage } = useAppStore.getState()
+        const targetPage = currentPage ?? 1
+        const pageIndex = Math.max(0, targetPage - 1)
+        const pdfOffsetX = screenPixelsToPdfUnits(15, pageIndex, vm)
+        const pdfOffsetY = screenPixelsToPdfUnits(15, pageIndex, vm)
+        const ok = commitPasteRef.current?.(clipboard, pdfOffsetX, pdfOffsetY, targetPage)
+        if (!ok) toast.error('Paste failed')
+      } else if (type === 'pasteAtPoint') {
+        const clipboard = payload.clipboard
+        const anchor = payload.anchor
+        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
+          toast('Nothing to paste — copy a line measurement first')
+          return
+        }
+        if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) {
+          toast('Click on the drawing where you want to paste, then press Ctrl+V', { duration: 3500, icon: '📍' })
+          return
+        }
+        if ((clipboard.itemType || 'Line') !== 'Line') {
+          toast('Only linear measurements can be pasted')
+          return
+        }
+        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+        const sourceRaw = clipboard.copyJson ?? clipboard.raw
+        const targetPage = anchor.pageNumber ?? useAppStore.getState().pdfPage ?? 1
+        const pageIndex = Math.max(0, targetPage - 1)
+        const container = containerRef.current
+        const offset = computeLinearPasteOffsetForAnchor(
+          sourceRaw, anchor, pageIndex, vm, container,
+        )
+        if (!offset) {
+          toast.error('Could not paste — invalid line geometry')
+          return
+        }
+        const ok = commitPasteRef.current?.(clipboard, offset.offsetX, offset.offsetY, targetPage, anchor)
+        if (ok) {
+          useAppStore.getState().clearPasteAnchor()
+        } else {
+          toast.error('Paste failed')
+        }
       } else if (type === 'pasteMeasurement') {
         const clipboard = payload.clipboard
-        if (!clipboard?.raw) {
+        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
           toast('Nothing to paste — copy a line measurement first')
           return
         }
@@ -3413,14 +4432,43 @@ export default function PdfViewer({
         }
 
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
-        pastePlacementRef.current = { clipboard }
+        const { pdfPage: currentPage } = useAppStore.getState()
+        const targetPage = currentPage ?? clipboard.pageNumber ?? 1
+        const pageIndex = Math.max(0, targetPage - 1)
+        const sourceRaw = clipboard.copyJson ?? clipboard.raw
+        let screenVec = null
+        try {
+          const svg = resolveDiagramSvg(vm, pageIndex)
+          const container = containerRef.current
+          if (svg && container) {
+            const pts = extractAnnotationPoints(sourceRaw)
+            if (pts.length >= 2) {
+              const s0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, container)
+              const s1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
+              if (s0 && s1) {
+                screenVec = { halfDx: (s1.left - s0.left) / 2, halfDy: (s1.top - s0.top) / 2 }
+              }
+            }
+          }
+        } catch (_) {}
+        pastePlacementRef.current = { clipboard, screenVec }
+        setPasteCursorPos(null)
         setPastePlacementActive(true)
         toast('Click on the drawing to place the measurement', { duration: 3500 })
       } else if (type === 'saveAnnotationBlob') {
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
         setTimeout(() => {
           try {
-            const result = vm.exportAnnotationsAsObject?.()
+            if (importingAnnotsRef.current) return
+            if (measureCompleteTimersRef.current.size > 0) return
+            if (typeof vm.exportAnnotationsAsObject !== 'function') return
+            patchAllLiveMeasureAnnotationsForExport(vm, getDisplayUnit())
+            let result
+            try {
+              result = vm.exportAnnotationsAsObject()
+            } catch (_) {
+              return
+            }
             const saveBlob = (rawData) => {
               if (!rawData) return
               const saveBlobFn = onAnnotationsBlobRef.current
@@ -3431,7 +4479,7 @@ export default function PdfViewer({
               } catch (_) {}
             }
             if (result && typeof result.then === 'function') {
-              result.then(saveBlob).catch(() => {})
+              void result.then(saveBlob).catch(() => {})
             } else if (result) {
               saveBlob(result)
             }
@@ -3454,6 +4502,7 @@ export default function PdfViewer({
               return
             }
 
+            patchAllLiveMeasureAnnotationsForExport(vm, getDisplayUnit())
             const result = vm.exportAnnotationsAsObject()
 
             const processExportData = (rawData) => {
@@ -3655,6 +4704,14 @@ export default function PdfViewer({
       if (MEASURE_MODES[tool]) {
         vm.interactionMode = 'TextSelection'
         applyCalibrationToViewer(vm)
+        try {
+          prepareMeasureAnnotationsForNextDraw(
+            vm,
+            useAppStore.getState().activeUnit ?? 'Mm',
+            getCalibratedDrawing(drawingRef),
+            importedAnnotIdsRef.current,
+          )
+        } catch (_) {}
         vm.annotation.setAnnotationMode(MEASURE_MODES[tool])
       } else if (MARKUP_MODES[tool]) {
         vm.interactionMode = 'TextSelection'
@@ -3834,6 +4891,7 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (vm) {
       try { vm.enableShapeLabel = false } catch (_) {}
+      try { vm.contextMenuOption = 'None' } catch (_) {}
       // Fallback page size from Syncfusion if MediaBox probe missed.
       // vb.pageWidth/pageHeight are in PDF points; vb.pageSize[0] is CSS pixels at current
       // zoom and must NOT be used as the denominator in pdfPointToContainerCoords.
@@ -3870,8 +4928,6 @@ export default function PdfViewer({
 
   // ── Fired by Syncfusion when an annotation is added ──────────────────────
   const handleAnnotationAdd = useCallback((args) => {
-    // When we re-import stored annotations from DB, Syncfusion fires annotationAdd
-    // for each one — suppress so we don't create duplicate DB rows.
     if (importingAnnotsRef.current) return
 
     const eventAnnotations = []
@@ -3880,6 +4936,14 @@ export default function PdfViewer({
     if (single)                          eventAnnotations.push(single)
     else if (Array.isArray(collection))  collection.forEach(a => eventAnnotations.push(a))
     if (!eventAnnotations.length) return
+
+    const isPastedAnnot = eventAnnotations.some(a => {
+      const plain = buildPlainAnnot(a)
+      const id = resolveStableAnnotationId(plain)
+      return (id && importedAnnotIdsRef.current.has(id))
+        || (pasteCommitInProgressRef.current && id === pasteCommitInProgressRef.current)
+    })
+    if (isPastedAnnot) return
 
     // Safe log — args.annotation contains Syncfusion internal circular refs; don't JSON.stringify(args)
     console.log('[BuildTakeoff] annotationAdd fired, count:', eventAnnotations.length,
@@ -4261,34 +5325,118 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* ── Paste placement overlay — click to position copied measurement ── */}
-      {pdfBase64 && !loading && pastePlacementActive && (
+      {/* Paste destination marker (set by click after copy, before Ctrl+V) */}
+      {pdfBase64 && !loading && measurementClipboard && pasteAnchorScreen && !pastePlacementActive && (
         <div
-          style={{ position: 'absolute', inset: 0, zIndex: 13, cursor: 'crosshair' }}
-          onClick={handlePastePlacementClick}
+          data-paste-marker
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: `${pasteAnchorScreen.left}px`,
+            top: `${pasteAnchorScreen.top}px`,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 12,
+            pointerEvents: 'none',
+            width: 22,
+            height: 22,
+          }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(15,23,42,0.92)',
-              color: '#e2e8f0',
-              fontSize: 12,
-              fontWeight: 600,
-              padding: '6px 14px',
-              borderRadius: 6,
-              border: '1px solid #334155',
-              pointerEvents: 'none',
-              userSelect: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Click to place measurement · Esc to cancel
-          </div>
+          <svg width="22" height="22" viewBox="0 0 22 22" style={{ overflow: 'visible' }}>
+            <circle cx="11" cy="11" r="9" fill="rgba(239,35,60,0.15)" stroke="#EF233C" strokeWidth="1.5" />
+            <line x1="11" y1="2" x2="11" y2="20" stroke="#EF233C" strokeWidth="1.5" />
+            <line x1="2" y1="11" x2="20" y2="11" stroke="#EF233C" strokeWidth="1.5" />
+          </svg>
         </div>
       )}
+
+      {/* ── Paste placement overlay — line preview follows cursor, click to place ── */}
+      {pdfBase64 && !loading && pastePlacementActive && (() => {
+        const pending  = pastePlacementRef.current
+        const sv       = pending?.screenVec          // { halfDx, halfDy } in container-px
+        const cb       = pending?.clipboard
+        const color    = cb?.color ?? '#EF233C'
+        const thick    = Math.max(1, cb?.thickness ?? 2)
+        // Preview line endpoints (container-relative px) centered on cursor
+        const cx = pasteCursorPos?.left ?? null
+        const cy = pasteCursorPos?.top  ?? null
+        const hasPreview = cx != null && sv != null
+        const x1 = hasPreview ? cx - sv.halfDx : 0
+        const y1 = hasPreview ? cy - sv.halfDy : 0
+        const x2 = hasPreview ? cx + sv.halfDx : 0
+        const y2 = hasPreview ? cy + sv.halfDy : 0
+        const labelText = cb?.length != null
+          ? formatMeasureLength(cb.length, cb.unit ?? 'Mm')
+          : null
+        return (
+          <div
+            style={{ position: 'absolute', inset: 0, zIndex: 13, cursor: 'crosshair' }}
+            onClick={handlePastePlacementClick}
+            onMouseMove={(e) => {
+              const cr = containerRef.current?.getBoundingClientRect()
+              if (!cr) return
+              setPasteCursorPos({ left: e.clientX - cr.left, top: e.clientY - cr.top })
+            }}
+            onMouseLeave={() => setPasteCursorPos(null)}
+          >
+            {/* SVG preview line that follows the cursor */}
+            {hasPreview && (
+              <svg
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}
+              >
+                {/* End-cap markers */}
+                <circle cx={x1} cy={y1} r={4} fill={color} opacity={0.8} />
+                <circle cx={x2} cy={y2} r={4} fill={color} opacity={0.8} />
+                {/* Main preview line */}
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={color}
+                  strokeWidth={thick}
+                  strokeDasharray="6 3"
+                  opacity={0.85}
+                />
+                {/* Measurement label near midpoint */}
+                {labelText && (
+                  <text
+                    x={(x1 + x2) / 2}
+                    y={Math.min(y1, y2) - 8}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight="600"
+                    fill={color}
+                    stroke="rgba(255,255,255,0.7)"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {labelText}
+                  </text>
+                )}
+              </svg>
+            )}
+            {/* Instruction banner */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(15,23,42,0.92)',
+                color: '#e2e8f0',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: '1px solid #334155',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Click to place {labelText ? `${labelText} measurement` : 'measurement'} · Esc to cancel
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Count tool overlay — transparent click target with numbered markers ── */}
       {pdfBase64 && !loading && activeTool === 'count' && (
@@ -4358,7 +5506,11 @@ export default function PdfViewer({
             <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/>
             <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2a8 8 0 0 1-8-8 2 2 0 1 1 4 0"/>
           </svg>
-          Hold and drag to pan the drawing
+          {measurementClipboard
+            ? (pasteAnchor
+              ? 'Paste location set — press Ctrl+V or Paste'
+              : 'Click where to paste, then Ctrl+V')
+            : 'Hold and drag to pan the drawing'}
         </div>
       )}
 
@@ -4384,6 +5536,7 @@ export default function PdfViewer({
 
           enableNavigationToolbar={false}
           enableToolbar={false}
+          contextMenuOption="None"
 
           /* ── Toolbar: hide Syncfusion's own toolbar — we use our custom Toolbar ──
                NOTE: do NOT set annotationToolbarItems:[] — empty array causes Syncfusion
