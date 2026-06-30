@@ -39,6 +39,7 @@ import {
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug } from '../../utils/calibrationTrace'
 import { probeMediaBoxFromBuffer } from '../../utils/pdfPageProbe'
 import { detectMarkNearMeasureLine, loadPdfTextItemsByPage } from '../../utils/drawingMarkDetect'
+import { getEffectiveMeasureDrawColor, resolveDrawColorForMemberMark } from '../../utils/memberMarkColor'
 import * as pdfjsLib from 'pdfjs-dist'
 import toast from 'react-hot-toast'
 
@@ -2401,6 +2402,7 @@ export default function PdfViewer({
     setCountSession,
     selectedMemberScheduleItem, lastMeasureMember,
     measurementClipboard, setPasteAnchor, pasteAnchor, clearPasteAnchor,
+    takeoffItems,
   } = useAppStore()
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
   // Pan-drag state — full tracking state for click-and-drag scrolling.
@@ -3016,7 +3018,7 @@ export default function PdfViewer({
             importedAnnotIdsRef.current,
           )
         } catch (_) {}
-        const hex = measureColor ?? '#111827'
+        const hex = getEffectiveMeasureDrawColor()
         const r = parseInt(hex.slice(1, 3), 16) || 17
         const g = parseInt(hex.slice(3, 5), 16) || 24
         const b = parseInt(hex.slice(5, 7), 16) || 39
@@ -3046,7 +3048,7 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded || activeTool !== 'line') return
 
-    const hex = measureColor ?? '#111827'
+    const hex = getEffectiveMeasureDrawColor()
     const safeHex = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#111827'
     const thick = Number(thickOverride ?? lineThickness ?? 2)
     if (!Number.isFinite(thick) || thick <= 0) return
@@ -3125,7 +3127,11 @@ export default function PdfViewer({
     const effectiveThick = pasteStyle?.thickness ?? thick
     const effectiveArrows = pasteStyle?.arrowStyle ?? arrows
     const effectiveLineMode = pasteStyle?.linearLineMode ?? lineMode ?? 'simple'
-    const fontColor = pasteStyle?.color ?? color ?? annot.strokeColor ?? annot.StrokeColor ?? '#111827'
+    const fontColor = pasteStyle?.color
+      ?? annot.strokeColor ?? annot.StrokeColor
+      ?? getEffectiveMeasureDrawColor()
+      ?? color
+      ?? '#111827'
     const linearStyle = buildLinearDistanceStyle(effectiveLabelPt, zoom ?? pdfScale, fontColor, effectiveThick, effectiveArrows, effectiveLineMode)
     linearStyle.strokeColor = fontColor
     const diagramStyle = buildLinearLabelDiagramStyle(effectiveLabelPt, zoom ?? pdfScale, fontColor)
@@ -3179,7 +3185,7 @@ export default function PdfViewer({
   const applyLabelToAnnot = useCallback((annot, labelText) => {
     const vm = viewerRef.current
     if (!vm || !annot) return
-    const fontColor = measureColor ?? annot.strokeColor ?? annot.StrokeColor ?? '#111827'
+    const fontColor = getEffectiveMeasureDrawColor() ?? annot.strokeColor ?? annot.StrokeColor ?? '#111827'
     editingAnnotRef.current = true
     try {
       vm.annotation.editAnnotation(
@@ -3355,13 +3361,18 @@ export default function PdfViewer({
           plain = buildPlainAnnot(a)
         }
         if (extractAnnotationPoints(plain).length < 2) return a
+        const {
+          measureColor: toolbarColor,
+          takeoffItems: items,
+          memberScheduleItems,
+          lineThickness: toolbarThick,
+        } = useAppStore.getState()
         const captureColor = pasteStyleRef.current?.color
-          ?? useAppStore.getState().measureColor
+          ?? resolveDrawColorForMemberMark(memberMark, toolbarColor, items, memberScheduleItems)
         if (captureColor && /^#[0-9A-Fa-f]{6}$/.test(captureColor)) {
           plain.strokeColor = captureColor
           plain.StrokeColor = captureColor
         }
-        const { lineThickness: toolbarThick } = useAppStore.getState()
         const savedThick = Number(toolbarThick) > 0 ? Number(toolbarThick) : (plain.thickness ?? plain.Thickness ?? 2)
         plain.thickness = savedThick
         plain.Thickness = savedThick
@@ -3389,6 +3400,27 @@ export default function PdfViewer({
       measurePayload.area = area
       measurePayload.unit = displayUnit
       measurePayload.pixelLength = pixelLength
+      if (annotationId && !isAreaAnnotation && memberMark) {
+        const {
+          measureColor: toolbarColor,
+          takeoffItems: items,
+          memberScheduleItems,
+          lineThickness: thick,
+          arrowStyle: arrows,
+          linearLineMode: lineMode,
+          measureLabelFontSize: labelPt,
+          pdfScale: zoom,
+        } = useAppStore.getState()
+        const strokeColor = resolveDrawColorForMemberMark(memberMark, toolbarColor, items, memberScheduleItems)
+        if (strokeColor && /^#[0-9A-Fa-f]{6}$/.test(strokeColor)) {
+          try {
+            const vm = viewerRef.current
+            const linearStyle = buildLinearDistanceStyle(labelPt, zoom, strokeColor, thick, arrows, lineMode)
+            linearStyle.strokeColor = strokeColor
+            applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle)
+          } catch (_) {}
+        }
+      }
       onMeasureRef.current?.(measurePayload)
       if (annotationId && !isAreaAnnotation) {
         hideLineMeasureLabelOnViewer(viewerRef.current, annotationId)
@@ -3401,6 +3433,28 @@ export default function PdfViewer({
       processedAnnotsRef.current.add(annotationId)
       lastDrawnAnnotRef.current = annotationId
       suppressStyleSelectRef.current = annotationId
+    }
+
+    if (annotationId && !isAreaAnnotation && memberMark) {
+      const {
+        measureColor: toolbarColor,
+        takeoffItems: items,
+        memberScheduleItems,
+        lineThickness: thick,
+        arrowStyle: arrows,
+        linearLineMode: lineMode,
+        measureLabelFontSize: labelPt,
+        pdfScale: zoom,
+      } = useAppStore.getState()
+      const strokeColor = resolveDrawColorForMemberMark(memberMark, toolbarColor, items, memberScheduleItems)
+      if (strokeColor && /^#[0-9A-Fa-f]{6}$/.test(strokeColor)) {
+        try {
+          const vm = viewerRef.current
+          const linearStyle = buildLinearDistanceStyle(labelPt, zoom, strokeColor, thick, arrows, lineMode)
+          linearStyle.strokeColor = strokeColor
+          applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle)
+        } catch (_) {}
+      }
     }
 
     onMeasureRef.current?.(measurePayload)
@@ -4763,7 +4817,7 @@ export default function PdfViewer({
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded) return
 
-    const hex  = measureColor ?? '#EF233C'
+    const hex  = getEffectiveMeasureDrawColor()
     const safeHex = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#EF233C'
     const r = parseInt(safeHex.slice(1, 3), 16)
     const g = parseInt(safeHex.slice(3, 5), 16)
@@ -4824,7 +4878,7 @@ export default function PdfViewer({
       }
 
     } catch (_) {}
-  }, [activeTool, pdfBase64, docLoaded, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, activeUnit])
+  }, [activeTool, pdfBase64, docLoaded, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, activeUnit, selectedMemberScheduleItem, lastMeasureMember, takeoffItems])
 
   // Re-sync Syncfusion native unit when display unit or calibration changes
   useEffect(() => {
@@ -4846,7 +4900,7 @@ export default function PdfViewer({
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded) return
-    const hex = measureColor ?? '#111827'
+    const hex = getEffectiveMeasureDrawColor()
     const safeHex = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#111827'
     applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, safeHex)
     if (activeTool === 'line') {
@@ -4879,7 +4933,7 @@ export default function PdfViewer({
         }, 350)
       }
     }
-  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, arrowStyle, linearLineMode, fillOpacity, activeTool, getDisplayUnit, bumpFallbackLabelLayout])
+  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, arrowStyle, linearLineMode, fillOpacity, activeTool, getDisplayUnit, bumpFallbackLabelLayout, measureColor, selectedMemberScheduleItem, lastMeasureMember, takeoffItems])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
   const handleDocumentLoaded = useCallback((args) => {
@@ -4903,7 +4957,7 @@ export default function PdfViewer({
           pageMetaRef.current = { width: Number(w), height: Number(h) }
         }
       }
-      applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, measureColor ?? '#111827')
+      applyGlobalMeasureLabelSettings(vm, measureLabelFontSize, pdfScale, getEffectiveMeasureDrawColor())
       applyCalibrationToViewer(vm)
       syncViewerLayout(vm, true, containerRef.current?.clientWidth)
     }

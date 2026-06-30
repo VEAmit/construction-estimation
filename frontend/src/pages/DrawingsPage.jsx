@@ -32,6 +32,7 @@ import {
 } from '../utils/measureCalibration'
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
 import { buildLinearMeasurementClipboard, isValidLinearMeasurementForCopy } from '../utils/measureLabel'
+import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
@@ -369,7 +370,10 @@ export default function DrawingsPage() {
 
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
-    const saveColor = pasteOverride?.color ?? color ?? '#111827'
+    const { takeoffItems: itemsForColor, memberScheduleItems } = useAppStore.getState()
+    const saveColor = pasteOverride?.color
+      ?? resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
+      ?? '#111827'
     const saveCategory = pasteOverride?.category ?? category ?? 'General'
     const saveMaterialOverride = pasteOverride?.material
 
