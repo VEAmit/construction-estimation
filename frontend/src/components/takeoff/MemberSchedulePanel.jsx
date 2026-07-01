@@ -3,6 +3,7 @@ import { memberScheduleService } from '../../services/memberScheduleService'
 import { useAppStore } from '../../store/useAppStore'
 import { steelSections } from '../../utils/steelSections'
 import { toMeters } from '../../utils/calculations'
+import { parseMemberScheduleNoteId } from '../../utils/memberMeasureLink'
 import toast from 'react-hot-toast'
 
 const MEMBER_TYPES = ['Beam', 'Column', 'Brace', 'Purlin', 'Rafter', 'Plate', 'Girt', 'Other']
@@ -29,6 +30,15 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
   } = useAppStore()
 
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
+
+  const linkedMeasurements = activeMeasureMember
+    ? takeoffItems.filter((t) => {
+      if ((t.itemType || 'Line') !== 'Line') return false
+      const mark = String(activeMeasureMember.mark ?? '').trim()
+      if (mark && String(t.material ?? '').trim() === mark) return true
+      return parseMemberScheduleNoteId(t.notes) === activeMeasureMember.id
+    })
+    : []
 
   const [editId, setEditId] = useState(null)
   const [editBuf, setEditBuf] = useState({})
@@ -100,14 +110,19 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
   const startEdit = (item) => { setEditId(item.id); setEditBuf({ ...item }) }
   const cancelEdit = () => { setEditId(null); setEditBuf({}) }
 
+  const armLinearMeasureMode = useCallback(() => {
+    setActiveTool('line')
+    triggerPdfCommand('ensureMeasureMode')
+    setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 120)
+    setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 450)
+  }, [setActiveTool, triggerPdfCommand])
+
   const handleSelectMember = useCallback((item) => {
     if (!item?.mark) return
     setSelectedMemberScheduleItem(item)
-    setActiveTool('line')
-    triggerPdfCommand({ type: 'searchText', query: item.mark })
-    setTimeout(() => triggerPdfCommand({ type: 'ensureMeasureMode' }), 500)
-    toast.success(`${item.mark} selected — draw linear measurements`, { duration: 2200, icon: '📐' })
-  }, [setSelectedMemberScheduleItem, setActiveTool, triggerPdfCommand])
+    armLinearMeasureMode()
+    toast.success(`${item.mark} selected — draw on the plan`, { duration: 2200, icon: '📐' })
+  }, [setSelectedMemberScheduleItem, armLinearMeasureMode])
 
   const linkableItems = takeoffItems.filter(t => t.itemType === 'Line')
 
@@ -203,6 +218,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
             border: '1px solid rgba(34,197,94,.25)',
           }}>
             Measuring: {activeMeasureMember.mark}
+            {linkedMeasurements.length > 0 ? ` · ${linkedMeasurements.length} line(s)` : ''}
           </span>
         )}
 

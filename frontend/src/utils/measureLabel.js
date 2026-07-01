@@ -196,11 +196,13 @@ function viewerModifiedDate(value = new Date()) {
 }
 
 /** Clone a linear annotation for paste with a positional offset and new id. */
-export function cloneLinearAnnotationForPaste(raw, offsetX = 30, offsetY = 30, targetPageNumber) {
-  const pts = extractPointsFromRaw(raw)
-  if (pts.length < 2) return null
+export function cloneLinearAnnotationForPaste(raw, offsetX = 30, offsetY = 30, targetPageNumber, absolutePts = null) {
+  const basePts = extractPointsFromRaw(raw)
+  if (basePts.length < 2) return null
 
-  const offsetPts = pts.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }))
+  const offsetPts = Array.isArray(absolutePts) && absolutePts.length >= 2
+    ? absolutePts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }))
+    : basePts.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }))
   const pageNum = targetPageNumber ?? raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1)
   const pageIdx = pageNum - 1
   const newId = typeof crypto !== 'undefined' && crypto.randomUUID

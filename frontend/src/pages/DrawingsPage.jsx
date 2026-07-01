@@ -16,7 +16,7 @@ import CalibrationModal from '../components/takeoff/CalibrationModal'
 import { exportToExcel, exportToPdf } from '../utils/exportUtils'
 import {
   computeScaleRatio, getUnitLabel, getAreaUnitLabel,
-  formatMeasureLength, formatMeasureArea,
+  formatMeasureLength, formatMeasureArea, toMeters,
 } from '../utils/calculations'
 import {
   normalizeDrawing,
@@ -45,7 +45,7 @@ export default function DrawingsPage() {
     drawings: storeDrawings, setDrawings, selectedDrawing, setSelectedDrawing,
     takeoffItems, addTakeoffItem, setTakeoffItems, updateTakeoffItem,
     setSummary, activeTool, setActiveTool, setActiveUnit, activeUnit, updateDrawingCalibration,
-    memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary,
+    memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary, updateMemberScheduleItem,
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
@@ -433,7 +433,7 @@ export default function DrawingsPage() {
     const reuseMark  = clearedMarkRef.current
     if (reuseMark) clearedMarkRef.current = null
     const defaultMark = `${prefix}${sameType.length + 1}`
-    const nextMark   = reuseMark ?? (memberMark || defaultMark)
+    const nextMark   = reuseMark ?? (linkedMember?.mark?.trim() || memberMark || defaultMark)
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
@@ -540,7 +540,24 @@ export default function DrawingsPage() {
       }
       addTakeoffItem(finalSaved)
       setShowBottom(true)
-      setBottomTab('measurements')
+      if (!linkedMember) {
+        setBottomTab('measurements')
+      }
+
+      if (linkedMember?.id && !isCount && !isArea && itemType === 'Line') {
+        try {
+          const lengthM = saveLength != null ? toMeters(saveLength, unit) : (linkedMember.length ?? 0)
+          const updatedMember = await memberScheduleService.update({
+            ...linkedMember,
+            takeoffItemId: finalSaved.id,
+            length: Number.isFinite(lengthM) ? lengthM : (linkedMember.length ?? 0),
+            quantity: (linkedMember.quantity ?? 0) > 0 ? linkedMember.quantity : 1,
+          })
+          updateMemberScheduleItem(updatedMember)
+        } catch (err) {
+          console.warn('[BuildTakeoff] member schedule link failed:', err)
+        }
+      }
       if (isPaste) {
         setSelectedAnnotId(finalSaved.id)
         setStyleEditTargetId(null)
@@ -592,7 +609,7 @@ export default function DrawingsPage() {
       savingAnnotIdsRef.current.delete(annotKey)
       setAutoSaving(false)
     }
-  }, [addTakeoffItem, scheduleAnnotationBlobSave])
+  }, [addTakeoffItem, scheduleAnnotationBlobSave, updateMemberScheduleItem])
 
   const handleMeasure = useCallback((measurement, opts = {}) => {
     const { activeTool: currentTool } = useAppStore.getState()

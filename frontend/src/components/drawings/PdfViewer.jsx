@@ -735,14 +735,23 @@ function containerClientToPdfPoint(clientX, clientY, pageIndex, vm) {
 }
 
 /** Map container-relative pixels to diagram SVG coordinates. */
+/** Map container-relative pixels to PDF page coordinates (inverse of pdfPointToContainerCoords). */
+function containerScreenToPdfPoint(containerLeft, containerTop, containerEl, pageIndex, vm) {
+  if (!containerEl) return null
+  const cr = containerEl.getBoundingClientRect()
+  return containerClientToPdfPoint(cr.left + containerLeft, cr.top + containerTop, pageIndex, vm)
+}
+
 function containerScreenToDiagramPoint(containerLeft, containerTop, containerEl, pageIndex, vm) {
   if (!containerEl) return null
   const cr = containerEl.getBoundingClientRect()
   return screenClientToDiagramPoint(cr.left + containerLeft, cr.top + containerTop, pageIndex, vm)
 }
 
-/** Paste anchor from click — diagram SVG space aligned with how lines are drawn. */
+/** Paste anchor from click — PDF page space (same as stored vertexPoints / label mapping). */
 function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerEl) {
+  const pdfPt = containerClientToPdfPoint(clientX, clientY, pageIndex, vm)
+  if (pdfPt) return pdfPt
   if (containerEl) {
     const cr = containerEl.getBoundingClientRect()
     const diagramPt = containerScreenToDiagramPoint(
@@ -751,7 +760,6 @@ function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerE
     if (diagramPt) return diagramPt
   }
   return screenClientToDiagramPoint(clientX, clientY, pageIndex, vm)
-    ?? containerClientToPdfPoint(clientX, clientY, pageIndex, vm)
 }
 
 /** Read the visible measure line endpoints from the rendered SVG (handles leader offset). */
@@ -804,14 +812,42 @@ function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) 
     if (visual) return visual
   }
 
-  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
-  if (!svg) return null
   const pts = extractAnnotationPoints(live ?? sourceRaw)
   if (pts.length < 2) return null
-  const p0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, containerEl)
-  const p1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, containerEl)
-  if (!p0 || !p1) return null
-  return { p0, p1, len: Math.hypot(p1.left - p0.left, p1.top - p0.top) }
+
+  const p0pdf = pdfPointToContainerCoords(pts[0].x, pts[0].y, pageIndex, vm, containerEl)
+  const p1pdf = pdfPointToContainerCoords(
+    pts[pts.length - 1].x, pts[pts.length - 1].y, pageIndex, vm, containerEl,
+  )
+  if (p0pdf && p1pdf) {
+    return { p0: p0pdf, p1: p1pdf, len: Math.hypot(p1pdf.left - p0pdf.left, p1pdf.top - p0pdf.top) }
+  }
+
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+  if (svg) {
+    const p0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, containerEl)
+    const p1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, containerEl)
+    if (p0 && p1) {
+      return { p0, p1, len: Math.hypot(p1.left - p0.left, p1.top - p0.top) }
+    }
+  }
+
+  return null
+}
+
+/** Container-relative screen position for paste crosshair — always reproject at current zoom/scroll. */
+function resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, containerEl) {
+  if (!anchor || !containerEl) return null
+  if (Number.isFinite(anchor.x) && Number.isFinite(anchor.y) && vm) {
+    const fromPdf = pdfPointToContainerCoords(anchor.x, anchor.y, pageIndex, vm, containerEl)
+    if (fromPdf) return fromPdf
+    const fromDiagram = diagramPointToContainerCoords(anchor.x, anchor.y, pageIndex, vm, containerEl)
+    if (fromDiagram) return fromDiagram
+  }
+  if (Number.isFinite(anchor.screenLeft) && Number.isFinite(anchor.screenTop)) {
+    return { left: anchor.screenLeft, top: anchor.screenTop }
+  }
+  return null
 }
 
 /** Nudge a live pasted line so its visible midpoint matches the click anchor on screen. */
@@ -820,51 +856,48 @@ function nudgeLiveLinearMeasureToScreenAnchor(vm, annotId, anchor, containerEl, 
   const live = resolveLiveAnnotation(vm, annotId)
   if (!live?.wrapper) return false
 
-  let targetLeft = anchor.screenLeft
-  let targetTop = anchor.screenTop
-  if (!Number.isFinite(targetLeft) || !Number.isFinite(targetTop)) {
-    const svg = resolveMeasureDiagramSvg(vm, pageIndex)
-    if (!svg) return false
-    const ac = svgDiagramPointToContainer(svg, anchor.x, anchor.y, containerEl)
-    if (!ac) return false
-    targetLeft = ac.left
-    targetTop = ac.top
-  }
+  const target = resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, containerEl)
+  if (!target) return false
 
   const visual = extractVisibleLineScreenEndpoints(live.wrapper, containerEl)
   if (!visual) return false
 
   const midLeft = (visual.p0.left + visual.p1.left) / 2
   const midTop = (visual.p0.top + visual.p1.top) / 2
-  const errLeft = targetLeft - midLeft
-  const errTop = targetTop - midTop
-  if (Math.abs(errLeft) < 1 && Math.abs(errTop) < 1) return false
+  const errLeft = target.left - midLeft
+  const errTop = target.top - midTop
+  if (Math.abs(errLeft) < 0.5 && Math.abs(errTop) < 0.5) return true
 
-  const midNew = containerScreenToDiagramPoint(midLeft + errLeft, midTop + errTop, containerEl, pageIndex, vm)
-  const midOld = containerScreenToDiagramPoint(midLeft, midTop, containerEl, pageIndex, vm)
-  if (!midNew || !midOld) return false
+  const newP0 = containerScreenToPdfPoint(
+    visual.p0.left + errLeft, visual.p0.top + errTop, containerEl, pageIndex, vm,
+  )
+    ?? containerScreenToDiagramPoint(
+      visual.p0.left + errLeft, visual.p0.top + errTop, containerEl, pageIndex, vm,
+    )
+  const newP1 = containerScreenToPdfPoint(
+    visual.p1.left + errLeft, visual.p1.top + errTop, containerEl, pageIndex, vm,
+  )
+    ?? containerScreenToDiagramPoint(
+      visual.p1.left + errLeft, visual.p1.top + errTop, containerEl, pageIndex, vm,
+    )
+  if (!newP0 || !newP1) return false
 
-  const dx = midNew.x - midOld.x
-  const dy = midNew.y - midOld.y
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return false
-
-  const basePts = live.vertexPoints?.length >= 2
-    ? live.vertexPoints
-    : extractAnnotationPoints(live)
-  if (basePts.length < 2) return false
-
-  const newPts = basePts.map(p => ({
-    x: (Number(p.x ?? p.X) || 0) + dx,
-    y: (Number(p.y ?? p.Y) || 0) + dy,
-  }))
+  const newPts = [{ x: newP0.x, y: newP0.y }, { x: newP1.x, y: newP1.y }]
   live.vertexPoints = newPts
   live.VertexPoints = newPts.map(p => ({ X: p.x, Y: p.y }))
-  if (newPts.length >= 2) {
-    live.start = `${newPts[0].x},${newPts[0].y}`
-    live.end = `${newPts[newPts.length - 1].x},${newPts[newPts.length - 1].y}`
-    live.Start = live.start
-    live.End = live.end
+  live.start = `${newPts[0].x},${newPts[0].y}`
+  live.end = `${newPts[1].x},${newPts[1].y}`
+  live.Start = live.start
+  live.End = live.end
+
+  const bounds = {
+    X: Math.min(newPts[0].x, newPts[1].x),
+    Y: Math.min(newPts[0].y, newPts[1].y),
+    Width: Math.max(Math.abs(newPts[1].x - newPts[0].x), 1),
+    Height: Math.max(Math.abs(newPts[1].y - newPts[0].y), 1),
   }
+  live.bounds = bounds
+  live.Bounds = bounds
 
   try { vm.drawing?.updateConnector?.(live, newPts) } catch (_) {}
   try { vm.annotation?.renderAnnotations?.(pageIndex, null, null, null, null, false) } catch (_) {}
@@ -872,68 +905,76 @@ function nudgeLiveLinearMeasureToScreenAnchor(vm, annotId, anchor, containerEl, 
   return true
 }
 
+/** Resolve paste source geometry — prefer live canvas points when the source line still exists. */
+function resolvePasteSourcePoints(sourceRaw, pageIndex, vm) {
+  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
+  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : null
+  const livePts = live ? extractAnnotationPoints(live) : []
+  if (livePts.length >= 2) return livePts
+  return extractAnnotationPoints(sourceRaw)
+}
+
 /**
- * Compute paste translation so the line's on-screen midpoint lands on the anchor.
- * Diagram coords first (scroll/zoom safe); screen DOM mapping as refinement.
+ * Compute pasted line vertex points so the line center sits on the crosshair.
+ * Screen-space pipeline → PDF page coords (matches stored vertexPoints / Syncfusion render).
+ */
+function computePastedVertexPoints(sourceRaw, anchor, pageIndex, vm, containerEl) {
+  if (!anchor || !containerEl || !vm) return null
+
+  const screenEnds = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
+  const target = resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, containerEl)
+  if (!screenEnds || !target) return null
+
+  const halfDx = (screenEnds.p1.left - screenEnds.p0.left) / 2
+  const halfDy = (screenEnds.p1.top - screenEnds.p0.top) / 2
+  const toPagePt = (left, top) => (
+    containerScreenToPdfPoint(left, top, containerEl, pageIndex, vm)
+    ?? containerScreenToDiagramPoint(left, top, containerEl, pageIndex, vm)
+  )
+  const newP0 = toPagePt(target.left - halfDx, target.top - halfDy)
+  const newP1 = toPagePt(target.left + halfDx, target.top + halfDy)
+  if (!newP0 || !newP1) return null
+  return [
+    { x: newP0.x, y: newP0.y },
+    { x: newP1.x, y: newP1.y },
+  ]
+}
+
+/**
+ * Compute paste translation so the line midpoint lands on the anchor (crosshair).
+ * Uses clipboard geometry only + the same measure-diagram SVG as click/crosshair mapping.
  */
 function computeLinearPasteOffsetForAnchor(sourceRaw, anchor, pageIndex, vm, containerEl) {
   if (!containerEl || !anchor) return null
 
-  const diagramOffset = computeLinearPasteOffsetDiagramFallback(
-    sourceRaw, anchor, pageIndex, vm, containerEl,
-  )
-  if (!diagramOffset) return null
+  const pastedPts = computePastedVertexPoints(sourceRaw, anchor, pageIndex, vm, containerEl)
+  if (!pastedPts || pastedPts.length < 2) return null
 
-  const visual = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
-  if (!visual) return diagramOffset
-
-  const ep0 = visual.p0
-  const ep1 = visual.p1
-  const midLeft = (ep0.left + ep1.left) / 2
-  const midTop = (ep0.top + ep1.top) / 2
-
-  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
-  if (!svg || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return diagramOffset
-
-  const anchorScreen = svgDiagramPointToContainer(svg, anchor.x, anchor.y, containerEl)
-  if (!anchorScreen) return diagramOffset
-
-  const dLeft = anchorScreen.left - midLeft
-  const dTop = anchorScreen.top - midTop
-  if (Math.abs(dLeft) < 1 && Math.abs(dTop) < 1) return diagramOffset
-
-  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
-  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
-  const pts = extractAnnotationPoints(live ?? sourceRaw)
-  if (pts.length < 2) return diagramOffset
-
-  const newP0 = containerScreenToDiagramPoint(ep0.left + dLeft, ep0.top + dTop, containerEl, pageIndex, vm)
-  const newP1 = containerScreenToDiagramPoint(
-    ep1.left + dLeft, ep1.top + dTop, containerEl, pageIndex, vm,
-  )
-  if (!newP0 || !newP1) return diagramOffset
-
-  const offsetX = newP0.x - pts[0].x
-  const offsetY = newP0.y - pts[0].y
-  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return diagramOffset
-
-  return { offsetX, offsetY }
+  const pts = resolvePasteSourcePoints(sourceRaw, pageIndex, vm)
+  return {
+    offsetX: pastedPts[0].x - pts[0].x,
+    offsetY: pastedPts[0].y - pts[0].y,
+  }
 }
 
 /** Fallback paste offset — diagram midpoint aligned to anchor click. */
 function computeLinearPasteOffsetDiagramFallback(sourceRaw, anchor, pageIndex, vm, containerEl) {
-  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
-  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
-  const pts = extractAnnotationPoints(live ?? sourceRaw)
-  if (pts.length < 2 || !anchor) return null
+  return computeLinearPasteOffsetForAnchor(sourceRaw, anchor, pageIndex, vm, containerEl)
+}
 
-  let anchorX = anchor.x
-  let anchorY = anchor.y
-  if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null
-
-  const midX = (pts[0].x + pts[pts.length - 1].x) / 2
-  const midY = (pts[0].y + pts[pts.length - 1].y) / 2
-  return { offsetX: anchorX - midX, offsetY: anchorY - midY }
+/** Build paste anchor from a click — diagram coords + container screen position for crosshair. */
+function buildPasteAnchorFromClick(clientX, clientY, pageNumber, pageIndex, vm, containerEl) {
+  if (!containerEl) return null
+  const cr = containerEl.getBoundingClientRect()
+  const pt = resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerEl)
+  if (!pt) return null
+  return {
+    x: pt.x,
+    y: pt.y,
+    pageNumber,
+    screenLeft: clientX - cr.left,
+    screenTop: clientY - cr.top,
+  }
 }
 
 /** Convert screen pixels to PDF page coordinate units at the current zoom. */
@@ -3491,7 +3532,14 @@ export default function PdfViewer({
     }
 
     const sourceRaw = clipboard.copyJson ?? clipboard.raw
-    const cloned = cloneLinearAnnotationForPaste(sourceRaw, offsetX, offsetY, targetPage)
+    const pageIndexNum = Math.max(0, targetPage - 1)
+    const container = containerRef.current
+    const pastedPts = pasteAnchor && container
+      ? computePastedVertexPoints(sourceRaw, pasteAnchor, pageIndexNum, vm, container)
+      : null
+    const cloned = pastedPts?.length >= 2
+      ? cloneLinearAnnotationForPaste(sourceRaw, 0, 0, targetPage, pastedPts)
+      : cloneLinearAnnotationForPaste(sourceRaw, offsetX, offsetY, targetPage)
     if (!cloned) {
       pasteStyleRef.current = null
       toast.error('Could not paste — invalid line geometry')
@@ -3716,11 +3764,26 @@ export default function PdfViewer({
 
         const runFinalize = (attempt = 0) => {
           const live = resolveLiveAnnotation(vm, newId)
-          if (!live && attempt < 12) {
+          if (!live && attempt < 16) {
             setTimeout(() => runFinalize(attempt + 1), 50)
             return
           }
           applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
+          let aligned = false
+          if (pasteAnchor && containerRef.current) {
+            for (let i = 0; i < 3; i++) {
+              try {
+                aligned = nudgeLiveLinearMeasureToScreenAnchor(
+                  vm, newId, pasteAnchor, containerRef.current, pageIndexNum,
+                )
+                if (aligned) break
+              } catch (_) {}
+            }
+          }
+          if (pasteAnchor && !aligned && attempt < 12) {
+            setTimeout(() => runFinalize(attempt + 1), 80)
+            return
+          }
           finalizePasteCommit()
         }
 
@@ -3768,10 +3831,10 @@ export default function PdfViewer({
       if (!vm) return
       const page = useAppStore.getState().pdfPage ?? 1
       const pageIndex = Math.max(0, page - 1)
-      const pt = resolvePasteAnchorFromClick(e.clientX, e.clientY, pageIndex, vm, el)
-      if (!pt) return
+      const anchor = buildPasteAnchorFromClick(e.clientX, e.clientY, page, pageIndex, vm, el)
+      if (!anchor) return
 
-      setPasteAnchor({ x: pt.x, y: pt.y, pageNumber: page })
+      setPasteAnchor(anchor)
       toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
     }
 
@@ -3790,12 +3853,23 @@ export default function PdfViewer({
       return
     }
     const pageIndex = Math.max(0, (pasteAnchor.pageNumber ?? 1) - 1)
-    const pos = diagramPointToContainerCoords(
-      pasteAnchor.x, pasteAnchor.y, pageIndex, viewerRef.current, containerRef.current,
-    ) ?? pdfPointToContainerCoords(
-      pasteAnchor.x, pasteAnchor.y, pageIndex, viewerRef.current, containerRef.current,
-    )
-    setPasteAnchorScreen(pos)
+    const vm = viewerRef.current
+    const container = containerRef.current
+
+    const updatePos = () => {
+      const pos = resolvePasteAnchorScreenPosition(pasteAnchor, pageIndex, vm, container)
+      setPasteAnchorScreen(pos)
+    }
+    updatePos()
+
+    const scrollEl = vm?.viewerBase?.viewerContainer
+      ?? document.getElementById('sfPdfViewer_viewerContainer')
+    scrollEl?.addEventListener('scroll', updatePos, { passive: true })
+    window.addEventListener('resize', updatePos)
+    return () => {
+      scrollEl?.removeEventListener('scroll', updatePos)
+      window.removeEventListener('resize', updatePos)
+    }
   }, [pasteAnchor, pdfScale, pdfPage, fallbackLabelTick, canvasSelectionTick])
 
   const handlePastePlacementClick = useCallback((e) => {
@@ -3810,13 +3884,14 @@ export default function PdfViewer({
 
     const targetPage = pdfPage ?? pending.clipboard.pageNumber ?? 1
     const pageIndex = Math.max(0, targetPage - 1)
-    const clickPt = resolvePasteAnchorFromClick(e.clientX, e.clientY, pageIndex, vm, containerRef.current)
-    if (!clickPt) {
+    const anchor = buildPasteAnchorFromClick(
+      e.clientX, e.clientY, targetPage, pageIndex, vm, containerRef.current,
+    )
+    if (!anchor) {
       toast.error('Could not place measurement — click on the drawing')
       return
     }
 
-    const anchor = { x: clickPt.x, y: clickPt.y }
     const offset = computeLinearPasteOffsetForAnchor(
       sourceRaw, anchor, pageIndex, vm, containerRef.current,
     )
@@ -4225,11 +4300,11 @@ export default function PdfViewer({
           if (vm) {
             const page = useAppStore.getState().pdfPage ?? 1
             const pageIndex = Math.max(0, page - 1)
-            const pt = resolvePasteAnchorFromClick(
-              e.clientX, e.clientY, pageIndex, vm, containerRef.current,
+            const anchor = buildPasteAnchorFromClick(
+              e.clientX, e.clientY, page, pageIndex, vm, containerRef.current,
             )
-            if (pt) {
-              setPasteAnchor({ x: pt.x, y: pt.y, pageNumber: page })
+            if (anchor) {
+              setPasteAnchor(anchor)
               toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
             }
           }
@@ -4461,14 +4536,22 @@ export default function PdfViewer({
         const targetPage = anchor.pageNumber ?? useAppStore.getState().pdfPage ?? 1
         const pageIndex = Math.max(0, targetPage - 1)
         const container = containerRef.current
+        const anchorScreen = container
+          ? resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, container)
+          : null
+        const anchorForPaste = {
+          ...anchor,
+          screenLeft: anchorScreen?.left ?? anchor.screenLeft,
+          screenTop: anchorScreen?.top ?? anchor.screenTop,
+        }
         const offset = computeLinearPasteOffsetForAnchor(
-          sourceRaw, anchor, pageIndex, vm, container,
+          sourceRaw, anchorForPaste, pageIndex, vm, container,
         )
         if (!offset) {
           toast.error('Could not paste — invalid line geometry')
           return
         }
-        const ok = commitPasteRef.current?.(clipboard, offset.offsetX, offset.offsetY, targetPage, anchor)
+        const ok = commitPasteRef.current?.(clipboard, offset.offsetX, offset.offsetY, targetPage, anchorForPaste)
         if (ok) {
           useAppStore.getState().clearPasteAnchor()
         } else {
@@ -4492,15 +4575,13 @@ export default function PdfViewer({
         const sourceRaw = clipboard.copyJson ?? clipboard.raw
         let screenVec = null
         try {
-          const svg = resolveDiagramSvg(vm, pageIndex)
           const container = containerRef.current
-          if (svg && container) {
-            const pts = extractAnnotationPoints(sourceRaw)
-            if (pts.length >= 2) {
-              const s0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, container)
-              const s1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
-              if (s0 && s1) {
-                screenVec = { halfDx: (s1.left - s0.left) / 2, halfDy: (s1.top - s0.top) / 2 }
+          if (container) {
+            const screenEnds = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, container)
+            if (screenEnds) {
+              screenVec = {
+                halfDx: (screenEnds.p1.left - screenEnds.p0.left) / 2,
+                halfDy: (screenEnds.p1.top - screenEnds.p0.top) / 2,
               }
             }
           }
