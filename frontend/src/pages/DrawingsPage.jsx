@@ -99,6 +99,14 @@ export default function DrawingsPage() {
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [rightOpen,    setRightOpen]    = useState(false)
 
+  // Desktop side panel open/hover state (independent of mobile)
+  const [leftPanelOpen,  setLeftPanelOpen]  = useState(true)
+  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  const [leftHovered,    setLeftHovered]    = useState(false)
+  const [rightHovered,   setRightHovered]   = useState(false)
+  const leftHoverTimer  = useRef(null)
+  const rightHoverTimer = useRef(null)
+
   const annotationMapRef = useRef({})
   const lastCopyTargetRef = useRef(null)
   const persistedAnnotIdsRef = useRef(new Set())
@@ -1080,6 +1088,16 @@ export default function DrawingsPage() {
   // Bottom panel height
   const bottomH = isMobile ? '200px' : isTablet ? '240px' : '280px'
 
+  // Desktop side panels: show when pinned OR hovered
+  const effectiveLeftOpen  = leftPanelOpen  || leftHovered
+  const effectiveRightOpen = rightPanelOpen || rightHovered
+
+  // Toggle bottom panel tab: click active tab → collapse; click other tab → switch+expand
+  const handleBottomTabClick = (tab) => {
+    if (showBottom && bottomTab === tab) setShowBottom(false)
+    else { setBottomTab(tab); setShowBottom(true) }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
@@ -1300,45 +1318,92 @@ export default function DrawingsPage() {
       {/* ── Main work area ──────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
 
-        {/* Left: Drawing sidebar — drawer on mobile */}
-        <div
-          className="panel-drawer"
-          style={{
-            position: isMobile ? 'fixed' : 'relative',
-            top: isMobile ? 0 : undefined,
-            bottom: isMobile ? 0 : undefined,
-            left: isMobile ? 0 : undefined,
-            zIndex: isMobile ? 200 : undefined,
-            transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
-            display: 'flex', flexDirection: 'column',
-            boxShadow: isMobile && sidebarOpen ? '4px 0 30px rgba(0,0,0,.7)' : 'none',
-          }}
-        >
-          <DrawingSidebar
-            drawings={drawings}
-            selectedDrawing={selectedDrawing}
-            onSelect={(d) => {
-              const norm = normalizeDrawing(d)
-              setSelectedDrawing(norm)
-              setSelectedAnnotId(null)
-              annotationMapRef.current = {}
-              if (!norm.isCalibrated) {
-                setActiveTool('line')
-                setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
-              }
-              if (isMobile) setSidebarOpen(false)
+        {/* Left: Drawing sidebar */}
+        {isMobile ? (
+          <div
+            className="panel-drawer"
+            style={{
+              position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 200,
+              transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+              display: 'flex', flexDirection: 'column',
+              boxShadow: sidebarOpen ? '4px 0 30px rgba(0,0,0,.7)' : 'none',
             }}
-            onUploaded={handleDrawingUploaded}
-            onDeleted={handleDrawingDeleted}
-          />
-        </div>
+          >
+            <DrawingSidebar
+              drawings={drawings}
+              selectedDrawing={selectedDrawing}
+              onSelect={(d) => {
+                const norm = normalizeDrawing(d)
+                setSelectedDrawing(norm)
+                setSelectedAnnotId(null)
+                annotationMapRef.current = {}
+                if (!norm.isCalibrated) {
+                  setActiveTool('line')
+                  setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
+                }
+                setSidebarOpen(false)
+              }}
+              onUploaded={handleDrawingUploaded}
+              onDeleted={handleDrawingDeleted}
+            />
+          </div>
+        ) : (
+          <div
+            style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}
+            onMouseEnter={() => { clearTimeout(leftHoverTimer.current); setLeftHovered(true) }}
+            onMouseLeave={() => { leftHoverTimer.current = setTimeout(() => setLeftHovered(false), 300) }}
+          >
+            <div style={{
+              width: effectiveLeftOpen ? '240px' : '0px',
+              overflow: 'hidden', flexShrink: 0,
+              transition: 'width 250ms cubic-bezier(0.4,0,0.2,1)',
+              willChange: 'width',
+            }}>
+              <DrawingSidebar
+                drawings={drawings}
+                selectedDrawing={selectedDrawing}
+                onSelect={(d) => {
+                  const norm = normalizeDrawing(d)
+                  setSelectedDrawing(norm)
+                  setSelectedAnnotId(null)
+                  annotationMapRef.current = {}
+                  if (!norm.isCalibrated) {
+                    setActiveTool('line')
+                    setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
+                  }
+                }}
+                onUploaded={handleDrawingUploaded}
+                onDeleted={handleDrawingDeleted}
+              />
+            </div>
+            <button
+              onClick={() => { clearTimeout(leftHoverTimer.current); setLeftHovered(false); setLeftPanelOpen(o => !o) }}
+              className="panel-toggle-tab panel-toggle-tab-left"
+              title={leftPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
+            >
+              <svg width="9" height="13" viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                {effectiveLeftOpen ? (
+                  <>
+                    <polyline points="9,1 5,7 9,13"/>
+                    <polyline points="5,1 1,7 5,13"/>
+                  </>
+                ) : (
+                  <>
+                    <polyline points="3,1 7,7 3,13"/>
+                    <polyline points="7,1 11,7 7,13"/>
+                  </>
+                )}
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Center: PDF viewer + bottom panel */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
           {/* PDF Viewer */}
           <div
-            style={{ flex: showBottom ? '1 1 60%' : '1 1 100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative' }}
+            style={{ flex: '1 1 0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative' }}
             onContextMenu={handlePdfAreaContextMenu}
             onClick={ctxMenu ? closeCtxMenu : undefined}
           >
@@ -1451,47 +1516,80 @@ export default function DrawingsPage() {
             )}
           </div>
 
-          {/* Bottom data panel */}
-          {showBottom && (
+          {/* Bottom data panel: always-visible tab strip + animated content */}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* Persistent tab strip */}
             <div style={{
-              flex: `0 0 ${bottomH}`, borderTop: '2px solid rgba(239,35,60,.3)',
-              background: '#080B12', display: 'flex', flexDirection: 'column',
-              overflow: 'hidden', minHeight: 0,
+              display: 'flex', alignItems: 'center',
+              background: '#0D1526',
+              borderTop: '2px solid rgba(239,35,60,.2)',
+              borderBottom: showBottom ? '1px solid rgba(255,255,255,.07)' : 'none',
+              flexShrink: 0, overflowX: 'auto',
             }}>
-              {/* Tab bar */}
-              <div style={{ display: 'flex', alignItems: 'center', background: '#0D1526', borderBottom: '1px solid rgba(255,255,255,.07)', flexShrink: 0, overflowX: 'auto' }}>
-                <TabBtn
-                  active={bottomTab === 'measurements'}
-                  onClick={() => setBottomTab('measurements')}
-                  icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke={bottomTab === 'measurements' ? '#EF233C' : '#64748b'} strokeWidth="2">
-                    <line x1="5" y1="19" x2="19" y2="5"/>
-                    <circle cx="5" cy="19" r="2" fill="currentColor"/>
-                    <circle cx="19" cy="5" r="2" fill="currentColor"/>
-                  </svg>}
-                  label="Measurements"
-                  badge={takeoffItems.length}
-                />
-                <TabBtn
-                  active={bottomTab === 'members'}
-                  onClick={() => setBottomTab('members')}
-                  icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke={bottomTab === 'members' ? '#EF233C' : '#64748b'} strokeWidth="2">
-                    <path d="M3 9h18M3 15h18M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>
-                  </svg>}
-                  label="Member Schedule"
-                  badge={memberScheduleItems.length}
-                />
-                <div style={{ flex: 1 }} />
-                {memberScheduleItems.length > 0 && bottomTab === 'measurements' && !isMobile && (
-                  <div style={{ fontSize: '11px', color: '#475569', padding: '0 12px', whiteSpace: 'nowrap' }}>
-                    {memberScheduleItems.length} members · {memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0).toFixed(0)} kg
-                  </div>
-                )}
-              </div>
+              <TabBtn
+                active={bottomTab === 'measurements' && showBottom}
+                onClick={() => handleBottomTabClick('measurements')}
+                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke={bottomTab === 'measurements' && showBottom ? '#EF233C' : '#64748b'} strokeWidth="2">
+                  <line x1="5" y1="19" x2="19" y2="5"/>
+                  <circle cx="5" cy="19" r="2" fill="currentColor"/>
+                  <circle cx="19" cy="5" r="2" fill="currentColor"/>
+                </svg>}
+                label="Measurements"
+                badge={takeoffItems.length}
+              />
+              <TabBtn
+                active={bottomTab === 'members' && showBottom}
+                onClick={() => handleBottomTabClick('members')}
+                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke={bottomTab === 'members' && showBottom ? '#EF233C' : '#64748b'} strokeWidth="2">
+                  <path d="M3 9h18M3 15h18M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>
+                </svg>}
+                label="Member Schedule"
+                badge={memberScheduleItems.length}
+              />
+              <div style={{ flex: 1 }} />
+              {memberScheduleItems.length > 0 && bottomTab === 'measurements' && !isMobile && showBottom && (
+                <div style={{ fontSize: '11px', color: '#475569', padding: '0 12px', whiteSpace: 'nowrap' }}>
+                  {memberScheduleItems.length} members · {memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0).toFixed(0)} kg
+                </div>
+              )}
+              {/* Collapse/expand double-arrow */}
+              <button
+                onClick={() => setShowBottom(o => !o)}
+                title={showBottom ? 'Collapse Panel' : 'Expand Panel'}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '0 12px', height: '100%', display: 'flex', alignItems: 'center',
+                  color: 'rgba(239,35,60,0.5)', transition: 'color .15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#EF233C' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(239,35,60,0.5)' }}
+              >
+                <svg width="13" height="9" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  {showBottom ? (
+                    <>
+                      <polyline points="1,2 6,5 11,2"/>
+                      <polyline points="1,5 6,8 11,5"/>
+                    </>
+                  ) : (
+                    <>
+                      <polyline points="1,8 6,5 11,8"/>
+                      <polyline points="1,5 6,2 11,5"/>
+                    </>
+                  )}
+                </svg>
+              </button>
+            </div>
 
-              {/* Tab content */}
-              <div style={{ flex: 1, overflow: 'hidden' }}>
+            {/* Animated content area */}
+            <div style={{
+              height: showBottom ? bottomH : '0px',
+              overflow: 'hidden',
+              transition: 'height 250ms cubic-bezier(0.4,0,0.2,1)',
+              background: '#080B12',
+            }}>
+              <div style={{ height: bottomH, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {bottomTab === 'measurements' ? (
                   <MeasurementTable
                     drawing={activeDrawing}
@@ -1508,33 +1606,73 @@ export default function DrawingsPage() {
                 )}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Right panel — drawer on mobile */}
-        <div
-          className="panel-drawer"
-          style={{
-            position: isMobile ? 'fixed' : 'relative',
-            top: isMobile ? 0 : undefined,
-            bottom: isMobile ? 0 : undefined,
-            right: isMobile ? 0 : undefined,
-            zIndex: isMobile ? 200 : undefined,
-            transform: isMobile && !rightOpen ? 'translateX(100%)' : 'translateX(0)',
-            display: 'flex', flexDirection: 'column',
-            boxShadow: isMobile && rightOpen ? '-4px 0 30px rgba(0,0,0,.7)' : 'none',
-          }}
-        >
-          <RightPanel
-            drawing={activeDrawing}
-            lastMeasurement={lastMeasurement}
-            selectedItem={selectedAnnotItem}
-            summary={summary}
-            onCalibrated={handleCalibrated}
-            onQuickScale={handleQuickScale}
-            onCalibrateScale={handleCalibrateScaleClick}
-          />
-        </div>
+        {/* Right panel */}
+        {isMobile ? (
+          <div
+            className="panel-drawer"
+            style={{
+              position: 'fixed', top: 0, bottom: 0, right: 0, zIndex: 200,
+              transform: rightOpen ? 'translateX(0)' : 'translateX(100%)',
+              display: 'flex', flexDirection: 'column',
+              boxShadow: rightOpen ? '-4px 0 30px rgba(0,0,0,.7)' : 'none',
+            }}
+          >
+            <RightPanel
+              drawing={activeDrawing}
+              lastMeasurement={lastMeasurement}
+              selectedItem={selectedAnnotItem}
+              summary={summary}
+              onCalibrated={handleCalibrated}
+              onQuickScale={handleQuickScale}
+              onCalibrateScale={handleCalibrateScaleClick}
+            />
+          </div>
+        ) : (
+          <div
+            style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}
+            onMouseEnter={() => { clearTimeout(rightHoverTimer.current); setRightHovered(true) }}
+            onMouseLeave={() => { rightHoverTimer.current = setTimeout(() => setRightHovered(false), 300) }}
+          >
+            <button
+              onClick={() => { clearTimeout(rightHoverTimer.current); setRightHovered(false); setRightPanelOpen(o => !o) }}
+              className="panel-toggle-tab panel-toggle-tab-right"
+              title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
+            >
+              <svg width="9" height="13" viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                {effectiveRightOpen ? (
+                  <>
+                    <polyline points="3,1 7,7 3,13"/>
+                    <polyline points="7,1 11,7 7,13"/>
+                  </>
+                ) : (
+                  <>
+                    <polyline points="9,1 5,7 9,13"/>
+                    <polyline points="5,1 1,7 5,13"/>
+                  </>
+                )}
+              </svg>
+            </button>
+            <div style={{
+              width: effectiveRightOpen ? '228px' : '0px',
+              overflow: 'hidden', flexShrink: 0,
+              transition: 'width 250ms cubic-bezier(0.4,0,0.2,1)',
+              willChange: 'width',
+            }}>
+              <RightPanel
+                drawing={activeDrawing}
+                lastMeasurement={lastMeasurement}
+                selectedItem={selectedAnnotItem}
+                summary={summary}
+                onCalibrated={handleCalibrated}
+                onQuickScale={handleQuickScale}
+                onCalibrateScale={handleCalibrateScaleClick}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────── */}

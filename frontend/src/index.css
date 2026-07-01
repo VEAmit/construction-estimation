@@ -304,3 +304,30 @@ select.app-select option {
     min-height: 36px;
   }
 }
+
+/* ─── Desktop side-panel toggle tabs ─────────────────── */
+.panel-toggle-tab {
+  flex-shrink: 0;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0D1526;
+  border: none;
+  cursor: pointer;
+  color: rgba(239, 35, 60, 0.45);
+  transition: color 0.15s, background 0.15s;
+  z-index: 1;
+}
+.panel-toggle-tab:hover {
+  background: rgba(239, 35, 60, 0.12);
+  color: #EF233C;
+}
+.panel-toggle-tab-left {
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(239, 35, 60, 0.08);
+}
+.panel-toggle-tab-right {
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-left: 1px solid rgba(239, 35, 60, 0.08);
+}

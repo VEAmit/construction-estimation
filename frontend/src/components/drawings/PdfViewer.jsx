@@ -1,5 +1,5 @@
 import '../../syncfusion-license.js'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   PdfViewerComponent,
   Toolbar,
@@ -185,6 +185,141 @@ function applyViewerZoomPct(vm, pct) {
     if (mag) mag.fitType = null
     mag?.zoomTo?.(Math.round(pct))
   } catch (_) {}
+}
+
+// Guard: prevent two simultaneous recovery calls overlapping.
+let _recoverInProgress = false
+
+/**
+ * Check whether a canvas is blank/unrendered by sampling 5 pixels.
+ *
+ * Syncfusion pre-fills every page canvas with OPAQUE WHITE before handing it
+ * to pdfium. A canvas pdfium never painted therefore has ALL 5 sample pixels
+ * identical (255,255,255,255). A rendered PDF page — even one with lots of
+ * white space — will almost always have at least one non-white pixel among
+ * those 5 positions (due to lines, text, borders, or anti-aliasing).
+ *
+ * Returns true  → canvas is uniformly blank (safe to trigger recovery).
+ * Returns false → canvas has pixel variation (likely rendered; don't recover).
+ * Returns false on any error (cross-origin, WebGL, etc.) → safer default.
+ */
+function isPageCanvasBlank(canvas) {
+  if (!canvas || canvas.width < 4 || canvas.height < 4) return true
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return false
+    const w = canvas.width, h = canvas.height
+    // 5-point cross pattern covering corners + centre
+    const pts = [
+      [Math.floor(w * 0.2), Math.floor(h * 0.2)],
+      [Math.floor(w * 0.8), Math.floor(h * 0.2)],
+      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+      [Math.floor(w * 0.2), Math.floor(h * 0.8)],
+      [Math.floor(w * 0.8), Math.floor(h * 0.8)],
+    ]
+    const ref = ctx.getImageData(pts[0][0], pts[0][1], 1, 1).data
+    for (let s = 1; s < pts.length; s++) {
+      const px = ctx.getImageData(pts[s][0], pts[s][1], 1, 1).data
+      if (px[0] !== ref[0] || px[1] !== ref[1] || px[2] !== ref[2] || px[3] !== ref[3]) {
+        return false // Pixel variation detected → content present
+      }
+    }
+    return true // All 5 samples identical → uniformly blank
+  } catch (_) {
+    return false // Error → assume rendered, avoid false recovery
+  }
+}
+
+/**
+ * Called after scroll/zoom settles and by the stale-page watchdog.
+ * Finds visible pages whose pdfium canvas is still blank and forces a re-render.
+ *
+ * THREE failure modes this handles:
+ *   A) Canvas missing entirely            → no canvas child in page div
+ *   B) Canvas too small (placeholder)     → width < 40% of page div width
+ *   C) Canvas correctly-sized but blank   → all 5 pixel samples are identical
+ *      (this is the common case: Syncfusion pre-fills with white before pdfium
+ *       renders, so transparent-pixel checks always return "not blank" → wrong)
+ *
+ * Recovery uses a 1% zoom micro-bump: zoomTo(N+1) → wait one frame → zoomTo(N).
+ * This is the only reliable way to force Syncfusion/pdfium to invalidate page
+ * caches and re-queue renders — calling zoomTo(N) when already at N% is a no-op.
+ */
+function recoverBlankVisiblePages(vm) {
+  if (_recoverInProgress) return
+  if (!vm?.viewerBase?.viewerContainer) return
+  const vb = vm.viewerBase
+  const vc = vb.viewerContainer
+  const id = vm.element?.id ?? 'sfPdfViewer'
+  const scrollTop  = vc.scrollTop
+  const scrollLeft = vc.scrollLeft
+  const vcH        = vc.clientHeight
+  const pageCount  = vb.pageCount ?? 0
+  if (pageCount === 0) return
+
+  let anyBlank = false
+  for (let i = 0; i < pageCount; i++) {
+    const div = document.getElementById(`${id}_pageDiv_${i}`)
+    if (!div) continue
+    const divTop = div.offsetTop
+    const divH   = div.offsetHeight || 1
+    // Skip pages outside the visible viewport
+    if (divTop >= scrollTop + vcH || divTop + divH <= scrollTop) continue
+
+    const divW = div.offsetWidth
+    // The page canvas — try Syncfusion's own ID first, then querySelectorAll
+    // (annotation canvas is the SECOND canvas, page canvas is the FIRST)
+    const allCanvases = div.querySelectorAll('canvas')
+    const pageCvs = document.getElementById(`${id}_pageCanvas_${i}`)
+      ?? (allCanvases.length > 0 ? allCanvases[0] : null)
+
+    // Case A/B: canvas missing or far smaller than its container
+    if (!pageCvs || (divW > 20 && pageCvs.width < divW * 0.4)) {
+      console.log(`[SF-Render] page ${i} blank (case A/B): canvas=${pageCvs?.width ?? 'null'} divW=${divW}`)
+      anyBlank = true; break
+    }
+
+    // Case C: canvas has correct size but content is uniformly blank
+    if (isPageCanvasBlank(pageCvs)) {
+      console.log(`[SF-Render] page ${i} blank (case C): uniform pixels at zoom=${getMagnification(vm)?.zoomFactor?.toFixed(2) ?? '?'}`)
+      anyBlank = true; break
+    }
+  }
+
+  if (!anyBlank) return
+
+  _recoverInProgress = true
+  console.log('[SF-Render] recovering — zoom micro-bump to force pdfium re-render')
+
+  const mag = getMagnification(vm)
+  const currentPct = Math.round((mag?.zoomFactor ?? 1) * 100)
+  // +1% bump (visually imperceptible, ~1 frame) forces Syncfusion to invalidate
+  // page caches and re-queue pdfium renders for all visible pages.
+  const bumpPct = currentPct < 400 ? currentPct + 1 : currentPct - 1
+
+  try {
+    if (mag) mag.fitType = null
+    mag?.zoomTo?.(bumpPct)
+  } catch (_) {
+    _recoverInProgress = false
+    return
+  }
+
+  // Restore original zoom after one frame, then re-check scroll position.
+  requestAnimationFrame(() => {
+    try {
+      if (mag) mag.fitType = null
+      mag?.zoomTo?.(currentPct)
+    } catch (_) {}
+    // Allow pdfium ~150 ms to finish renders at the restored zoom before unlocking.
+    setTimeout(() => {
+      _recoverInProgress = false
+      try {
+        if (Math.abs(vc.scrollTop  - scrollTop)  > 4) vc.scrollTop  = scrollTop
+        if (Math.abs(vc.scrollLeft - scrollLeft) > 4) vc.scrollLeft = scrollLeft
+      } catch (_) {}
+    }, 150)
+  })
 }
 
 const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
@@ -1392,8 +1527,8 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
     } catch (_) {}
   }
 
-  if ((anyMissing || anyLabelPending) && attempt < 30) {
-    setTimeout(() => hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt + 1), 150)
+  if ((anyMissing || anyLabelPending) && attempt < 12) {
+    setTimeout(() => hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt + 1), 100)
     return
   }
   hydrateTakeoffLabelsOnViewer(vm, items, pdfScale)
@@ -1517,7 +1652,11 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
           TargetUnitConversion: typeof cal.TargetUnitConversion === 'number' ? cal.TargetUnitConversion : 1,
         }
       })(),
-      IsPrint: true, State: '', Comments: [],
+      // Syncfusion calls .toString() on BorderDashArray and .split() on RotateAngle — must be present
+      BorderDashArray: raw.BorderDashArray ?? raw.borderDashArray ?? '0',
+      RotateAngle: raw.RotateAngle ?? raw.rotateAngle ?? 'Angle0',
+      BorderStyle: raw.BorderStyle ?? raw.borderStyle ?? '',
+      IsPrint: true, State: '', StateModel: '', Comments: [],
       name: raw.name ?? raw.annotationId ?? raw.id ?? fallbackId,
       type: raw.type ?? (isAreaLike ? 'Polygon' : 'Line'),
       IT: raw.IT ?? (isAreaLike ? 'Area' : 'LineDimension'),
@@ -2421,6 +2560,8 @@ export default function PdfViewer({
   const [errorMsg,  setErrorMsg]      = useState(null)
   const [viewerSize, setViewerSize]   = useState({ w: 0, h: 0 })
   const [docLoaded,  setDocLoaded]    = useState(false)
+  // True while Syncfusion's pdfium WASM is parsing/rendering the document (fetch done, page not yet visible)
+  const [docRendering, setDocRendering] = useState(false)
   const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
   const [fallbackLabelLayout, setFallbackLabelLayout] = useState([])
   const [fallbackLabelTick, setFallbackLabelTick] = useState(0)
@@ -2475,6 +2616,15 @@ export default function PdfViewer({
     setCountSession(0)
     setFallbackLabelLayout([])
   }, [drawingUrl, setCountSession])
+
+  // Track Syncfusion WASM/parse phase: show rendering overlay between fetch-complete and documentLoad
+  useEffect(() => {
+    if (pdfBase64 && !docLoaded) {
+      setDocRendering(true)
+    } else {
+      setDocRendering(false)
+    }
+  }, [pdfBase64, docLoaded])
 
   const bumpFallbackLabelLayout = useCallback(() => {
     setFallbackLabelTick(t => t + 1)
@@ -2573,15 +2723,18 @@ export default function PdfViewer({
   }, [setPdfScale])
 
   // Two-pass fit: first pageRenderComplete fits, second finalizes after retile.
+  // Every subsequent call (scroll/zoom-triggered virtual renders) repaints annotation overlays.
   const handlePageRenderComplete = useCallback(() => {
     const vm = viewerRef.current
     if (!vm) return
-    if (fitPassRef.current === 0) {
+    const pass = fitPassRef.current
+    console.log(`[SF-Render] pageRenderComplete pass=${pass} zoom=${getMagnification(vm)?.zoomFactor?.toFixed(3) ?? '?'}`)
+    if (pass === 0) {
       fitPassRef.current = 1
       applyFitWidth()
       return
     }
-    if (fitPassRef.current === 1) {
+    if (pass === 1) {
       fitPassRef.current = 2
       finalizeViewerLayout(vm, containerRef.current?.clientWidth)
       const meta = pageMetaRef.current
@@ -2590,11 +2743,17 @@ export default function PdfViewer({
         alignPageInViewer(vm, meta.width, mag.zoomFactor)
       }
       firstRenderDoneRef.current = true
+      return
     }
+    // Scroll/zoom-triggered re-renders: repaint annotation canvas overlay for the
+    // newly rendered page so measurements stay visible as the user scrolls.
+    try { vm.renderDrawing?.() } catch (_) {}
   }, [applyFitWidth])
 
   const updateFallbackMeasureLabels = useCallback(() => {
-    setFallbackLabelLayout([])
+    // Functional updater: return same reference when already empty so React bails out
+    // and skips the re-render (important — this fires on every scroll event via the scroll listener)
+    setFallbackLabelLayout(prev => prev.length > 0 ? [] : prev)
   }, [])
 
   const scheduleFallbackLabelLayout = useCallback(() => {
@@ -2632,16 +2791,32 @@ export default function PdfViewer({
     const scrollEl = vm?.viewerBase?.viewerContainer
       ?? document.getElementById('sfPdfViewer_viewerContainer')
     if (!scrollEl) return
+
+    let scrollEndTimer = null
+
+    // Scroll handler: update label positions immediately via RAF, then schedule
+    // blank-page recovery 300ms after scrolling stops.
+    const onScroll = () => {
+      scheduleFallbackLabelLayout()
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      scrollEndTimer = setTimeout(() => {
+        scrollEndTimer = null
+        recoverBlankVisiblePages(viewerRef.current)
+      }, 300)
+    }
+
     const onMove = () => scheduleFallbackLabelLayout()
-    scrollEl.addEventListener('scroll', onMove, { passive: true })
+
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onMove)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onMove) : null
     if (ro && containerRef.current) ro.observe(containerRef.current)
     return () => {
-      scrollEl.removeEventListener('scroll', onMove)
+      scrollEl.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onMove)
       ro?.disconnect()
       if (fallbackLabelRafRef.current) cancelAnimationFrame(fallbackLabelRafRef.current)
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
     }
   }, [docLoaded, scheduleFallbackLabelLayout])
 
@@ -4871,18 +5046,42 @@ export default function PdfViewer({
   }, [applyActiveToolToViewer, activeTool, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.id])
 
   // ── Sync zoom after first page render (user +/- toolbar) ───────────────
+  // DEBOUNCED: rapid zoom clicks (user pressing + quickly) generate many pdfScale
+  // changes. Applying each immediately would cancel the prior pdfium render before
+  // it completes, causing blank pages. Wait 150 ms for clicks to settle, then
+  // apply once. After zoom settles, run a recovery check at 900 ms.
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded || !firstRenderDoneRef.current) return
-    applyViewerZoomPct(vm, pdfScale * 100)
+    console.log(`[SF-Render] zoomTo ${Math.round(pdfScale * 100)}% (debounced)`)
+    const applyT   = setTimeout(() => applyViewerZoomPct(vm, pdfScale * 100), 150)
+    const recoverT = setTimeout(() => recoverBlankVisiblePages(vm), 900)
+    return () => { clearTimeout(applyT); clearTimeout(recoverT) }
   }, [pdfScale, pdfBase64, docLoaded])
 
   // ── Reflow when container resizes (fixes scroll-to-see-PDF symptom) ───
+  // DEBOUNCED: panel open/close fires many resize events. Each syncViewerLayout call
+  // with recalcPages=true calls vb.onWindowResize() which can interrupt an active
+  // pdfium render. Settle 200 ms after the last resize before recalculating.
   useEffect(() => {
     if (!docLoaded || !firstRenderDoneRef.current) return
-    const containerW = containerRef.current?.clientWidth
-    syncViewerLayout(viewerRef.current, true, containerW)
+    const t = setTimeout(() => {
+      const containerW = containerRef.current?.clientWidth
+      syncViewerLayout(viewerRef.current, true, containerW)
+    }, 200)
+    return () => clearTimeout(t)
   }, [viewerSize.w, viewerSize.h, docLoaded])
+
+  // ── Stale-page watchdog ────────────────────────────────────────────────
+  // Runs every 2.5 s while a document is loaded. If any visible page still
+  // has a blank/transparent canvas (render deadlock from rapid scroll/zoom),
+  // recoverBlankVisiblePages re-applies the current zoom to flush the queue.
+  // The check itself is near-zero cost when all pages are already rendered.
+  useEffect(() => {
+    if (!docLoaded) return
+    const t = setInterval(() => recoverBlankVisiblePages(viewerRef.current), 2500)
+    return () => clearInterval(t)
+  }, [docLoaded])
 
   // ── Sync page navigation ───────────────────────────────────────────────
   useEffect(() => {
@@ -4959,7 +5158,7 @@ export default function PdfViewer({
       }
 
     } catch (_) {}
-  }, [activeTool, pdfBase64, docLoaded, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, activeUnit, selectedMemberScheduleItem, lastMeasureMember, takeoffItems])
+  }, [activeTool, pdfBase64, docLoaded, measureColor, lineThickness, fillOpacity, lineStyle, fontSize, measureLabelFontSize, pdfScale, arrowStyle, linearLineMode, activeUnit, selectedMemberScheduleItem, lastMeasureMember])
 
   // Re-sync Syncfusion native unit when display unit or calibration changes
   useEffect(() => {
@@ -5014,10 +5213,11 @@ export default function PdfViewer({
         }, 350)
       }
     }
-  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, arrowStyle, linearLineMode, fillOpacity, activeTool, getDisplayUnit, bumpFallbackLabelLayout, measureColor, selectedMemberScheduleItem, lastMeasureMember, takeoffItems])
+  }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, arrowStyle, linearLineMode, fillOpacity, activeTool, getDisplayUnit, bumpFallbackLabelLayout, measureColor, selectedMemberScheduleItem, lastMeasureMember])
 
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
   const handleDocumentLoaded = useCallback((args) => {
+    console.log(`[SF-Render] documentLoad pageCount=${args.pageCount ?? 1}`)
     setPdfTotalPages(args.pageCount ?? 1)
     setPdfPage(1)
     setDocLoaded(true)
@@ -5057,8 +5257,14 @@ export default function PdfViewer({
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
+    console.log(`[SF-Render] pageChange currentPage=${args.currentPageNumber}`)
     setPdfPage(args.currentPageNumber)
     bumpFallbackLabelLayout()
+    // Repaint annotation overlays when Syncfusion signals a new page is in view.
+    // firstRenderDoneRef guards against firing before initial fit completes.
+    if (firstRenderDoneRef.current) {
+      try { viewerRef.current?.renderDrawing?.() } catch (_) {}
+    }
   }, [setPdfPage, bumpFallbackLabelLayout])
 
   // ── Fired by Syncfusion when an annotation is added ──────────────────────
@@ -5137,6 +5343,33 @@ export default function PdfViewer({
       if (isLinearMeasureAnnotation(annotation)) setCanvasSelectionTick(t => t + 1)
     }
   }, [onAnnotationSelect, scheduleMeasurementComplete])
+
+  // Stable distanceSettings — memoized so Syncfusion does not receive a new object on every render.
+  const memoDistanceSettings = useMemo(() => {
+    const distHex = measureColor ?? '#111827'
+    const dr = parseInt(distHex.slice(1, 3), 16) || 17
+    const dg = parseInt(distHex.slice(3, 5), 16) || 24
+    const db = parseInt(distHex.slice(5, 7), 16) || 39
+    return {
+      displayUnit:    toSfUnit(getSyncfusionNativeUnit(drawing)),
+      conversionUnit: toSfUnit(getSyncfusionNativeUnit(drawing)),
+      ...(drawing?.isCalibrated && drawing?.scaleRatio ? {
+        depth: drawing.scaleRatio,
+        scaleRatio: 1,
+      } : {
+        depth: 25.4 / 72,
+        scaleRatio: 1,
+      }),
+      strokeColor: distHex,
+      fillColor:   `rgba(${dr},${dg},${db},${fillOpacity ?? 0.15})`,
+      opacity: 1,
+      ...buildLinearDistanceStyle(
+        measureLabelFontSize, pdfScale, distHex, lineThickness, arrowStyle, linearLineMode,
+      ),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measureColor, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit,
+      fillOpacity, measureLabelFontSize, pdfScale, lineThickness, arrowStyle, linearLineMode])
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -5234,6 +5467,20 @@ export default function PdfViewer({
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
           <span style={{ fontSize:'13px', color:'#64748b' }}>Loading drawing…</span>
+        </div>
+      )}
+
+      {/* Syncfusion rendering overlay — shows while pdfium WASM parses/renders after fetch completes */}
+      {pdfBase64 && !loading && docRendering && (
+        <div style={{ position:'absolute', inset:0, zIndex:19,
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          background:'#0a0f1e', gap:'12px' }}>
+          <svg className="spin" width="28" height="28" viewBox="0 0 24 24"
+            fill="none" stroke="#EF233C" strokeWidth="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          <span style={{ fontSize:'13px', color:'#64748b' }}>Preparing drawing…</span>
+          <span style={{ fontSize:'11px', color:'#334155' }}>Large drawings may take a few seconds</span>
         </div>
       )}
 
@@ -5651,10 +5898,6 @@ export default function PdfViewer({
 
       {/* Syncfusion PDF Viewer — only mount once we know the container size. */}
       {pdfBase64 && !errorMsg && viewerSize.h > 0 && (() => {
-        const distHex = measureColor ?? '#111827'
-        const dr = parseInt(distHex.slice(1, 3), 16) || 17
-        const dg = parseInt(distHex.slice(3, 5), 16) || 24
-        const db = parseInt(distHex.slice(5, 7), 16) || 39
         return (
         <PdfViewerComponent
           key={drawingUrl ?? 'pdf-viewer'}
@@ -5704,23 +5947,7 @@ export default function PdfViewer({
           enableDownload={false}
 
           /* ── Measurement units + initial appearance ──────────────────────── */
-          distanceSettings={{
-            displayUnit:    toSfUnit(getSyncfusionNativeUnit(drawing)),
-            conversionUnit: toSfUnit(getSyncfusionNativeUnit(drawing)),
-            ...(drawing?.isCalibrated && drawing?.scaleRatio ? {
-              depth: drawing.scaleRatio,
-              scaleRatio: 1,
-            } : {
-              depth: 25.4 / 72,
-              scaleRatio: 1,
-            }),
-            strokeColor: distHex,
-            fillColor:   `rgba(${dr},${dg},${db},${fillOpacity ?? 0.15})`,
-            opacity: 1,
-            ...buildLinearDistanceStyle(
-              measureLabelFontSize, pdfScale, distHex, lineThickness, arrowStyle, linearLineMode,
-            ),
-          }}
+          distanceSettings={memoDistanceSettings}
 
           /* ── Annotation appearance ────────────────────────────────────────── */
           annotationSettings={{
