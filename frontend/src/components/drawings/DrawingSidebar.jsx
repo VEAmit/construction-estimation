@@ -30,8 +30,13 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
       const drawing = await drawingService.upload(selectedProject.id, file, (pct) => setUploadProgress(pct))
       toast.success(`"${drawing.name}" uploaded successfully`)
       onUploaded(drawing)
-    } catch {
-      toast.error('Upload failed. Please try again.')
+    } catch (err) {
+      const serverMsg = err?.response?.data?.message ?? err?.response?.data?.Message ?? null
+      if (err?.response?.status === 404 || (serverMsg && /not found/i.test(serverMsg))) {
+        toast.error('Project not found in database — go back to Dashboard and re-open the project.', { duration: 7000 })
+      } else {
+        toast.error(serverMsg ?? 'Upload failed — please try again.')
+      }
     } finally {
       setUploading(false)
       setUploadProgress(0)

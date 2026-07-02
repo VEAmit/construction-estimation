@@ -30,6 +30,12 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    // Concrete pad footings / columns / slabs — "1200 × 1200 × 300 DEEP", "600 x 600", "3500×3500×600"
+    private static readonly Regex ConcreteDimPattern = new(
+        @"\b(\d{3,4})\s*[×xX]\s*(\d{3,4})(?:\s*[×xX]\s*\d{2,4})?\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
     // Marks as shown on drawings: SC2, B1, C7, FB1 — UB/UC or hollow (75 x 5 SHS)
     private static readonly Regex PdfScheduleMarkPattern = new(
         @"\b([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]\s*(?:\d+\s*)?(?:(?:\d+\s*[xX×]\s*)+\d+(?:\.\d+)?\s*)?(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS|RB\d+)\b",
@@ -44,7 +50,14 @@ public class ExtractionService
 
     // Drawing list format (COLUMNS / BEAMS / PAD FOOTINGS on structural plans)
     private static readonly Regex DrawingListLinePattern = new(
-        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*(.+)$",
+        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•/]\s*(.+)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Looser pattern used when already inside a drawing-list block — tolerates space-only separator
+    // e.g. "PF2  1200 × 1200 × 300 DEEP" (table cell without explicit dash)
+    private static readonly Regex DrawingListLoosePattern = new(
+        @"^\s*([A-Z]{1,4}\d{1,3}[A-Z]?)\s{2,}(.+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -132,10 +145,8 @@ public class ExtractionService
             var fullText = string.Join(" ", allLines);
             var members = ParseMembers(allLines, fullText);
 
-            var rawSample = allLines
-                .Where(l => l.Length > 3)
-                .Take(40)
-                .ToList();
+            // Prefer schedule-relevant lines for the raw sample (shows where extraction found/missed marks)
+            var rawSample = BuildRawSample(allLines);
 
             return new ExtractionResultDto(
                 drawingId, drawingName, pageCount,
@@ -206,7 +217,9 @@ public class ExtractionService
     {
         if (words.Count == 0) return [];
 
-        const double tolerance = 3.0;
+        // 5.0 pt tolerance groups words within the same visual line even with slight
+        // vertical offsets common in structural drawing schedules.
+        const double tolerance = 5.0;
         var groups = new Dictionary<int, List<Word>>();
 
         foreach (var w in words)
@@ -225,26 +238,109 @@ public class ExtractionService
             .ToList();
     }
 
+    /// <summary>
+    /// Returns up to 120 lines for the raw text preview, prioritising lines near
+    /// schedule/footing sections so the user can verify the extracted text.
+    /// </summary>
+    private static List<string> BuildRawSample(List<string> allLines)
+    {
+        // Find the first schedule section index
+        var schedIdx = -1;
+        for (int i = 0; i < allLines.Count; i++)
+        {
+            var lower = allLines[i].ToLowerInvariant();
+            if (ScheduleHeaders.Any(h => lower.Contains(h))
+                || DrawingListSections.Any(s => lower.Contains(s.ToLower())))
+            {
+                schedIdx = i;
+                break;
+            }
+        }
+
+        var sample = new List<string>();
+
+        if (schedIdx >= 0)
+        {
+            // 10 lines before the section + up to 110 lines from the section onward
+            var from = Math.Max(0, schedIdx - 10);
+            sample.AddRange(allLines.Skip(from).Take(120).Where(l => l.Length > 1));
+        }
+
+        // Fall back: lines that look like member marks or section sizes
+        if (sample.Count < 20)
+        {
+            sample.AddRange(allLines
+                .Where(l => l.Length > 3
+                    && (Regex.IsMatch(l, @"\b[A-Z]{1,4}\d{1,3}\b")
+                        || Regex.IsMatch(l, @"\b\d{2,4}\s*(UB|UC|PFC|RHS|SHS|CHS)\b", RegexOptions.IgnoreCase)
+                        || Regex.IsMatch(l, @"\b\d{3,4}\s*[×xX]\s*\d{3,4}\b")))
+                .Take(80));
+        }
+
+        return sample.Distinct().Take(120).ToList();
+    }
+
     // ── Member parsing ───────────────────────────────────────────────────────────
 
     private List<ExtractedMemberDto> ParseMembers(List<string> lines, string fullText)
     {
+        // Merge split mark tokens produced by CAD PDFs: "PF 2" → "PF2", "C 1" → "C1"
+        var mergedLines = lines.Select(MergeMarkFragments).ToList();
+        var mergedFullText = string.Join(" ", mergedLines);
+
+        _logger.LogDebug("Extraction: {LineCount} lines after mark-fragment merge", mergedLines.Count);
+
         var results = new List<ExtractedMemberDto>();
 
         // COLUMNS / BEAMS lists on footing plans (SC2 - 360 UB 45, C1 - 610 UB 113)
-        results.AddRange(ParseDrawingLists(lines));
+        results.AddRange(ParseDrawingLists(mergedLines));
+        _logger.LogDebug("After ParseDrawingLists: {Count} rows", results.Count);
 
-        var scheduleStart = FindScheduleSection(lines);
+        var scheduleStart = FindScheduleSection(mergedLines);
         if (scheduleStart >= 0)
-            results.AddRange(ParseScheduleTable(lines, scheduleStart));
+            results.AddRange(ParseScheduleTable(mergedLines, scheduleStart));
+        _logger.LogDebug("After ParseScheduleTable: {Count} rows", results.Count);
 
-        results.AddRange(ParseByPattern(lines, fullText));
+        results.AddRange(ParseByPattern(mergedLines, mergedFullText));
+        _logger.LogDebug("After ParseByPattern: {Count} rows (pre-merge)", results.Count);
 
         // One row per mark — prefer drawing list > schedule > pattern
         results = MergePreferBestRows(results);
-        return results.Where(IsValidExtractedMember)
+
+        var valid = results.Where(IsValidExtractedMember)
             .OrderBy(r => r.Mark, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        var skipped = results.Where(r => !IsValidExtractedMember(r)).ToList();
+        if (skipped.Count > 0)
+        {
+            _logger.LogInformation("Extraction: {Valid} valid, {Skipped} filtered. Skipped marks: {Marks}",
+                valid.Count, skipped.Count,
+                string.Join(", ", skipped.Select(r => $"{r.Mark}({r.Confidence:F2})")));
+        }
+
+        return valid;
+    }
+
+    /// <summary>
+    /// Merges adjacent mark fragments produced by CAD PDF export.
+    /// "PF 2" → "PF2",  "C 1" → "C1",  "SF 3" → "SF3".
+    /// Only merges when result is a valid short structural mark (≤6 chars).
+    /// </summary>
+    private static string MergeMarkFragments(string line)
+    {
+        // Match letter prefix (1-4) + space + digit suffix (1-3 + optional letter)
+        return Regex.Replace(line,
+            @"\b([A-Z]{1,4})\s+(\d{1,3}[A-Z]?)\b",
+            m =>
+            {
+                var combined = m.Groups[1].Value + m.Groups[2].Value;
+                if (combined.Length <= 6
+                    && Regex.IsMatch(combined, @"^[A-Z]{1,4}\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase))
+                    return combined;
+                return m.Value;
+            },
+            RegexOptions.IgnoreCase);
     }
 
     /// <summary>Only rows with a real PDF mark + section — drops note lines (PROVIDE, REINFORCEMENT, etc.).</summary>
@@ -265,6 +361,7 @@ public class ExtractionService
         return SteelSectionPattern.IsMatch(r.MemberSize)
             || HollowSectionPattern.IsMatch(r.MemberSize)
             || ReidBarPattern.IsMatch(r.MemberSize)
+            || ConcreteDimPattern.IsMatch(r.MemberSize)
             || (r.Confidence >= 0.95 && r.MemberSize.Length >= 2);
     }
 
@@ -275,6 +372,8 @@ public class ExtractionService
     {
         var results = new List<ExtractedMemberDto>();
         bool inList = false;
+        string? pendingMark = null;  // mark token whose spec was on the next line
+        string? currentSection = null;
 
         foreach (var raw in lines)
         {
@@ -283,23 +382,67 @@ public class ExtractionService
 
             if (IsDrawingListHeader(line))
             {
+                currentSection = line;
                 inList = true;
+                pendingMark = null;
+                _logger.LogInformation("[Extract] Entered section: '{Section}'", line);
                 continue;
             }
 
             if (inList && (IsStopLine(line) || IsDrawingListHeader(line)))
             {
+                if (IsStopLine(line))
+                    _logger.LogInformation("[Extract] Section '{Section}' ended at stop line: '{Line}'", currentSection, line);
                 inList = false;
-                if (IsDrawingListHeader(line)) inList = true;
+                pendingMark = null;
+                if (IsDrawingListHeader(line)) { inList = true; currentSection = line; }
             }
 
             ExtractedMemberDto? member = null;
-            if (inList)
-                member = TryParseDrawingListLine(line);
-            else if (DrawingListLinePattern.IsMatch(line))
-                member = TryParseDrawingListLine(line);
 
-            if (member != null) results.Add(member);
+            // When PDF text reconstruction splits "PF2" onto its own line, try to
+            // join it with the following line which contains the dimensions.
+            if (pendingMark != null)
+            {
+                var hasSpec = SteelSectionPattern.IsMatch(line)
+                    || HollowSectionPattern.IsMatch(line)
+                    || ConcreteDimPattern.IsMatch(line)
+                    || ReidBarPattern.IsMatch(line);
+                if (hasSpec)
+                {
+                    member = TryParseDrawingListLine($"{pendingMark} - {line}");
+                }
+                pendingMark = null;
+                if (member == null && inList)
+                    member = TryParseDrawingListLine(line, allowLoose: true);
+            }
+            else if (inList)
+            {
+                // Detect a standalone mark token — its spec may be on the next line
+                var solo = Regex.Match(line, @"^([A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
+                if (solo.Success)
+                {
+                    pendingMark = solo.Groups[1].Value.ToUpperInvariant();
+                    continue;
+                }
+                member = TryParseDrawingListLine(line, allowLoose: true);
+            }
+            else if (DrawingListLinePattern.IsMatch(line))
+            {
+                member = TryParseDrawingListLine(line);
+            }
+
+            if (member != null)
+            {
+                _logger.LogInformation("[Extract] Parsed '{Mark}' ({Size}) from section '{Section}'",
+                    member.Mark, member.MemberSize, currentSection ?? "global");
+                results.Add(member);
+            }
+            else if (inList && line.Length > 2)
+            {
+                _logger.LogInformation("[Extract] UNPARSED in '{Section}': '{Line}'",
+                    currentSection ?? "?", line);
+            }
         }
 
         return results;
@@ -318,9 +461,11 @@ public class ExtractionService
         });
     }
 
-    private ExtractedMemberDto? TryParseDrawingListLine(string line)
+    private ExtractedMemberDto? TryParseDrawingListLine(string line, bool allowLoose = false)
     {
         var listMatch = DrawingListLinePattern.Match(line);
+        if (!listMatch.Success && allowLoose)
+            listMatch = DrawingListLoosePattern.Match(line);
         if (!listMatch.Success) return null;
 
         var mark = listMatch.Groups[1].Value.ToUpperInvariant();
@@ -451,18 +596,32 @@ public class ExtractionService
     {
         var sectionMatch = SteelSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(line);
-        if (!sectionMatch.Success) return null;
 
-        var sectionRaw = sectionMatch.Value.Trim();
-        var mark = ExtractPdfMark(line, sectionMatch) ?? NormalizeSection(sectionRaw);
-        var memberType = DetectMemberType(mark, sectionRaw);
+        if (sectionMatch.Success)
+        {
+            var sectionRaw = sectionMatch.Value.Trim();
+            var mark = ExtractPdfMark(line, sectionMatch) ?? NormalizeSection(sectionRaw);
+            var memberType = DetectMemberType(mark, sectionRaw);
+            return new ExtractedMemberDto(
+                mark, NormalizeSection(sectionRaw), memberType,
+                0, 0, 0, $"Schedule: {TruncateLine(line)}", 0.90);
+        }
 
-        return new ExtractedMemberDto(
-            mark, NormalizeSection(sectionRaw), memberType,
-            0, 0, 0,
-            $"Schedule: {TruncateLine(line)}",
-            0.90
-        );
+        // PAD FOOTINGS use dimension format: "PF2 - 1200 × 1200 × 300 DEEP"
+        var concreteMatch = ConcreteDimPattern.Match(line);
+        if (concreteMatch.Success)
+        {
+            var dimRaw = concreteMatch.Value.Trim();
+            var mark = ExtractPdfMark(line, concreteMatch);
+            if (!string.IsNullOrEmpty(mark))
+            {
+                return new ExtractedMemberDto(
+                    mark, dimRaw, DetectMemberType(mark, dimRaw),
+                    0, 0, 0, $"Schedule: {TruncateLine(line)}", 0.90);
+            }
+        }
+
+        return null;
     }
 
     private List<ExtractedMemberDto> ParseByPattern(List<string> lines, string fullText)
@@ -494,6 +653,21 @@ public class ExtractionService
                 results.Add(new ExtractedMemberDto(
                     mark, reidMatch.Groups[1].Value.ToUpperInvariant(), "Other",
                     0, 0, 0, $"Pattern: {TruncateLine(line)}", 0.70));
+            }
+
+            // PAD FOOTINGS / concrete members — "PF2 - 1200 × 1200 × 300 DEEP"
+            // Only when no steel section found and a valid mark precedes the dimension.
+            if (!SteelSectionPattern.IsMatch(line) && !HollowSectionPattern.IsMatch(line))
+            {
+                foreach (Match cdm in ConcreteDimPattern.Matches(line))
+                {
+                    if (IsNoisePatternLine(line, cdm)) continue;
+                    var mark = ExtractPdfMark(line, cdm);
+                    if (string.IsNullOrEmpty(mark)) continue;
+                    results.Add(new ExtractedMemberDto(
+                        mark, cdm.Value.Trim(), DetectMemberType(mark, cdm.Value),
+                        0, 0, 0, $"Pattern: {TruncateLine(line)}", 0.70));
+                }
             }
         }
 

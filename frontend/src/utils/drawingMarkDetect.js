@@ -106,7 +106,7 @@ function pickBestMark(candidates, knownMarks = []) {
     if (!isPlausibleDrawingMark(u)) continue
     let score = 120 - Math.min(c.dist, 119)
     if (c.exact) score += 35
-    if (c.inSchedule) score += 45
+    if (c.inSchedule) score += 15
     if (score > bestScore) {
       bestScore = score
       best = knownMap.get(u) ?? u

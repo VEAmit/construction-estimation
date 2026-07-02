@@ -37,6 +37,17 @@ public class DrawingRepository : BaseRepository<Drawing>, IDrawingRepository
         return true;
     }
 
+    public async Task<bool> ResetCalibrationAsync(int drawingId)
+    {
+        var drawing = await GetByIdAsync(drawingId);
+        if (drawing == null) return false;
+        drawing.IsCalibrated = false;
+        drawing.ScaleRatio   = 0;
+        drawing.UpdatedAt    = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> UpdateAnnotationsAsync(int drawingId, string annotationData)
     {
         var drawing = await GetByIdAsync(drawingId);

@@ -335,25 +335,40 @@ export default function DrawingsPage() {
   }, [])
 
   const pickMeasureTool = useCallback((toolId) => {
+    // Bluebeam: clicking Linear on an uncalibrated drawing auto-redirects to calibrate mode.
+    // Catches both toolbar clicks and keyboard shortcut (L key) via Toolbar's pickTool().
+    if (toolId === 'line') {
+      const drw = normalizeDrawing(useAppStore.getState().selectedDrawing)
+      if (drw && !drw.isCalibrated) {
+        setActiveTool('calibrate')
+        triggerPdfCommand('ensureMeasureMode')
+        return
+      }
+    }
     setActiveTool(toolId)
     triggerPdfCommand('ensureMeasureMode')
   }, [setActiveTool, triggerPdfCommand])
 
   const autoSave = useCallback(async (measurement, { calibratedDrawing, isPaste = false } = {}) => {
+    console.log('[BT-Lifecycle] autoSave called — length:', measurement?.length, 'unit:', measurement?.unit, 'annotationId:', measurement?.annotationId)
     const {
       selectedDrawing: drw, takeoffItems: current, measureColor: color,
       measureCategory: category, activeUnit,
       selectedMemberScheduleItem, lastMeasureMember,
     } = useAppStore.getState()
     const linkedMember = selectedMemberScheduleItem ?? lastMeasureMember
-    const memberMark = String(
-      measurement.memberMark
-      ?? measurement.drawingMark
-      ?? linkedMember?.mark
-      ?? linkedMember?.Mark
-      ?? '',
-    ).trim()
-    if (!drw?.id) return false
+    const detectedMark = (measurement.drawingMark || '').trim()
+    const memberMark = (
+      detectedMark ||
+      (measurement.memberMark || '').trim() ||
+      linkedMember?.mark?.trim() ||
+      linkedMember?.Mark?.trim() ||
+      ''
+    )
+    if (!drw?.id) {
+      console.warn('[BT-Lifecycle] autoSave ABORTED — no drawing id in store')
+      return false
+    }
 
     if (isPaste && measurement.annotationId) {
       const items = useAppStore.getState().takeoffItems ?? []
@@ -387,7 +402,10 @@ export default function DrawingsPage() {
 
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
-    if (annotKey && savingAnnotIdsRef.current.has(annotKey)) return
+    if (annotKey && savingAnnotIdsRef.current.has(annotKey)) {
+      console.warn('[BT-Lifecycle] autoSave skipped — duplicate in flight:', annotKey)
+      return false
+    }
     if (annotKey) savingAnnotIdsRef.current.add(annotKey)
 
     setAutoSaving(true)
@@ -441,7 +459,7 @@ export default function DrawingsPage() {
     const reuseMark  = clearedMarkRef.current
     if (reuseMark) clearedMarkRef.current = null
     const defaultMark = `${prefix}${sameType.length + 1}`
-    const nextMark   = reuseMark ?? (linkedMember?.mark?.trim() || memberMark || defaultMark)
+    const nextMark   = reuseMark ?? (memberMark || defaultMark)
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
@@ -547,6 +565,7 @@ export default function DrawingsPage() {
         } catch (_) {}
       }
       addTakeoffItem(finalSaved)
+      console.log('[BT-Lifecycle] autoSave — database success, id:', finalSaved.id, 'mark:', finalSaved.mark, 'length:', finalSaved.length)
       setShowBottom(true)
       if (!linkedMember) {
         setBottomTab('measurements')
@@ -621,16 +640,66 @@ export default function DrawingsPage() {
 
   const handleMeasure = useCallback((measurement, opts = {}) => {
     const { activeTool: currentTool } = useAppStore.getState()
+    console.log('[BT-Lifecycle] handleMeasure — tool:', currentTool, 'length:', measurement?.length, 'unit:', measurement?.unit, 'annotationId:', measurement?.annotationId)
 
     if (currentTool === 'calibrate') {
-      calibrateOnlyRef.current = true
-      pendingCalibMeasureRef.current = null
-      setScaleSetupFirstMeasure(false)
+      const drw = getCalibratedDrawingFromStore()
+      const isFirstTimeCal = !drw?.isCalibrated
+
+      if (isFirstTimeCal) {
+        // Bluebeam workflow: the line that triggered first-time calibration IS the first measurement.
+        // Store it so handleCalibrationApply saves it after the scale is confirmed.
+        // calibrateOnly = false → autoSave will be called; annotation stays on canvas.
+        // Nullify length so autoSave recalculates it from pixelLength using the calibrated scale.
+        console.log('[BT-Lifecycle] handleMeasure — first-time calibration, storing measurement for post-calibration save')
+        calibrateOnlyRef.current = false
+        pendingCalibMeasureRef.current = { ...measurement, length: null }
+        pendingMeasurementRef.current = {
+          annotationId: measurement.annotationId,
+          dbId: null,
+          mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+          pageNumber: measurement.pageNumber ?? 1,
+          pendingThickness: useAppStore.getState().lineThickness,
+          rawPointsJson: measurement.rawAnnotation ?? null,
+        }
+      } else {
+        // Explicit re-calibration on an already-calibrated drawing: reference line is ONLY for
+        // scale adjustment and must be deleted after calibration. Do not save as a measurement.
+        console.log('[BT-Lifecycle] handleMeasure — re-calibration, calibrateOnly=true, no measurement save')
+        calibrateOnlyRef.current = true
+        pendingCalibMeasureRef.current = null
+      }
+
+      setScaleSetupFirstMeasure(isFirstTimeCal)
       setLastMeasurement(measurement)
       setShowCalModal(true)
       return
     }
 
+    // Fallback intercept: non-calibrate tool on an uncalibrated drawing (e.g. Area/Perimeter).
+    // Same Bluebeam logic: store the measurement and let handleCalibrationApply save it.
+    if (!opts.isPaste && (measurement.measureType ?? 'Line') === 'Line') {
+      const drw = getCalibratedDrawingFromStore()
+      if (!(drw?.isCalibrated)) {
+        console.log('[BT-Lifecycle] handleMeasure — uncalibrated drawing (non-calibrate tool), storing for post-calibration save')
+        calibrateOnlyRef.current = false
+        pendingCalibMeasureRef.current = { ...measurement, length: null }
+        pendingMeasurementRef.current = {
+          annotationId: measurement.annotationId,
+          dbId: null,
+          mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+          pageNumber: measurement.pageNumber ?? 1,
+          pendingThickness: useAppStore.getState().lineThickness,
+          rawPointsJson: measurement.rawAnnotation ?? null,
+        }
+        setScaleSetupFirstMeasure(true)
+        setLastMeasurement(measurement)
+        setShowCalModal(true)
+        return
+      }
+    }
+
+    console.log('[BT-Lifecycle] handleMeasure — proceeding to autoSave, length:', measurement?.length)
     if (!opts.isPaste) {
       // New mark — toolbar thickness applies to this line, not a previously selected row.
       setSelectedAnnotId(null)
@@ -647,8 +716,15 @@ export default function DrawingsPage() {
     }
 
     setLastMeasurement(measurement)
-    autoSave(measurement, opts)
-  }, [autoSave])
+    autoSave(measurement, opts).then((ok) => {
+      if (ok) {
+        console.log('[BT-Lifecycle] handleMeasure — autoSave success, triggering label rehydrate')
+        triggerPdfCommand('rehydrateMeasureLabels')
+      } else {
+        console.warn('[BT-Lifecycle] handleMeasure — autoSave did not complete')
+      }
+    })
+  }, [autoSave, triggerPdfCommand])
 
   const handleSaveCalib = useCallback(() => {
     const px = lastMeasurement?.pixelLength
@@ -707,9 +783,13 @@ export default function DrawingsPage() {
         savedFirst = await autoSave(measureToSave, { calibratedDrawing: updated })
         if (savedFirst) triggerPdfCommand('rehydrateMeasureLabels')
       } else {
-        triggerPdfCommand('rehydrateMeasureLabels')
         if (lastMeasurement?.annotationId && calibrateOnly) {
+          // Delete the calibration reference line first, then rehydrate labels after it's gone.
+          // Two triggerPdfCommand calls in the same sync block would overwrite each other (single-slot store).
           triggerPdfCommand({ type: 'deleteAnnotation', annotationId: lastMeasurement.annotationId, pageNumber: lastMeasurement.pageNumber ?? 1 })
+          setTimeout(() => triggerPdfCommand('rehydrateMeasureLabels'), 200)
+        } else {
+          triggerPdfCommand('rehydrateMeasureLabels')
         }
       }
 
@@ -996,10 +1076,27 @@ export default function DrawingsPage() {
     } catch { /* ignore */ }
   }, [selectedDrawing, triggerPdfCommand])
 
+  // "How to set scale" button when not calibrated — just activate calibrate tool
   const handleCalibrateScaleClick = useCallback(() => {
-    setActiveTool('line')
-    toast('Use Linear: draw along a dimension labelled on the plan (e.g. 6000 mm), then enter that length', { duration: 5500, icon: '📐' })
-  }, [setActiveTool])
+    setActiveTool('calibrate')
+    triggerPdfCommand('ensureMeasureMode')
+  }, [setActiveTool, triggerPdfCommand])
+
+  // "Reset Scale" button when already calibrated — wipe DB calibration, return to calibrate mode
+  const handleResetCalibration = useCallback(async () => {
+    if (!selectedDrawing) return
+    try {
+      const refreshed = await drawingService.resetCalibration(selectedDrawing.id)
+      setSelectedDrawing(refreshed)
+      setDrawings(prev => (Array.isArray(prev) ? prev : []).map(d => d.id === refreshed.id ? refreshed : normalizeDrawing(d)))
+      triggerPdfCommand('refreshCalibration')
+      setActiveTool('calibrate')
+      triggerPdfCommand('ensureMeasureMode')
+      toast('Scale reset — draw a reference line to re-calibrate', { duration: 4000, icon: '📐' })
+    } catch {
+      toast.error('Failed to reset calibration')
+    }
+  }, [selectedDrawing, triggerPdfCommand])
 
   const handleDrawingUploaded = async (drawing) => {
     const norm = normalizeDrawing(drawing)
@@ -1009,8 +1106,8 @@ export default function DrawingsPage() {
     setSummaryLocal(null)
     annotationMapRef.current = {}
     persistedAnnotIdsRef.current = new Set()
-    setActiveTool('line')
-    toast('Ready to measure — draw along a labelled dimension on the plan first', { duration: 5500, icon: '📐' })
+    setActiveTool('calibrate')
+    toast('New drawing uploaded — draw along a labelled dimension to set the scale first.', { duration: 5500, icon: '📐' })
     if (isMobile) setSidebarOpen(false)
 
     try {
@@ -1402,6 +1499,43 @@ export default function DrawingsPage() {
         {/* Center: PDF viewer + bottom panel */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
+          {/* ── Not Calibrated banner ───────────────────────────── */}
+          {selectedDrawing && !activeDrawing?.isCalibrated && (
+            <div style={{
+              flexShrink: 0,
+              background: 'linear-gradient(90deg, rgba(245,158,11,.10), rgba(245,158,11,.05))',
+              borderBottom: '1px solid rgba(245,158,11,.22)',
+              padding: '9px 16px',
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#F59E0B' }}>Not Calibrated</span>
+                <span style={{ fontSize: '12px', color: '#94a3b8', marginLeft: '6px' }}>
+                  {isMobile
+                    ? 'Draw a line to set scale.'
+                    : 'Select Linear tool, draw along a labelled dimension to set the drawing scale.'}
+                </span>
+              </div>
+              <button
+                onClick={() => pickMeasureTool('line')}
+                style={{
+                  flexShrink: 0, padding: '5px 14px', borderRadius: '5px',
+                  border: '1px solid rgba(245,158,11,.45)',
+                  background: 'rgba(245,158,11,.12)', color: '#F59E0B',
+                  fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Set Scale
+              </button>
+            </div>
+          )}
+
           {/* PDF Viewer */}
           <div
             style={{ flex: '1 1 0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative' }}
@@ -1666,6 +1800,7 @@ export default function DrawingsPage() {
               onCalibrated={handleCalibrated}
               onQuickScale={handleQuickScale}
               onCalibrateScale={handleCalibrateScaleClick}
+              onResetCalibration={handleResetCalibration}
             />
           </div>
         ) : (
@@ -1707,6 +1842,7 @@ export default function DrawingsPage() {
                 onCalibrated={handleCalibrated}
                 onQuickScale={handleQuickScale}
                 onCalibrateScale={handleCalibrateScaleClick}
+                onResetCalibration={handleResetCalibration}
               />
             </div>
           </div>
@@ -1719,9 +1855,19 @@ export default function DrawingsPage() {
           key={`cal-${lastMeasurement?.annotationId ?? 'x'}`}
           defaultUnit={activeDrawing?.calibrationUnit ?? activeUnit ?? 'Mm'}
           isFirstMeasure={scaleSetupFirstMeasure}
+          measuredPx={lastMeasurement?.pixelLength ?? null}
           saving={calSaving}
           onApply={handleCalibrationApply}
           onClose={() => {
+            // On cancel during first-measure calibration, remove the orphaned reference line
+            // from the PDF so the drawing stays clean and the user can try again.
+            if (scaleSetupFirstMeasure && lastMeasurement?.annotationId) {
+              triggerPdfCommand({
+                type: 'deleteAnnotation',
+                annotationId: lastMeasurement.annotationId,
+                pageNumber: lastMeasurement.pageNumber ?? 1,
+              })
+            }
             setShowCalModal(false)
             setScaleSetupFirstMeasure(false)
             pendingCalibMeasureRef.current = null

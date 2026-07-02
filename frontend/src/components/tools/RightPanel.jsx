@@ -16,7 +16,7 @@ const SCALE_PRESETS = [
   { label: '1 : 1000', n: 1000 },
 ]
 
-export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale }) {
+export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale, onResetCalibration }) {
   const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems, activeTool, selectedMemberScheduleItem, lastMeasureMember } = useAppStore()
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
   const [quickN,       setQuickN]       = useState('')
@@ -68,83 +68,99 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
       <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
         <SectionLabel>Scale Calibration</SectionLabel>
 
-        {/* Calibrated state — prominent card */}
         {drawing?.isCalibrated ? (
-          <div style={{
-            background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)',
-            borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#22c55e' }}>Scale Calibrated</span>
-              <span style={{
-                marginLeft: 'auto', fontSize: '10px', fontWeight: 700,
-                background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.25)',
-                color: '#4ade80', padding: '1px 6px', borderRadius: '10px',
-              }}>
-                {getUnitLabel(drawing.calibrationUnit)}
-              </span>
-            </div>
-            {scaleLabel && (
-              <div style={{
-                fontSize: '12px', fontWeight: 700, color: '#f1f5f9',
-                paddingLeft: '19px', fontVariantNumeric: 'tabular-nums',
-              }}>
-                {scaleLabel}
+          /* ── ✅ Calibrated card ── */
+          <>
+            <div style={{
+              background: 'rgba(34,197,94,.07)', border: '1px solid rgba(34,197,94,.25)',
+              borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#22c55e' }}>Calibrated</span>
+                <span style={{
+                  marginLeft: 'auto', fontSize: '10px', fontWeight: 700,
+                  background: 'rgba(34,197,94,.15)', border: '1px solid rgba(34,197,94,.3)',
+                  color: '#4ade80', padding: '1px 8px', borderRadius: '10px',
+                }}>
+                  {getUnitLabel(drawing.calibrationUnit)}
+                </span>
               </div>
-            )}
-          </div>
-        ) : (
-          /* Not calibrated — instruction card */
-          <div style={{
-            background: 'rgba(245,158,11,.05)', border: '1px dashed rgba(245,158,11,.2)',
-            borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
-          }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#F59E0B', marginBottom: '6px' }}>
-              How to calibrate:
-            </div>
-            {[
-              '① Select Linear and draw on a labelled dimension',
-              '② Enter the length shown on the plan',
-              '③ All future measurements are automatic',
-            ].map((step, i) => (
-              <div key={i} style={{ fontSize: '10px', color: PANEL_ACCENT, marginBottom: '3px', lineHeight: 1.4 }}>
-                {step}
+              <div style={{ fontSize: '11px', color: '#94a3b8', paddingLeft: '21px' }}>
+                Measurements active — scale set.
               </div>
-            ))}
-          </div>
-        )}
+            </div>
 
-        {/* Calibrate / Re-calibrate button */}
-        <button
-          onClick={() => (onCalibrateScale ?? (() => setActiveTool('calibrate')))()}
-          style={{
-            width: '100%', padding: '8px', borderRadius: '7px',
-            background: drawing?.isCalibrated ? 'transparent' : 'rgba(245,158,11,.1)',
-            border: `1px solid ${drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : activeTool === 'calibrate' ? '#F59E0B' : 'rgba(245,158,11,.35)'}`,
-            color: drawing?.isCalibrated ? '#22c55e' : '#F59E0B',
-            fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-            boxShadow: !drawing?.isCalibrated && activeTool === 'calibrate' ? '0 0 0 2px rgba(245,158,11,.25)' : 'none',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#F59E0B'; e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(245,158,11,.1)' }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = drawing?.isCalibrated ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.35)'
-            e.currentTarget.style.color       = drawing?.isCalibrated ? '#22c55e' : '#F59E0B'
-            e.currentTarget.style.background  = drawing?.isCalibrated ? 'transparent' : 'rgba(245,158,11,.1)'
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>
-          </svg>
-          {drawing?.isCalibrated ? 'Re-set Scale' : 'How to set scale'}
-        </button>
-        {!drawing?.isCalibrated && (
-          <div style={{ fontSize: '10px', color: PANEL_ACCENT, marginTop: '6px', lineHeight: 1.45, textAlign: 'center' }}>
-            Use <strong style={{ color: PANEL_ACCENT }}>Linear</strong> on a labelled wall or grid dimension
-          </div>
+            {/* Reset Scale button */}
+            <button
+              onClick={() => (onResetCalibration ?? onCalibrateScale ?? (() => setActiveTool('calibrate')))()}
+              style={{
+                width: '100%', padding: '7px', borderRadius: '7px',
+                background: 'transparent',
+                border: '1px solid rgba(239,35,60,.25)',
+                color: 'rgba(239,35,60,.6)',
+                fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#EF233C'; e.currentTarget.style.color = '#EF233C'; e.currentTarget.style.background = 'rgba(239,35,60,.07)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(239,35,60,.25)'; e.currentTarget.style.color = 'rgba(239,35,60,.6)'; e.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+              </svg>
+              Reset Scale
+            </button>
+          </>
+        ) : (
+          /* ── ❌ Not Calibrated card ── */
+          <>
+            <div style={{
+              background: 'rgba(239,35,60,.06)', border: '1px solid rgba(239,35,60,.25)',
+              borderRadius: '9px', padding: '10px 12px', marginBottom: '8px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '5px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF233C" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#EF233C' }}>Not Calibrated</span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '7px', lineHeight: 1.5 }}>
+                Measurement disabled until calibration is completed.
+              </div>
+              {[
+                '① Select Calibrate or Linear tool',
+                '② Draw along a labelled dimension',
+                '③ Enter actual length → Save Scale',
+              ].map((step, i) => (
+                <div key={i} style={{ fontSize: '10px', color: '#F59E0B', marginBottom: '3px', lineHeight: 1.4 }}>
+                  {step}
+                </div>
+              ))}
+            </div>
+
+            {/* Set Scale button */}
+            <button
+              onClick={() => (onCalibrateScale ?? (() => setActiveTool('calibrate')))()}
+              style={{
+                width: '100%', padding: '8px', borderRadius: '7px',
+                background: activeTool === 'calibrate' ? 'rgba(245,158,11,.18)' : 'rgba(245,158,11,.1)',
+                border: `1px solid ${activeTool === 'calibrate' ? '#F59E0B' : 'rgba(245,158,11,.35)'}`,
+                color: '#F59E0B',
+                fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                boxShadow: activeTool === 'calibrate' ? '0 0 0 2px rgba(245,158,11,.2)' : 'none',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,.2)'; e.currentTarget.style.borderColor = '#F59E0B' }}
+              onMouseLeave={e => { e.currentTarget.style.background = activeTool === 'calibrate' ? 'rgba(245,158,11,.18)' : 'rgba(245,158,11,.1)'; e.currentTarget.style.borderColor = activeTool === 'calibrate' ? '#F59E0B' : 'rgba(245,158,11,.35)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>
+              </svg>
+              {activeTool === 'calibrate' ? 'Draw reference line…' : 'Set Scale'}
+            </button>
+          </>
         )}
       </div>
 

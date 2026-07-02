@@ -11,15 +11,13 @@ const UNIT_HINTS = {
   Inch:  { label: 'in', placeholder: '240',  hint: 'e.g. 20 ft shown as 240 in' },
 }
 
-/**
- * One-time scale setup — pixel length is used internally only, never shown to users.
- */
 export default function CalibrationModal({
   defaultUnit = 'Mm',
   onApply,
   onClose,
   saving,
   isFirstMeasure = false,
+  measuredPx = null,
 }) {
   const [len,  setLen]  = useState('')
   const [unit, setUnit] = useState(defaultUnit)
@@ -64,11 +62,11 @@ export default function CalibrationModal({
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
-              {isFirstMeasure ? 'One-time scale setup' : 'Set drawing scale'}
+              Set Drawing Scale
             </h2>
             <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px', lineHeight: 1.5 }}>
               {isFirstMeasure
-                ? 'You drew along a dimension on the plan. Enter the real-world length shown on the drawing (from a wall label, grid dimension, or door size).'
+                ? 'You drew along a dimension on the plan. Enter the real-world length shown on the drawing — from a wall label, grid dimension, or door size.'
                 : 'Enter the real-world length of the reference line you drew on a labelled dimension.'}
             </p>
           </div>
@@ -84,6 +82,19 @@ export default function CalibrationModal({
         </div>
 
         <div style={{ padding: '20px' }}>
+
+          {measuredPx != null && measuredPx > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)',
+              borderRadius: '8px', padding: '10px 14px', marginBottom: '14px',
+            }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Measured line</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
+                {measuredPx.toFixed(2)} px
+              </span>
+            </div>
+          )}
 
           <div style={{
             background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.15)',
@@ -184,7 +195,7 @@ export default function CalibrationModal({
                 cursor: canApply ? 'pointer' : 'not-allowed',
               }}
             >
-              {saving ? 'Saving…' : isFirstMeasure ? 'Save & continue measuring' : 'Confirm scale'}
+              {saving ? 'Saving…' : 'Save Scale'}
             </button>
           </div>
         </div>

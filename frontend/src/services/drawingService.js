@@ -55,6 +55,13 @@ export const drawingService = {
     traceCalibration('drawing.upload', calibrationSnapshot(raw))
     return raw
   },
+  async resetCalibration(id) {
+    await api.post(`/drawings/${id}/reset-calibration`)
+    const refreshed = normalizeDrawing(await this.getById(id))
+    traceCalibration('calibration.reset', calibrationSnapshot(refreshed))
+    return refreshed
+  },
+
   async calibrate(id, scaleRatio, unit) {
     traceCalibration('calibration.save.request', { drawingId: id, scaleRatio, unit })
     await api.post(`/drawings/${id}/calibrate`, { scaleRatio, unit })

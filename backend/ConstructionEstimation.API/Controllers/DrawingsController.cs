@@ -13,15 +13,18 @@ namespace ConstructionEstimation.API.Controllers;
 public class DrawingsController : ControllerBase
 {
     private readonly IDrawingRepository _drawingRepo;
+    private readonly IProjectRepository _projectRepo;
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<DrawingsController> _logger;
 
     public DrawingsController(
         IDrawingRepository drawingRepo,
+        IProjectRepository projectRepo,
         IWebHostEnvironment env,
         ILogger<DrawingsController> logger)
     {
         _drawingRepo = drawingRepo;
+        _projectRepo = projectRepo;
         _env = env;
         _logger = logger;
     }
@@ -53,6 +56,10 @@ public class DrawingsController : ControllerBase
 
         if (!file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
             return BadRequest(ApiResponse<DrawingResponse>.Fail("Only PDF files are allowed"));
+
+        var project = await _projectRepo.GetByIdAsync(projectId);
+        if (project == null)
+            return NotFound(ApiResponse<DrawingResponse>.Fail($"Project {projectId} not found. Please go back to the dashboard and re-open the project."));
 
         var uploadsDir = Path.Combine(_env.ContentRootPath, "Uploads");
         Directory.CreateDirectory(uploadsDir);
@@ -113,6 +120,20 @@ public class DrawingsController : ControllerBase
             return BadRequest(ApiResponse<bool>.Fail("Could not save calibration"));
 
         return Ok(ApiResponse<bool>.Ok(true, "Scale calibrated successfully"));
+    }
+
+    [HttpPost("{id}/reset-calibration")]
+    public async Task<ActionResult<ApiResponse<bool>>> ResetCalibration(int id)
+    {
+        var drawing = await _drawingRepo.GetByIdAsync(id);
+        if (drawing == null)
+            return NotFound(ApiResponse<bool>.Fail("Drawing not found"));
+
+        var reset = await _drawingRepo.ResetCalibrationAsync(id);
+        if (!reset)
+            return BadRequest(ApiResponse<bool>.Fail("Could not reset calibration"));
+
+        return Ok(ApiResponse<bool>.Ok(true, "Calibration reset — draw a new reference line to re-calibrate."));
     }
 
     [HttpPut("{id}/annotations")]
