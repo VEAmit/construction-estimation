@@ -1085,8 +1085,9 @@ export default function DrawingsPage() {
   const drawingUrl        = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
   const selectedAnnotItem = selectedAnnotId ? takeoffItems.find(t => t.id === selectedAnnotId) : null
 
-  // Bottom panel height
-  const bottomH = isMobile ? '200px' : isTablet ? '240px' : '280px'
+  // Bottom panel height — resizable via drag
+  const [bottomH, setBottomH] = useState(() => isMobile ? 200 : isTablet ? 240 : 280)
+  const [isDraggingBottom, setIsDraggingBottom] = useState(false)
 
   // Desktop side panels: show when pinned OR hovered
   const effectiveLeftOpen  = leftPanelOpen  || leftHovered
@@ -1516,16 +1517,53 @@ export default function DrawingsPage() {
             )}
           </div>
 
-          {/* Bottom data panel: always-visible tab strip + animated content */}
+          {/* Bottom data panel: tab strip + animated content */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-            {/* Persistent tab strip */}
+
+            {/* Persistent tab strip — top border is also the drag-to-resize zone */}
             <div style={{
               display: 'flex', alignItems: 'center',
               background: '#0D1526',
               borderTop: '2px solid rgba(239,35,60,.2)',
               borderBottom: showBottom ? '1px solid rgba(255,255,255,.07)' : 'none',
               flexShrink: 0, overflowX: 'auto',
+              position: 'relative',
             }}>
+              {/* Invisible hit-zone over the top border — drag here to resize */}
+              {showBottom && (
+                <div
+                  style={{
+                    position: 'absolute', top: -4, left: 0, right: 0, height: '8px',
+                    cursor: 'ns-resize', zIndex: 5, touchAction: 'none',
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const startY = e.clientY
+                    const startH = bottomH
+                    let lastY = startY
+                    let rafId = null
+                    setIsDraggingBottom(true)
+                    const onMove = (ev) => {
+                      lastY = ev.clientY
+                      if (rafId !== null) return
+                      rafId = requestAnimationFrame(() => {
+                        rafId = null
+                        const newH = Math.max(180, Math.min(Math.floor(window.innerHeight * 0.65), startH + (startY - lastY)))
+                        setBottomH(newH)
+                      })
+                    }
+                    const onUp = () => {
+                      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+                      setIsDraggingBottom(false)
+                      window.removeEventListener('pointermove', onMove)
+                      window.removeEventListener('pointerup', onUp)
+                    }
+                    window.addEventListener('pointermove', onMove)
+                    window.addEventListener('pointerup', onUp)
+                  }}
+                />
+              )}
               <TabBtn
                 active={bottomTab === 'measurements' && showBottom}
                 onClick={() => handleBottomTabClick('measurements')}
@@ -1584,12 +1622,12 @@ export default function DrawingsPage() {
 
             {/* Animated content area */}
             <div style={{
-              height: showBottom ? bottomH : '0px',
+              height: showBottom ? `${bottomH}px` : '0px',
               overflow: 'hidden',
-              transition: 'height 250ms cubic-bezier(0.4,0,0.2,1)',
+              transition: isDraggingBottom ? 'none' : 'height 250ms cubic-bezier(0.4,0,0.2,1)',
               background: '#080B12',
             }}>
-              <div style={{ height: bottomH, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ height: `${bottomH}px`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {bottomTab === 'measurements' ? (
                   <MeasurementTable
                     drawing={activeDrawing}
