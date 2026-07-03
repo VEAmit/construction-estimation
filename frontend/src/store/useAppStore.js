@@ -88,6 +88,7 @@ export const useAppStore = create(
         lastMeasureMember: item ?? s.lastMeasureMember,
         ...(item?.memberType ? { measureCategory: item.memberType } : {}),
         activeUnit: 'Mm',
+        ...(item?.color ? { measureColor: item.color } : {}),
       })),
       clearSelectedMemberScheduleItem: () => set({ selectedMemberScheduleItem: null, lastMeasureMember: null }),
 

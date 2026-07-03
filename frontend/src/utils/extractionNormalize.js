@@ -32,6 +32,7 @@ export function normalizeExtractedMember(m) {
     memberType: m.memberType ?? m.MemberType ?? 'Other',
     description: desc,
     confidence: Number(m.confidence ?? m.Confidence ?? 0),
+    color: m.color ?? m.Color ?? null,
   }
 }
 

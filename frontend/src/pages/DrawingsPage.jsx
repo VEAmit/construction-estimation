@@ -36,6 +36,25 @@ import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 
+const _MS_PALETTE = ['#3B82F6','#22C55E','#F97316','#A855F7','#06B6D4','#EAB308','#EC4899','#EF4444','#14B8A6','#F59E0B','#6366F1','#84CC16']
+const _MS_HEX = /^#[0-9A-Fa-f]{6}$/
+
+function assignMemberColors(members) {
+  const sorted = [...members].sort((a, b) =>
+    (a.mark ?? '').localeCompare(b.mark ?? '', undefined, { sensitivity: 'base' })
+  )
+  const colorMap = new Map()
+  sorted.forEach((m, i) => {
+    if (!m.color || !_MS_HEX.test(m.color))
+      colorMap.set(m.id, _MS_PALETTE[i % _MS_PALETTE.length])
+  })
+  if (colorMap.size === 0) return members
+  const colored = members.map(m => colorMap.has(m.id) ? { ...m, color: colorMap.get(m.id) } : m)
+  colored.filter(m => colorMap.has(m.id))
+    .forEach(m => memberScheduleService.update(m).catch(() => {}))
+  return colored
+}
+
 export default function DrawingsPage() {
   const navigate = useNavigate()
   const { isMobile, isTablet, isDesktop } = useBreakpoint()
@@ -70,7 +89,18 @@ export default function DrawingsPage() {
 
   const syncToolbarFromTakeoffItem = useCallback((item) => {
     if (!item) return
-    if (item.color) setMeasureColor(item.color)
+    // Prefer stored item color; fall back to MSI palette color for that mark
+    const HEX_RE = /^#[0-9A-Fa-f]{6}$/
+    if (item.color && HEX_RE.test(item.color)) {
+      setMeasureColor(item.color)
+    } else {
+      const memberMark = (item.material || item.mark || '').trim().toLowerCase()
+      if (memberMark) {
+        const msi = useAppStore.getState().memberScheduleItems
+          .find(m => (m.mark || '').trim().toLowerCase() === memberMark)
+        if (msi?.color && HEX_RE.test(msi.color)) setMeasureColor(msi.color)
+      }
+    }
     const t = readThicknessFromPointsJson(item.pointsJson)
     if (t != null) setLineThickness(t)
   }, [readThicknessFromPointsJson, setMeasureColor, setLineThickness])
@@ -272,7 +302,7 @@ export default function DrawingsPage() {
         setTakeoffItems(finalItems)
         setSummaryLocal(sum)
         setSummary(sum)
-        setMemberScheduleItems(members)
+        setMemberScheduleItems(assignMemberColors(members))
         setMemberScheduleSummary(memberSum)
         const map = {}
         items.forEach(item => {
@@ -357,12 +387,12 @@ export default function DrawingsPage() {
       selectedMemberScheduleItem, lastMeasureMember,
     } = useAppStore.getState()
     const linkedMember = selectedMemberScheduleItem ?? lastMeasureMember
-    const detectedMark = (measurement.drawingMark || '').trim()
+    // Priority: explicitly-selected member → payload mark from PdfViewer → auto-detected mark → last member
     const memberMark = (
-      detectedMark ||
       (measurement.memberMark || '').trim() ||
       linkedMember?.mark?.trim() ||
       linkedMember?.Mark?.trim() ||
+      (measurement.drawingMark || '').trim() ||
       ''
     )
     if (!drw?.id) {
@@ -1167,7 +1197,7 @@ export default function DrawingsPage() {
         memberScheduleService.getByDrawing(selectedDrawing.id),
         memberScheduleService.getSummary(selectedDrawing.id),
       ])
-      setMemberScheduleItems(members)
+      setMemberScheduleItems(assignMemberColors(members))
       setMemberScheduleSummary(memberSum)
       setBottomTab('members')
       setShowBottom(true)

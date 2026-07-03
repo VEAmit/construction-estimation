@@ -165,7 +165,11 @@ export default function Toolbar({
     fontSize,        setFontSize,
     measureLabelFontSize, setMeasureLabelFontSize,
     countSession,
+    selectedMemberScheduleItem, lastMeasureMember,
   } = useAppStore()
+
+  const activeMember = selectedMemberScheduleItem ?? lastMeasureMember
+  const memberColor  = activeMember?.color || measureColor
 
   const { isMobile, isTablet } = useBreakpoint()
   const compact = isMobile || isTablet
@@ -519,26 +523,42 @@ export default function Toolbar({
             ) : (
               /* ── Normal measure/markup style controls ── */
               <>
-                {/* Color swatches */}
-                <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700, marginRight: '2px' }}>Color:</span>
-                <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                  {COLORS.map(hex => (
-                    <button key={hex} onClick={() => setMeasureColor(hex)} title={hex}
-                      style={{
-                        width: '16px', height: '16px', borderRadius: '50%', background: hex,
-                        border: measureColor === hex ? '2px solid #fff' : '2px solid transparent',
-                        cursor: 'pointer', padding: 0, flexShrink: 0,
-                        boxShadow: measureColor === hex ? `0 0 0 1px ${hex}` : 'none',
-                        touchAction: 'manipulation',
-                      }} />
-                  ))}
-                  {/* Current color indicator */}
-                  <div style={{
-                    width: '16px', height: '16px', borderRadius: '3px',
-                    background: measureColor, border: '1px solid rgba(255,255,255,.2)',
-                    flexShrink: 0,
-                  }} title="Current color" />
-                </div>
+                {/* Linear tool: member color indicator (no manual picker) */}
+                {activeTool === 'line' ? (
+                  <>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700, marginRight: '2px' }}>Color:</span>
+                    {activeMember ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '2px 8px', borderRadius: '8px', background: `${memberColor}15`, border: `1px solid ${memberColor}40` }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: memberColor, flexShrink: 0, boxShadow: `0 0 4px ${memberColor}80` }} />
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: memberColor }}>{activeMember.mark}</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '10px', color: '#475569', fontStyle: 'italic' }}>Select a member from the schedule</span>
+                    )}
+                  </>
+                ) : (
+                  /* Non-linear tools: show color swatches */
+                  <>
+                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700, marginRight: '2px' }}>Color:</span>
+                    <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                      {COLORS.map(hex => (
+                        <button key={hex} onClick={() => setMeasureColor(hex)} title={hex}
+                          style={{
+                            width: '16px', height: '16px', borderRadius: '50%', background: hex,
+                            border: measureColor === hex ? '2px solid #fff' : '2px solid transparent',
+                            cursor: 'pointer', padding: 0, flexShrink: 0,
+                            boxShadow: measureColor === hex ? `0 0 0 1px ${hex}` : 'none',
+                            touchAction: 'manipulation',
+                          }} />
+                      ))}
+                      <div style={{
+                        width: '16px', height: '16px', borderRadius: '3px',
+                        background: measureColor, border: '1px solid rgba(255,255,255,.2)',
+                        flexShrink: 0,
+                      }} title="Current color" />
+                    </div>
+                  </>
+                )}
 
                 {/* Font size — only for text tool */}
                 {activeTool === 'text' && (

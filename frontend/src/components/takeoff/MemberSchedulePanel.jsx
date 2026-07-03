@@ -1,30 +1,49 @@
-import { useState, useCallback, Fragment } from 'react'
+import { useState, useCallback, useRef, Fragment } from 'react'
 import { memberScheduleService } from '../../services/memberScheduleService'
 import { useAppStore } from '../../store/useAppStore'
 import { steelSections } from '../../utils/steelSections'
 import { toMeters } from '../../utils/calculations'
 import { parseMemberScheduleNoteId } from '../../utils/memberMeasureLink'
+import api from '../../services/api'
 import toast from 'react-hot-toast'
 
 const MEMBER_TYPES = ['Beam', 'Column', 'Brace', 'Purlin', 'Rafter', 'Plate', 'Girt', 'Other']
 
 const emptyRow = {
   mark: '', memberSize: '', memberType: 'Column',
-  unitWeight: 0, length: 0, quantity: 0, description: '', takeoffItemId: null,
+  unitWeight: 0, length: 0, quantity: 0, description: '', takeoffItemId: null, color: null,
 }
 
-/** Same columns as extraction popup — estimation fields only in edit mode */
-const DISPLAY_HEADERS = ['', 'Mark', 'Section Size', 'Type', 'PDF Source Line', '']
+const DISPLAY_HEADERS = ['Color', 'Mark', 'Section Size', 'Type', 'PDF Source Line', '']
 
 function formatPdfSource(description) {
   if (!description) return '—'
   return description.replace(/^(Schedule|Pattern):\s*/i, '')
 }
 
+/** Silently update a single takeoff item's color via the existing PUT endpoint. */
+async function patchTakeoffItemColor(item, color) {
+  await api.put(`/takeoffitems/${item.id}`, {
+    mark: item.mark ?? '',
+    description: item.description ?? '',
+    length: item.length,
+    area: item.area,
+    quantity: item.quantity ?? 1,
+    unit: item.unit ?? 'Mm',
+    material: item.material ?? '',
+    unitWeight: item.unitWeight,
+    notes: item.notes ?? '',
+    color,
+    category: item.category ?? '',
+    pointsJson: item.pointsJson,
+  })
+}
+
 export default function MemberSchedulePanel({ drawing, onExport }) {
   const {
     memberScheduleItems, addMemberScheduleItem,
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
+    updateTakeoffItem,
     selectedMemberScheduleItem, setSelectedMemberScheduleItem, lastMeasureMember,
     setActiveTool, triggerPdfCommand,
   } = useAppStore()
@@ -45,6 +64,10 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
   const [addMode, setAddMode] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyRow })
   const [saving, setSaving] = useState(false)
+
+  // Bulk color update confirmation dialog state
+  const [colorApplyDialog, setColorApplyDialog] = useState(null) // { item, newColor }
+  const colorInputRefs = useRef({})
 
   const set = useCallback((buf, setBuf, f, v) => {
     setBuf(prev => {
@@ -124,6 +147,40 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
     toast.success(`${item.mark} selected — draw on the plan`, { duration: 2200, icon: '📐' })
   }, [setSelectedMemberScheduleItem, armLinearMeasureMode])
 
+  /** Called when user picks a new color from the color input. Shows apply-all dialog. */
+  const handleColorChange = useCallback((item, newColor) => {
+    // Count matching measurements
+    const matching = takeoffItems.filter(t => {
+      if ((t.itemType || 'Line') !== 'Line') return false
+      return String(t.material ?? '').trim() === String(item.mark ?? '').trim()
+    })
+    if (matching.length > 0) {
+      setColorApplyDialog({ item, newColor, matching })
+    } else {
+      applyColorToMember(item, newColor, [])
+    }
+  }, [takeoffItems])
+
+  const applyColorToMember = useCallback(async (item, newColor, measurementsToUpdate) => {
+    try {
+      const updated = await memberScheduleService.update({ ...item, color: newColor })
+      updateMemberScheduleItem(updated)
+      // If this member is currently selected, sync the toolbar color
+      if (selectedMemberScheduleItem?.id === item.id) {
+        useAppStore.getState().setMeasureColor(newColor)
+      }
+      if (measurementsToUpdate.length > 0) {
+        await Promise.all(measurementsToUpdate.map(t => patchTakeoffItemColor(t, newColor)))
+        measurementsToUpdate.forEach(t => updateTakeoffItem({ ...t, color: newColor }))
+        toast.success(`Color updated — ${measurementsToUpdate.length} measurement(s) recolored`)
+      } else {
+        toast.success('Member color updated')
+      }
+    } catch {
+      toast.error('Failed to update color')
+    }
+  }, [updateMemberScheduleItem, updateTakeoffItem, selectedMemberScheduleItem])
+
   const linkableItems = takeoffItems.filter(t => t.itemType === 'Line')
 
   const applyLinkedMeasurement = (setBuf, measId) => {
@@ -187,8 +244,43 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
     </tr>
   )
 
+  const memberColor = (item) => item.color || '#EF233C'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#080B12' }}>
+
+      {/* Bulk color apply dialog */}
+      {colorApplyDialog && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#111827', border: '1px solid rgba(239,35,60,.25)', borderRadius: 12,
+            padding: '20px 24px', maxWidth: 360, width: '90%',
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 8 }}>
+              Apply color to measurements?
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
+              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: colorApplyDialog.newColor, marginRight: 6, verticalAlign: 'middle' }} />
+              {colorApplyDialog.matching.length} measurement(s) for <strong style={{ color: '#e2e8f0' }}>{colorApplyDialog.item.mark}</strong> can be recolored to match.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { applyColorToMember(colorApplyDialog.item, colorApplyDialog.newColor, []); setColorApplyDialog(null) }}
+                style={{ ...ab('#475569'), width: 'auto', padding: '6px 14px', fontSize: 12 }}>
+                Member only
+              </button>
+              <button
+                onClick={() => { applyColorToMember(colorApplyDialog.item, colorApplyDialog.newColor, colorApplyDialog.matching); setColorApplyDialog(null) }}
+                style={{ ...ab('#22c55e'), width: 'auto', padding: '6px 14px', fontSize: 12, fontWeight: 700 }}>
+                Yes, all {colorApplyDialog.matching.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', flexShrink: 0,
         display: 'flex', alignItems: 'center', gap: '8px', background: '#0D1526' }}>
@@ -249,10 +341,10 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
           <thead>
             <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
               {DISPLAY_HEADERS.map((h, i) => (
-                <th key={i} style={{ padding: '7px 8px', textAlign: 'left', fontSize: '10px',
+                <th key={i} style={{ padding: '7px 8px', textAlign: i === 0 ? 'center' : 'left', fontSize: '10px',
                   fontWeight: 800, color: '#475569', textTransform: 'uppercase',
                   letterSpacing: '.07em', borderBottom: '2px solid rgba(239,35,60,.35)',
-                  width: i === 0 ? '4px' : undefined }}>
+                  width: i === 0 ? '52px' : undefined }}>
                   {h}
                 </th>
               ))}
@@ -262,8 +354,8 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
             {addMode && (
               <>
                 <tr style={{ background: 'rgba(239,35,60,.06)', borderBottom: '1px solid rgba(239,35,60,.15)' }}>
-                  <td style={{ padding: '0 0 0 4px', width: '4px' }}>
-                    <div style={{ width: '3px', height: '28px', background: '#EF233C', borderRadius: '2px' }} />
+                  <td style={{ padding: '4px 6px', width: '52px', textAlign: 'center' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#EF233C', margin: '0 auto', border: '2px solid rgba(255,255,255,.18)', opacity: 0.5 }} />
                   </td>
                   <td style={td}>
                     <input value={newRow.mark} onChange={e => set(newRow, setNewRow, 'mark', e.target.value)}
@@ -314,6 +406,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
               const isSelected = selectedMemberScheduleItem?.id === item.id
                 || activeMeasureMember?.id === item.id
               const row = isEditing ? editBuf : item
+              const color = memberColor(item)
 
               return (
                 <Fragment key={item.id}>
@@ -332,13 +425,35 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                     onMouseEnter={e => { if (!isEditing && !isSelected) e.currentTarget.style.background = 'rgba(255,255,255,.03)' }}
                     onMouseLeave={e => { if (!isEditing && !isSelected) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <td style={{ padding: '0 0 0 4px', width: '4px' }}>
-                      <div style={{ width: '3px', height: '28px', background: '#EF233C', borderRadius: '2px' }} />
+                    {/* Color swatch — click to open color picker */}
+                    <td style={{ padding: '4px 6px', width: '52px', textAlign: 'center' }}
+                      onClick={e => { e.stopPropagation(); colorInputRefs.current[item.id]?.click() }}
+                      title="Click to change member color">
+                      <div style={{
+                        width: '24px', height: '24px', borderRadius: '5px',
+                        background: color, cursor: 'pointer', margin: '0 auto',
+                        border: '2px solid rgba(255,255,255,.18)',
+                        boxShadow: `0 0 7px ${color}70`,
+                      }} />
+                      <input
+                        ref={el => { colorInputRefs.current[item.id] = el }}
+                        type="color"
+                        value={color}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                        onChange={e => handleColorChange(item, e.target.value)}
+                      />
                     </td>
-                    <td style={{ ...td, color: '#EF233C', fontWeight: 700 }}>
-                      {isEditing
-                        ? <input value={row.mark} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '64px' }} />
-                        : item.mark || '—'}
+                    <td style={{ ...td, fontWeight: 700 }}>
+                      {/* Color dot + mark */}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{
+                          display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                          background: color, flexShrink: 0, boxShadow: `0 0 4px ${color}80`,
+                        }} />
+                        {isEditing
+                          ? <input value={row.mark} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '64px' }} />
+                          : <span style={{ color }}>{item.mark || '—'}</span>}
+                      </span>
                     </td>
                     <td style={td}>
                       {isEditing
@@ -351,7 +466,8 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                             {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                         : <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px',
-                            background: 'rgba(239,35,60,.08)', color: '#94a3b8', fontWeight: 600 }}>
+                            background: `${color}18`, color: '#94a3b8', fontWeight: 600,
+                            border: `1px solid ${color}30` }}>
                             {item.memberType}
                           </span>}
                     </td>

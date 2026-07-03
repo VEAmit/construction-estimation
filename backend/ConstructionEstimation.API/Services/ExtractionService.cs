@@ -61,6 +61,12 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    private static readonly string[] ColorPalette = {
+        "#3B82F6", "#22C55E", "#F97316", "#A855F7",
+        "#06B6D4", "#EAB308", "#EC4899", "#EF4444",
+        "#14B8A6", "#F59E0B", "#6366F1", "#84CC16",
+    };
+
     private static readonly string[] DrawingListSections = {
         "COLUMNS", "BEAMS", "RAFTERS", "PURLINS", "GIRTS", "BRACES",
         "FLOOR BEAMS", "FLOORBEAMS", "ROOF BEAMS", "PAD FOOTINGS", "STRUTS",
@@ -310,6 +316,10 @@ public class ExtractionService
         var valid = results.Where(IsValidExtractedMember)
             .OrderBy(r => r.Mark, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        // Assign a unique palette color per mark (alphabetical order → stable color assignment)
+        for (int i = 0; i < valid.Count; i++)
+            valid[i] = valid[i] with { Color = ColorPalette[i % ColorPalette.Length] };
 
         var skipped = results.Where(r => !IsValidExtractedMember(r)).ToList();
         if (skipped.Count > 0)

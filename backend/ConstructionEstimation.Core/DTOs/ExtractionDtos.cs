@@ -8,7 +8,8 @@ public record ExtractedMemberDto(
     double Length,
     int Quantity,
     string Description,
-    double Confidence
+    double Confidence,
+    string? Color = null
 );
 
 public record ExtractionResultDto(

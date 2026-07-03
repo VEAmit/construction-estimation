@@ -3691,8 +3691,8 @@ export default function PdfViewer({
     const pageNumber = a.pageNumber ?? a.PageNumber ?? (parseInt(a.page ?? '0', 10) + 1)
     const pageIndex = Math.max(0, pageNumber - 1)
 
-    const activeMember = useAppStore.getState().selectedMemberScheduleItem
-      ?? useAppStore.getState().lastMeasureMember
+    const selectedMember = useAppStore.getState().selectedMemberScheduleItem
+    const activeMember = selectedMember ?? useAppStore.getState().lastMeasureMember
     const knownMarks = (useAppStore.getState().memberScheduleItems ?? [])
       .map(m => String(m.mark ?? m.Mark ?? '').trim())
       .filter(Boolean)
@@ -3706,8 +3706,13 @@ export default function PdfViewer({
       () => getPageMetaForCoords?.() ?? null,
       pageTextByPageRef.current?.[pageIndex],
     )
+    // Explicitly-selected member always wins over auto-detected mark.
+    // Auto-detect (drawingMark) is only a fallback when no member is selected.
     const memberMark = String(
-      drawingMark || activeMember?.mark || activeMember?.Mark || '',
+      selectedMember?.mark || selectedMember?.Mark
+      || drawingMark
+      || activeMember?.mark || activeMember?.Mark
+      || ''
     ).trim()
 
     const measurePayload = {

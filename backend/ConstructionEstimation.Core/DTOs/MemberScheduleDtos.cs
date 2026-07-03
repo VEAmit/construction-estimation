@@ -8,7 +8,8 @@ public record CreateMemberScheduleItemRequest(
     double Length,
     int Quantity,
     string Description,
-    int? TakeoffItemId
+    int? TakeoffItemId,
+    string? Color = null
 );
 
 public record UpdateMemberScheduleItemRequest(
@@ -19,7 +20,8 @@ public record UpdateMemberScheduleItemRequest(
     double Length,
     int Quantity,
     string Description,
-    int? TakeoffItemId
+    int? TakeoffItemId,
+    string? Color = null
 );
 
 public record MemberScheduleItemResponse(
@@ -34,7 +36,8 @@ public record MemberScheduleItemResponse(
     string Description,
     int? TakeoffItemId,
     int DrawingId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Color
 );
 
 public record MemberScheduleSummaryResponse(

@@ -21,6 +21,7 @@ export const extractionService = {
       quantity: 0,
       description: m.description ?? '',
       takeoffItemId: m.takeoffItemId ?? null,
+      color: m.color ?? null,
     }))
     const res = await api.post(`/extraction/drawing/${drawingId}/confirm`, { items })
     return res.data.data

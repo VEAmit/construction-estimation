@@ -119,11 +119,17 @@ const s = {
   rawText: { color: '#334155', fontSize: 11, fontFamily: 'monospace', lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' },
 }
 
+const COLOR_PALETTE = [
+  '#3B82F6', '#22C55E', '#F97316', '#A855F7',
+  '#06B6D4', '#EAB308', '#EC4899', '#EF4444',
+  '#14B8A6', '#F59E0B', '#6366F1', '#84CC16',
+]
+
 function blankRow() {
   return {
     _id: Math.random().toString(36).slice(2),
     mark: '', memberSize: '', memberType: 'Other',
-    description: '',
+    description: '', color: '',
   }
 }
 
@@ -139,12 +145,13 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     setError(null)
     try {
       const data = await extractionService.extract(drawingId)
-      const initialRows = sortMembersByMark(data.members ?? []).map(m => ({
+      const initialRows = sortMembersByMark(data.members ?? []).map((m, idx) => ({
         _id: Math.random().toString(36).slice(2),
         mark: m.mark ?? '',
         memberSize: m.memberSize ?? '',
         memberType: m.memberType ?? 'Other',
         description: m.description ?? '',
+        color: m.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
       }))
       setResult(data)
       setRows(initialRows)
@@ -262,6 +269,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                   <thead>
                     <tr>
                       {[
+                        ['Color', 'color'],
                         ['Mark (on drawing)', 'mark'],
                         ['Section size', 'size'],
                         ['Type', 'type'],
@@ -278,10 +286,23 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                   </thead>
                   <tbody>
                     {rows.length === 0 && (
-                      <tr><td colSpan={5} style={{ ...s.td, ...s.emptyMsg }}>No rows — click "+ Add Row" to add manually</td></tr>
+                      <tr><td colSpan={6} style={{ ...s.td, ...s.emptyMsg }}>No rows — click "+ Add Row" to add manually</td></tr>
                     )}
                     {rows.map((row, idx) => (
                       <tr key={row._id} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.02)' }}>
+                        <td style={{ ...s.td, width: 40 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <span style={{
+                              display: 'inline-block', width: 18, height: 18, borderRadius: 4,
+                              background: row.color || '#475569',
+                              border: '2px solid rgba(255,255,255,.15)',
+                              flexShrink: 0,
+                            }} />
+                            <input type="color" value={row.color || '#475569'}
+                              onChange={e => updateRow(row._id, 'color', e.target.value)}
+                              style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }} />
+                          </label>
+                        </td>
                         <td style={s.td}>
                           <input style={{ ...s.input, width: 60 }} value={row.mark}
                             onChange={e => updateRow(row._id, 'mark', e.target.value)} />

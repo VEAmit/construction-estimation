@@ -16,4 +16,6 @@ public class MemberScheduleItem : BaseEntity
 
     // Optional link to a line measurement entry
     public int? TakeoffItemId { get; set; }
+
+    public string? Color { get; set; }
 }

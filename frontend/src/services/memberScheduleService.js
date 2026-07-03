@@ -21,6 +21,7 @@ export const memberScheduleService = {
       quantity: payload.quantity ?? 0,
       description: payload.description ?? '',
       takeoffItemId: payload.takeoffItemId ?? null,
+      color: payload.color ?? null,
     })
     return res.data.data
   },
@@ -35,6 +36,7 @@ export const memberScheduleService = {
       quantity: item.quantity ?? 1,
       description: item.description ?? '',
       takeoffItemId: item.takeoffItemId ?? null,
+      color: item.color ?? null,
     })
     return res.data.data
   },

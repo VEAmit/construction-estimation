@@ -7,6 +7,18 @@ import { getMeasurementMemberMark } from '../../utils/memberMeasureLink'
 import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 25
+const HEX_RE = /^#[0-9A-Fa-f]{6}$/
+
+/** Returns the member's assigned color for a takeoff row — MSI color first, then stored item color, then default. */
+function getEffectiveColor(item, memberScheduleItems) {
+  const memberMark = (item.material || item.mark || '').trim().toLowerCase()
+  if (memberMark) {
+    const msi = memberScheduleItems.find(m => (m.mark || '').trim().toLowerCase() === memberMark)
+    if (msi?.color && HEX_RE.test(msi.color)) return msi.color
+  }
+  if (item.color && HEX_RE.test(item.color)) return item.color
+  return '#EF233C'
+}
 
 function getPageNum(item) {
   if (!item.pointsJson) return null
@@ -289,6 +301,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                 const row        = isEditing ? editBuf : item
                 const rowNum     = (page - 1) * PAGE_SIZE + idx + 1
                 const hasAnnot   = !!item.pointsJson
+                const itemColor  = getEffectiveColor(item, memberScheduleItems)
 
                 return (
                   <tr
@@ -298,11 +311,11 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                       borderBottom: '1px solid rgba(255,255,255,.04)',
                       cursor: isEditing ? 'default' : 'pointer',
                       background: isSelected
-                        ? 'rgba(239,35,60,.1)'
+                        ? `${itemColor}18`
                         : isEditing
                         ? 'rgba(255,255,255,.03)'
                         : 'transparent',
-                      outline: isSelected ? '1px solid rgba(239,35,60,.25)' : 'none',
+                      outline: isSelected ? `1px solid ${itemColor}40` : 'none',
                       outlineOffset: '-1px',
                       transition: 'background .1s',
                     }}
@@ -313,7 +326,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                     <td style={{ padding: '0 0 0 4px', width: '4px' }}>
                       <div style={{
                         width: '3px', height: '28px',
-                        background: isSelected ? (item.color ?? '#EF233C') : (item.color ? `${item.color}44` : 'rgba(239,35,60,.2)'),
+                        background: isSelected ? itemColor : `${itemColor}55`,
                         borderRadius: '2px',
                       }} />
                     </td>
@@ -334,10 +347,13 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                         <span style={{ padding: '2px 6px', borderRadius: '10px', fontSize: '9px', fontWeight: 800, background: 'rgba(239,35,60,.1)', color: '#f87171', border: '1px solid rgba(239,35,60,.2)', textTransform: 'uppercase' }}>Line</span>
                       )}
                     </td>
-                    <td style={{ ...td, color: '#EF233C', fontWeight: 700 }}>
-                      {isEditing
-                        ? <input value={row.mark ?? ''} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '56px' }} />
-                        : item.mark || '—'}
+                    <td style={{ ...td, fontWeight: 700 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: itemColor, flexShrink: 0, boxShadow: `0 0 3px ${itemColor}80` }} />
+                        {isEditing
+                          ? <input value={row.mark ?? ''} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '56px' }} />
+                          : <span style={{ color: itemColor }}>{item.mark || '—'}</span>}
+                      </span>
                     </td>
                     <td style={{ ...td, color: '#22c55e', fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {isEditing
@@ -351,9 +367,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                     </td>
                     <td style={td}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {item.color && (
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color, flexShrink: 0, display: 'inline-block' }} />
-                        )}
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: itemColor, flexShrink: 0, display: 'inline-block' }} />
                         <span style={{ fontSize: '10px', color: '#475569' }}>
                           {item.category || 'General'}
                         </span>
@@ -368,7 +382,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                           : <span style={{ color: '#334155', fontSize: '10px' }}>—</span>
                       ) : (
                         item.length != null
-                          ? <span style={{ fontWeight: 700, color: item.color ?? '#22c55e' }}>{fmt(item.length)}</span>
+                          ? <span style={{ fontWeight: 700, color: itemColor }}>{fmt(item.length)}</span>
                           : hasAnnot ? <span style={{ color: '#334155', fontSize: '10px' }}>no scale</span> : '—'
                       )}
                     </td>

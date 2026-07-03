@@ -50,6 +50,7 @@ public class MemberSchedulesController : ControllerBase
             TotalWeight = totalWeight,
             Description = request.Description,
             TakeoffItemId = request.TakeoffItemId,
+            Color = request.Color,
             DrawingId = drawingId
         };
 
@@ -74,6 +75,7 @@ public class MemberSchedulesController : ControllerBase
         item.TotalWeight = request.UnitWeight * request.Length * request.Quantity;
         item.Description = request.Description;
         item.TakeoffItemId = request.TakeoffItemId;
+        if (request.Color != null) item.Color = request.Color;
 
         await _repo.UpdateAsync(item);
         return Ok(ApiResponse<MemberScheduleItemResponse>.Ok(MapToResponse(item), "Member schedule item updated"));
@@ -108,6 +110,7 @@ public class MemberSchedulesController : ControllerBase
     private static MemberScheduleItemResponse MapToResponse(MemberScheduleItem m) => new(
         m.Id, m.Mark, m.MemberSize, m.MemberType,
         m.UnitWeight, m.Length, m.Quantity, m.TotalWeight,
-        m.Description, m.TakeoffItemId, m.DrawingId, m.CreatedAt
+        m.Description, m.TakeoffItemId, m.DrawingId, m.CreatedAt,
+        m.Color
     );
 }

@@ -98,6 +98,7 @@ public class ExtractionController : ControllerBase
                 if (item.Length > 0) existingItem.Length = item.Length;
                 if (item.Quantity > 0) existingItem.Quantity = item.Quantity;
                 existingItem.TotalWeight = existingItem.UnitWeight * existingItem.Length * existingItem.Quantity;
+                if (!string.IsNullOrEmpty(item.Color)) existingItem.Color = item.Color;
                 await _scheduleRepo.UpdateAsync(existingItem);
             }
             else
@@ -113,6 +114,7 @@ public class ExtractionController : ControllerBase
                     TotalWeight = item.UnitWeight * item.Length * (item.Quantity > 0 ? item.Quantity : 1),
                     Description = item.Description,
                     TakeoffItemId = item.TakeoffItemId,
+                    Color = item.Color,
                     DrawingId = drawingId
                 };
                 await _scheduleRepo.AddAsync(entity);

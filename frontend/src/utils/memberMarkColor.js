@@ -16,14 +16,24 @@ export function itemMemberMarkKey(item, memberScheduleItems = []) {
 }
 
 /**
- * Color assigned to a member mark from existing measurements (first match wins — Bluebeam-style).
- * Returns null when this member has never been measured on the drawing.
+ * Color assigned to a member mark.
+ * Priority: MemberScheduleItem.color (authoritative palette color) → existing measurement color.
+ * Returns null when no color is found.
  */
 export function findColorForMemberMark(memberMark, takeoffItems = [], memberScheduleItems = []) {
   const key = normalizeMemberMark(memberMark)
   if (!key) return null
   const keyLower = key.toLowerCase()
 
+  // MSI color is the authoritative source — assigned by palette at extraction time
+  for (const msi of memberScheduleItems) {
+    const msiMark = normalizeMemberMark(msi.mark ?? msi.Mark)
+    if (msiMark.toLowerCase() !== keyLower) continue
+    const c = msi.color ?? msi.Color
+    if (c && HEX_RE.test(c)) return c
+  }
+
+  // Fall back to existing measurement color (Bluebeam first-match)
   for (const item of takeoffItems) {
     const itemKey = itemMemberMarkKey(item, memberScheduleItems)
     if (!itemKey || itemKey.toLowerCase() !== keyLower) continue
@@ -33,7 +43,7 @@ export function findColorForMemberMark(memberMark, takeoffItems = [], memberSche
   return null
 }
 
-/** Draw/save color: existing member color, else toolbar color for first measurement on that mark. */
+/** Draw/save color: member schedule color or existing measurement color, else toolbar color. */
 export function resolveDrawColorForMemberMark(
   memberMark,
   toolbarColor,
