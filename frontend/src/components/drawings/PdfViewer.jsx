@@ -5745,8 +5745,8 @@ export default function PdfViewer({
 
         #sfPdfViewer_pageContainer,
         #sfPdfViewer .e-pv-page-container {
-          width: 100% !important;
-          max-width: 100% !important;
+          min-width: 100% !important;
+          max-width: none !important;
         }
 
         /* Pan mode — grab cursor + let drag reach the scroll container */
