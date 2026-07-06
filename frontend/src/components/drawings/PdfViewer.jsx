@@ -114,21 +114,37 @@ function applyFitWidthToViewer(vm, setPdfScale, containerWidth = null, pageMeta 
   const vc = vb.viewerContainer
   if (vc.clientWidth < 80 || vc.clientHeight < 80) return
 
-  syncViewerLayout(vm, true, containerWidth)
-
   const mag = getMagnification(vm)
   if (!mag) return
 
-  // Prefer pdf.js probed size — Syncfusion highestWidth can be wrong on some landscape sheets.
-  const pageW = pageMeta?.width ?? vb.highestWidth ?? vb.getPageWidth?.(0)
-  if (!pageW || pageW <= 0) return
-
   try {
+    // ── Step 1: Fix container size (recalcPages=false avoids premature onWindowResize) ──
+    syncViewerLayout(vm, false, containerWidth)
     const fitW = containerWidth ?? vc.getBoundingClientRect().width ?? vc.clientWidth
-    const scrollPad = mag.scrollWidth ?? 25
-    const zoomW = (fitW - scrollPad) / pageW
-    const pct = Math.max(10, Math.min(400, Math.floor(zoomW * 100)))
-    mag.fitType = 'fitToWidth'
+    if (fitW < 80) return
+
+    // ── Step 2: Determine page width in Syncfusion's internal unit ──────────────────
+    // vb.pageWidth[0] is PDF pts; at Syncfusion's 100% zoom, 1pt renders as 1px
+    // (confirmed by recoverBlankVisiblePages using zoomFactor * 100 = percentage).
+    // So pageWSF = page width in pts = page width at Syncfusion 100% zoom in px.
+    let pageWSF = 0
+    const vbPageW = Array.isArray(vb.pageWidth) ? vb.pageWidth[0] : vb.pageWidth
+    if (Number(vbPageW) > 0) {
+      pageWSF = Number(vbPageW)
+    } else if (pageMeta?.width > 0) {
+      pageWSF = pageMeta.width               // MediaBox pts == Syncfusion internal px at 100%
+    } else if (vb.highestWidth > 0) {
+      // highestWidth tracks rendered CSS px at CURRENT zoom; normalise to 100%
+      pageWSF = vb.highestWidth / (mag.zoomFactor || 1)
+    }
+    if (pageWSF <= 0) return
+
+    // ── Step 3: Zoom to fit-width — CRITICAL: clear fitType BEFORE zoomTo ──────────
+    const scrollPad = mag.scrollWidth ?? 15
+    const fitWpct = Math.floor(((fitW - scrollPad) / pageWSF) * 100)
+    const pct = Math.max(10, Math.min(400, fitWpct))
+
+    mag.fitType = null        // must be null BEFORE zoomTo so Syncfusion doesn't override
     mag.isAutoZoom = false
     mag.zoomTo?.(pct)
 
@@ -137,25 +153,28 @@ function applyFitWidthToViewer(vm, setPdfScale, containerWidth = null, pageMeta 
       setPdfScale(+(zf).toFixed(2))
     }
 
-    alignPageInViewer(vm, pageW, mag.zoomFactor ?? pct / 100)
+    // ── Step 4: Align page and reset scroll ─────────────────────────────────────────
+    alignPageInViewer(vm, pageWSF, zf ?? pct / 100)
 
     const pageGap = vb.pageGap ?? 8
     if (vb.pageSize?.[0]) vb.pageSize[0].top = pageGap
     vc.scrollTop = 0
     vc.scrollLeft = 0
+
+    // ── Step 5: Retile pages at new zoom (fitType is null — won't override zoom) ────
     vb.onWindowResize?.()
   } catch (_) {}
 }
 
-/** Center the page div and reset scroll — fixes top-left tiny render on wide media boxes. */
-function alignPageInViewer(vm, pageWidthPts, zoomFactor) {
-  if (!vm?.viewerBase || !pageWidthPts || !zoomFactor) return
+/** Center the page div and reset scroll. pageWSF is page width in Syncfusion CSS-px at 100% zoom. */
+function alignPageInViewer(vm, pageWSF, zoomFactor) {
+  if (!vm?.viewerBase || !pageWSF || !zoomFactor) return
   try {
     const vb = vm.viewerBase
     const vc = vb.viewerContainer
     const viewerId = vm.element?.id ?? 'sfPdfViewer'
     const pageDiv = document.getElementById(`${viewerId}_pageDiv_0`)
-    const renderedW = pageWidthPts * zoomFactor
+    const renderedW = pageWSF * zoomFactor  // CSS px at current zoom
     const containerW = vc.clientWidth || vc.getBoundingClientRect().width
     if (pageDiv && containerW > 0) {
       const left = Math.max(0, (containerW - renderedW) / 2)
@@ -901,15 +920,19 @@ function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerE
 function extractVisibleLineScreenEndpoints(wrapper, container) {
   if (!wrapper || !container) return null
   const cr = container.getBoundingClientRect()
-  const svg = wrapper.ownerSVGElement
+  // Prefer ownerSVGElement; if wrapper IS the svg, use it directly.
+  const svg = wrapper.ownerSVGElement ?? (wrapper.tagName?.toLowerCase() === 'svg' ? wrapper : null)
   const mkPt = svg?.createSVGPoint?.()
   if (!mkPt) return null
 
+  const SKIP = ['leader', 'handle', 'selector', 'resize', 'endpoint']
+  const shouldSkip = id => SKIP.some(w => id.includes(w))
+
   const lines = []
+
+  // Scan <line> elements
   wrapper.querySelectorAll('line').forEach(el => {
-    const id = String(el.id ?? '').toLowerCase()
-    if (id.includes('leader') || id.includes('handle') || id.includes('selector')
-      || id.includes('resize') || id.includes('endpoint')) return
+    if (shouldSkip(String(el.id ?? '').toLowerCase())) return
     const ctm = el.getScreenCTM?.()
     if (!ctm) return
     const x1 = parseFloat(el.getAttribute('x1'))
@@ -917,20 +940,32 @@ function extractVisibleLineScreenEndpoints(wrapper, container) {
     const x2 = parseFloat(el.getAttribute('x2'))
     const y2 = parseFloat(el.getAttribute('y2'))
     if (![x1, y1, x2, y2].every(Number.isFinite)) return
-    mkPt.x = x1
-    mkPt.y = y1
+    mkPt.x = x1; mkPt.y = y1
     const s0 = mkPt.matrixTransform(ctm)
-    mkPt.x = x2
-    mkPt.y = y2
+    mkPt.x = x2; mkPt.y = y2
     const s1 = mkPt.matrixTransform(ctm)
     const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
     if (len < 2) return
-    lines.push({
-      p0: { left: s0.x - cr.left, top: s0.y - cr.top },
-      p1: { left: s1.x - cr.left, top: s1.y - cr.top },
-      len,
-    })
+    lines.push({ p0: { left: s0.x - cr.left, top: s0.y - cr.top }, p1: { left: s1.x - cr.left, top: s1.y - cr.top }, len })
   })
+
+  // Also scan <polyline> elements (Syncfusion uses these for some annotation styles)
+  if (!lines.length) {
+    wrapper.querySelectorAll('polyline').forEach(el => {
+      if (shouldSkip(String(el.id ?? '').toLowerCase())) return
+      const ctm = el.getScreenCTM?.()
+      if (!ctm) return
+      const raw = (el.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite)
+      if (raw.length < 4) return
+      mkPt.x = raw[0]; mkPt.y = raw[1]
+      const s0 = mkPt.matrixTransform(ctm)
+      mkPt.x = raw[raw.length - 2]; mkPt.y = raw[raw.length - 1]
+      const s1 = mkPt.matrixTransform(ctm)
+      const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
+      if (len < 2) return
+      lines.push({ p0: { left: s0.x - cr.left, top: s0.y - cr.top }, p1: { left: s1.x - cr.left, top: s1.y - cr.top }, len })
+    })
+  }
 
   if (!lines.length) return null
   lines.sort((a, b) => b.len - a.len)
@@ -2751,10 +2786,14 @@ export default function PdfViewer({
     if (pass === 1) {
       fitPassRef.current = 2
       finalizeViewerLayout(vm, containerRef.current?.clientWidth)
-      const meta = pageMetaRef.current
+      // Re-align using live page div measurement (avoids pts-vs-CSS-px unit issue).
       const mag = getMagnification(vm)
-      if (meta && mag?.zoomFactor) {
-        alignPageInViewer(vm, meta.width, mag.zoomFactor)
+      const zf = mag?.zoomFactor
+      if (zf > 0) {
+        const viewerId = vm.element?.id ?? 'sfPdfViewer'
+        const pageDiv = document.getElementById(`${viewerId}_pageDiv_0`)
+        const pageWSF = pageDiv?.offsetWidth > 10 ? pageDiv.offsetWidth / zf : 0
+        if (pageWSF > 0) alignPageInViewer(vm, pageWSF, zf)
       }
       firstRenderDoneRef.current = true
       return
@@ -2784,91 +2823,116 @@ export default function PdfViewer({
 
     let debugLogged = false
 
+    const LABEL_OFFSET_PX = 18  // perpendicular distance from line midpoint to label centre
+
+    // Helper: find the real SVG <g> element for an annotation using the live object's
+    // CURRENT id (post-rehydration), then fall back to the stored AnnotName.
+    const findAnnotDomEl = (live, storedId) => {
+      // live.wrapper in Syncfusion is a JS DiagramContainer, NOT a DOM element.
+      // We must use the live object's current annotName / id to find the real <g>.
+      const liveId = live
+        ? (live.annotName ?? live.annotationId ?? live.id ?? live.name)
+        : null
+      for (const tryId of [liveId, storedId]) {
+        if (!tryId) continue
+        try {
+          const el = document.getElementById(tryId)
+          if (el?.ownerSVGElement) return el
+        } catch (_) {}
+      }
+      return null
+    }
+
     const layout = []
     for (const item of items) {
       if (!item.pointsJson || (item.itemType || 'Line') !== 'Line') continue
       try {
         const raw = JSON.parse(item.pointsJson)
-        const id = raw.AnnotName ?? raw.annotationId ?? raw.name
+        const storedId = raw.AnnotName ?? raw.annotationId ?? raw.name
 
         const text = resolveTakeoffLabelText(item, displayUnit)
         if (!text || /nan/i.test(text)) continue
 
-        const mark = String(item.mark ?? '').trim()
-        if (/^nan$/i.test(mark)) continue
+        const mark = String(item.material || (item.mark ?? '')).trim().replace(/^nan$/i, '')
 
         const pageIndex = resolveAnnotationPageIndex(raw, raw)
-        const live = id ? resolveLiveAnnotation(vm, id) : null
+
+        // Geometry-based live lookup: survives annotation rehydration ID changes.
+        const live = resolveLiveForTakeoffItem(vm, raw)
         const pts = collectMeasureLinePoints(live, raw)
         if (pts.length < 2) continue
 
-        let p0, pN
+        let s0, s1  // screen-space endpoints (container-relative px)
 
-        // Tier 1: Direct DOM query — find annotation's <g id="annotId"> in the canvas SVG
-        // and read actual <line> endpoints via getScreenCTM(). This uses the exact same
-        // transform matrix Syncfusion applies when drawing the line, immune to coordinate-
-        // system ambiguities between PDF points and diagram pixel space.
-        if (id) {
-          try {
-            const annotEl = document.getElementById(id)
-            if (annotEl && annotEl.ownerSVGElement) {
-              const visual = extractVisibleLineScreenEndpoints(annotEl, container)
-              if (visual) {
-                p0 = visual.p0
-                pN = visual.p1
-              }
+        // ── Tier 1: SVG getScreenCTM() ──────────────────────────────────────────
+        // The only approach immune to coordinate-system ambiguity.  We find the
+        // annotation's current DOM <g> using the live object's up-to-date id, then
+        // read actual rendered line positions via the SVG transform matrix.
+        const domEl = findAnnotDomEl(live, storedId)
+        if (domEl) {
+          const visual = extractVisibleLineScreenEndpoints(domEl, container)
+          if (visual) { s0 = visual.p0; s1 = visual.p1 }
+        }
+
+        // ── Tier 2: Annotation-canvas SVG bounding rect ─────────────────────────
+        // Convert stored PDF-point coordinates through the annotation SVG's rendered
+        // bounds.  More reliable than pageDiv which can include Syncfusion padding.
+        if (!s0 || !s1) {
+          const rootId = vm?.element?.id ?? 'sfPdfViewer'
+          let svgEl = null
+          for (const cid of [`${rootId}_diagram_${pageIndex}`, `${rootId}_annotationCanvas_${pageIndex}`]) {
+            const host = document.getElementById(cid)
+            if (!host) continue
+            svgEl = host.tagName?.toLowerCase() === 'svg' ? host : host.querySelector('svg')
+            if (svgEl) break
+          }
+          if (svgEl) {
+            const svgRect = svgEl.getBoundingClientRect()
+            const cRect = container.getBoundingClientRect()
+            const pageSize = getPdfPageSize(vm, pageIndex)
+            if (pageSize?.width > 0 && pageSize?.height > 0 && svgRect.width > 0) {
+              const sx = svgRect.width  / pageSize.width
+              const sy = svgRect.height / pageSize.height
+              const toScreen = (px, py) => ({
+                left: svgRect.left - cRect.left + px * sx,
+                top:  svgRect.top  - cRect.top  + py * sy,
+              })
+              s0 = toScreen(pts[0].x, pts[0].y)
+              s1 = toScreen(pts[pts.length - 1].x, pts[pts.length - 1].y)
             }
-          } catch (_) {}
+          }
         }
 
-        // Tier 2: PDF coordinate mapping — converts stored vertexPoints through current
-        // page scale and position (zoom/pan aware). This is the original working approach.
-        if (!p0 || !pN) {
-          p0 = pdfPointToContainerCoords(pts[0].x, pts[0].y, pageIndex, vm, container)
-          pN = pdfPointToContainerCoords(pts[pts.length - 1].x, pts[pts.length - 1].y, pageIndex, vm, container)
+        // ── Tier 3: pageDiv fallback ─────────────────────────────────────────────
+        if (!s0 || !s1) {
+          s0 = pdfPointToContainerCoords(pts[0].x, pts[0].y, pageIndex, vm, container)
+          s1 = pdfPointToContainerCoords(pts[pts.length - 1].x, pts[pts.length - 1].y, pageIndex, vm, container)
         }
+        if (!s0 || !s1) continue
 
-        if (!p0 || !pN) continue
+        // ── Perpendicular-offset label position (user's exact algorithm) ─────────
+        // All maths in screen space — never guess PDF offsets.
+        const midX = (s0.left + s1.left) / 2
+        const midY = (s0.top  + s1.top)  / 2
 
-        const midLeft = (p0.left + pN.left) / 2
-        const midTop  = (p0.top  + pN.top)  / 2
+        const dx = s1.left - s0.left
+        const dy = s1.top  - s0.top
+        const angleRad = Math.atan2(dy, dx)  // radians
 
-        const dx = pN.left - p0.left
-        const dy = pN.top  - p0.top
-        const rawAngle = Math.atan2(dy, dx) * 180 / Math.PI
-        // Normalize to keep text right-side up
-        const angle = rawAngle > 90 ? rawAngle - 180 : rawAngle < -90 ? rawAngle + 180 : rawAngle
+        // Perpendicular unit vector pointing "above" the line:
+        //   offsetX = -sin(θ) * D   offsetY = cos(θ) * D
+        const labelLeft = midX + (-Math.sin(angleRad)) * LABEL_OFFSET_PX
+        const labelTop  = midY - ( Math.cos(angleRad)) * LABEL_OFFSET_PX
 
-        // Debug: log coordinate transform details for the first measurement
-        if (!debugLogged) {
-          debugLogged = true
-          const midPdfX = (pts[0].x + pts[pts.length - 1].x) / 2
-          const midPdfY = (pts[0].y + pts[pts.length - 1].y) / 2
-          const pageEl = resolvePdfPageElement(vm, pageIndex)
-          const pageRect = pageEl?.getBoundingClientRect()
-          const cRect = container.getBoundingClientRect()
-          const svScroll = vm.viewerBase?.viewerContainer
-          console.log('[BT-Label] coord-debug', {
-            mark: mark || '(none)', id,
-            pdf: { startX: pts[0].x, startY: pts[0].y, endX: pts[pts.length-1].x, endY: pts[pts.length-1].y },
-            midPdf: { x: midPdfX, y: midPdfY },
-            p0, pN,
-            midScreen: { left: midLeft, top: midTop },
-            zoom: useAppStore.getState().pdfScale,
-            pageIndex,
-            pageRect: pageRect ? { left: pageRect.left, top: pageRect.top, w: pageRect.width, h: pageRect.height } : null,
-            containerRect: { left: cRect.left, top: cRect.top, w: cRect.width, h: cRect.height },
-            scrollTop: svScroll?.scrollTop ?? 0,
-            scrollLeft: svScroll?.scrollLeft ?? 0,
-          })
-        }
+        // Normalise angle so text always reads left-to-right
+        const rawDeg = angleRad * 180 / Math.PI
+        const angleDeg = rawDeg > 90 ? rawDeg - 180 : rawDeg < -90 ? rawDeg + 180 : rawDeg
 
         layout.push({
-          key: id ?? `item-${item.id}`,
-          left: midLeft,
-          top: midTop,
-          angle,
-          gap: GAP_PX,
+          key: storedId ?? `item-${item.id}`,
+          left: labelLeft,
+          top:  labelTop,
+          angle: angleDeg,
           mark,
           text,
           color: resolveMeasurementColor({ item, raw }),
@@ -5450,15 +5514,34 @@ export default function PdfViewer({
     }
     setTimeout(() => applyActiveToolToViewerRef.current?.(), 300)
     setTimeout(() => applyActiveToolToViewerRef.current?.(), 800)
-    // Single fallback fit if pageRenderComplete hasn't finished yet
-    setTimeout(() => {
-      if (fitPassRef.current < 2 && viewerRef.current) {
+    // Fallback fit retries — large construction drawings (A0/A1) may not fire
+    // pageRenderComplete in time; retry at increasing delays until the page renders.
+    const retryFit = (delay) => setTimeout(() => {
+      if (!viewerRef.current) return
+      const vm = viewerRef.current
+      const vb = vm.viewerBase
+      const pageDiv = document.getElementById(`${vm.element?.id ?? 'sfPdfViewer'}_pageDiv_0`)
+      // Skip if page div doesn't exist or has zero width — Syncfusion hasn't rendered yet.
+      if (!pageDiv || pageDiv.offsetWidth < 10) return
+      if (fitPassRef.current < 2) {
         applyFitWidth()
-        finalizeViewerLayout(viewerRef.current, containerRef.current?.clientWidth)
+        const mag = getMagnification(vm)
+        const zf = mag?.zoomFactor
+        if (zf > 0) {
+          const pageWSF = pageDiv.offsetWidth / zf
+          if (pageWSF > 0) alignPageInViewer(vm, pageWSF, zf)
+        }
+        if (vb?.viewerContainer) {
+          vb.viewerContainer.scrollTop = 0
+          vb.viewerContainer.scrollLeft = 0
+        }
         fitPassRef.current = 2
         firstRenderDoneRef.current = true
       }
-    }, 1200)
+    }, delay)
+    retryFit(800)
+    retryFit(1800)
+    retryFit(3500)
   }, [setPdfTotalPages, setPdfPage, measureColor, measureLabelFontSize, pdfScale, applyCalibrationToViewer, applyFitWidth])
 
   // ── Fired by Syncfusion on page change ────────────────────────────────
@@ -5868,45 +5951,35 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* Live value while drawing — Bluebeam-style two-line label above line midpoint */}
+      {/* Live value while drawing — Bluebeam-style two-line label, centred above line midpoint */}
       {liveDrawLabel && !/nan/i.test(liveDrawLabel.text ?? '') && (
         <div
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none', overflow: 'hidden' }}
         >
-          {/* Rotation anchor at the line midpoint */}
-          <div style={{ position: 'absolute', left: `${liveDrawLabel.left}px`, top: `${liveDrawLabel.top}px` }}>
-            {/* Inner: center horizontally and shift above — white background covers Syncfusion SVG NaN */}
-            <div
-              style={{
-                transform: `translate(-50%, calc(-100% - 10px))`,
-                textAlign: 'center',
-                userSelect: 'none',
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                background: 'rgba(255,255,255,0.92)',
-                border: `1px solid ${liveDrawLabel.color ?? '#EF233C'}`,
-                borderRadius: '3px',
-                padding: '1px 7px 2px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-              }}
-            >
+          <div style={{
+            position: 'absolute',
+            left: `${liveDrawLabel.left}px`,
+            top: `${liveDrawLabel.top}px`,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              textAlign: 'center',
+              userSelect: 'none',
+              lineHeight: 1.25,
+              whiteSpace: 'nowrap',
+              background: '#ffffff',
+              border: `1px solid ${liveDrawLabel.color ?? '#EF233C'}`,
+              borderRadius: '3px',
+              padding: '2px 6px 2px',
+            }}>
               {liveDrawLabel.mark && !/^nan$/i.test(liveDrawLabel.mark) && (
-                <div style={{
-                  fontSize: `${measureLabelFontSize * 0.85 * Math.max(pdfScale, 0.45)}px`,
-                  fontWeight: 800,
-                  color: liveDrawLabel.color ?? '#EF233C',
-                  letterSpacing: '0.03em',
-                }}>
+                <div style={{ fontSize: `${measureLabelFontSize ?? 12}px`, fontWeight: 700, color: liveDrawLabel.color ?? '#EF233C' }}>
                   {liveDrawLabel.mark}
                 </div>
               )}
-              <div style={{
-                fontSize: `${measureLabelFontSize * Math.max(pdfScale, 0.45)}px`,
-                fontWeight: 700,
-                color: liveDrawLabel.color ?? '#EF233C',
-                letterSpacing: '0.01em',
-              }}>
+              <div style={{ fontSize: `${measureLabelFontSize ?? 12}px`, fontWeight: 700, color: liveDrawLabel.color ?? '#EF233C' }}>
                 {liveDrawLabel.text}
               </div>
             </div>
@@ -5914,66 +5987,47 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* Bluebeam-style measurement labels — mark + measurement, rotated to follow line */}
+      {/* Bluebeam-style measurement labels ─ anchored to line midpoint + perpendicular offset */}
       {pdfBase64 && !loading && fallbackLabelLayout.length > 0 && (
         <div
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, zIndex: 11, pointerEvents: 'none', overflow: 'hidden' }}
         >
           {fallbackLabelLayout.map(entry => {
-            // Clamp font between 9–13 px screen size regardless of zoom level
-            const BASE = entry.fontSizePt ?? 12
-            const fsPx = Math.min(Math.max(BASE * Math.max(pdfScale, 0.45), 9), 13)
+            const fsPx = Math.min(Math.max(entry.fontSizePt ?? 12, 9), 16)
             const color = entry.color ?? '#EF233C'
-            const gap = entry.gap ?? 10
             const angle = entry.angle ?? 0
             return (
+              // entry.left/top is the already-offset label centre (midpoint + perpendicular offset).
+              // translate(-50%, -50%) centres the box on that point; rotate around that same centre.
               <div
                 key={entry.key}
                 style={{
                   position: 'absolute',
                   left: `${entry.left}px`,
                   top: `${entry.top}px`,
-                  transform: `rotate(${angle}deg)`,
-                  transformOrigin: '0 0',
+                  transform: `translate(-50%, -50%) rotate(${angle}deg)`,
                   pointerEvents: 'none',
                 }}
               >
-                {/* Shift up from midpoint after rotation — white box matches live draw label */}
                 <div
                   style={{
-                    transform: `translate(-50%, calc(-100% - ${gap}px))`,
                     textAlign: 'center',
                     userSelect: 'none',
-                    lineHeight: 1.2,
+                    lineHeight: 1.25,
                     whiteSpace: 'nowrap',
-                    background: 'rgba(255,255,255,0.92)',
+                    background: '#ffffff',
                     border: `1px solid ${color}`,
                     borderRadius: '3px',
-                    padding: '1px 7px 2px',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                    padding: '2px 6px 2px',
                   }}
                 >
-                  {entry.mark && !/^nan$/i.test(entry.mark) && (
-                    <div
-                      style={{
-                        fontSize: `${fsPx * 0.88}px`,
-                        fontWeight: 800,
-                        color,
-                        letterSpacing: '0.02em',
-                      }}
-                    >
+                  {entry.mark && (
+                    <div style={{ fontSize: `${fsPx}px`, fontWeight: 700, color }}>
                       {entry.mark}
                     </div>
                   )}
-                  <div
-                    style={{
-                      fontSize: `${fsPx}px`,
-                      fontWeight: 700,
-                      color,
-                      letterSpacing: '0.01em',
-                    }}
-                  >
+                  <div style={{ fontSize: `${fsPx}px`, fontWeight: 700, color }}>
                     {entry.text}
                   </div>
                 </div>
