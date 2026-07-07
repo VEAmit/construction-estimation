@@ -5781,6 +5781,16 @@ export default function PdfViewer({
         .e-pv-annotation-popup,
         .e-pv-comment-panel { display: none !important; }
 
+        /* Hide Syncfusion's generic service warning dialog; the app handles viewer
+           loading state itself and the server-rendered PDF path is working. */
+        #sfPdfViewer_notify,
+        #sfPdfViewer .e-pv-notification-popup,
+        .e-pv-notification-popup {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+
         /* ── Left sidebar toolbar (thumbnail / bookmark / text-search icons) ──────────
              Syncfusion renders this even when enableThumbnail and enableBookmark are
              false.  Hide it and collapse its width so the viewer content fills 100%.  */
