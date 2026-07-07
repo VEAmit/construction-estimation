@@ -49,8 +49,10 @@ public class ExtractionService
     );
 
     // Drawing list format (COLUMNS / BEAMS / PAD FOOTINGS on structural plans)
+    // Note: "/" intentionally excluded — it appears in address text ("Unit 10/18 Stirling HWY")
+    // and causes false member matches from the title block.
     private static readonly Regex DrawingListLinePattern = new(
-        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•/]\s*(.+)$",
+        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•]\s*(.+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -77,6 +79,13 @@ public class ExtractionService
         "member schedule", "steel schedule", "section schedule",
         "beam schedule", "column schedule", "purlin schedule",
         "member mark", "section size", "unit weight",
+        "item member section", "member section type", "section type description",
+    };
+
+    private static readonly string[] MetadataNoiseTokens = {
+        "project title", "company logo", "tender", "revision", "drawing number",
+        "scale", "date", "stirling", "nedlands", "government of", "department of",
+        "buildings and contracts", "terpkos", "architect", "client", "drawn",
     };
 
     public ExtractionService(ILogger<ExtractionService> logger, IWebHostEnvironment env)
@@ -104,7 +113,13 @@ public class ExtractionService
                 foreach (var page in pdf.GetPages())
                 {
                     var words = page.GetWords().ToList();
+                    // Full-page extraction (catches everything in text layer)
                     allLines.AddRange(ReconstructLines(words));
+                    // Targeted schedule region extraction: finds MEMBER SCHEDULE header by
+                    // bounding-box coordinates, then reconstructs lines from only those words.
+                    // This gives clean schedule rows even when the full-page extraction mixes
+                    // schedule text with drawing plan text on the same Y-band.
+                    allLines.AddRange(ExtractScheduleRegionLines(words));
                 }
             }
 
@@ -144,12 +159,29 @@ public class ExtractionService
                 extractionMethod = "Text";
             }
 
-            _logger.LogInformation(
-                "Drawing {DrawingId}: extraction method={Method}, lines={Lines}",
-                drawingId, extractionMethod, allLines.Count);
-
             var fullText = string.Join(" ", allLines);
             var members = ParseMembers(allLines, fullText);
+
+            if (ShouldRunScheduleOcr(allLines, members))
+            {
+                _logger.LogInformation(
+                    "Drawing {DrawingId}: selectable text exists but schedule candidates are weak ({Count} member(s)) — running targeted schedule OCR",
+                    drawingId, members.Count);
+
+                var scheduleOcrLines = ExtractScheduleViaOcr(filePath, out int ocrPages);
+                if (scheduleOcrLines.Count > 0)
+                {
+                    allLines.AddRange(scheduleOcrLines);
+                    pageCount = Math.Max(pageCount, ocrPages);
+                    extractionMethod = extractionMethod == "Text" ? "Text+ScheduleOCR" : $"{extractionMethod}+ScheduleOCR";
+                    fullText = string.Join(" ", allLines);
+                    members = ParseMembers(allLines, fullText);
+                }
+            }
+
+            _logger.LogInformation(
+                "Drawing {DrawingId}: extraction method={Method}, lines={Lines}, members={Members}",
+                drawingId, extractionMethod, allLines.Count, members.Count);
 
             // Prefer schedule-relevant lines for the raw sample (shows where extraction found/missed marks)
             var rawSample = BuildRawSample(allLines);
@@ -219,6 +251,152 @@ public class ExtractionService
 
     // ── PdfPig line reconstruction ───────────────────────────────────────────────
 
+    private List<string> ExtractScheduleViaOcr(string pdfPath, out int pageCount)
+    {
+        pageCount = 0;
+        var lines = new List<string>();
+
+        if (!Directory.Exists(_tessDataPath) ||
+            !File.Exists(Path.Combine(_tessDataPath, "eng.traineddata")))
+        {
+            throw new FileNotFoundException(
+                $"Tesseract tessdata not found at {_tessDataPath}. " +
+                "Please ensure tessdata/eng.traineddata exists in the API root.");
+        }
+
+        using var engine = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
+        engine.SetVariable("tessedit_char_whitelist", "");
+        engine.SetVariable("preserve_interword_spaces", "1");
+
+        using var pdfStream = File.OpenRead(pdfPath);
+        var renderOptions = new RenderOptions(Dpi: 240);
+        var pageImages = Conversion.ToImages(pdfStream, options: renderOptions);
+
+        foreach (var bitmap in pageImages)
+        {
+            pageCount++;
+            var bestLines = new List<string>();
+            var bestScore = 0;
+
+            foreach (var crop in BuildScheduleCropCandidates(bitmap.Width, bitmap.Height))
+            {
+                var cropLines = OcrBitmapRegion(engine, bitmap, crop, upscale: 2);
+                var score = ScoreScheduleOcrLines(cropLines);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestLines = cropLines;
+                }
+            }
+
+            if (bestScore > 0 && bestLines.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Schedule OCR page {Page}: selected candidate score={Score}, lines={Lines}",
+                    pageCount, bestScore, bestLines.Count);
+
+                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+                lines.AddRange(bestLines);
+            }
+
+            bitmap.Dispose();
+        }
+
+        return lines;
+    }
+
+    private static List<SKRectI> BuildScheduleCropCandidates(int width, int height)
+    {
+        static SKRectI Rect(double left, double top, double right, double bottom, int w, int h)
+        {
+            var l = Math.Clamp((int)Math.Round(w * left), 0, w - 1);
+            var t = Math.Clamp((int)Math.Round(h * top), 0, h - 1);
+            var r = Math.Clamp((int)Math.Round(w * right), l + 1, w);
+            var b = Math.Clamp((int)Math.Round(h * bottom), t + 1, h);
+            return new SKRectI(l, t, r, b);
+        }
+
+        return
+        [
+            Rect(0.760, 0.030, 0.995, 0.320, width, height),
+            Rect(0.735, 0.025, 0.995, 0.350, width, height),
+            Rect(0.770, 0.035, 0.995, 0.425, width, height),
+            Rect(0.700, 0.020, 0.995, 0.380, width, height),
+        ];
+    }
+
+    private static List<string> OcrBitmapRegion(TesseractEngine engine, SKBitmap source, SKRectI crop, int upscale)
+    {
+        using var cropped = new SKBitmap(crop.Width, crop.Height);
+        using (var canvas = new SKCanvas(cropped))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, crop, new SKRect(0, 0, crop.Width, crop.Height));
+        }
+
+        using var scaled = new SKBitmap(cropped.Width * upscale, cropped.Height * upscale);
+        using (var canvas = new SKCanvas(scaled))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(cropped, new SKRect(0, 0, scaled.Width, scaled.Height));
+        }
+
+        using var pngData = scaled.Encode(SKEncodedImageFormat.Png, 100);
+        using var pix = Pix.LoadFromMemory(pngData.ToArray());
+        using var tessPage = engine.Process(pix, PageSegMode.SingleBlock);
+
+        return (tessPage.GetText() ?? string.Empty)
+            .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => NormalizeScheduleOcrLine(Regex.Replace(l.Trim(), @"\s+", " ")))
+            .Where(l => l.Length > 1 && !IsMetadataLine(l))
+            .ToList();
+    }
+
+    private static string NormalizeScheduleOcrLine(string line)
+    {
+        // In small schedule mark columns Tesseract can drop or confuse one glyph:
+        // C1 -> 1, C5 -> CS, HB5 -> HBS. Keep this scoped to targeted schedule OCR.
+        line = Regex.Replace(line, @"^1\s+(?=\d{2,4}\s*(?:x|X|×|SHS|RHS|CHS|UB|PFC)\b)", "C1 ");
+        line = Regex.Replace(line, @"^8\s+S?50\s+SHS\b", "C8 50 SHS", RegexOptions.IgnoreCase);
+        line = Regex.Replace(line, @"^CS\s+(?=\d{2,4}|\d{2,3}\.\d|C\d)", "C5 ", RegexOptions.IgnoreCase);
+        line = Regex.Replace(line, @"^HBS\s+(?=\(?C?\d{2,4}|\d{2,4}\s*(?:x|X|×|SHS|RHS|CHS|UB|PFC)\b)", "HB5 ", RegexOptions.IgnoreCase);
+        return line;
+    }
+
+    private static int ScoreScheduleOcrLines(List<string> lines)
+    {
+        var score = 0;
+        foreach (var line in lines)
+        {
+            var upper = line.ToUpperInvariant();
+            if (upper.Contains("ITEM") && upper.Contains("MEMBER")) score += 8;
+            if (upper.Contains("SECTION") && upper.Contains("TYPE")) score += 8;
+            if (upper.Contains("DESCRIPTION")) score += 4;
+            if (Regex.IsMatch(upper, @"\b(C|HB|WB|DF|PF|SF|RW)\s*\d{1,3}[A-Z]?\b")) score += 3;
+            if (Regex.IsMatch(upper, @"^\s*\d+\s+[A-Z]{1,4}\s*\d{1,3}[A-Z]?\b")) score += 2;
+        }
+        return score;
+    }
+
+    private static bool ShouldRunScheduleOcr(List<string> lines, List<ExtractedMemberDto> members)
+    {
+        if (members.Count >= 5) return false;
+
+        var fullText = string.Join(" ", lines).ToLowerInvariant();
+        var hasOnlyMetadataText = MetadataNoiseTokens.Any(t => fullText.Contains(t));
+        var hasScheduleSignal = ScheduleHeaders.Any(h => fullText.Contains(h))
+            || Regex.IsMatch(fullText, @"\b(item|member)\s+(member|section)\b", RegexOptions.IgnoreCase);
+
+        return hasOnlyMetadataText || !hasScheduleSignal || members.Count == 0;
+    }
+
+    private static bool IsMetadataLine(string line)
+    {
+        var lower = line.ToLowerInvariant();
+        return MetadataNoiseTokens.Any(lower.Contains)
+            || Regex.IsMatch(lower, @"\b(ph\.|www\.|\.com|@|drawing no|drawn|checked|approved)\b");
+    }
+
     private static List<string> ReconstructLines(List<Word> words)
     {
         if (words.Count == 0) return [];
@@ -242,6 +420,51 @@ public class ExtractionService
                 string.Join(" ", g.Value.OrderBy(w => w.BoundingBox.Left).Select(w => w.Text)))
             .Where(l => l.Trim().Length > 0)
             .ToList();
+    }
+
+    /// <summary>
+    /// Finds the MEMBER SCHEDULE header in the page word list by bounding-box coordinates,
+    /// then reconstructs lines from only the words within that schedule region.
+    /// This prevents schedule rows from being mixed with main-drawing plan text that shares
+    /// the same Y-band on large A1/A2/A3 engineering drawings.
+    /// </summary>
+    private static List<string> ExtractScheduleRegionLines(List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        // Find "MEMBER SCHEDULE" header — two adjacent words on the same visual line.
+        double headerBottom = -1, tableLeft = -1;
+        var schedWords = pageWords
+            .Where(w => w.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var sw in schedWords)
+        {
+            var memberWord = pageWords.FirstOrDefault(w =>
+                w.Text.Equals("MEMBER", StringComparison.OrdinalIgnoreCase) &&
+                Math.Abs(w.BoundingBox.Bottom - sw.BoundingBox.Bottom) < 10 &&
+                w.BoundingBox.Right <= sw.BoundingBox.Left + 5);
+
+            if (memberWord != null)
+            {
+                headerBottom = sw.BoundingBox.Bottom;
+                tableLeft = Math.Min(memberWord.BoundingBox.Left, sw.BoundingBox.Left);
+                break;
+            }
+        }
+
+        if (headerBottom < 0) return [];
+
+        // Extract words in the region below the header and within the schedule table width.
+        // PDF Y-axis increases upward, so "below" = smaller Y value.
+        var tableWords = pageWords.Where(w =>
+            w.BoundingBox.Bottom < headerBottom &&
+            w.BoundingBox.Bottom > headerBottom - 700 &&
+            w.BoundingBox.Left >= tableLeft - 30 &&
+            w.BoundingBox.Left <= tableLeft + 700)
+            .ToList();
+
+        return tableWords.Count > 0 ? ReconstructLines(tableWords) : [];
     }
 
     /// <summary>
@@ -410,6 +633,19 @@ public class ExtractionService
 
             ExtractedMemberDto? member = null;
 
+            var splitMembers = TryParseSplitDrawingListLine(line);
+            if (splitMembers.Count > 0)
+            {
+                foreach (var splitMember in splitMembers)
+                {
+                    _logger.LogInformation("[Extract] Parsed split-row '{Mark}' ({Size}) from section '{Section}'",
+                        splitMember.Mark, splitMember.MemberSize, currentSection ?? "global");
+                    results.Add(splitMember);
+                }
+                pendingMark = null;
+                continue;
+            }
+
             // When PDF text reconstruction splits "PF2" onto its own line, try to
             // join it with the following line which contains the dimensions.
             if (pendingMark != null)
@@ -481,6 +717,16 @@ public class ExtractionService
         var mark = listMatch.Groups[1].Value.ToUpperInvariant();
         var rest = listMatch.Groups[2].Value.Trim();
 
+        if (!Regex.IsMatch(mark, @"\d"))
+        {
+            var nested = DrawingListLinePattern.Match(rest);
+            if (nested.Success && Regex.IsMatch(nested.Groups[1].Value, @"\d"))
+            {
+                mark = nested.Groups[1].Value.ToUpperInvariant();
+                rest = nested.Groups[2].Value.Trim();
+            }
+        }
+
         // Drop trailing note after colon — "360 UB 45: REFER TO DETAIL..."
         var noteIdx = rest.IndexOf(':');
         if (noteIdx > 0) rest = rest[..noteIdx].Trim();
@@ -512,6 +758,69 @@ public class ExtractionService
         return new ExtractedMemberDto(
             mark, sizeLabel, DetectMemberType(mark, sizeLabel),
             0, 0, 0, TruncateLine(line), 0.95);
+    }
+
+    private static List<ExtractedMemberDto> TryParseSplitDrawingListLine(string line)
+    {
+        var match = Regex.Match(line.Trim(),
+            @"^([A-Z]{1,4}\d{1,3}[A-Z]?)\s+([A-Z]{1,4}\d{1,3}[A-Z]?)\s*[-–—]\s*[-–—]\s*(.+)$",
+            RegexOptions.IgnoreCase);
+        if (!match.Success) return [];
+
+        var mark1 = match.Groups[1].Value.ToUpperInvariant();
+        var mark2 = match.Groups[2].Value.ToUpperInvariant();
+        var rest = Regex.Replace(match.Groups[3].Value, @"\s+", " ");
+        var rows = new List<ExtractedMemberDto>();
+
+        void Add(string mark, string size)
+        {
+            var normalized = NormalizeSection(size);
+            rows.Add(new ExtractedMemberDto(
+                mark, normalized, DetectMemberType(mark, normalized),
+                0, 0, 0, TruncateLine(line), 0.95));
+        }
+
+        var footing = Regex.Match(rest,
+            @"^(\d{3,4})\s+(\d{3,4})\s*[xX×]\s*[xX×]\s*(\d{3,4})\s+(\d{3,4})\s*[xX×]\s*[xX×]\s*(\d{2,4})\s+(\d{2,4})\s+DEEP\b",
+            RegexOptions.IgnoreCase);
+        if (footing.Success)
+        {
+            Add(mark1, $"{footing.Groups[1].Value} x {footing.Groups[3].Value} x {footing.Groups[5].Value} DEEP");
+            Add(mark2, $"{footing.Groups[2].Value} x {footing.Groups[4].Value} x {footing.Groups[6].Value} DEEP");
+            return rows;
+        }
+
+        var mixedHollow = Regex.Match(rest,
+            @"^(\d{2,4})\s+(\d{2,4})\s*[xX×]\s*[xX×]\s*(\d{1,2}(?:\.\d+)?)\s+(\d{2,4})\s+(SHS|RHS|CHS)\b.*?[xX×]\s*(\d{1,2}(?:\.\d+)?)\s+(RHS|SHS|CHS)\b",
+            RegexOptions.IgnoreCase);
+        if (mixedHollow.Success)
+        {
+            Add(mark1, $"{mixedHollow.Groups[1].Value} x {mixedHollow.Groups[3].Value} {mixedHollow.Groups[5].Value}");
+            Add(mark2, $"{mixedHollow.Groups[2].Value} x {mixedHollow.Groups[4].Value} x {mixedHollow.Groups[6].Value} {mixedHollow.Groups[7].Value}");
+            return rows;
+        }
+
+        var pairedHollow = Regex.Match(rest,
+            @"^(\d{2,4})\s+(\d{2,4})\s*[xX×]\s*[xX×]\s*(\d{1,2}(?:\.\d+)?)\s+(\d{1,2}(?:\.\d+)?)\s+(SHS|RHS|CHS)\b",
+            RegexOptions.IgnoreCase);
+        if (pairedHollow.Success)
+        {
+            Add(mark1, $"{pairedHollow.Groups[1].Value} x {pairedHollow.Groups[3].Value} {pairedHollow.Groups[5].Value}");
+            Add(mark2, $"{pairedHollow.Groups[2].Value} x {pairedHollow.Groups[4].Value} {pairedHollow.Groups[5].Value}");
+            return rows;
+        }
+
+        var pairedSteel = Regex.Match(rest,
+            @"^(\d{2,4})\s+(\d{2,4})\s+PFC\s+UB\s*(\d{1,3}(?:\.\d+)?)?\b",
+            RegexOptions.IgnoreCase);
+        if (pairedSteel.Success)
+        {
+            Add(mark1, $"{pairedSteel.Groups[1].Value} PFC");
+            Add(mark2, $"{pairedSteel.Groups[2].Value} UB{pairedSteel.Groups[3].Value}");
+            return rows;
+        }
+
+        return [];
     }
 
     private static List<ExtractedMemberDto> MergePreferBestRows(List<ExtractedMemberDto> rows)
@@ -570,16 +879,38 @@ public class ExtractionService
             }
         }
 
+        string? pendingMark = null;
         for (int i = headerIdx + 1; i < lines.Count; i++)
         {
             var line = lines[i].Trim();
-            if (line.Length < 2) continue;
+            if (line.Length < 2) { pendingMark = null; continue; }
             if (IsStopLine(line) && i > headerIdx + 3) break;
+            if (IsSubHeader(line)) { pendingMark = null; continue; }
 
-            if (IsSubHeader(line)) continue;
+            // Two-line table format: mark appeared alone on the previous line.
+            if (pendingMark != null)
+            {
+                var hasSpec = SteelSectionPattern.IsMatch(line) || HollowSectionPattern.IsMatch(line)
+                           || ConcreteDimPattern.IsMatch(line) || ReidBarPattern.IsMatch(line);
+                if (hasSpec)
+                {
+                    var combined = TryParseScheduleRow($"{pendingMark} - {line}");
+                    if (combined != null) results.Add(combined);
+                }
+                pendingMark = null;
+                // Don't skip — also try parsing this line on its own.
+            }
+
+            // Standalone mark token — description may be on the next line.
+            var solo = Regex.Match(line, @"^([A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
+            if (solo.Success)
+            {
+                pendingMark = solo.Groups[1].Value.ToUpperInvariant();
+                continue;
+            }
 
             var member = TryParseScheduleRow(line);
-            if (member != null) results.Add(member);
+            if (member != null) { results.Add(member); pendingMark = null; }
         }
 
         return results;
@@ -611,7 +942,7 @@ public class ExtractionService
         {
             var sectionRaw = sectionMatch.Value.Trim();
             var mark = ExtractPdfMark(line, sectionMatch) ?? NormalizeSection(sectionRaw);
-            var memberType = DetectMemberType(mark, sectionRaw);
+            var memberType = DetectScheduleMemberType(mark, line);
             return new ExtractedMemberDto(
                 mark, NormalizeSection(sectionRaw), memberType,
                 0, 0, 0, $"Schedule: {TruncateLine(line)}", 0.90);
@@ -626,12 +957,91 @@ public class ExtractionService
             if (!string.IsNullOrEmpty(mark))
             {
                 return new ExtractedMemberDto(
-                    mark, dimRaw, DetectMemberType(mark, dimRaw),
+                    mark, dimRaw, DetectScheduleMemberType(mark, line),
                     0, 0, 0, $"Schedule: {TruncateLine(line)}", 0.90);
             }
         }
 
+        var generic = TryParseGenericScheduleRow(line);
+        if (generic != null) return generic;
+
         return null;
+    }
+
+    private ExtractedMemberDto? TryParseGenericScheduleRow(string line)
+    {
+        if (IsMetadataLine(line)) return null;
+
+        var cleaned = MergeMarkFragments(Regex.Replace(line.Trim(), @"\s+", " "));
+        cleaned = Regex.Replace(cleaned, @"^[|:\-–—\s]+", "");
+
+        var match = Regex.Match(cleaned,
+            @"^(?:\d{1,3}\s+)?([A-Z]{1,4}\d{1,3}[A-Z]?)\s+(.{2,})$",
+            RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+
+        var mark = match.Groups[1].Value.ToUpperInvariant();
+        if (!IsLikelyScheduleMark(mark)) return null;
+
+        var rest = match.Groups[2].Value.Trim();
+        if (rest.Length < 2 || IsMetadataLine(rest)) return null;
+
+        var section = ExtractGenericScheduleSection(rest);
+        if (string.IsNullOrWhiteSpace(section)) return null;
+
+        var memberType = DetectScheduleMemberType(mark, rest);
+        return new ExtractedMemberDto(
+            mark, section, memberType,
+            0, 0, 0, $"Schedule: {TruncateLine(cleaned)}", 0.96);
+    }
+
+    private static bool IsLikelyScheduleMark(string mark)
+    {
+        if (!Regex.IsMatch(mark, @"^[A-Z]{1,4}\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase))
+            return false;
+
+        var upper = mark.ToUpperInvariant();
+        if (Regex.IsMatch(upper, @"^(UNIT|DATE|DWG|REV|SCALE|SHEET|TENDER|NOTE)\d*$"))
+            return false;
+
+        return Regex.IsMatch(upper, @"^(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FB|C|B|W)\d", RegexOptions.IgnoreCase);
+    }
+
+    private static string ExtractGenericScheduleSection(string rest)
+    {
+        var sectionMatch = SteelSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
+        if (sectionMatch.Success) return NormalizeSection(sectionMatch.Value.Trim());
+
+        var concreteMatch = ConcreteDimPattern.Match(rest);
+        if (concreteMatch.Success) return concreteMatch.Value.Trim();
+
+        var typeMatch = Regex.Match(rest,
+            @"\b(COLUMN|COL|WALL|BEAM|HEADER|HOB|DOOR|FRAME|FOOTING|SLAB|BRACE|BLOCKWORK)\b",
+            RegexOptions.IgnoreCase);
+
+        var section = typeMatch.Success && typeMatch.Index > 0
+            ? rest[..typeMatch.Index].Trim()
+            : string.Join(" ", rest.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(4));
+
+        section = Regex.Replace(section, @"\s+", " ").Trim(' ', '-', '–', '—', '|', ':');
+        return section.Length > 48 ? section[..48] : section;
+    }
+
+    private static string DetectScheduleMemberType(string mark, string rowText)
+    {
+        var m = mark.ToUpperInvariant();
+        var row = rowText.ToUpperInvariant();
+
+        if (m.StartsWith("C")) return "Column";
+        if (m.StartsWith("HB")) return "Beam";
+        if (m.StartsWith("WB")) return "Beam";
+        if (m.StartsWith("DF")) return "Other";
+        if (row.Contains("WALL")) return "Wall";
+        if (row.Contains("COLUMN") || row.Contains(" COL")) return "Column";
+        if (row.Contains("BEAM") || row.Contains("HEADER")) return "Beam";
+        if (row.Contains("FOOTING")) return "Footing";
+        return DetectMemberType(mark, rowText);
     }
 
     private List<ExtractedMemberDto> ParseByPattern(List<string> lines, string fullText)
@@ -751,7 +1161,7 @@ public class ExtractionService
     {
         var upper = line.ToUpperInvariant();
         if (upper.Contains("REINFORCEMENT")) return true;
-        if (upper.Contains("PROVIDE")) return true;
+        if (Regex.IsMatch(upper, @"\bPROVIDE\b")) return true;
         if (upper.Contains("WELD AT") || upper.Contains("WELD ON")) return true;
         if (upper.Contains("GENERAL NOTE") || upper.StartsWith("NOTE ")) return true;
         return false;

@@ -166,6 +166,71 @@ function applyFitWidthToViewer(vm, setPdfScale, containerWidth = null, pageMeta 
   } catch (_) {}
 }
 
+
+function resolvePageSizeForFit(vm, pageMeta = null) {
+  const vb = vm?.viewerBase
+  const mag = getMagnification(vm)
+  if (!vb) return null
+
+  const viewerId = vm.element?.id ?? 'sfPdfViewer'
+  const pageDiv = document.getElementById(`${viewerId}_pageDiv_0`)
+  const zf = mag?.zoomFactor || 1
+  const divW = pageDiv?.offsetWidth > 10 ? pageDiv.offsetWidth / zf : 0
+  const divH = pageDiv?.offsetHeight > 10 ? pageDiv.offsetHeight / zf : 0
+  if (divW > 0 && divH > 0) return { width: divW, height: divH }
+
+  const vbPageW = Array.isArray(vb.pageWidth) ? vb.pageWidth[0] : vb.pageWidth
+  const vbPageH = Array.isArray(vb.pageHeight) ? vb.pageHeight[0] : vb.pageHeight
+  if (Number(vbPageW) > 0 && Number(vbPageH) > 0) {
+    return { width: Number(vbPageW), height: Number(vbPageH) }
+  }
+
+  if (pageMeta?.width > 0 && pageMeta?.height > 0) {
+    return { width: pageMeta.width, height: pageMeta.height }
+  }
+
+  return null
+}
+
+function applyFitPageToViewer(vm, setPdfScale, containerWidth = null, pageMeta = null) {
+  const vb = vm?.viewerBase
+  if (!vb?.viewerContainer) return
+  const vc = vb.viewerContainer
+  if (vc.clientWidth < 80 || vc.clientHeight < 80) return
+
+  const mag = getMagnification(vm)
+  if (!mag) return
+
+  try {
+    syncViewerLayout(vm, false, containerWidth)
+    const fitW = containerWidth ?? vc.getBoundingClientRect().width ?? vc.clientWidth
+    const fitH = vc.getBoundingClientRect().height ?? vc.clientHeight
+    if (fitW < 80 || fitH < 80) return
+
+    const pageSize = resolvePageSizeForFit(vm, pageMeta)
+    if (!pageSize?.width || !pageSize?.height) return
+
+    const scrollPad = mag.scrollWidth ?? 15
+    const widthPct = ((fitW - scrollPad) / pageSize.width) * 100
+    const heightPct = ((fitH - scrollPad) / pageSize.height) * 100
+    const pct = Math.max(10, Math.min(400, Math.floor(Math.min(widthPct, heightPct))))
+
+    mag.fitType = null
+    mag.isAutoZoom = false
+    mag.zoomTo?.(pct)
+
+    const zf = mag.zoomFactor
+    if (typeof zf === 'number' && zf > 0 && typeof setPdfScale === 'function') {
+      setPdfScale(+(zf).toFixed(2))
+    }
+
+    alignPageInViewer(vm, pageSize.width, zf ?? pct / 100)
+    vc.scrollTop = 0
+    vc.scrollLeft = 0
+    vb.onWindowResize?.()
+  } catch (_) {}
+}
+
 /** Center the page div and reset scroll. pageWSF is page width in Syncfusion CSS-px at 100% zoom. */
 function alignPageInViewer(vm, pageWSF, zoomFactor) {
   if (!vm?.viewerBase || !pageWSF || !zoomFactor) return
@@ -4771,7 +4836,7 @@ export default function PdfViewer({
     const payload = typeof pdfCommand === 'object'  ? pdfCommand : {}
     try {
       if (type === 'fitPage') {
-        applyFitWidthToViewer(vm, setPdfScale, containerRef.current?.clientWidth, pageMetaRef.current)
+        applyFitPageToViewer(vm, setPdfScale, containerRef.current?.clientWidth, pageMetaRef.current)
       } else if (type === 'refreshCalibration') {
         // After calibration, the import cycle (if any) is always complete — force-clear the gate
         // so the user can immediately draw new measurements.
