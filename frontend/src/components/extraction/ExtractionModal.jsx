@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { extractionService } from '../../services/extractionService'
 import { sortMembersByMark } from '../../utils/extractionNormalize'
 
@@ -9,7 +9,8 @@ const s = {
     position: 'fixed', inset: 0,
     background: 'rgba(0,0,0,.85)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 2000, backdropFilter: 'blur(6px)',
+    zIndex: 2147483000, backdropFilter: 'blur(6px)',
+    pointerEvents: 'auto',
   },
   modal: {
     background: '#111827',
@@ -20,6 +21,9 @@ const s = {
     display: 'flex', flexDirection: 'column',
     boxShadow: '0 25px 80px rgba(0,0,0,.85)',
     overflow: 'hidden',
+    position: 'relative',
+    zIndex: 1,
+    pointerEvents: 'auto',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -139,8 +143,11 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
   const [rows, setRows] = useState([])
   const [error, setError] = useState(null)
   const [showRaw, setShowRaw] = useState(false)
+  const extractionStartedRef = useRef(false)
 
   const runExtraction = useCallback(async () => {
+    if (extractionStartedRef.current || (phase !== 'idle' && phase !== 'preview')) return
+    extractionStartedRef.current = true
     setPhase('scanning')
     setError(null)
     try {
@@ -159,8 +166,10 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     } catch (err) {
       setError(err?.response?.data?.message ?? err.message ?? 'Extraction failed')
       setPhase('idle')
+    } finally {
+      extractionStartedRef.current = false
     }
-  }, [drawingId])
+  }, [drawingId, phase])
 
   const updateRow = (id, field, value) => {
     setRows(prev => prev.map(r => r._id === id ? { ...r, [field]: value } : r))
@@ -225,6 +234,11 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
               )}
               <button
                 style={{ ...s.confirmBtn(false), padding: '12px 32px', fontSize: 15 }}
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  runExtraction()
+                }}
                 onClick={runExtraction}
               >
                 Start Extraction

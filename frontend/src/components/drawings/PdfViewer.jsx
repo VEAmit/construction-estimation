@@ -2106,6 +2106,30 @@ function getSyncfusionViewerModifiedDate(vm, value) {
   return syncfusionViewerModifiedDate(value)
 }
 
+/** Syncfusion server rendering can return sparse annotation/comment page data.
+ * Its internal date normalizer assumes every page object exists, then reads
+ * newData.annotationOrder. Guard that instance method so empty pages are ignored.
+ */
+function patchSyncfusionCommentDateGuard(vm) {
+  const base = vm?.pdfViewerBase ?? vm?.viewerBase
+  if (!base || base.__btCommentDateGuardApplied) return
+  const original = base.updateModifiedDateToLocalDate
+  if (typeof original !== 'function') return
+
+  base.__btCommentDateGuardApplied = true
+  base.updateModifiedDateToLocalDate = function guardedUpdateModifiedDateToLocalDate(newData, annotationType) {
+    if (!newData || typeof newData !== 'object') return
+    const annotations = newData[annotationType]
+    if (!Array.isArray(annotations) || annotations.length === 0) return
+    const validAnnotations = annotations.filter(a => a && typeof a === 'object')
+    if (validAnnotations.length === 0) return
+    if (validAnnotations.length !== annotations.length) {
+      newData[annotationType] = validAnnotations
+    }
+    return original.call(this, newData, annotationType)
+  }
+}
+
 function isValidSyncfusionViewerModifiedDate(val) {
   if (typeof val !== 'string' || !val.trim()) return false
   if (/^D:\d/.test(val)) return false
@@ -2997,6 +3021,27 @@ export default function PdfViewer({
     }
   }, [pdfBase64, docLoaded])
 
+  useEffect(() => {
+    if (!pdfBase64 || docLoaded) return
+    const startedAt = Date.now()
+    const timer = setInterval(() => {
+      const vm = viewerRef.current
+      const rootId = vm?.element?.id ?? 'sfPdfViewer'
+      const pageDiv = document.getElementById(`${rootId}_pageDiv_0`)
+      const pageCanvas = document.getElementById(`${rootId}_pageCanvas_0`)
+      const hasRenderedPage = (pageDiv?.offsetWidth > 10 && pageDiv?.offsetHeight > 10)
+        || (pageCanvas?.width > 10 && pageCanvas?.height > 10)
+      if (hasRenderedPage) {
+        setDocLoaded(true)
+        setDocRendering(false)
+        clearInterval(timer)
+      } else if (Date.now() - startedAt > 15000) {
+        clearInterval(timer)
+      }
+    }, 500)
+    return () => clearInterval(timer)
+  }, [pdfBase64, docLoaded])
+
   const bumpFallbackLabelLayout = useCallback(() => {
     setFallbackLabelTick(t => t + 1)
   }, [])
@@ -3106,6 +3151,9 @@ export default function PdfViewer({
   const handlePageRenderComplete = useCallback(() => {
     const vm = viewerRef.current
     if (!vm) return
+    patchSyncfusionCommentDateGuard(vm)
+    setDocLoaded(true)
+    setDocRendering(false)
     const pass = fitPassRef.current
     console.log(`[SF-Render] pageRenderComplete pass=${pass} zoom=${getMagnification(vm)?.zoomFactor?.toFixed(3) ?? '?'}`)
     if (pass === 0) {
@@ -5881,6 +5929,7 @@ export default function PdfViewer({
     fitPassRef.current = 0
     const vm = viewerRef.current
     if (vm) {
+      patchSyncfusionCommentDateGuard(vm)
       try { vm.enableShapeLabel = false } catch (_) {}
       try { vm.contextMenuOption = 'None' } catch (_) {}
       // Fallback page size from Syncfusion if MediaBox probe missed.

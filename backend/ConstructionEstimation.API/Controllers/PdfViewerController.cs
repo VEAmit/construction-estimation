@@ -84,6 +84,9 @@ public class PdfViewerController : ControllerBase
             var result = pdfViewer.Load(stream, jsonObject);
 
             _logger.LogInformation("PdfViewer Load: type={Type}", result?.GetType()?.Name);
+            if (result is string json)
+                return Content(json, "application/json");
+
             return Content(JsonConvert.SerializeObject(result), "application/json");
         }
         catch (Exception ex)
