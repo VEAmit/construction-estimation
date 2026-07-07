@@ -593,7 +593,7 @@ function diagramPointToContainerCoords(diagramX, diagramY, pageIndex, vm, contai
 /** Map stored vertex points through the diagram SVG — same space Syncfusion uses to draw the line. */
 function getPositionFromDiagramPoints(pts, pageIndex, vm, container, gapPx) {
   if (!pts?.length || pts.length < 2 || !container) return null
-  const svg = resolveDiagramSvg(vm, pageIndex)
+  const svg = resolveMeasureDiagramSvg(vm, pageIndex)
   if (!svg) return null
   const p0 = svgDiagramPointToContainer(svg, pts[0].x, pts[0].y, container)
   const p1 = svgDiagramPointToContainer(svg, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
@@ -613,12 +613,51 @@ function collectMeasureLinePoints(live, raw) {
   return extractAnnotationPoints(raw ?? live)
 }
 
+function extractStoredLabelLinePoints(raw) {
+  const rawPts = raw?.labelVertexPoints ?? raw?.LabelVertexPoints ?? []
+  return (Array.isArray(rawPts) ? rawPts : [])
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+}
+
+function extractStoredLabelPagePoints(raw) {
+  const rawPts = raw?.labelPagePoints ?? raw?.LabelPagePoints ?? []
+  return (Array.isArray(rawPts) ? rawPts : [])
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+}
+
 /** Label anchor — midpoint via PDF coordinate mapping (zoom-aware, always tracks the drawn line). */
 function getMeasureLabelScreenPosition(live, raw, pageIndex, vm, container) {
   if (!container) return null
-  const pts = collectMeasureLinePoints(live, raw)
+  const rawPts = raw ? extractAnnotationPoints(raw) : []
+  const pts = rawPts.length >= 2 ? rawPts : collectMeasureLinePoints(live, raw)
   if (pts.length < 2) return null
-  return getPositionFromPdfPoints(pts, pageIndex, vm, container, MEASURE_LABEL_GAP_PX)
+  const m0 = measurePointToContainerCoords(pts[0], pageIndex, vm, container)
+  const m1 = measurePointToContainerCoords(pts[pts.length - 1], pageIndex, vm, container)
+  if (m0 && m1) {
+    return offsetAboveLineScreen(
+      m0,
+      m1,
+      { left: (m0.left + m1.left) / 2, top: (m0.top + m1.top) / 2 },
+      MEASURE_LABEL_GAP_PX,
+    )
+  }
+  const fromDiagram = getPositionFromDiagramPoints(pts, pageIndex, vm, container, MEASURE_LABEL_GAP_PX)
+  if (fromDiagram) return fromDiagram
+  const fromPdf = getPositionFromPdfPoints(pts, pageIndex, vm, container, MEASURE_LABEL_GAP_PX)
+  if (fromPdf) return fromPdf
+  if (live?.wrapper) {
+    const visual = extractVisibleLineScreenEndpoints(live.wrapper, container)
+    if (visual) {
+      const pm = {
+        left: (visual.p0.left + visual.p1.left) / 2,
+        top: (visual.p0.top + visual.p1.top) / 2,
+      }
+      return offsetAboveLineScreen(visual.p0, visual.p1, pm, MEASURE_LABEL_GAP_PX)
+    }
+  }
+  return null
 }
 
 function isLabelPositionOnPage(left, top, pageIndex, vm, container) {
@@ -641,8 +680,27 @@ function resolveAnnotationPageIndex(source, raw) {
 }
 
 function offsetAboveLineScreen(p0, p1, pm, gapPx) {
-  if (!pm) return null
-  return { left: pm.left, top: pm.top - gapPx, nx: 0, ny: -1 }
+  if (!p0 || !p1 || !pm) return null
+  const dx = p1.left - p0.left
+  const dy = p1.top - p0.top
+  const len = Math.hypot(dx, dy)
+  if (!Number.isFinite(len) || len < 0.01) return { left: pm.left, top: pm.top - gapPx, nx: 0, ny: -1, angle: 0 }
+  let nx = -dy / len
+  let ny = dx / len
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    if (ny > 0) { nx *= -1; ny *= -1 }
+  } else if (nx < 0) {
+    nx *= -1; ny *= -1
+  }
+  const rawDeg = Math.atan2(dy, dx) * 180 / Math.PI
+  const angle = rawDeg > 90 ? rawDeg - 180 : rawDeg < -90 ? rawDeg + 180 : rawDeg
+  return {
+    left: pm.left + nx * gapPx,
+    top: pm.top + ny * gapPx,
+    nx,
+    ny,
+    angle,
+  }
 }
 
 function getPositionFromPdfPoints(pts, pageIndex, vm, container, gapPx) {
@@ -657,15 +715,25 @@ function getPositionFromPdfPoints(pts, pageIndex, vm, container, gapPx) {
   return offsetAboveLineScreen(p0, p1, pm, gapPx)
 }
 
-/** Nudge overlapping labels apart while keeping them above their line. */
+/** Nudge overlapping labels apart while keeping them attached to their own line. */
 function resolveMeasureLabelCollisions(layout, minGap = 18) {
   if (layout.length < 2) return layout
   const out = layout.map(e => ({ ...e }))
-  out.sort((a, b) => a.top - b.top || a.left - b.left)
-  for (let i = 1; i < out.length; i++) {
+  for (let i = 0; i < out.length; i++) {
     for (let j = 0; j < i; j++) {
-      if (Math.abs(out[i].left - out[j].left) < 72 && Math.abs(out[i].top - out[j].top) < minGap) {
-        out[i].top = Math.min(out[i].top, out[j].top - minGap)
+      const widthI = out[i].labelWidth ?? 96
+      const widthJ = out[j].labelWidth ?? 96
+      const heightI = out[i].labelHeight ?? 34
+      const heightJ = out[j].labelHeight ?? 34
+      const overlapX = Math.abs(out[i].left - out[j].left) < (widthI + widthJ) / 2 + 6
+      const overlapY = Math.abs(out[i].top - out[j].top) < (heightI + heightJ) / 2 + 6
+      if (overlapX && overlapY) {
+        const step = minGap + Math.max(heightI, heightJ) / 2
+        const nx = Number.isFinite(out[i].nx) ? out[i].nx : 0
+        const ny = Number.isFinite(out[i].ny) ? out[i].ny : -1
+        out[i].left += nx * step
+        out[i].top += ny * step
+        break
       }
     }
   }
@@ -944,6 +1012,41 @@ function pdfPointToContainerCoords(pdfX, pdfY, pageIndex, vm, containerEl) {
   }
 }
 
+function pageRatioPointToContainerCoords(point, pageIndex, vm, containerEl) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl || !containerEl || !point) return null
+  const x = Number(point.x ?? point.X)
+  const y = Number(point.y ?? point.Y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  const pageRect = pageEl.getBoundingClientRect()
+  const containerRect = containerEl.getBoundingClientRect()
+  return {
+    left: pageRect.left - containerRect.left + x * pageRect.width,
+    top: pageRect.top - containerRect.top + y * pageRect.height,
+  }
+}
+
+function measurePointToContainerCoords(point, pageIndex, vm, containerEl) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl || !containerEl || !point) return null
+  const x = Number(point.x ?? point.X)
+  const y = Number(point.y ?? point.Y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  const pageRect = pageEl.getBoundingClientRect()
+  const containerRect = containerEl.getBoundingClientRect()
+  const viewerZoom = Number(getMagnification(vm)?.zoomFactor)
+  const storeZoom = Number(useAppStore.getState().pdfScale ?? 1)
+  const scale = Number.isFinite(viewerZoom) && viewerZoom > 0
+    ? viewerZoom
+    : Number.isFinite(storeZoom) && storeZoom > 0
+      ? (storeZoom > 10 ? storeZoom / 100 : storeZoom)
+      : 1
+  return {
+    left: pageRect.left - containerRect.left + x * scale,
+    top: pageRect.top - containerRect.top + y * scale,
+  }
+}
+
 /** Map a screen click to PDF page coordinates (inverse of pdfPointToContainerCoords). */
 function containerClientToPdfPoint(clientX, clientY, pageIndex, vm) {
   const pageEl = resolvePdfPageElement(vm, pageIndex)
@@ -990,21 +1093,83 @@ function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerE
 }
 
 /** Read the visible measure line endpoints from the rendered SVG (handles leader offset). */
-function extractVisibleLineScreenEndpoints(wrapper, container) {
+function extractVisibleLineScreenEndpoints(wrapper, container, preferredColor = null, preferredLine = null) {
   if (!wrapper || !container) return null
+  if (typeof wrapper.querySelectorAll !== 'function') return null
   const cr = container.getBoundingClientRect()
   // Prefer ownerSVGElement; if wrapper IS the svg, use it directly.
   const svg = wrapper.ownerSVGElement ?? (wrapper.tagName?.toLowerCase() === 'svg' ? wrapper : null)
   const mkPt = svg?.createSVGPoint?.()
   if (!mkPt) return null
 
-  const SKIP = ['leader', 'handle', 'selector', 'resize', 'endpoint']
+  const SKIP = ['leader', 'handle', 'selector', 'resize', 'endpoint', 'label', 'text', 'note']
   const shouldSkip = id => SKIP.some(w => id.includes(w))
+  const normalizeColor = (value) => {
+    const raw = String(value ?? '').trim().toLowerCase()
+    if (!raw || raw === 'none' || raw === 'transparent') return ''
+    if (/^#[0-9a-f]{6}$/.test(raw)) return raw
+    if (/^#[0-9a-f]{3}$/.test(raw)) {
+      return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`
+    }
+    const m = raw.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+    if (!m) return raw
+    const toHex = n => Math.max(0, Math.min(255, Number(n) || 0)).toString(16).padStart(2, '0')
+    return `#${toHex(m[1])}${toHex(m[2])}${toHex(m[3])}`
+  }
+  const preferred = normalizeColor(preferredColor)
+  const strokeOf = (el) => normalizeColor(el.getAttribute('stroke') || getComputedStyle(el).stroke)
+  const isVisibleStroke = (el) => {
+    const style = getComputedStyle(el)
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0) return false
+    if (Number(el.getAttribute('opacity') ?? 1) === 0) return false
+    const stroke = strokeOf(el)
+    return !!stroke && stroke !== 'none'
+  }
+  const selectSvg = (tag) => [
+    ...(wrapper.tagName?.toLowerCase() === tag ? [wrapper] : []),
+    ...Array.from(wrapper.querySelectorAll(tag)),
+  ]
+  const pushCandidate = (el, s0, s1, len, source) => {
+    if (!Number.isFinite(len) || len < 2) return
+    const id = String(`${el.id ?? ''} ${el.getAttribute('class') ?? ''}`).toLowerCase()
+    if (shouldSkip(id) || !isVisibleStroke(el)) return
+    const stroke = strokeOf(el)
+    const colorScore = preferred && stroke === preferred ? 100000 : 0
+    const width = Number.parseFloat(el.getAttribute('stroke-width') || getComputedStyle(el).strokeWidth || '1') || 1
+    const widthScore = Math.min(width, 12) * 50
+    let geometryScore = 0
+    if (preferredLine?.p0 && preferredLine?.p1) {
+      const midX = (s0.x + s1.x) / 2
+      const midY = (s0.y + s1.y) / 2
+      const prefMidX = (preferredLine.p0.left + preferredLine.p1.left) / 2 + cr.left
+      const prefMidY = (preferredLine.p0.top + preferredLine.p1.top) / 2 + cr.top
+      const dist = Math.hypot(midX - prefMidX, midY - prefMidY)
+      const prefLen = Math.hypot(
+        preferredLine.p1.left - preferredLine.p0.left,
+        preferredLine.p1.top - preferredLine.p0.top,
+      )
+      const lenDelta = Number.isFinite(prefLen) ? Math.abs(len - prefLen) : 0
+      const angle = Math.atan2(s1.y - s0.y, s1.x - s0.x)
+      const prefAngle = Math.atan2(
+        preferredLine.p1.top - preferredLine.p0.top,
+        preferredLine.p1.left - preferredLine.p0.left,
+      )
+      const angleDelta = Math.abs(Math.atan2(Math.sin(angle - prefAngle), Math.cos(angle - prefAngle)))
+      geometryScore = -(dist * 10) - (lenDelta * 3) - (angleDelta * 250)
+    }
+    lines.push({
+      p0: { left: s0.x - cr.left, top: s0.y - cr.top },
+      p1: { left: s1.x - cr.left, top: s1.y - cr.top },
+      len,
+      score: colorScore + widthScore + len + geometryScore,
+      source,
+    })
+  }
 
   const lines = []
 
   // Scan <line> elements
-  wrapper.querySelectorAll('line').forEach(el => {
+  selectSvg('line').forEach(el => {
     if (shouldSkip(String(el.id ?? '').toLowerCase())) return
     const ctm = el.getScreenCTM?.()
     if (!ctm) return
@@ -1018,34 +1183,125 @@ function extractVisibleLineScreenEndpoints(wrapper, container) {
     mkPt.x = x2; mkPt.y = y2
     const s1 = mkPt.matrixTransform(ctm)
     const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
-    if (len < 2) return
-    lines.push({ p0: { left: s0.x - cr.left, top: s0.y - cr.top }, p1: { left: s1.x - cr.left, top: s1.y - cr.top }, len })
+    pushCandidate(el, s0, s1, len, 'line')
   })
 
   // Also scan <polyline> elements (Syncfusion uses these for some annotation styles)
-  if (!lines.length) {
-    wrapper.querySelectorAll('polyline').forEach(el => {
-      if (shouldSkip(String(el.id ?? '').toLowerCase())) return
-      const ctm = el.getScreenCTM?.()
-      if (!ctm) return
-      const raw = (el.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite)
-      if (raw.length < 4) return
-      mkPt.x = raw[0]; mkPt.y = raw[1]
-      const s0 = mkPt.matrixTransform(ctm)
-      mkPt.x = raw[raw.length - 2]; mkPt.y = raw[raw.length - 1]
-      const s1 = mkPt.matrixTransform(ctm)
-      const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
-      if (len < 2) return
-      lines.push({ p0: { left: s0.x - cr.left, top: s0.y - cr.top }, p1: { left: s1.x - cr.left, top: s1.y - cr.top }, len })
-    })
-  }
+  selectSvg('polyline').forEach(el => {
+    if (shouldSkip(String(el.id ?? '').toLowerCase())) return
+    const ctm = el.getScreenCTM?.()
+    if (!ctm) return
+    const raw = (el.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite)
+    if (raw.length < 4) return
+    mkPt.x = raw[0]; mkPt.y = raw[1]
+    const s0 = mkPt.matrixTransform(ctm)
+    mkPt.x = raw[raw.length - 2]; mkPt.y = raw[raw.length - 1]
+    const s1 = mkPt.matrixTransform(ctm)
+    const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
+    pushCandidate(el, s0, s1, len, 'polyline')
+  })
+
+  // Syncfusion often paints connector/measure strokes as SVG paths. Reading the
+  // visible path keeps the label tied to the rendered line after zoom and pan.
+  selectSvg('path').forEach(el => {
+    if (shouldSkip(String(el.id ?? '').toLowerCase())) return
+    const ctm = el.getScreenCTM?.()
+    const total = el.getTotalLength?.()
+    if (!ctm || !Number.isFinite(total) || total < 2) return
+    const start = el.getPointAtLength(0)
+    const end = el.getPointAtLength(total)
+    if (!start || !end) return
+    mkPt.x = start.x; mkPt.y = start.y
+    const s0 = mkPt.matrixTransform(ctm)
+    mkPt.x = end.x; mkPt.y = end.y
+    const s1 = mkPt.matrixTransform(ctm)
+    const len = Math.hypot(s1.x - s0.x, s1.y - s0.y)
+    pushCandidate(el, s0, s1, len, 'path')
+  })
 
   if (!lines.length) return null
-  lines.sort((a, b) => b.len - a.len)
+  lines.sort((a, b) => b.score - a.score)
   return lines[0]
 }
 
 /** Screen endpoints of a linear measure — prefers live DOM line over stored vertexPoints. */
+function findAnnotationDomElement(vm, pageIndex, ids) {
+  const rootId = vm?.element?.id ?? 'sfPdfViewer'
+  const roots = [
+    document.getElementById(`${rootId}_annotationCanvas_${pageIndex}`),
+    document.getElementById(`${rootId}_diagram_${pageIndex}`),
+    document.getElementById(`${rootId}_annotationCanvas_div_${pageIndex}`),
+    document.getElementById(`${rootId}_diagram_div_${pageIndex}`),
+  ].filter(Boolean)
+  for (const tryId of ids.filter(Boolean)) {
+    try {
+      const direct = document.getElementById(tryId)
+      if (direct?.ownerSVGElement) return direct
+      const escaped = window.CSS?.escape ? window.CSS.escape(String(tryId)) : String(tryId).replace(/["\\]/g, '\\$&')
+      for (const root of roots) {
+        const scoped = root.querySelector?.(`#${escaped}, [id*="${escaped}"]`)
+        if (scoped?.ownerSVGElement) return scoped
+      }
+    } catch (_) {}
+  }
+  return null
+}
+
+function attachVisibleLabelLineToAnnotation(plain, vm, container, pageIndex, color) {
+  if (!plain || !vm || !container) return plain
+  const id = plain.AnnotName ?? plain.annotationId ?? plain.name
+  const live = id ? resolveLiveAnnotation(vm, id) : null
+  const approxPts = collectMeasureLinePoints(live, plain)
+  let approxLine = null
+  if (approxPts.length >= 2) {
+    const svg = resolveMeasureDiagramSvg(vm, pageIndex)
+    if (svg) {
+      const p0 = svgDiagramPointToContainer(svg, approxPts[0].x, approxPts[0].y, container)
+      const p1 = svgDiagramPointToContainer(svg, approxPts[approxPts.length - 1].x, approxPts[approxPts.length - 1].y, container)
+      if (p0 && p1) approxLine = { p0, p1 }
+    }
+  }
+
+  let visual = null
+  const domEl = findAnnotationDomElement(vm, pageIndex, [
+    live?.annotName, live?.annotationId, live?.id, live?.name,
+    plain.AnnotName, plain.annotationId, plain.name,
+  ])
+  if (domEl) visual = extractVisibleLineScreenEndpoints(domEl, container, color, approxLine)
+  if (!visual && approxLine?.p0 && approxLine?.p1) visual = approxLine
+  if (!visual) return plain
+
+  const next = { ...plain }
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (pageEl) {
+    const pageRect = pageEl.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const toPageRatio = (p) => {
+      const clientX = containerRect.left + p.left
+      const clientY = containerRect.top + p.top
+      return {
+        x: pageRect.width > 0 ? (clientX - pageRect.left) / pageRect.width : 0,
+        y: pageRect.height > 0 ? (clientY - pageRect.top) / pageRect.height : 0,
+      }
+    }
+    const labelPagePts = [toPageRatio(visual.p0), toPageRatio(visual.p1)]
+      .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+    if (labelPagePts.length === 2) {
+      next.labelPagePoints = labelPagePts
+      next.LabelPagePoints = labelPagePts.map(p => ({ X: p.x, Y: p.y }))
+    }
+  }
+
+  const d0 = containerScreenToDiagramPoint(visual.p0.left, visual.p0.top, container, pageIndex, vm)
+  const d1 = containerScreenToDiagramPoint(visual.p1.left, visual.p1.top, container, pageIndex, vm)
+  if (d0 && d1) {
+    const labelPts = [{ x: d0.x, y: d0.y }, { x: d1.x, y: d1.y }]
+    next.labelVertexPoints = labelPts
+    next.LabelVertexPoints = labelPts.map(p => ({ X: p.x, Y: p.y }))
+  }
+  return next
+}
+
 function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) {
   if (!containerEl) return null
   const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
@@ -2897,21 +3153,33 @@ export default function PdfViewer({
 
     let debugLogged = false
 
-    const LABEL_OFFSET_PX = 18  // perpendicular distance from line midpoint to label centre
+    const LABEL_OFFSET_PX = 22  // perpendicular distance from line midpoint to label centre
 
     // Helper: find the real SVG <g> element for an annotation using the live object's
     // CURRENT id (post-rehydration), then fall back to the stored AnnotName.
-    const findAnnotDomEl = (live, storedId) => {
+    const findAnnotDomEl = (live, storedId, pageIndex) => {
       // live.wrapper in Syncfusion is a JS DiagramContainer, NOT a DOM element.
       // We must use the live object's current annotName / id to find the real <g>.
       const liveId = live
         ? (live.annotName ?? live.annotationId ?? live.id ?? live.name)
         : null
+      const rootId = vm?.element?.id ?? 'sfPdfViewer'
+      const roots = [
+        document.getElementById(`${rootId}_annotationCanvas_${pageIndex}`),
+        document.getElementById(`${rootId}_diagram_${pageIndex}`),
+        document.getElementById(`${rootId}_annotationCanvas_div_${pageIndex}`),
+        document.getElementById(`${rootId}_diagram_div_${pageIndex}`),
+      ].filter(Boolean)
       for (const tryId of [liveId, storedId]) {
         if (!tryId) continue
         try {
           const el = document.getElementById(tryId)
           if (el?.ownerSVGElement) return el
+          const escaped = window.CSS?.escape ? window.CSS.escape(String(tryId)) : String(tryId).replace(/["\\]/g, '\\$&')
+          for (const root of roots) {
+            const scoped = root.querySelector?.(`#${escaped}, [id*="${escaped}"]`)
+            if (scoped?.ownerSVGElement) return scoped
+          }
         } catch (_) {}
       }
       return null
@@ -2928,52 +3196,66 @@ export default function PdfViewer({
         if (!text || /nan/i.test(text)) continue
 
         const mark = String(item.material || (item.mark ?? '')).trim().replace(/^nan$/i, '')
+        const color = resolveMeasurementColor({ item, raw })
 
         const pageIndex = resolveAnnotationPageIndex(raw, raw)
 
         // Geometry-based live lookup: survives annotation rehydration ID changes.
         const live = resolveLiveForTakeoffItem(vm, raw)
-        const pts = collectMeasureLinePoints(live, raw)
-        if (pts.length < 2) continue
+        const savedLabelPagePts = extractStoredLabelPagePoints(raw)
+        const savedLabelPts = extractStoredLabelLinePoints(raw)
+        const rawPts = extractAnnotationPoints(raw)
+        const pts = savedLabelPts.length >= 2
+          ? savedLabelPts
+          : rawPts.length >= 2 ? rawPts : collectMeasureLinePoints(live, raw)
+        if (pts.length < 2 && savedLabelPagePts.length < 2) continue
 
         let s0, s1  // screen-space endpoints (container-relative px)
+        if (pts.length >= 2) {
+          s0 = measurePointToContainerCoords(pts[0], pageIndex, vm, container)
+          s1 = measurePointToContainerCoords(pts[pts.length - 1], pageIndex, vm, container)
+        }
+        if ((!s0 || !s1) && savedLabelPagePts.length >= 2) {
+          s0 = pageRatioPointToContainerCoords(savedLabelPagePts[0], pageIndex, vm, container)
+          s1 = pageRatioPointToContainerCoords(savedLabelPagePts[savedLabelPagePts.length - 1], pageIndex, vm, container)
+        }
+        let approxLine = null
+        if (pts.length >= 2) {
+          const approxSvg = resolveMeasureDiagramSvg(vm, pageIndex)
+          if (approxSvg) {
+            const a0 = svgDiagramPointToContainer(approxSvg, pts[0].x, pts[0].y, container)
+            const a1 = svgDiagramPointToContainer(approxSvg, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
+            if (a0 && a1) approxLine = { p0: a0, p1: a1 }
+          }
+          if (!approxLine) {
+            const a0 = pdfPointToContainerCoords(pts[0].x, pts[0].y, pageIndex, vm, container)
+            const a1 = pdfPointToContainerCoords(pts[pts.length - 1].x, pts[pts.length - 1].y, pageIndex, vm, container)
+            if (a0 && a1) approxLine = { p0: a0, p1: a1 }
+          }
+        }
+
+        // Saved measurement vertexPoints are Syncfusion annotation SVG coordinates.
+        // Use the same SVG that renders the red line so the label stays attached.
+        const domEl = (!s0 || !s1) ? findAnnotDomEl(live, storedId, pageIndex) : null
+        if (domEl) {
+          const visual = extractVisibleLineScreenEndpoints(domEl, container, color, approxLine)
+          if (visual) { s0 = visual.p0; s1 = visual.p1 }
+        }
 
         // ── Tier 1: SVG getScreenCTM() ──────────────────────────────────────────
         // The only approach immune to coordinate-system ambiguity.  We find the
         // annotation's current DOM <g> using the live object's up-to-date id, then
         // read actual rendered line positions via the SVG transform matrix.
-        const domEl = findAnnotDomEl(live, storedId)
-        if (domEl) {
-          const visual = extractVisibleLineScreenEndpoints(domEl, container)
-          if (visual) { s0 = visual.p0; s1 = visual.p1 }
-        }
+        // Fall through to coordinate conversion only when the visible stroke is unavailable.
 
         // ── Tier 2: Annotation-canvas SVG bounding rect ─────────────────────────
         // Convert stored PDF-point coordinates through the annotation SVG's rendered
         // bounds.  More reliable than pageDiv which can include Syncfusion padding.
         if (!s0 || !s1) {
-          const rootId = vm?.element?.id ?? 'sfPdfViewer'
-          let svgEl = null
-          for (const cid of [`${rootId}_diagram_${pageIndex}`, `${rootId}_annotationCanvas_${pageIndex}`]) {
-            const host = document.getElementById(cid)
-            if (!host) continue
-            svgEl = host.tagName?.toLowerCase() === 'svg' ? host : host.querySelector('svg')
-            if (svgEl) break
-          }
+          const svgEl = resolveMeasureDiagramSvg(vm, pageIndex)
           if (svgEl) {
-            const svgRect = svgEl.getBoundingClientRect()
-            const cRect = container.getBoundingClientRect()
-            const pageSize = getPdfPageSize(vm, pageIndex)
-            if (pageSize?.width > 0 && pageSize?.height > 0 && svgRect.width > 0) {
-              const sx = svgRect.width  / pageSize.width
-              const sy = svgRect.height / pageSize.height
-              const toScreen = (px, py) => ({
-                left: svgRect.left - cRect.left + px * sx,
-                top:  svgRect.top  - cRect.top  + py * sy,
-              })
-              s0 = toScreen(pts[0].x, pts[0].y)
-              s1 = toScreen(pts[pts.length - 1].x, pts[pts.length - 1].y)
-            }
+            s0 = svgDiagramPointToContainer(svgEl, pts[0].x, pts[0].y, container)
+            s1 = svgDiagramPointToContainer(svgEl, pts[pts.length - 1].x, pts[pts.length - 1].y, container)
           }
         }
 
@@ -2988,34 +3270,28 @@ export default function PdfViewer({
         // All maths in screen space — never guess PDF offsets.
         const midX = (s0.left + s1.left) / 2
         const midY = (s0.top  + s1.top)  / 2
+        const labelPos = offsetAboveLineScreen(s0, s1, { left: midX, top: midY }, LABEL_OFFSET_PX)
+        if (!labelPos) continue
 
-        const dx = s1.left - s0.left
-        const dy = s1.top  - s0.top
-        const angleRad = Math.atan2(dy, dx)  // radians
-
-        // Perpendicular unit vector pointing "above" the line:
-        //   offsetX = -sin(θ) * D   offsetY = cos(θ) * D
-        const labelLeft = midX + (-Math.sin(angleRad)) * LABEL_OFFSET_PX
-        const labelTop  = midY - ( Math.cos(angleRad)) * LABEL_OFFSET_PX
-
-        // Normalise angle so text always reads left-to-right
-        const rawDeg = angleRad * 180 / Math.PI
-        const angleDeg = rawDeg > 90 ? rawDeg - 180 : rawDeg < -90 ? rawDeg + 180 : rawDeg
 
         layout.push({
           key: storedId ?? `item-${item.id}`,
-          left: labelLeft,
-          top:  labelTop,
-          angle: angleDeg,
+          left: labelPos.left,
+          top:  labelPos.top,
+          nx: labelPos.nx,
+          ny: labelPos.ny,
+          angle: labelPos.angle,
           mark,
           text,
-          color: resolveMeasurementColor({ item, raw }),
+          color,
           fontSizePt: labelPt,
+          labelWidth: Math.max(72, Math.min(180, (String(mark).length + String(text).length) * (labelPt * 0.55) + 18)),
+          labelHeight: mark ? labelPt * 2.6 : labelPt * 1.6,
         })
       } catch (_) {}
     }
 
-    setFallbackLabelLayout(layout)
+    setFallbackLabelLayout(resolveMeasureLabelCollisions(layout))
   }, [])
 
   const scheduleFallbackLabelLayout = useCallback(() => {
@@ -3830,8 +4106,8 @@ export default function PdfViewer({
     const pageIndex = Math.max(0, pageNumber - 1)
 
     const selectedMember = useAppStore.getState().selectedMemberScheduleItem
-    const activeMember = selectedMember ?? useAppStore.getState().lastMeasureMember
-    const knownMarks = (useAppStore.getState().memberScheduleItems ?? [])
+    const memberScheduleItemsForMatch = useAppStore.getState().memberScheduleItems ?? []
+    const knownMarks = memberScheduleItemsForMatch
       .map(m => String(m.mark ?? m.Mark ?? '').trim())
       .filter(Boolean)
     const linePts = extractAnnotationPoints(a)
@@ -3844,12 +4120,16 @@ export default function PdfViewer({
       () => getPageMetaForCoords?.() ?? null,
       pageTextByPageRef.current?.[pageIndex],
     )
-    // Explicitly-selected member always wins over auto-detected mark.
-    // Auto-detect (drawingMark) is only a fallback when no member is selected.
+    const matchedMember = drawingMark
+      ? memberScheduleItemsForMatch.find(m =>
+        String(m.mark ?? m.Mark ?? '').trim().toUpperCase() === drawingMark.toUpperCase())
+      : null
+    // Explicitly-selected member wins. Otherwise use only real detected schedule marks;
+    // do not fall back to lastMeasureMember because that can be a generated M1/M2 label.
     const memberMark = String(
       selectedMember?.mark || selectedMember?.Mark
+      || matchedMember?.mark || matchedMember?.Mark
       || drawingMark
-      || activeMember?.mark || activeMember?.Mark
       || ''
     ).trim()
 
@@ -3864,7 +4144,7 @@ export default function PdfViewer({
       pageNumber,
       memberMark,
       drawingMark,
-      memberScheduleId: activeMember?.id ?? null,
+      memberScheduleId: selectedMember?.id ?? matchedMember?.id ?? null,
       rawAnnotation: (() => {
         const vm = viewerRef.current
         const id = annotationId
@@ -3900,6 +4180,13 @@ export default function PdfViewer({
           plain.labelContent = labelText
           plain.LabelContent = labelText
         }
+        plain = attachVisibleLabelLineToAnnotation(
+          plain,
+          vm,
+          containerRef.current,
+          pageIndex,
+          captureColor,
+        )
         return plain
       })(),
       measureType: isAreaAnnotation ? 'Area' : isPerimeterAnnotation ? 'Perimeter' : 'Line',
@@ -4481,11 +4768,29 @@ export default function PdfViewer({
       }
 
       console.log('[BT-Lifecycle] finishMeasure firing — attempt:', attempt, 'id:', annotId)
+      const wasProcessed = annotId ? processedAnnotsRef.current.has(annotId) : false
+      const resolvedAnnot = resolveAnnot()
+      if (annotId && isLinearMeasureAnnotation(resolvedAnnot) && attempt < 10) {
+        const vm = viewerRef.current
+        const container = containerRef.current
+        const pageIndex = resolveAnnotationPageIndex(resolvedAnnot, plainAnnot)
+        const domEl = vm && container ? findAnnotationDomElement(vm, pageIndex, [
+          annotId,
+          resolvedAnnot?.AnnotName,
+          resolvedAnnot?.annotationId,
+          resolvedAnnot?.name,
+        ]) : null
+        const visual = domEl && container ? extractVisibleLineScreenEndpoints(domEl, container) : null
+        if (!visual) {
+          measureCompleteTimersRef.current.set(id, setTimeout(() => finishMeasure(attempt + 1), 120))
+          return
+        }
+      }
+
       measureCompleteTimersRef.current.delete(id)
       clearLiveDrawLabel()
 
-      const wasProcessed = annotId ? processedAnnotsRef.current.has(annotId) : false
-      processMeasureRef.current?.(resolveAnnot())
+      processMeasureRef.current?.(resolvedAnnot)
       const nowProcessed = annotId ? processedAnnotsRef.current.has(annotId) : false
 
       if (annotId && !nowProcessed && !wasProcessed && attempt < 15) {
@@ -4500,6 +4805,10 @@ export default function PdfViewer({
       } else {
         applyActiveToolToViewerRef.current?.()
       }
+      setTimeout(() => {
+        clearLiveDrawLabel()
+        bumpFallbackLabelLayout()
+      }, 30)
       setTimeout(() => {
         if (annotId) hideLineMeasureLabelOnViewer(viewerRef.current, annotId)
       }, 120)
@@ -4516,7 +4825,7 @@ export default function PdfViewer({
     }
 
     measureCompleteTimersRef.current.set(id, setTimeout(() => finishMeasure(0), 250))
-  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode, getDisplayUnit, clearLiveDrawLabel])
+  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode, getDisplayUnit, clearLiveDrawLabel, bumpFallbackLabelLayout])
 
   // ── ResizeObserver: give Syncfusion explicit pixel dimensions ──────────
   useEffect(() => {
@@ -6039,7 +6348,7 @@ export default function PdfViewer({
       )}
 
       {/* Live value while drawing — Bluebeam-style two-line label, centred above line midpoint */}
-      {liveDrawLabel && !/nan/i.test(liveDrawLabel.text ?? '') && (
+      {false && liveDrawLabel && !/nan/i.test(liveDrawLabel.text ?? '') && (
         <div
           aria-hidden="true"
           style={{ position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none', overflow: 'hidden' }}

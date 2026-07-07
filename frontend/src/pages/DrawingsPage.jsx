@@ -384,14 +384,14 @@ export default function DrawingsPage() {
     const {
       selectedDrawing: drw, takeoffItems: current, measureColor: color,
       measureCategory: category, activeUnit,
-      selectedMemberScheduleItem, lastMeasureMember,
+      selectedMemberScheduleItem,
     } = useAppStore.getState()
-    const linkedMember = selectedMemberScheduleItem ?? lastMeasureMember
-    // Priority: explicitly-selected member → payload mark from PdfViewer → auto-detected mark → last member
+    const linkedMember = selectedMemberScheduleItem
+    // Priority: explicitly-selected member -> payload mark from PdfViewer -> auto-detected mark.
     const memberMark = (
-      (measurement.memberMark || '').trim() ||
       linkedMember?.mark?.trim() ||
       linkedMember?.Mark?.trim() ||
+      (measurement.memberMark || '').trim() ||
       (measurement.drawingMark || '').trim() ||
       ''
     )
@@ -483,13 +483,14 @@ export default function DrawingsPage() {
 
     const itemType   = isArea ? 'Area' : isPerim ? 'Perimeter' : isCount ? 'Count' : 'Line'
 
-    // Mark: member schedule name when measuring that member (e.g. PF7); otherwise M1/A1/P1/C1
+    // Mark: use a real selected/detected member mark. Do not generate M1/M2 for
+    // automatic line measurements; generated marks belong only to manual entries.
     const prefix     = isArea ? 'A' : isPerim ? 'P' : isCount ? 'C' : 'M'
     const sameType   = current.filter(t => (t.itemType || 'Line') === itemType)
     const reuseMark  = clearedMarkRef.current
     if (reuseMark) clearedMarkRef.current = null
     const defaultMark = `${prefix}${sameType.length + 1}`
-    const nextMark   = reuseMark ?? (memberMark || defaultMark)
+    const nextMark   = reuseMark ?? (memberMark || (itemType === 'Line' ? '' : defaultMark))
 
     const desc = isCount
       ? `Count: ${measurement.count} × ${category}`
