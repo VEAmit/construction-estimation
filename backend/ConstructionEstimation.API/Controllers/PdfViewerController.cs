@@ -1,6 +1,6 @@
-using ConstructionEstimation.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Syncfusion.EJ2.PdfViewer;
 using System.Text.Json;
@@ -14,12 +14,12 @@ public class PdfViewerController : ControllerBase
 {
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<PdfViewerController> _logger;
-    private readonly PdfViewerCacheManager _cache;
+    private readonly IMemoryCache _cache;
 
     public PdfViewerController(
         IWebHostEnvironment env,
         ILogger<PdfViewerController> logger,
-        PdfViewerCacheManager cache)
+        IMemoryCache cache)
     {
         _env = env;
         _logger = logger;
@@ -50,7 +50,7 @@ public class PdfViewerController : ControllerBase
         var tempPath = Path.Combine(_env.ContentRootPath, "pdfviewer_temp");
         Directory.CreateDirectory(tempPath);
         PdfRenderer.ReferencePath = tempPath;
-        return new PdfRenderer { CacheManager = _cache };
+        return new PdfRenderer(_cache);
     }
 
     private static string NormalizeBase64Document(string document)
@@ -85,7 +85,10 @@ public class PdfViewerController : ControllerBase
 
             _logger.LogInformation("PdfViewer Load: type={Type}", result?.GetType()?.Name);
             if (result is string json)
+            {
+                _logger.LogWarning("PdfViewer Load returned string response: {Response}", json);
                 return Content(json, "application/json");
+            }
 
             return Content(JsonConvert.SerializeObject(result), "application/json");
         }

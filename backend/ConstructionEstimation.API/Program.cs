@@ -24,7 +24,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // App services
 builder.Services.AddScoped<TokenService>();
-builder.Services.AddSingleton<ConstructionEstimation.API.Services.PdfViewerCacheManager>();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ConstructionEstimation.API.Services.ExtractionService>();
 
 // JWT Authentication
