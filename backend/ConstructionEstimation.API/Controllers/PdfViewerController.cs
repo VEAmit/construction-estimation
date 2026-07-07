@@ -53,6 +53,15 @@ public class PdfViewerController : ControllerBase
         return new PdfRenderer { CacheManager = _cache };
     }
 
+    private static string NormalizeBase64Document(string document)
+    {
+        var value = document.Trim();
+        var commaIndex = value.IndexOf(',');
+        if (commaIndex >= 0 && value[..commaIndex].Contains("base64", StringComparison.OrdinalIgnoreCase))
+            value = value[(commaIndex + 1)..];
+        return value;
+    }
+
     [HttpPost("Load")]
     public IActionResult Load([FromBody] JsonElement body)
     {
@@ -70,7 +79,7 @@ public class PdfViewerController : ControllerBase
             if (jsonObject.TryGetValue("isFileName", out string? fn) && fn == "true")
                 return Content("{\"error\":\"file-based loading not supported\"}", "application/json");
 
-            using var stream = new MemoryStream(Convert.FromBase64String(document));
+            var stream = new MemoryStream(Convert.FromBase64String(NormalizeBase64Document(document)));
             jsonObject.Remove("document");
             var result = pdfViewer.Load(stream, jsonObject);
 
@@ -160,5 +169,9 @@ public class PdfViewerController : ControllerBase
 
     [HttpPost("GetDocumentText")]
     public IActionResult GetDocumentText([FromBody] JsonElement body) =>
+        Content(JsonConvert.SerializeObject(CreateRenderer().GetDocumentText(ToStringDict(body))), "application/json");
+
+    [HttpPost("RenderPdfTexts")]
+    public IActionResult RenderPdfTexts([FromBody] JsonElement body) =>
         Content(JsonConvert.SerializeObject(CreateRenderer().GetDocumentText(ToStringDict(body))), "application/json");
 }

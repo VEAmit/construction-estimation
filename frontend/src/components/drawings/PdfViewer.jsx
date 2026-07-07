@@ -50,6 +50,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.m
 // inside it needs a fully-qualified origin to avoid blob-origin resolution issues.
 // Not setting serviceUrl switches the viewer to client-side WASM rendering — no backend needed.
 const SF_RESOURCE_URL = `${window.location.origin}/ej2-pdfviewer-lib`
+const SF_SERVICE_URL = '/api/pdfviewer'
+const LARGE_PDF_PAGE_POINTS = 1500
+
+function shouldUseServerPdfRendering(pageMeta) {
+  const w = Number(pageMeta?.width)
+  const h = Number(pageMeta?.height)
+  return Number.isFinite(w) && Number.isFinite(h) && Math.max(w, h) >= LARGE_PDF_PAGE_POINTS
+}
 
 /** Syncfusion v33 — zoom/fit live on magnificationModule, not vm.fitPage / vm.zoomTo. */
 function getMagnification(vm) {
@@ -2666,6 +2674,7 @@ export default function PdfViewer({
   const [errorMsg,  setErrorMsg]      = useState(null)
   const [viewerSize, setViewerSize]   = useState({ w: 0, h: 0 })
   const [docLoaded,  setDocLoaded]    = useState(false)
+  const [useServerPdfRendering, setUseServerPdfRendering] = useState(false)
   // True while Syncfusion's pdfium WASM is parsing/rendering the document (fetch done, page not yet visible)
   const [docRendering, setDocRendering] = useState(false)
   const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
@@ -5262,6 +5271,7 @@ export default function PdfViewer({
     if (!drawingUrl) {
       setPdfBase64(null)
       pageMetaRef.current = null
+      setUseServerPdfRendering(false)
       setErrorMsg(null)
       prevUrlRef.current = null
       return
@@ -5273,6 +5283,7 @@ export default function PdfViewer({
     setErrorMsg(null)
     setPdfBase64(null)
     pageMetaRef.current = null
+    setUseServerPdfRendering(false)
     setDocLoaded(false)
     firstRenderDoneRef.current = false
     fitPassRef.current = 0
@@ -5305,6 +5316,7 @@ export default function PdfViewer({
         } catch {
           pageMetaRef.current = null
         }
+        setUseServerPdfRendering(shouldUseServerPdfRendering(pageMetaRef.current))
         setPdfBase64(dataUrl)
       })
       .catch(err => {
@@ -6295,11 +6307,12 @@ export default function PdfViewer({
       {pdfBase64 && !errorMsg && viewerSize.h > 0 && (() => {
         return (
         <PdfViewerComponent
-          key={drawingUrl ?? 'pdf-viewer'}
+          key={`${drawingUrl ?? 'pdf-viewer'}-${useServerPdfRendering ? 'server' : 'client'}`}
           id="sfPdfViewer"
           ref={viewerRef}
           documentPath={pdfBase64}
-          resourceUrl={SF_RESOURCE_URL}
+          serviceUrl={useServerPdfRendering ? SF_SERVICE_URL : undefined}
+          resourceUrl={useServerPdfRendering ? undefined : SF_RESOURCE_URL}
           initialRenderPages={1}
           style={{
             height: `${viewerSize.h}px`,

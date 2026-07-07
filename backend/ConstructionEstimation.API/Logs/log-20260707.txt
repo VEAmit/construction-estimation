@@ -1156,3 +1156,239 @@
 2026-07-07 10:01:20.239 +05:30 [INF] Drawing 117: extraction method=Text+ScheduleOCR, lines=60, members=26
 2026-07-07 10:01:20.241 +05:30 [INF] Extracted 26 members from drawing 117
 2026-07-07 10:01:20.242 +05:30 [INF] HTTP POST /api/extraction/drawing/117 responded 200 in 12289.0260 ms
+2026-07-07 10:04:33.709 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113 responded 200 in 8.6039 ms
+2026-07-07 10:04:33.710 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113 responded 200 in 12.4727 ms
+2026-07-07 10:04:33.717 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113/summary responded 200 in 16.5022 ms
+2026-07-07 10:04:33.720 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113/summary responded 200 in 22.0002 ms
+2026-07-07 10:04:33.728 +05:30 [INF] HTTP GET /api/drawings/113 responded 200 in 27.2773 ms
+2026-07-07 10:41:04.844 +05:30 [INF] Database migrated successfully
+2026-07-07 10:41:05.728 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-07 10:41:58.063 +05:30 [INF] HTTP GET /swagger/v1/swagger.json responded 200 in 491.5941 ms
+2026-07-07 10:42:04.033 +05:30 [ERR] HTTP POST /api/pdfviewer/RenderPdfTexts responded 500 in 1008.2458 ms
+System.Collections.Generic.KeyNotFoundException: The given key 'action' was not present in the dictionary.
+   at System.Collections.Generic.Dictionary`2.get_Item(TKey key)
+   at Syncfusion.EJ2.PdfViewer.PdfRenderer.GetDocumentText(Dictionary`2 jsonObject)
+   at ConstructionEstimation.API.Controllers.PdfViewerController.RenderPdfTexts(JsonElement body) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\PdfViewerController.cs:line 176
+   at lambda_method27(Closure, Object, Object[])
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.SyncActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeActionMethodAsync()
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeNextActionFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+2026-07-07 10:42:04.417 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+System.Collections.Generic.KeyNotFoundException: The given key 'action' was not present in the dictionary.
+   at System.Collections.Generic.Dictionary`2.get_Item(TKey key)
+   at Syncfusion.EJ2.PdfViewer.PdfRenderer.GetDocumentText(Dictionary`2 jsonObject)
+   at ConstructionEstimation.API.Controllers.PdfViewerController.RenderPdfTexts(JsonElement body) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\PdfViewerController.cs:line 176
+   at lambda_method27(Closure, Object, Object[])
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.SyncActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeActionMethodAsync()
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeNextActionFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+2026-07-07 10:43:49.967 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:43:50.171 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 1958.3778 ms
+2026-07-07 10:44:38.231 +05:30 [INF] PdfViewer Load: type=String
+2026-07-07 10:44:38.233 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 444.3116 ms
+2026-07-07 10:44:38.587 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 113.9713 ms
+2026-07-07 10:44:55.395 +05:30 [INF] PdfViewer Load: type=String
+2026-07-07 10:44:55.396 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 21.2616 ms
+2026-07-07 10:44:55.405 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 0.7717 ms
+2026-07-07 10:45:22.837 +05:30 [INF] PdfViewer Load: type=String
+2026-07-07 10:45:22.838 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 11.4938 ms
+2026-07-07 10:47:26.547 +05:30 [INF] Database migrated successfully
+2026-07-07 10:47:27.096 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-07 10:47:46.378 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:47:46.591 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 1573.7961 ms
+2026-07-07 10:47:49.042 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2246.1152 ms
+2026-07-07 10:48:57.846 +05:30 [INF] HTTP GET /api/drawings/project/39 responded 200 in 2064.4740 ms
+2026-07-07 10:48:57.919 +05:30 [INF] HTTP GET /api/drawings/project/39 responded 200 in 66.6912 ms
+2026-07-07 10:48:58.060 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117 responded 200 in 25.4348 ms
+2026-07-07 10:48:58.061 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117/summary responded 200 in 26.9797 ms
+2026-07-07 10:48:58.141 +05:30 [INF] HTTP GET /api/drawings/117 responded 200 in 28.4927 ms
+2026-07-07 10:48:58.215 +05:30 [INF] HTTP GET /api/drawings/117/file responded 304 in 209.3954 ms
+2026-07-07 10:48:58.294 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 182.7989 ms
+2026-07-07 10:48:58.296 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 168.0528 ms
+2026-07-07 10:48:59.124 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:48:59.126 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 260.0234 ms
+2026-07-07 10:48:59.926 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 719.4942 ms
+2026-07-07 10:48:59.941 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 736.2969 ms
+2026-07-07 10:48:59.947 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 741.3661 ms
+2026-07-07 10:49:00.650 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 700.6613 ms
+2026-07-07 10:49:00.654 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 736.8578 ms
+2026-07-07 10:49:00.817 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 340.4202 ms
+2026-07-07 10:49:01.317 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1389.5888 ms
+2026-07-07 10:49:01.320 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 684.8542 ms
+2026-07-07 10:49:01.324 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 657.8952 ms
+2026-07-07 10:49:01.342 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 523.1751 ms
+2026-07-07 10:49:01.667 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 681.1977 ms
+2026-07-07 10:49:02.059 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 732.1221 ms
+2026-07-07 10:49:02.073 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 736.6507 ms
+2026-07-07 10:49:02.123 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 767.2176 ms
+2026-07-07 10:49:02.138 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 799.4401 ms
+2026-07-07 10:49:02.353 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3187.1880 ms
+2026-07-07 10:49:02.555 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 43.9116 ms
+2026-07-07 10:49:02.593 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 87.1846 ms
+2026-07-07 10:49:13.255 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 2.5314 ms
+2026-07-07 10:49:13.304 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113/summary responded 200 in 32.8776 ms
+2026-07-07 10:49:13.308 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113 responded 200 in 36.1577 ms
+2026-07-07 10:49:13.319 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113/summary responded 200 in 21.8673 ms
+2026-07-07 10:49:13.323 +05:30 [INF] HTTP GET /api/drawings/113 responded 200 in 27.7591 ms
+2026-07-07 10:49:13.328 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113 responded 200 in 11.9077 ms
+2026-07-07 10:49:28.646 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117/summary responded 200 in 4.8022 ms
+2026-07-07 10:49:28.649 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117 responded 200 in 8.7493 ms
+2026-07-07 10:49:28.649 +05:30 [INF] HTTP GET /api/drawings/117 responded 200 in 9.7364 ms
+2026-07-07 10:49:28.653 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 12.1401 ms
+2026-07-07 10:49:28.762 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 119.5500 ms
+2026-07-07 10:49:31.984 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:49:31.987 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 180.1280 ms
+2026-07-07 10:49:33.036 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1015.1518 ms
+2026-07-07 10:49:33.054 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 988.8263 ms
+2026-07-07 10:49:33.071 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1056.5111 ms
+2026-07-07 10:49:33.233 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1212.0834 ms
+2026-07-07 10:49:33.445 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1373.6262 ms
+2026-07-07 10:49:33.593 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 530.1747 ms
+2026-07-07 10:49:33.732 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 690.5751 ms
+2026-07-07 10:49:34.060 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 982.5103 ms
+2026-07-07 10:49:34.240 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 733.8523 ms
+2026-07-07 10:49:34.311 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1068.6302 ms
+2026-07-07 10:49:34.755 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1153.9962 ms
+2026-07-07 10:49:34.770 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 526.8267 ms
+2026-07-07 10:49:34.785 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1046.5502 ms
+2026-07-07 10:49:34.957 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 892.5380 ms
+2026-07-07 10:49:35.037 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 709.9447 ms
+2026-07-07 10:49:35.264 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3256.3449 ms
+2026-07-07 10:49:35.285 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1.7030 ms
+2026-07-07 10:49:35.296 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 0.4949 ms
+2026-07-07 10:50:00.576 +05:30 [INF] Drawing 117: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-07 10:50:17.073 +05:30 [INF] Schedule OCR page 1: selected candidate score=74, lines=41
+2026-07-07 10:50:17.155 +05:30 [INF] Drawing 117: extraction method=Text+ScheduleOCR, lines=60, members=26
+2026-07-07 10:50:17.157 +05:30 [INF] Extracted 26 members from drawing 117
+2026-07-07 10:50:17.166 +05:30 [INF] HTTP POST /api/extraction/drawing/117 responded 200 in 18481.0959 ms
+2026-07-07 10:50:24.609 +05:30 [INF] Upserted 26 extracted members for drawing 117
+2026-07-07 10:50:24.612 +05:30 [INF] HTTP POST /api/extraction/drawing/117/confirm responded 200 in 2769.8570 ms
+2026-07-07 10:50:24.714 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 93.9548 ms
+2026-07-07 10:50:24.938 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 317.6428 ms
+2026-07-07 10:50:29.464 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.3290 ms
+2026-07-07 10:50:29.535 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113/summary responded 200 in 9.7367 ms
+2026-07-07 10:50:29.541 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113/summary responded 200 in 13.9196 ms
+2026-07-07 10:50:29.541 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113 responded 200 in 14.5445 ms
+2026-07-07 10:50:29.544 +05:30 [INF] HTTP GET /api/drawings/113 responded 200 in 23.0653 ms
+2026-07-07 10:50:29.602 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113 responded 200 in 76.5776 ms
+2026-07-07 10:53:00.281 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117/summary responded 200 in 5.5102 ms
+2026-07-07 10:53:00.282 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117 responded 200 in 5.8860 ms
+2026-07-07 10:53:00.282 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 5.7837 ms
+2026-07-07 10:53:00.288 +05:30 [INF] HTTP GET /api/drawings/117 responded 200 in 12.5378 ms
+2026-07-07 10:53:00.380 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 103.0035 ms
+2026-07-07 10:53:01.252 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:53:01.253 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 450.8600 ms
+2026-07-07 10:53:02.381 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1099.9071 ms
+2026-07-07 10:53:02.458 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1173.3656 ms
+2026-07-07 10:53:02.519 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1237.7844 ms
+2026-07-07 10:53:02.819 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1530.3911 ms
+2026-07-07 10:53:02.957 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1669.1228 ms
+2026-07-07 10:53:03.103 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 641.7128 ms
+2026-07-07 10:53:03.118 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 732.2807 ms
+2026-07-07 10:53:03.271 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 739.3843 ms
+2026-07-07 10:53:03.777 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 927.5926 ms
+2026-07-07 10:53:04.058 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1098.0564 ms
+2026-07-07 10:53:04.089 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 886.7176 ms
+2026-07-07 10:53:04.225 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1021.3640 ms
+2026-07-07 10:53:04.238 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 963.4426 ms
+2026-07-07 10:53:04.613 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 832.5287 ms
+2026-07-07 10:53:04.680 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 609.7393 ms
+2026-07-07 10:53:04.899 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3617.9180 ms
+2026-07-07 10:53:04.925 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1.8004 ms
+2026-07-07 10:53:04.937 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 0.6909 ms
+2026-07-07 10:53:12.278 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.4179 ms
+2026-07-07 10:53:12.357 +05:30 [INF] HTTP GET /api/drawings/113 responded 200 in 17.2035 ms
+2026-07-07 10:53:12.411 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113/summary responded 200 in 64.7418 ms
+2026-07-07 10:53:12.413 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113/summary responded 200 in 67.7561 ms
+2026-07-07 10:53:12.442 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113 responded 200 in 96.7445 ms
+2026-07-07 10:53:12.443 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113 responded 200 in 100.6225 ms
+2026-07-07 10:53:17.145 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117/summary responded 200 in 32.9987 ms
+2026-07-07 10:53:17.467 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 353.5302 ms
+2026-07-07 10:53:17.615 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117 responded 200 in 506.1324 ms
+2026-07-07 10:53:17.619 +05:30 [INF] HTTP GET /api/drawings/117 responded 200 in 523.5348 ms
+2026-07-07 10:53:17.923 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 10:53:17.926 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 650.2486 ms
+2026-07-07 10:53:18.436 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 1320.2953 ms
+2026-07-07 10:53:19.436 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1366.3083 ms
+2026-07-07 10:53:19.452 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1285.6708 ms
+2026-07-07 10:53:19.471 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1401.6366 ms
+2026-07-07 10:53:19.485 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1039.1647 ms
+2026-07-07 10:53:19.663 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1229.5284 ms
+2026-07-07 10:53:19.969 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 518.0595 ms
+2026-07-07 10:53:20.393 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 938.1485 ms
+2026-07-07 10:53:20.543 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1067.6133 ms
+2026-07-07 10:53:20.599 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1108.4474 ms
+2026-07-07 10:53:20.618 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 949.4141 ms
+2026-07-07 10:53:21.323 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 903.0238 ms
+2026-07-07 10:53:21.356 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1380.7969 ms
+2026-07-07 10:53:21.368 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 820.9618 ms
+2026-07-07 10:53:21.443 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 828.0401 ms
+2026-07-07 10:53:21.466 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 839.9971 ms
+2026-07-07 10:53:21.693 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3637.6059 ms
+2026-07-07 10:53:21.745 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1.5184 ms
+2026-07-07 10:53:21.745 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 0.4976 ms
+2026-07-07 10:59:52.713 +05:30 [INF] Drawing 117: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-07 11:00:05.690 +05:30 [INF] Schedule OCR page 1: selected candidate score=74, lines=41
+2026-07-07 11:00:05.723 +05:30 [INF] Drawing 117: extraction method=Text+ScheduleOCR, lines=60, members=26
+2026-07-07 11:00:05.726 +05:30 [INF] Extracted 26 members from drawing 117
+2026-07-07 11:00:05.727 +05:30 [INF] HTTP POST /api/extraction/drawing/117 responded 200 in 13702.3942 ms
+2026-07-07 11:00:22.993 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.3302 ms
+2026-07-07 11:00:23.092 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113 responded 200 in 26.8783 ms
+2026-07-07 11:00:23.102 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/113/summary responded 200 in 32.1105 ms
+2026-07-07 11:00:23.109 +05:30 [INF] HTTP GET /api/drawings/113 responded 200 in 45.8171 ms
+2026-07-07 11:00:23.200 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113/summary responded 200 in 125.8349 ms
+2026-07-07 11:00:23.203 +05:30 [INF] HTTP GET /api/memberschedules/drawing/113 responded 200 in 134.9623 ms
+2026-07-07 11:00:25.195 +05:30 [INF] HTTP GET /api/drawings/117 responded 200 in 20.2794 ms
+2026-07-07 11:00:25.213 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117/summary responded 200 in 16.7522 ms
+2026-07-07 11:00:25.213 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117 responded 200 in 16.6808 ms
+2026-07-07 11:00:25.213 +05:30 [INF] HTTP GET /api/memberschedules/drawing/117/summary responded 200 in 16.3335 ms
+2026-07-07 11:00:25.239 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/117 responded 200 in 44.8790 ms
+2026-07-07 11:00:25.516 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-07 11:00:25.521 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 185.9334 ms
+2026-07-07 11:00:26.502 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 960.0763 ms
+2026-07-07 11:00:26.590 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1046.1278 ms
+2026-07-07 11:00:26.729 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1183.7758 ms
+2026-07-07 11:00:26.780 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1236.0844 ms
+2026-07-07 11:00:26.796 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1251.9151 ms
+2026-07-07 11:00:27.242 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 618.2147 ms
+2026-07-07 11:00:27.254 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 521.6242 ms
+2026-07-07 11:00:27.415 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 900.8678 ms
+2026-07-07 11:00:27.575 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 332.2293 ms
+2026-07-07 11:00:27.583 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 519.3182 ms
+2026-07-07 11:00:27.983 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 721.2998 ms
+2026-07-07 11:00:28.027 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 609.2811 ms
+2026-07-07 11:00:28.258 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 668.8663 ms
+2026-07-07 11:00:28.273 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 690.7767 ms
+2026-07-07 11:00:28.334 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 745.3099 ms
+2026-07-07 11:00:28.551 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3011.3245 ms
+2026-07-07 11:00:28.573 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1.5518 ms
+2026-07-07 11:00:28.577 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 0.4832 ms
