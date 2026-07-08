@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using ConstructionEstimation.Core.DTOs;
 using UglyToad.PdfPig;
@@ -12,6 +13,8 @@ public class ExtractionService
 {
     private readonly ILogger<ExtractionService> _logger;
     private readonly string _tessDataPath;
+    private const int MarkDetectionDpi = 320;
+    private static readonly ConcurrentDictionary<string, byte[]> RenderedPagePngCache = new();
 
     // Weight suffix optional → matches "310 UB 40.4" AND "200 PFC"
     private static readonly Regex SteelSectionPattern = new(
@@ -200,6 +203,77 @@ public class ExtractionService
         }
     }
 
+    public DetectDrawingMarkResponse DetectMarkNearMeasurement(
+        string filePath,
+        int pageNumber,
+        List<MarkDetectionPointDto> points,
+        List<string> knownMarks)
+    {
+        if (!File.Exists(filePath) || points.Count < 2 || knownMarks.Count == 0)
+            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        if (!Directory.Exists(_tessDataPath) ||
+            !File.Exists(Path.Combine(_tessDataPath, "eng.traineddata")))
+        {
+            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+        }
+
+        var known = knownMarks
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (known.Count == 0) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        using var pdf = PdfDocument.Open(filePath);
+        var pageIndex = Math.Clamp(pageNumber, 1, pdf.NumberOfPages) - 1;
+        var pdfPage = pdf.GetPage(pageIndex + 1);
+        var pageWidth = pdfPage.Width;
+        var pageHeight = pdfPage.Height;
+
+        using var engine = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
+        engine.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+        engine.SetVariable("preserve_interword_spaces", "1");
+
+        var bitmap = GetRenderedPageBitmap(filePath, pageIndex, MarkDetectionDpi);
+        if (bitmap == null) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        try
+        {
+            var crops = BuildMeasurementMarkCropCandidates(points, pageWidth, pageHeight, bitmap.Width, bitmap.Height);
+            var rawLines = new List<string>();
+            var bestMark = string.Empty;
+            var bestScore = double.NegativeInfinity;
+
+            for (var i = 0; i < crops.Count; i++)
+            {
+                var crop = crops[i];
+                var lines = OcrMeasurementMarkRegion(engine, bitmap, crop);
+                rawLines.AddRange(lines);
+                foreach (var line in lines)
+                {
+                    foreach (var candidate in ExtractKnownMarkCandidates(line, known))
+                    {
+                        var score = ScoreDetectedMark(candidate, line, known) + Math.Max(0, crops.Count - i);
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            bestMark = known.FirstOrDefault(m => m.Equals(candidate, StringComparison.OrdinalIgnoreCase)) ?? candidate;
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(bestMark) && bestScore >= 145)
+                    return new DetectDrawingMarkResponse(bestMark, string.Join(" | ", rawLines.Distinct().Take(20)));
+            }
+
+            return new DetectDrawingMarkResponse(bestMark, string.Join(" | ", rawLines.Distinct().Take(20)));
+        }
+        finally
+        {
+            bitmap.Dispose();
+        }
+    }
+
     // ── OCR pipeline ────────────────────────────────────────────────────────────
 
     private List<string> ExtractViaOcr(string pdfPath, out int pageCount)
@@ -269,12 +343,13 @@ public class ExtractionService
         engine.SetVariable("preserve_interword_spaces", "1");
 
         using var pdfStream = File.OpenRead(pdfPath);
-        var renderOptions = new RenderOptions(Dpi: 240);
+        var renderOptions = new RenderOptions(Dpi: MarkDetectionDpi);
         var pageImages = Conversion.ToImages(pdfStream, options: renderOptions);
 
         foreach (var bitmap in pageImages)
         {
             pageCount++;
+            CacheRenderedPageBitmap(pdfPath, pageCount - 1, MarkDetectionDpi, bitmap);
             var bestLines = new List<string>();
             var bestScore = 0;
 
@@ -303,6 +378,39 @@ public class ExtractionService
         }
 
         return lines;
+    }
+
+    private static SKBitmap? GetRenderedPageBitmap(string pdfPath, int pageIndex, int dpi)
+    {
+        var key = BuildRenderedPageCacheKey(pdfPath, pageIndex, dpi);
+        if (RenderedPagePngCache.TryGetValue(key, out var cachedBytes))
+        {
+            return SKBitmap.Decode(cachedBytes);
+        }
+
+        using var pdfStream = File.OpenRead(pdfPath);
+        var renderOptions = new RenderOptions(Dpi: dpi);
+        var pageImages = Conversion.ToImages(pdfStream, options: renderOptions);
+        var bitmap = pageImages.Skip(pageIndex).FirstOrDefault();
+        if (bitmap == null) return null;
+
+        CacheRenderedPageBitmap(pdfPath, pageIndex, dpi, bitmap);
+        return bitmap;
+    }
+
+    private static void CacheRenderedPageBitmap(string pdfPath, int pageIndex, int dpi, SKBitmap bitmap)
+    {
+        var key = BuildRenderedPageCacheKey(pdfPath, pageIndex, dpi);
+        if (RenderedPagePngCache.ContainsKey(key)) return;
+
+        using var png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        RenderedPagePngCache.TryAdd(key, png.ToArray());
+    }
+
+    private static string BuildRenderedPageCacheKey(string pdfPath, int pageIndex, int dpi)
+    {
+        var info = new FileInfo(pdfPath);
+        return $"{info.FullName}|{info.LastWriteTimeUtc.Ticks}|{info.Length}|p{pageIndex}|dpi{dpi}";
     }
 
     private static List<SKRectI> BuildScheduleCropCandidates(int width, int height)
@@ -350,6 +458,348 @@ public class ExtractionService
             .Select(l => NormalizeScheduleOcrLine(Regex.Replace(l.Trim(), @"\s+", " ")))
             .Where(l => l.Length > 1 && !IsMetadataLine(l))
             .ToList();
+    }
+
+    private static List<string> OcrMeasurementMarkRegion(TesseractEngine engine, SKBitmap source, SKRectI crop)
+    {
+        var lines = new List<string>();
+        foreach (var mode in new[] { PageSegMode.SingleWord, PageSegMode.SingleLine, PageSegMode.SparseText })
+        {
+            lines.AddRange(OcrMeasurementMarkRegion(engine, source, crop, mode, highContrast: true));
+        }
+
+        return lines
+            .Select(l => Regex.Replace(l.Trim(), @"\s+", " "))
+            .Where(l => l.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<string> OcrMeasurementMarkRegion(
+        TesseractEngine engine,
+        SKBitmap source,
+        SKRectI crop,
+        PageSegMode pageSegMode,
+        bool highContrast)
+    {
+        using var cropped = new SKBitmap(crop.Width, crop.Height);
+        using (var canvas = new SKCanvas(cropped))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, crop, new SKRect(0, 0, crop.Width, crop.Height));
+        }
+
+        var maxCropSide = Math.Max(cropped.Width, cropped.Height);
+        var upscale = Math.Clamp((int)Math.Floor(2200.0 / Math.Max(maxCropSide, 1)), 3, 8);
+        using var scaled = new SKBitmap(cropped.Width * upscale, cropped.Height * upscale);
+        using (var canvas = new SKCanvas(scaled))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(cropped, new SKRect(0, 0, scaled.Width, scaled.Height));
+        }
+
+        if (highContrast)
+        {
+            for (var y = 0; y < scaled.Height; y++)
+            {
+                for (var x = 0; x < scaled.Width; x++)
+                {
+                    var c = scaled.GetPixel(x, y);
+                    var lum = (c.Red * 0.299) + (c.Green * 0.587) + (c.Blue * 0.114);
+                    scaled.SetPixel(x, y, lum < 205 ? SKColors.Black : SKColors.White);
+                }
+            }
+            RemoveLongLineRuns(scaled);
+            RemoveDottedGuideRuns(scaled);
+        }
+
+        using var pngData = scaled.Encode(SKEncodedImageFormat.Png, 100);
+        using var pix = Pix.LoadFromMemory(pngData.ToArray());
+        using var tessPage = engine.Process(pix, pageSegMode);
+
+        return (tessPage.GetText() ?? string.Empty)
+            .Split(new[] { '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => Regex.Replace(l.Trim(), @"\s+", " "))
+            .Where(l => l.Length > 0)
+            .ToList();
+    }
+
+    private static void RemoveLongLineRuns(SKBitmap bitmap)
+    {
+        var horizontalThreshold = Math.Max(45, bitmap.Width / 4);
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            var runStart = -1;
+            for (var x = 0; x <= bitmap.Width; x++)
+            {
+                var isBlack = x < bitmap.Width && bitmap.GetPixel(x, y).Red < 32;
+                if (isBlack && runStart < 0) runStart = x;
+                if ((!isBlack || x == bitmap.Width) && runStart >= 0)
+                {
+                    var runLength = x - runStart;
+                    if (runLength >= horizontalThreshold)
+                    {
+                        for (var xx = runStart; xx < x; xx++) bitmap.SetPixel(xx, y, SKColors.White);
+                    }
+                    runStart = -1;
+                }
+            }
+        }
+
+        var verticalThreshold = Math.Max(45, bitmap.Height / 3);
+        for (var x = 0; x < bitmap.Width; x++)
+        {
+            var runStart = -1;
+            for (var y = 0; y <= bitmap.Height; y++)
+            {
+                var isBlack = y < bitmap.Height && bitmap.GetPixel(x, y).Red < 32;
+                if (isBlack && runStart < 0) runStart = y;
+                if ((!isBlack || y == bitmap.Height) && runStart >= 0)
+                {
+                    var runLength = y - runStart;
+                    if (runLength >= verticalThreshold)
+                    {
+                        for (var yy = runStart; yy < y; yy++) bitmap.SetPixel(x, yy, SKColors.White);
+                    }
+                    runStart = -1;
+                }
+            }
+        }
+    }
+
+    private static void RemoveDottedGuideRuns(SKBitmap bitmap)
+    {
+        var columnThreshold = Math.Max(14, bitmap.Height / 28);
+        for (var x = 0; x < bitmap.Width; x++)
+        {
+            var blackCount = 0;
+            var runs = 0;
+            var inRun = false;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                var isBlack = bitmap.GetPixel(x, y).Red < 32;
+                if (isBlack)
+                {
+                    blackCount++;
+                    if (!inRun)
+                    {
+                        runs++;
+                        inRun = true;
+                    }
+                }
+                else
+                {
+                    inRun = false;
+                }
+            }
+
+            if (blackCount >= columnThreshold && runs >= 6)
+            {
+                for (var xx = Math.Max(0, x - 1); xx <= Math.Min(bitmap.Width - 1, x + 1); xx++)
+                {
+                    for (var y = 0; y < bitmap.Height; y++) bitmap.SetPixel(xx, y, SKColors.White);
+                }
+            }
+        }
+
+        var rowThreshold = Math.Max(14, bitmap.Width / 28);
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            var blackCount = 0;
+            var runs = 0;
+            var inRun = false;
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var isBlack = bitmap.GetPixel(x, y).Red < 32;
+                if (isBlack)
+                {
+                    blackCount++;
+                    if (!inRun)
+                    {
+                        runs++;
+                        inRun = true;
+                    }
+                }
+                else
+                {
+                    inRun = false;
+                }
+            }
+
+            if (blackCount >= rowThreshold && runs >= 6)
+            {
+                for (var yy = Math.Max(0, y - 1); yy <= Math.Min(bitmap.Height - 1, y + 1); yy++)
+                {
+                    for (var x = 0; x < bitmap.Width; x++) bitmap.SetPixel(x, yy, SKColors.White);
+                }
+            }
+        }
+    }
+
+    private static List<SKRectI> BuildMeasurementMarkCropCandidates(
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight,
+        int bitmapWidth,
+        int bitmapHeight)
+    {
+        static double N(double value, double size) => value >= 0 && value <= 1 ? value * size : value;
+
+        var mapped = points
+            .Select(p => new
+            {
+                X = N(p.X, pageWidth) / pageWidth * bitmapWidth,
+                Y = N(p.Y, pageHeight) / pageHeight * bitmapHeight
+            })
+            .Where(p => double.IsFinite(p.X) && double.IsFinite(p.Y))
+            .ToList();
+
+        if (mapped.Count < 2) return [];
+
+        var first = mapped.First();
+        var last = mapped.Last();
+        var minX = mapped.Min(p => p.X);
+        var maxX = mapped.Max(p => p.X);
+        var minY = mapped.Min(p => p.Y);
+        var maxY = mapped.Max(p => p.Y);
+        var dx = maxX - minX;
+        var dy = maxY - minY;
+        var lineLen = Math.Sqrt(dx * dx + dy * dy);
+        var stripX = Math.Clamp(lineLen * 0.28, 60, 160);
+        var stripY = Math.Clamp(lineLen * 0.09, 20, 46);
+        var looseX = Math.Clamp(lineLen * 0.42, 95, 220);
+        var looseY = Math.Clamp(lineLen * 0.18, 38, 90);
+        var endpointX = Math.Clamp(lineLen * 0.78, 220, 520);
+        var endpointY = Math.Clamp(lineLen * 0.24, 80, 150);
+        var len = Math.Sqrt(Math.Pow(last.X - first.X, 2) + Math.Pow(last.Y - first.Y, 2));
+        var nx = len > 0 ? -(last.Y - first.Y) / len : 0;
+        var ny = len > 0 ? (last.X - first.X) / len : -1;
+        var midX = (first.X + last.X) / 2;
+        var midY = (first.Y + last.Y) / 2;
+
+        SKRectI RectAround(double cx, double cy, double rx, double ry)
+        {
+            var l = Math.Clamp((int)Math.Round(cx - rx), 0, bitmapWidth - 1);
+            var t = Math.Clamp((int)Math.Round(cy - ry), 0, bitmapHeight - 1);
+            var r = Math.Clamp((int)Math.Round(cx + rx), l + 1, bitmapWidth);
+            var b = Math.Clamp((int)Math.Round(cy + ry), t + 1, bitmapHeight);
+            return new SKRectI(l, t, r, b);
+        }
+
+        return new List<SKRectI>
+        {
+            RectAround(midX, midY, stripX, stripY),
+            RectAround(midX + nx * 24, midY + ny * 24, stripX, stripY),
+            RectAround(midX - nx * 24, midY - ny * 24, stripX, stripY),
+            RectAround(midX + nx * 48, midY + ny * 48, stripX, stripY),
+            RectAround(midX - nx * 48, midY - ny * 48, stripX, stripY),
+            RectAround(midX + nx * 72, midY + ny * 72, stripX, stripY),
+            RectAround(midX - nx * 72, midY - ny * 72, stripX, stripY),
+            RectAround(first.X, first.Y, stripX, stripY),
+            RectAround(last.X, last.Y, stripX, stripY),
+            RectAround(first.X, first.Y, endpointX, endpointY),
+            RectAround(last.X, last.Y, endpointX, endpointY),
+            RectAround(midX, midY, looseX, looseY),
+            RectAround(midX + nx * 42, midY + ny * 42, looseX, looseY),
+            RectAround(midX - nx * 42, midY - ny * 42, looseX, looseY),
+        }
+            .GroupBy(r => $"{r.Left}:{r.Top}:{r.Right}:{r.Bottom}")
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static IEnumerable<string> ExtractKnownMarkCandidates(string text, List<string> knownMarks)
+    {
+        var compact = Regex.Replace(text.ToUpperInvariant(), @"[^A-Z0-9]", "");
+        foreach (var mark in knownMarks)
+        {
+            var upper = mark.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(upper)) continue;
+            if (BuildMarkOcrVariants(upper).Any(compact.Contains)) yield return upper;
+        }
+
+        foreach (Match match in Regex.Matches(text.ToUpperInvariant(), @"\b[A-Z]{1,4}\d{1,3}[A-Z]?\b"))
+        {
+            var token = match.Value.Trim().ToUpperInvariant();
+            if (knownMarks.Any(m => m.Equals(token, StringComparison.OrdinalIgnoreCase)))
+                yield return token;
+        }
+    }
+
+    private static IEnumerable<string> BuildMarkOcrVariants(string mark)
+    {
+        var compact = Regex.Replace(mark.ToUpperInvariant(), @"[^A-Z0-9]", "");
+        if (string.IsNullOrEmpty(compact)) yield break;
+
+        yield return compact;
+        yield return compact.Replace('B', '8');
+        yield return compact.Replace('O', '0');
+        yield return compact.Replace('I', '1').Replace('L', '1');
+        yield return compact.Replace('S', '5');
+        yield return compact.Replace('Z', '2');
+        yield return compact.Replace('9', 'O');
+        yield return compact.Replace('4', 'A');
+        yield return compact.Replace('6', 'G');
+        yield return compact.Replace("1", "I");
+        yield return compact.Replace("1", "L");
+        yield return compact.Replace("0", "O");
+        yield return compact.Replace("5", "S");
+
+        foreach (var variant in BuildCombinedMarkOcrVariants(compact))
+            yield return variant;
+    }
+
+    private static IEnumerable<string> BuildCombinedMarkOcrVariants(string compact)
+    {
+        static char[] Alternatives(char c) => c switch
+        {
+            'B' => ['B', '8', 'P', 'R'],
+            '8' => ['8', 'B'],
+            '9' => ['9', 'O', '0', 'G', 'Q'],
+            '6' => ['6', 'G'],
+            '0' => ['0', 'O'],
+            'O' => ['O', '0'],
+            '1' => ['1', 'I', 'L'],
+            'I' => ['I', '1', 'L'],
+            'L' => ['L', '1', 'I'],
+            '5' => ['5', 'S'],
+            'S' => ['S', '5'],
+            '2' => ['2', 'Z'],
+            'Z' => ['Z', '2'],
+            _ => [c],
+        };
+
+        var variants = new List<string> { string.Empty };
+        foreach (var c in compact)
+        {
+            var next = new List<string>();
+            foreach (var prefix in variants)
+            {
+                foreach (var alt in Alternatives(c))
+                    next.Add(prefix + alt);
+            }
+            variants = next;
+            if (variants.Count > 128) break;
+        }
+
+        return variants
+            .Where(v => v.Length == compact.Length)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static double ScoreDetectedMark(string mark, string sourceLine, List<string> knownMarks)
+    {
+        var upper = mark.ToUpperInvariant();
+        var line = Regex.Replace(sourceLine.ToUpperInvariant(), @"\s+", "");
+        var score = 100.0;
+        if (knownMarks.Any(m => m.Equals(upper, StringComparison.OrdinalIgnoreCase))) score += 50;
+        if (line.Equals(upper, StringComparison.OrdinalIgnoreCase)) score += 40;
+        if (line.Contains(upper)) score += 20;
+        var variants = BuildMarkOcrVariants(upper).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (variants.Any(v => line.Equals(v, StringComparison.OrdinalIgnoreCase))) score += 35;
+        if (variants.Any(v => !string.IsNullOrWhiteSpace(v) && line.Contains(v, StringComparison.OrdinalIgnoreCase))) score += 18;
+        score -= Math.Max(0, line.Length - upper.Length) * 0.75;
+        return score;
     }
 
     private static string NormalizeScheduleOcrLine(string line)

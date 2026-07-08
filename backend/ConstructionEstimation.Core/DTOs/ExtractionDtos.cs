@@ -26,3 +26,19 @@ public record ExtractionResultDto(
 public record BulkCreateMemberScheduleRequest(
     List<CreateMemberScheduleItemRequest> Items
 );
+
+public record MarkDetectionPointDto(
+    double X,
+    double Y
+);
+
+public record DetectDrawingMarkRequest(
+    int PageNumber,
+    List<MarkDetectionPointDto> Points,
+    List<string> KnownMarks
+);
+
+public record DetectDrawingMarkResponse(
+    string Mark,
+    string RawText
+);

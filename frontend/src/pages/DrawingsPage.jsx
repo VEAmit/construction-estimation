@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { drawingService } from '../services/drawingService'
 import { takeoffService } from '../services/takeoffService'
 import { memberScheduleService } from '../services/memberScheduleService'
+import { extractionService } from '../services/extractionService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
 import DrawingSidebar from '../components/drawings/DrawingSidebar'
@@ -388,7 +389,7 @@ export default function DrawingsPage() {
     } = useAppStore.getState()
     const linkedMember = selectedMemberScheduleItem
     // Priority: explicitly-selected member -> payload mark from PdfViewer -> auto-detected mark.
-    const memberMark = (
+    let memberMark = (
       linkedMember?.mark?.trim() ||
       linkedMember?.Mark?.trim() ||
       (measurement.memberMark || '').trim() ||
@@ -424,7 +425,7 @@ export default function DrawingsPage() {
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
     const { takeoffItems: itemsForColor, memberScheduleItems } = useAppStore.getState()
-    const saveColor = pasteOverride?.color
+    let saveColor = pasteOverride?.color
       ?? resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
       ?? '#111827'
     const saveCategory = pasteOverride?.category ?? category ?? 'General'
@@ -445,6 +446,66 @@ export default function DrawingsPage() {
     const isPerim    = measurement.measureType === 'Perimeter'
     const isCount    = measurement.measureType === 'Count'
     const normDrw    = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
+
+    let detectedScheduleMember = null
+    if (!memberMark && !isArea && !isPerim && !isCount && measurement.rawAnnotation) {
+      const knownMarks = (memberScheduleItems ?? [])
+        .map(m => String(m.mark ?? m.Mark ?? '').trim())
+        .filter(Boolean)
+      const readPointList = (value) => Array.isArray(value)
+        ? value
+            .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+            .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+        : []
+      const isNormalizedPointList = (list) => list.length >= 2
+        && list.every(p => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)
+      const vertexPoints = readPointList(
+        measurement.rawAnnotation.vertexPoints
+          ?? measurement.rawAnnotation.VertexPoints
+          ?? [],
+      )
+      const pagePoints = readPointList(
+        measurement.rawAnnotation.labelPagePoints
+          ?? measurement.rawAnnotation.LabelPagePoints
+          ?? [],
+      )
+      const labelVertexPoints = readPointList(
+        measurement.rawAnnotation.labelVertexPoints
+          ?? measurement.rawAnnotation.LabelVertexPoints
+          ?? [],
+      )
+      const pointCandidates = [
+        vertexPoints,
+        isNormalizedPointList(pagePoints) ? pagePoints : [],
+        labelVertexPoints,
+      ].filter(points => points.length >= 2)
+
+      if (knownMarks.length > 0 && pointCandidates.length > 0) {
+        try {
+          let detectedMark = ''
+          for (const points of pointCandidates) {
+            const detected = await extractionService.detectMark(drw.id, {
+              pageNumber: measurement.pageNumber ?? 1,
+              points,
+              knownMarks,
+            })
+            detectedMark = String(detected?.mark ?? detected?.Mark ?? '').trim()
+            if (detectedMark) break
+          }
+          if (detectedMark) {
+            detectedScheduleMember = memberScheduleItems.find(m =>
+              String(m.mark ?? m.Mark ?? '').trim().toUpperCase() === detectedMark.toUpperCase())
+            memberMark = String(detectedScheduleMember?.mark ?? detectedScheduleMember?.Mark ?? detectedMark).trim()
+            if (!pasteOverride?.color) {
+              saveColor = resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
+                ?? saveColor
+            }
+          }
+        } catch (err) {
+          console.warn('[BuildTakeoff] OCR mark fallback failed:', err)
+        }
+      }
+    }
 
     const resolved = resolveCalibratedMeasure(
       measurement.pixelLength ?? 0,
@@ -559,10 +620,10 @@ export default function DrawingsPage() {
       fallbackReason: /not calibrated/i.test(desc) ? 'autoSave: drawing not calibrated at save time' : null,
     })
 
-    const memberType = linkedMember?.memberType?.trim() ?? ''
+    const memberType = linkedMember?.memberType?.trim() ?? detectedScheduleMember?.memberType?.trim() ?? ''
     const saveCategoryFinal = memberType || saveCategory
     const saveMaterial = saveMaterialOverride ?? memberMark
-    const msiId = linkedMember?.id ?? measurement.memberScheduleId
+    const msiId = linkedMember?.id ?? measurement.memberScheduleId ?? detectedScheduleMember?.id
     const saveNotes = msiId ? `msi:${msiId}` : ''
 
     try {

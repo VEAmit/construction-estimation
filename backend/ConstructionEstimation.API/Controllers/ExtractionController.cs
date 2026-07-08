@@ -54,6 +54,25 @@ public class ExtractionController : ControllerBase
         return Ok(ApiResponse<ExtractionResultDto>.Ok(result, $"Extracted {result.TotalExtracted} member(s)"));
     }
 
+    [HttpPost("drawing/{drawingId}/detect-mark")]
+    public async Task<ActionResult<ApiResponse<DetectDrawingMarkResponse>>> DetectMarkNearMeasurement(
+        int drawingId,
+        [FromBody] DetectDrawingMarkRequest request)
+    {
+        var drawing = await _drawingRepo.GetWithTakeoffItemsAsync(drawingId);
+        if (drawing == null)
+            return NotFound(ApiResponse<DetectDrawingMarkResponse>.Fail("Drawing not found"));
+
+        var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var result = _extractionService.DetectMarkNearMeasurement(
+            filePath,
+            request.PageNumber,
+            request.Points ?? [],
+            request.KnownMarks ?? []);
+
+        return Ok(ApiResponse<DetectDrawingMarkResponse>.Ok(result));
+    }
+
     /// <summary>
     /// Confirm and save extracted members to the member schedule.
     /// Client sends the confirmed/edited list; upserts by mark (update existing, add new).

@@ -26,4 +26,16 @@ export const extractionService = {
     const res = await api.post(`/extraction/drawing/${drawingId}/confirm`, { items })
     return res.data.data
   },
+
+  async detectMark(drawingId, payload) {
+    const res = await api.post(`/extraction/drawing/${drawingId}/detect-mark`, {
+      pageNumber: payload.pageNumber ?? 1,
+      points: (payload.points ?? []).map(p => ({
+        x: Number(p.x ?? p.X ?? 0),
+        y: Number(p.y ?? p.Y ?? 0),
+      })),
+      knownMarks: payload.knownMarks ?? [],
+    })
+    return res.data.data
+  },
 }
