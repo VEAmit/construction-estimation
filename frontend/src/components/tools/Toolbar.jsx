@@ -384,7 +384,7 @@ export default function Toolbar({
                   if (canPaste) onPasteMeasurement?.()
                 }}
                 disabled={!canPaste}
-                title="Paste at clicked location (Ctrl+V after clicking plan)"
+                title="Paste measurement (Ctrl+V), then click to place"
                 style={{ ...zBtn, opacity: canPaste ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px', touchAction: 'manipulation' }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>

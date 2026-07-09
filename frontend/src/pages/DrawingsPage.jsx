@@ -56,6 +56,83 @@ function assignMemberColors(members) {
   return colored
 }
 
+function readTakeoffPointsJson(pointsJson) {
+  if (!pointsJson) return null
+  try {
+    return typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson
+  } catch {
+    return null
+  }
+}
+
+function getRawAnnotationId(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  return raw.AnnotName ?? raw.annotName ?? raw.annotationId ?? raw.AnnotationId ?? raw.uniqueKey ?? raw.name ?? raw.id ?? null
+}
+
+function stripOccurrenceContainer(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  const { occurrences, occurrenceModelVersion, itemId, ItemId, ...geometry } = raw
+  void occurrences
+  void occurrenceModelVersion
+  void itemId
+  void ItemId
+  return geometry
+}
+
+function buildTakeoffOccurrencesFromItem(item) {
+  const raw = readTakeoffPointsJson(item?.pointsJson)
+  if (!raw || typeof raw !== 'object') return []
+  const existing = Array.isArray(raw.occurrences) ? raw.occurrences : null
+  if (existing?.length) {
+    return existing
+      .map((occ, index) => {
+        const geometry = stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
+        const annotationName = occ?.annotationName ?? getRawAnnotationId(geometry)
+        if (!annotationName || !geometry) return null
+        return {
+          occurrenceId: occ?.occurrenceId ?? occ?.OccurrenceId ?? annotationName,
+          itemId: Number(item?.id ?? raw.itemId ?? raw.ItemId) || item?.id,
+          pageNumber: Number(occ?.pageNumber ?? geometry.pageNumber ?? geometry.PageNumber ?? 1) || 1,
+          annotationName,
+          position: occ?.position ?? null,
+          rotation: occ?.rotation ?? geometry.RotateAngle ?? geometry.rotateAngle ?? 0,
+          createdAt: occ?.createdAt ?? occ?.CreatedAt ?? item?.createdAt ?? new Date().toISOString(),
+          isRoot: Boolean(occ?.isRoot ?? index === 0),
+          geometry,
+        }
+      })
+      .filter(Boolean)
+  }
+
+  const geometry = stripOccurrenceContainer(raw)
+  const annotationName = getRawAnnotationId(geometry)
+  if (!annotationName) return []
+  return [{
+    occurrenceId: raw.occurrenceId ?? raw.OccurrenceId ?? `root-${item?.id ?? annotationName}`,
+    itemId: Number(item?.id ?? raw.itemId ?? raw.ItemId) || item?.id,
+    pageNumber: Number(geometry.pageNumber ?? geometry.PageNumber ?? 1) || 1,
+    annotationName,
+    position: null,
+    rotation: geometry.RotateAngle ?? geometry.rotateAngle ?? 0,
+    createdAt: item?.createdAt ?? new Date().toISOString(),
+    isRoot: true,
+    geometry,
+  }]
+}
+
+function extractTakeoffAnnotationIds(pointsJson) {
+  const raw = readTakeoffPointsJson(pointsJson)
+  if (!raw) return []
+  if (Array.isArray(raw.occurrences) && raw.occurrences.length) {
+    return raw.occurrences
+      .map(occ => occ?.annotationName ?? getRawAnnotationId(occ?.geometry ?? occ?.rawAnnotation ?? occ))
+      .filter(Boolean)
+  }
+  const id = getRawAnnotationId(raw)
+  return id ? [id] : []
+}
+
 export default function DrawingsPage() {
   const navigate = useNavigate()
   const { isMobile, isTablet, isDesktop } = useBreakpoint()
@@ -69,8 +146,7 @@ export default function DrawingsPage() {
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
-    measurementClipboard, setMeasurementClipboard, clearMeasurementClipboard,
-    pasteAnchor, setPasteAnchor, clearPasteAnchor,
+    measurementClipboard, setMeasurementClipboard, clearPasteAnchor,
     pdfScale,
     removeTakeoffItem,
     setMeasureColor,
@@ -139,9 +215,11 @@ export default function DrawingsPage() {
   const rightHoverTimer = useRef(null)
 
   const annotationMapRef = useRef({})
+  const selectedOccurrenceAnnotIdRef = useRef(null)
   const lastCopyTargetRef = useRef(null)
   const persistedAnnotIdsRef = useRef(new Set())
   const savingAnnotIdsRef = useRef(new Set())
+  const geometrySaveTimersRef = useRef(new Map())
   const measureReleaseRef = useRef(null)
   // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
   const pendingMeasurementRef = useRef(null)
@@ -150,25 +228,47 @@ export default function DrawingsPage() {
   const calibrateOnlyRef = useRef(false)
 
   const extractAnnotIdFromPointsJson = useCallback((pointsJson) => {
-    if (!pointsJson) return null
-    try {
-      const stored = typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson
-      return stored.AnnotName ?? stored.annotationId ?? stored.uniqueKey ?? stored.name ?? null
-    } catch {
-      return null
-    }
+    return extractTakeoffAnnotationIds(pointsJson)[0] ?? null
   }, [])
 
   const resolveMeasurementDbId = useCallback((annotId) => {
     const pending = pendingMeasurementRef.current
     if (!annotId) return pending?.dbId ?? null
     if (pending?.annotationId === annotId) return pending.dbId ?? null
-    const fromMap = Object.entries(annotationMapRef.current).find(([, v]) => v.annotationId === annotId)
+    const fromMap = Object.entries(annotationMapRef.current).find(([, v]) => {
+      if (v.annotationId === annotId) return true
+      return Array.isArray(v.annotationIds) && v.annotationIds.includes(annotId)
+    })
     if (fromMap) return Number(fromMap[0])
     const items = useAppStore.getState().takeoffItems ?? []
-    const item = items.find(t => extractAnnotIdFromPointsJson(t.pointsJson) === annotId)
+    const item = items.find(t => extractTakeoffAnnotationIds(t.pointsJson).includes(annotId))
     return item?.id ?? null
-  }, [extractAnnotIdFromPointsJson])
+  }, [])
+
+  const parseLinkedItemId = useCallback((notes) => {
+    const match = String(notes ?? '').match(/\blinkedItem:(\d+)/i)
+    return match ? Number(match[1]) : null
+  }, [])
+
+  const countLinkedOccurrences = useCallback((items, rootItemId) => {
+    const root = Number(rootItemId)
+    if (!Number.isFinite(root)) return 0
+    return (items ?? []).filter(item => {
+      if (Number(item.id) === root) return true
+      return parseLinkedItemId(item.notes) === root
+    }).length
+  }, [parseLinkedItemId])
+
+  const appendLinkedOccurrenceNotes = useCallback((notes, linkedItemId, occurrenceId) => {
+    const parts = String(notes ?? '')
+      .split(';')
+      .map(p => p.trim())
+      .filter(Boolean)
+      .filter(p => !/^linkedItem:/i.test(p) && !/^occurrence:/i.test(p))
+    if (linkedItemId != null) parts.push(`linkedItem:${linkedItemId}`)
+    if (occurrenceId) parts.push(`occurrence:${occurrenceId}`)
+    return parts.join(';')
+  }, [])
 
   // Track style values at the moment an annotation is selected.
   // Used to detect when the user actually changes a style prop (vs. selecting an annotation
@@ -306,25 +406,27 @@ export default function DrawingsPage() {
         setMemberScheduleItems(assignMemberColors(members))
         setMemberScheduleSummary(memberSum)
         const map = {}
-        items.forEach(item => {
+        finalItems.forEach(item => {
           if (!item.pointsJson) return
           try {
-            const stored = JSON.parse(item.pointsJson)
-            const annotId = stored.annotationId ?? stored.AnnotName ?? stored.uniqueKey ?? stored.name
+            const annotationIds = extractTakeoffAnnotationIds(item.pointsJson)
+            const annotId = annotationIds[0]
             if (!annotId) return
+            const stored = readTakeoffPointsJson(item.pointsJson) ?? {}
+            const firstGeometry = buildTakeoffOccurrencesFromItem(item)[0]?.geometry ?? stored
             const page0 = stored.page != null
               ? parseInt(stored.page, 10)
-              : (stored.pageIndex ?? 0)
-            map[item.id] = { annotationId: annotId, pageNumber: page0 + 1 }
+              : (firstGeometry.pageIndex ?? firstGeometry.page ?? 0)
+            map[item.id] = { annotationId: annotId, annotationIds, pageNumber: page0 + 1 }
           } catch (_) {}
         })
         annotationMapRef.current = map
         persistedAnnotIdsRef.current = new Set(
-          items.map(item => extractAnnotIdFromPointsJson(item.pointsJson)).filter(Boolean)
+          finalItems.flatMap(item => extractTakeoffAnnotationIds(item.pointsJson)).filter(Boolean)
         )
       })
       .catch(() => toast.error('Failed to load drawing data'))
-  }, [selectedDrawing?.id, extractAnnotIdFromPointsJson, updateTakeoffItem, triggerPdfCommand])
+  }, [selectedDrawing?.id, updateTakeoffItem, triggerPdfCommand])
 
   const deletePendingMeasurement = useCallback(async (pending, { silent = false } = {}) => {
     if (!pending || persistedAnnotIdsRef.current.has(pending.annotationId)) return false
@@ -363,6 +465,8 @@ export default function DrawingsPage() {
 
   useEffect(() => () => {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
+    geometrySaveTimersRef.current.forEach(t => clearTimeout(t))
+    geometrySaveTimersRef.current.clear()
   }, [])
 
   const pickMeasureTool = useCallback((toolId) => {
@@ -388,14 +492,15 @@ export default function DrawingsPage() {
       selectedMemberScheduleItem,
     } = useAppStore.getState()
     const linkedMember = selectedMemberScheduleItem
-    // Priority: explicitly-selected member -> payload mark from PdfViewer -> auto-detected mark.
-    let memberMark = (
-      linkedMember?.mark?.trim() ||
-      linkedMember?.Mark?.trim() ||
-      (measurement.memberMark || '').trim() ||
-      (measurement.drawingMark || '').trim() ||
-      ''
+    const payloadMemberMark = (
+      (measurement.memberMark || '').trim()
+      || (measurement.drawingMark || '').trim()
+      || (measurement.material || '').trim()
+      || ''
     )
+    const linkedMemberMark = linkedMember?.mark?.trim() || linkedMember?.Mark?.trim() || ''
+    // Normal drawing: selected schedule member wins. Paste: copied measurement metadata wins.
+    let memberMark = isPaste ? (payloadMemberMark || linkedMemberMark) : (linkedMemberMark || payloadMemberMark)
     if (!drw?.id) {
       console.warn('[BT-Lifecycle] autoSave ABORTED — no drawing id in store')
       return false
@@ -404,14 +509,7 @@ export default function DrawingsPage() {
     if (isPaste && measurement.annotationId) {
       const items = useAppStore.getState().takeoffItems ?? []
       const dup = items.some(t => {
-        if (!t.pointsJson) return false
-        try {
-          const raw = JSON.parse(t.pointsJson)
-          const aid = raw.annotationId ?? raw.AnnotName ?? raw.name
-          return aid === measurement.annotationId
-        } catch {
-          return false
-        }
+        return extractTakeoffAnnotationIds(t.pointsJson).includes(measurement.annotationId)
       })
       if (dup) return true
     }
@@ -553,13 +651,15 @@ export default function DrawingsPage() {
     const defaultMark = `${prefix}${sameType.length + 1}`
     const nextMark   = reuseMark ?? (memberMark || (itemType === 'Line' ? '' : defaultMark))
 
-    const desc = isCount
+    const copiedDescription = isPaste ? String(measurement.description ?? '').trim() : ''
+    const generatedDesc = isCount
       ? `Count: ${measurement.count} × ${category}`
       : isArea
         ? formatAreaMeasureDescription(measurement.pixelArea, saveArea, unit, normDrw)
         : isPerim
           ? formatPolylineDescription(measurement.pixelLength, saveLength, unit, normDrw)
           : formatLineMeasureDescription(measurement.pixelLength, saveLength, unit, normDrw)
+    const desc = copiedDescription || generatedDesc
 
     // Safe serialise — skips circular refs so Syncfusion internal objects never crash this
     const safeJson = (obj) => {
@@ -620,27 +720,127 @@ export default function DrawingsPage() {
       fallbackReason: /not calibrated/i.test(desc) ? 'autoSave: drawing not calibrated at save time' : null,
     })
 
-    const memberType = linkedMember?.memberType?.trim() ?? detectedScheduleMember?.memberType?.trim() ?? ''
+    const payloadMemberType = String(measurement.memberType ?? '').trim()
+    const memberType = isPaste
+      ? (payloadMemberType || detectedScheduleMember?.memberType?.trim() || linkedMember?.memberType?.trim() || '')
+      : (linkedMember?.memberType?.trim() ?? detectedScheduleMember?.memberType?.trim() ?? '')
     const saveCategoryFinal = memberType || saveCategory
-    const saveMaterial = saveMaterialOverride ?? memberMark
-    const msiId = linkedMember?.id ?? measurement.memberScheduleId ?? detectedScheduleMember?.id
-    const saveNotes = msiId ? `msi:${msiId}` : ''
+    const saveMaterial = saveMaterialOverride ?? measurement.material ?? memberMark
+    const msiId = isPaste
+      ? (measurement.memberScheduleId ?? detectedScheduleMember?.id ?? linkedMember?.id)
+      : (linkedMember?.id ?? measurement.memberScheduleId ?? detectedScheduleMember?.id)
+    const baseNotes = measurement.notes || (msiId ? `msi:${msiId}` : '')
+    const linkedRootItemId = isPaste
+      ? (measurement.linkedItemId ?? measurement.sourceItemId ?? null)
+      : null
+    const saveNotes = isPaste
+      ? appendLinkedOccurrenceNotes(baseNotes, linkedRootItemId, measurement.occurrenceId)
+      : baseNotes
 
     try {
       const pointsJson = buildPointsJson()
+      if (isPaste && linkedRootItemId != null && pointsJson) {
+        const rootId = Number(linkedRootItemId)
+        const rootItem = (useAppStore.getState().takeoffItems ?? [])
+          .find(t => Number(t.id) === rootId)
+        const newGeometry = readTakeoffPointsJson(pointsJson)
+        const annotationName = getRawAnnotationId(newGeometry) ?? measurement.annotationId
+        if (rootItem && newGeometry && annotationName) {
+          const existingOccurrences = buildTakeoffOccurrencesFromItem(rootItem)
+          const occurrenceId = measurement.occurrenceId ?? newGeometry.OccurrenceId ?? newGeometry.occurrenceId ?? annotationName
+          const cleanNewGeometry = stripOccurrenceContainer({
+            ...newGeometry,
+            annotationId: annotationName,
+            AnnotName: annotationName,
+            name: annotationName,
+            ItemId: rootId,
+            itemId: rootId,
+            OccurrenceId: occurrenceId,
+            occurrenceId,
+            CustomData: {
+              ...(newGeometry.CustomData ?? {}),
+              ItemId: rootId,
+              OccurrenceId: occurrenceId,
+            },
+            customData: {
+              ...(newGeometry.customData ?? {}),
+              itemId: rootId,
+              occurrenceId,
+            },
+          })
+          const nextOccurrences = existingOccurrences.some(occ => occ.annotationName === annotationName)
+            ? existingOccurrences
+            : [
+                ...existingOccurrences,
+                {
+                  occurrenceId,
+                  itemId: rootId,
+                  pageNumber: measurement.pageNumber ?? cleanNewGeometry.pageNumber ?? cleanNewGeometry.PageNumber ?? 1,
+                  annotationName,
+                  position: null,
+                  rotation: cleanNewGeometry.RotateAngle ?? cleanNewGeometry.rotateAngle ?? 0,
+                  createdAt: new Date().toISOString(),
+                  isRoot: false,
+                  geometry: cleanNewGeometry,
+                },
+              ]
+          const rootRaw = readTakeoffPointsJson(rootItem.pointsJson) ?? {}
+          const rootGeometry = stripOccurrenceContainer(rootRaw)
+          const occurrencePointsJson = JSON.stringify({
+            ...rootGeometry,
+            occurrenceModelVersion: 1,
+            itemId: rootId,
+            ItemId: rootId,
+            occurrences: nextOccurrences,
+          })
+          const optimisticRoot = {
+            ...rootItem,
+            quantity: Math.max(1, nextOccurrences.length),
+            pointsJson: occurrencePointsJson,
+          }
+          updateTakeoffItem(optimisticRoot)
+          const savedRoot = await takeoffService.update(optimisticRoot)
+          updateTakeoffItem(savedRoot)
+          annotationMapRef.current[rootId] = {
+            annotationId: extractTakeoffAnnotationIds(savedRoot.pointsJson)[0] ?? annotationName,
+            annotationIds: extractTakeoffAnnotationIds(savedRoot.pointsJson),
+            pageNumber: measurement.pageNumber ?? 1,
+          }
+          persistedAnnotIdsRef.current.add(annotationName)
+          setShowBottom(true)
+          setBottomTab('measurements')
+          setSelectedAnnotId(savedRoot.id)
+          setStyleEditTargetId(null)
+          annotStyleBaselineRef.current = null
+          pendingMeasurementRef.current = {
+            dbId: savedRoot.id,
+            annotationId: annotationName,
+            mark: savedRoot.mark,
+            pageNumber: measurement.pageNumber ?? 1,
+            pendingThickness: pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness,
+            rawPointsJson: cleanNewGeometry,
+          }
+          lastCopyTargetRef.current = savedRoot.id
+          takeoffService.getSummary(drw.id)
+            .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+            .catch(() => {})
+          toast.success(`${savedRoot.mark || saveMaterial || 'Measurement'} occurrence added`, { duration: 2200 })
+          return true
+        }
+      }
       const saved = await takeoffService.create({
         drawingId:   drw.id,
         itemType,
         mark:        nextMark,
         description: desc,
-        quantity:    isCount ? measurement.count : 1,
+        quantity:    isCount ? measurement.count : (isPaste ? (measurement.quantity ?? 1) : 1),
         unit,
         material:    saveMaterial,
         notes:       saveNotes,
         length:      isCount ? null : (saveLength ?? null),
         area:        isCount ? null : (saveArea ?? null),
-        unitWeight:  null,
-        totalWeight: null,
+        unitWeight:  isPaste ? (measurement.unitWeight ?? null) : null,
+        totalWeight: isPaste ? (measurement.totalWeight ?? null) : null,
         color:       saveColor,
         category:    saveCategoryFinal,
         pointsJson,
@@ -657,6 +857,20 @@ export default function DrawingsPage() {
         } catch (_) {}
       }
       addTakeoffItem(finalSaved)
+      if (isPaste && linkedRootItemId != null) {
+        try {
+          const rootId = Number(linkedRootItemId)
+          const rowsAfterPaste = useAppStore.getState().takeoffItems ?? []
+          const occurrenceCount = countLinkedOccurrences(rowsAfterPaste, rootId)
+          const rootItem = rowsAfterPaste.find(t => Number(t.id) === rootId)
+          if (rootItem && occurrenceCount > 0 && Number(rootItem.quantity ?? 1) !== occurrenceCount) {
+            const updatedRoot = await takeoffService.update({ ...rootItem, quantity: occurrenceCount })
+            updateTakeoffItem(updatedRoot)
+          }
+        } catch (err) {
+          console.warn('[BuildTakeoff] linked occurrence quantity update failed:', err)
+        }
+      }
       console.log('[BT-Lifecycle] autoSave — database success, id:', finalSaved.id, 'mark:', finalSaved.mark, 'length:', finalSaved.length)
       setShowBottom(true)
       if (!linkedMember) {
@@ -690,6 +904,7 @@ export default function DrawingsPage() {
       if (measurement.annotationId) {
         annotationMapRef.current[finalSaved.id] = {
           annotationId: measurement.annotationId,
+          annotationIds: [measurement.annotationId],
           pageNumber:   measurement.pageNumber ?? 1,
         }
         persistedAnnotIdsRef.current.add(measurement.annotationId)
@@ -728,7 +943,14 @@ export default function DrawingsPage() {
       savingAnnotIdsRef.current.delete(annotKey)
       setAutoSaving(false)
     }
-  }, [addTakeoffItem, scheduleAnnotationBlobSave, updateMemberScheduleItem])
+  }, [
+    addTakeoffItem,
+    scheduleAnnotationBlobSave,
+    updateMemberScheduleItem,
+    updateTakeoffItem,
+    appendLinkedOccurrenceNotes,
+    countLinkedOccurrences,
+  ])
 
   const handleMeasure = useCallback((measurement, opts = {}) => {
     const { activeTool: currentTool } = useAppStore.getState()
@@ -944,6 +1166,7 @@ export default function DrawingsPage() {
     const item = takeoffItems.find(t => t.id === dbId)
     syncToolbarFromTakeoffItem(item)
     const annot = annotationMapRef.current[dbId]
+    selectedOccurrenceAnnotIdRef.current = annot?.annotationId ?? null
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand, takeoffItems, syncToolbarFromTakeoffItem])
 
@@ -1001,44 +1224,111 @@ export default function DrawingsPage() {
     } catch (_) {}
   }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson])
 
+  const handleMeasurementGeometryChange = useCallback((payload) => {
+    const annotId = payload?.annotationId
+    const dbId = payload?.dbId ?? resolveMeasurementDbId(annotId)
+    if (dbId == null || !payload?.rawAnnotation) return
+
+    const existingTimer = geometrySaveTimersRef.current.get(dbId)
+    if (existingTimer) clearTimeout(existingTimer)
+
+    const timer = setTimeout(async () => {
+      geometrySaveTimersRef.current.delete(dbId)
+      const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+      if (!item?.pointsJson) return
+
+      try {
+        const previousRaw = JSON.parse(item.pointsJson)
+        const movedRaw = JSON.parse(JSON.stringify(payload.rawAnnotation))
+        const stableAnnotId = annotId ?? previousRaw.annotationId ?? previousRaw.AnnotName ?? previousRaw.name
+        const mergeGeometry = (baseRaw) => ({
+          ...baseRaw,
+          ...movedRaw,
+          annotationId: stableAnnotId,
+          AnnotName: stableAnnotId,
+          name: stableAnnotId,
+          strokeColor: baseRaw.strokeColor ?? baseRaw.StrokeColor ?? movedRaw.strokeColor,
+          StrokeColor: baseRaw.StrokeColor ?? baseRaw.strokeColor ?? movedRaw.StrokeColor,
+          thickness: baseRaw.thickness ?? baseRaw.Thickness ?? movedRaw.thickness,
+          Thickness: baseRaw.Thickness ?? baseRaw.thickness ?? movedRaw.Thickness,
+        })
+        let mergedRaw
+        if (Array.isArray(previousRaw.occurrences) && previousRaw.occurrences.length) {
+          let updatedOccurrence = false
+          const nextOccurrences = previousRaw.occurrences.map(occ => {
+            const geometry = stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
+            const occurrenceAnnotId = occ?.annotationName ?? getRawAnnotationId(geometry)
+            if (occurrenceAnnotId !== stableAnnotId) return occ
+            updatedOccurrence = true
+            return {
+              ...occ,
+              annotationName: stableAnnotId,
+              pageNumber: payload.pageNumber ?? occ.pageNumber ?? geometry.pageNumber ?? 1,
+              rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occ.rotation ?? 0,
+              geometry: mergeGeometry(geometry),
+            }
+          })
+          mergedRaw = {
+            ...previousRaw,
+            occurrences: updatedOccurrence ? nextOccurrences : previousRaw.occurrences,
+          }
+        } else {
+          mergedRaw = mergeGeometry(previousRaw)
+        }
+        const unit = payload.unit ?? item.unit ?? activeUnit
+        const nextLength = Number.isFinite(Number(payload.length)) && Number(payload.length) > 0
+          ? Number(payload.length)
+          : item.length
+        const next = {
+          ...item,
+          unit,
+          length: nextLength,
+          description: formatLineMeasureDescription(payload.pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
+          pointsJson: JSON.stringify(mergedRaw),
+        }
+        updateTakeoffItem(next)
+        const saved = await takeoffService.update(next)
+        updateTakeoffItem(saved)
+        if (selectedDrawing?.id) {
+          takeoffService.getSummary(selectedDrawing.id)
+            .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+            .catch(() => {})
+        }
+        scheduleAnnotationBlobSave()
+      } catch (err) {
+        console.warn('[BuildTakeoff] measurement geometry update failed:', err)
+      }
+    }, 250)
+
+    geometrySaveTimersRef.current.set(dbId, timer)
+  }, [resolveMeasurementDbId, activeUnit, updateTakeoffItem, selectedDrawing, setSummary, scheduleAnnotationBlobSave])
+
   const resolveCopyTargetId = useCallback(() => {
     const isValid = (item) => item && isValidLinearMeasurementForCopy(item)
+    const resolveCandidate = (candidateId) => {
+      if (candidateId == null) return null
+      const direct = takeoffItems.find(t => String(t.id) === String(candidateId))
+      if (isValid(direct)) return direct.id
+
+      const dbId = resolveMeasurementDbId(candidateId)
+      if (dbId == null) return null
+      const mapped = takeoffItems.find(t => String(t.id) === String(dbId))
+      return isValid(mapped) ? mapped.id : null
+    }
     const candidates = [
       selectedAnnotId,
       styleEditTargetId,
-      lastCopyTargetRef.current,
-      pendingMeasurementRef.current?.dbId,
     ].filter(id => id != null)
     for (const id of candidates) {
-      const item = takeoffItems.find(t => t.id === id)
-      if (isValid(item)) return id
+      const resolved = resolveCandidate(id)
+      if (resolved != null) return resolved
     }
-    const lines = takeoffItems.filter(t => isValid(t))
-    return lines.length ? lines[lines.length - 1].id : null
-  }, [selectedAnnotId, styleEditTargetId, takeoffItems])
+    return null
+  }, [selectedAnnotId, styleEditTargetId, takeoffItems, resolveMeasurementDbId])
 
   const handleCopyMeasurement = useCallback(() => {
     const targetId = resolveCopyTargetId()
     let item = targetId ? takeoffItems.find(t => t.id === targetId) : null
-
-    if (!item?.pointsJson) {
-      const pendingRaw = pendingMeasurementRef.current?.rawPointsJson ?? lastMeasurement?.rawAnnotation
-      const isLine = (lastMeasurement?.measureType ?? 'Line') === 'Line'
-      if (pendingRaw && isLine) {
-        const raw = typeof pendingRaw === 'string' ? JSON.parse(pendingRaw) : pendingRaw
-        item = item ?? {
-          id: pendingMeasurementRef.current?.dbId ?? targetId,
-          itemType: 'Line',
-          mark: pendingMeasurementRef.current?.mark ?? lastMeasurement?.memberMark ?? lastMeasurement?.drawingMark ?? 'Line',
-          material: lastMeasurement?.memberMark ?? lastMeasurement?.drawingMark ?? '',
-          color: measureColor,
-          category: measureCategory ?? 'General',
-          length: lastMeasurement?.length,
-          unit: activeUnit,
-          pointsJson: JSON.stringify(raw),
-        }
-      }
-    }
 
     if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') {
       toast.error('Draw or select a linear measurement to copy')
@@ -1050,15 +1340,19 @@ export default function DrawingsPage() {
     }
     try {
       const raw = JSON.parse(item.pointsJson)
-      const clipboard = buildLinearMeasurementClipboard(item, raw, pdfScale)
+      const selectedOccurrenceId = selectedOccurrenceAnnotIdRef.current
+      const selectedOccurrence = selectedOccurrenceId
+        ? buildTakeoffOccurrencesFromItem(item).find(occ => occ.annotationName === selectedOccurrenceId)
+        : null
+      const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
+      const clipboard = buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
       setMeasurementClipboard(clipboard)
       clearPasteAnchor()
       if (item.id) lastCopyTargetRef.current = item.id
-      toast.success(`Copied ${item.mark} — click destination on plan (Pan), then Ctrl+V`, { duration: 3500 })
     } catch {
       toast.error('Could not copy measurement')
     }
-  }, [resolveCopyTargetId, takeoffItems, lastMeasurement, measureColor, measureCategory, activeUnit, pdfScale, setMeasurementClipboard, clearPasteAnchor])
+  }, [resolveCopyTargetId, takeoffItems, pdfScale, setMeasurementClipboard, clearPasteAnchor])
 
   const handlePasteMeasurement = useCallback(() => {
     if (!measurementClipboard) {
@@ -1066,25 +1360,17 @@ export default function DrawingsPage() {
       return
     }
     if (!selectedDrawing) return
-    const anchor = useAppStore.getState().pasteAnchor
-    if (!anchor) {
-      toast('Click on the drawing (Pan tool) where you want to paste, then press Ctrl+V', { duration: 4500, icon: '📍' })
-      return
-    }
     pasteStyleOverrideRef.current = {
       color: measurementClipboard.color,
       category: measurementClipboard.category,
       material: measurementClipboard.material ?? measurementClipboard.mark ?? '',
     }
-    triggerPdfCommand({ type: 'pasteAtPoint', clipboard: measurementClipboard, anchor })
-  }, [measurementClipboard, selectedDrawing, triggerPdfCommand])
+    clearPasteAnchor()
+    triggerPdfCommand({ type: 'pasteMeasurement', clipboard: measurementClipboard })
+  }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor])
 
   const copyTargetId = resolveCopyTargetId()
-  const hasPendingLineCopy = !!(
-    (pendingMeasurementRef.current?.rawPointsJson ?? lastMeasurement?.rawAnnotation)
-    && (lastMeasurement?.measureType ?? 'Line') === 'Line'
-  )
-  const canCopyMeasurement = !!copyTargetId || hasPendingLineCopy
+  const canCopyMeasurement = !!copyTargetId
   const canPasteMeasurement = !!measurementClipboard && (measurementClipboard.itemType || 'Line') === 'Line'
 
   const handleClearPending = useCallback(async () => {
@@ -1098,10 +1384,26 @@ export default function DrawingsPage() {
 
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
+    const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
+    const itemBeingDeleted = beforeDeleteItems.find(t => Number(t.id) === Number(id))
+    const linkedRootBeforeDelete = parseLinkedItemId(itemBeingDeleted?.notes)
     try {
       await takeoffService.delete(id)
       removeTakeoffItem(id)
       delete annotationMapRef.current[id]
+      if (linkedRootBeforeDelete != null) {
+        try {
+          const rowsAfterDelete = beforeDeleteItems.filter(t => Number(t.id) !== Number(id))
+          const occurrenceCount = countLinkedOccurrences(rowsAfterDelete, linkedRootBeforeDelete)
+          const rootItem = rowsAfterDelete.find(t => Number(t.id) === Number(linkedRootBeforeDelete))
+          if (rootItem && Number(rootItem.quantity ?? 1) !== occurrenceCount) {
+            const updatedRoot = await takeoffService.update({ ...rootItem, quantity: Math.max(1, occurrenceCount) })
+            updateTakeoffItem(updatedRoot)
+          }
+        } catch (err) {
+          console.warn('[BuildTakeoff] linked occurrence quantity delete update failed:', err)
+        }
+      }
       if (selectedAnnotId === id) setSelectedAnnotId(null)
       if (pendingMeasurementRef.current?.dbId === id) pendingMeasurementRef.current = null
       if (annot?.annotationId) {
@@ -1117,7 +1419,16 @@ export default function DrawingsPage() {
       toast.error('Failed to delete measurement')
       throw new Error('delete failed')
     }
-  }, [selectedAnnotId, selectedDrawing, triggerPdfCommand, removeTakeoffItem, setSummary])
+  }, [
+    selectedAnnotId,
+    selectedDrawing,
+    triggerPdfCommand,
+    removeTakeoffItem,
+    setSummary,
+    parseLinkedItemId,
+    countLinkedOccurrences,
+    updateTakeoffItem,
+  ])
 
   const handlePdfAreaContextMenu = useCallback((e) => {
     e.preventDefault()
@@ -1139,8 +1450,32 @@ export default function DrawingsPage() {
     const handler = (e) => {
       const tag = e.target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if (!((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C' || e.key === 'v' || e.key === 'V'))) return
-      const isC = e.key === 'c' || e.key === 'C'
+      const key = e.key?.toLowerCase?.() ?? ''
+      const hasMod = e.ctrlKey || e.metaKey
+
+      if (e.key === 'Escape') {
+        closeCtxMenu()
+        clearPasteAnchor()
+        triggerPdfCommand({ type: 'cancelPastePlacement' })
+        return
+      }
+
+      if (!hasMod && (e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotId) {
+        e.preventDefault()
+        e.stopPropagation()
+        handleRowDelete(selectedAnnotId).catch(() => {})
+        return
+      }
+
+      if (hasMod && (key === 'z' || key === 'y')) {
+        e.preventDefault()
+        e.stopPropagation()
+        triggerPdfCommand({ type: key === 'z' ? 'undo' : 'redo' })
+        return
+      }
+
+      if (!(hasMod && (key === 'c' || key === 'v'))) return
+      const isC = key === 'c'
       if (isC) {
         e.preventDefault()
         e.stopPropagation()
@@ -1153,7 +1488,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement])
+  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -1272,7 +1607,11 @@ export default function DrawingsPage() {
   const handleExportPdf = () => exportToPdf(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
 
   const drawingUrl        = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
-  const selectedAnnotItem = selectedAnnotId ? takeoffItems.find(t => t.id === selectedAnnotId) : null
+  const selectedAnnotItem = selectedAnnotId
+    ? takeoffItems.find(t => String(t.id) === String(selectedAnnotId))
+      ?? takeoffItems.find(t => t.id === resolveMeasurementDbId(selectedAnnotId))
+      ?? null
+    : null
 
   // Bottom panel height — resizable via drag
   const [bottomH, setBottomH] = useState(() => isMobile ? 200 : isTablet ? 240 : 280)
@@ -1644,22 +1983,9 @@ export default function DrawingsPage() {
               selectedAnnotationId={selectedAnnotId}
               styleEditTargetId={styleEditTargetId}
               onAnnotationSelect={(annotUuid) => {
-                let dbId = null
-                const entries = Object.entries(annotationMapRef.current)
-                const found = entries.find(([, v]) => v.annotationId === annotUuid)
-                if (found) dbId = Number(found[0])
-                if (dbId == null) {
-                  const item = takeoffItems.find(t => {
-                    if (!t.pointsJson) return false
-                    try {
-                      const s = JSON.parse(t.pointsJson)
-                      const id = s.AnnotName ?? s.annotationId ?? s.name
-                      return id === annotUuid
-                    } catch { return false }
-                  })
-                  dbId = item?.id ?? null
-                }
-                setSelectedAnnotId(dbId)
+                const dbId = resolveMeasurementDbId(annotUuid)
+                selectedOccurrenceAnnotIdRef.current = annotUuid ?? null
+                setSelectedAnnotId(dbId ?? annotUuid ?? null)
                 setStyleEditTargetId(dbId)
                 if (dbId) lastCopyTargetRef.current = dbId
                 annotStyleBaselineRef.current = null
@@ -1669,6 +1995,7 @@ export default function DrawingsPage() {
                 }
               }}
               onMeasurementThicknessChange={handleMeasurementThicknessChange}
+              onMeasurementGeometryChange={handleMeasurementGeometryChange}
               resolveMeasurementDbId={resolveMeasurementDbId}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}

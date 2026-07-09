@@ -76,6 +76,22 @@ export function inferLinearLineModeFromAnnot(raw) {
   return inferArrowStyleFromAnnot(raw) === 'none' ? 'simple' : 'arrow'
 }
 
+function hasVisibleDash(value) {
+  if (value == null || value === false) return false
+  if (Array.isArray(value)) return value.some(n => Number(n) > 0)
+  const text = String(value).trim()
+  if (!text || text === '0' || text === '0,0' || text === '0 0') return false
+  return text.split(/[,\s]+/).some(part => Number(part) > 0)
+}
+
+function inferLineStyleFromAnnot(raw) {
+  const explicit = String(raw.lineStyle ?? raw.LineStyle ?? '').trim().toLowerCase()
+  if (explicit === 'dashed' || explicit === 'dash') return 'dashed'
+  if (explicit === 'dotted' || explicit === 'dot') return 'dotted'
+  if (explicit === 'solid') return 'solid'
+  return hasVisibleDash(raw.borderDashArray ?? raw.BorderDashArray) ? 'dashed' : 'solid'
+}
+
 /** Map Syncfusion fontSize back to nearest label-size preset (pt). */
 export function inferLabelSizeFromSfFontSize(sfSize, pdfScale = 1) {
   const n = Number(sfSize)
@@ -94,13 +110,30 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
   const sfFont = raw.FontSize ?? raw.fontSize
   const labelFontSize = inferLabelSizeFromSfFontSize(sfFont, pdfScale)
   const arrowStyle = inferArrowStyleFromAnnot(raw)
+  const notes = item.notes ?? item.Notes ?? ''
+  const msiMatch = String(notes).match(/\bmsi:(\d+)/i)
+  const linkedMatch = String(notes).match(/\blinkedItem:(\d+)/i)
+  const memberScheduleId = item.memberScheduleId
+    ?? item.memberScheduleItemId
+    ?? (msiMatch ? Number(msiMatch[1]) : null)
+  const linkedItemId = linkedMatch ? Number(linkedMatch[1]) : (item.sourceItemId ?? item.id ?? null)
+  const lineStyle = inferLineStyleFromAnnot(raw)
+  const sourcePoints = extractPointsFromRaw(raw)
+  const customLinePagePoints = extractPageRatioPointsFromRaw(raw)
   const copyJson = JSON.parse(JSON.stringify({
     annotationId: raw.AnnotName ?? raw.annotationId ?? raw.name,
     shapeAnnotationType: raw.shapeAnnotationType ?? raw.ShapeAnnotationType ?? 'Distance',
     IT: raw.IT ?? raw.it ?? 'LineDimension',
     pageNumber: raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1),
     page: raw.page ?? String((raw.pageNumber ?? raw.PageNumber ?? 1) - 1),
-    vertexPoints: extractPointsFromRaw(raw),
+    vertexPoints: sourcePoints,
+    labelPagePoints: customLinePagePoints,
+    LabelPagePoints: customLinePagePoints.map(p => ({ X: p.x, Y: p.y })),
+    customLinePagePoints,
+    CustomLinePagePoints: customLinePagePoints.map(p => ({ X: p.x, Y: p.y })),
+    customPaste: raw.customPaste ?? raw.CustomPaste,
+    renderMode: raw.renderMode ?? raw.RenderMode,
+    customCoordMode: raw.customCoordMode ?? raw.CustomCoordMode,
     start: raw.start ?? raw.Start,
     end: raw.end ?? raw.End,
     strokeColor: raw.StrokeColor ?? raw.strokeColor,
@@ -109,25 +142,47 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     calibrate: raw.calibrate ?? raw.Calibrate,
     lineHeadStartStyle: raw.lineHeadStartStyle ?? raw.LineHeadStart,
     lineHeadEndStyle: raw.lineHeadEndStyle ?? raw.LineHeadEnd,
+    borderDashArray: lineStyle === 'solid' ? '0' : (raw.borderDashArray ?? raw.BorderDashArray),
+    lineStyle,
     leaderLength: raw.leaderLength ?? raw.LeaderLength,
     leaderLineExtension: raw.leaderLineExtension ?? raw.LeaderLineExtension,
     fontSize: raw.fontSize ?? raw.FontSize,
     labelSettings: raw.labelSettings ?? raw.LabelSettings,
   }))
   return {
+    sourceItemId: item.id ?? null,
+    linkedItemId,
+    occurrenceId: item.occurrenceId ?? raw.OccurrenceId ?? raw.occurrenceId ?? null,
     itemType: item.itemType || 'Line',
     mark: item.mark ?? '',
     material: item.material ?? item.mark ?? '',
     color: item.color ?? raw.StrokeColor ?? raw.strokeColor ?? '#EF233C',
     category: item.category ?? 'General',
+    memberType: item.memberType ?? item.category ?? '',
+    memberScheduleId,
+    description: item.description ?? '',
+    notes,
+    quantity: item.quantity ?? 1,
+    unitWeight: item.unitWeight ?? null,
+    totalWeight: item.totalWeight ?? null,
     thickness,
     labelFontSize,
     arrowStyle,
     linearLineMode: inferLinearLineModeFromAnnot(raw),
-    lineStyle: raw.lineStyle ?? (raw.borderDashArray ? 'dashed' : 'solid'),
+    lineStyle,
     length: item.length,
     unit: item.unit ?? 'Mm',
     pageNumber: copyJson.pageNumber,
+    startPoint: sourcePoints[0] ?? null,
+    endPoint: sourcePoints[sourcePoints.length - 1] ?? null,
+    sourcePoints,
+    customLinePagePoints,
+    labelAnchor: sourcePoints.length >= 2
+      ? {
+          x: (sourcePoints[0].x + sourcePoints[sourcePoints.length - 1].x) / 2,
+          y: (sourcePoints[0].y + sourcePoints[sourcePoints.length - 1].y) / 2,
+        }
+      : null,
     copyJson,
     raw,
   }
@@ -169,6 +224,24 @@ export function extractPointsFromRaw(raw) {
     pts = [parseCoordPair(raw.start), parseCoordPair(raw.end)]
   }
   return pts
+}
+
+function extractPageRatioPointsFromRaw(raw) {
+  const rawPts = raw?.customLinePagePoints
+    ?? raw?.CustomLinePagePoints
+    ?? raw?.labelPagePoints
+    ?? raw?.LabelPagePoints
+    ?? []
+  const pts = (Array.isArray(rawPts) ? rawPts : [])
+    .filter(p => p && typeof p === 'object'
+      && Number.isFinite(Number(p.x ?? p.X)) && Number.isFinite(Number(p.y ?? p.Y)))
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+  if (pts.length >= 2) return pts
+
+  const coordMode = String(raw?.customCoordMode ?? raw?.CustomCoordMode ?? '')
+    .replace(/[-_\s]/g, '')
+    .toLowerCase()
+  return coordMode === 'pageratio' ? extractPointsFromRaw(raw) : []
 }
 
 /** Midpoint of a linear annotation — used for click-to-place paste offsets. */

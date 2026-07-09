@@ -26,6 +26,7 @@ public record UpdateTakeoffItemRequest(
     string Material,
     double? UnitWeight,
     string Notes,
+    string? PointsJson,
     string? Color,
     string? Category
 );

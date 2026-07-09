@@ -93,6 +93,7 @@ public class TakeoffItemsController : ControllerBase
         item.Material = request.Material;
         item.UnitWeight = request.UnitWeight;
         item.Notes = request.Notes;
+        item.PointsJson = request.PointsJson;
         item.Color = request.Color;
         item.Category = request.Category;
 

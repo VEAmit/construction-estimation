@@ -621,7 +621,11 @@ function extractStoredLabelLinePoints(raw) {
 }
 
 function extractStoredLabelPagePoints(raw) {
-  const rawPts = raw?.labelPagePoints ?? raw?.LabelPagePoints ?? []
+  const rawPts = raw?.customLinePagePoints
+    ?? raw?.CustomLinePagePoints
+    ?? raw?.labelPagePoints
+    ?? raw?.LabelPagePoints
+    ?? []
   return (Array.isArray(rawPts) ? rawPts : [])
     .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
     .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
@@ -715,29 +719,9 @@ function getPositionFromPdfPoints(pts, pageIndex, vm, container, gapPx) {
   return offsetAboveLineScreen(p0, p1, pm, gapPx)
 }
 
-/** Nudge overlapping labels apart while keeping them attached to their own line. */
-function resolveMeasureLabelCollisions(layout, minGap = 18) {
-  if (layout.length < 2) return layout
-  const out = layout.map(e => ({ ...e }))
-  for (let i = 0; i < out.length; i++) {
-    for (let j = 0; j < i; j++) {
-      const widthI = out[i].labelWidth ?? 96
-      const widthJ = out[j].labelWidth ?? 96
-      const heightI = out[i].labelHeight ?? 34
-      const heightJ = out[j].labelHeight ?? 34
-      const overlapX = Math.abs(out[i].left - out[j].left) < (widthI + widthJ) / 2 + 6
-      const overlapY = Math.abs(out[i].top - out[j].top) < (heightI + heightJ) / 2 + 6
-      if (overlapX && overlapY) {
-        const step = minGap + Math.max(heightI, heightJ) / 2
-        const nx = Number.isFinite(out[i].nx) ? out[i].nx : 0
-        const ny = Number.isFinite(out[i].ny) ? out[i].ny : -1
-        out[i].left += nx * step
-        out[i].top += ny * step
-        break
-      }
-    }
-  }
-  return out
+/** Keep each Bluebeam-style label anchored to its own measurement line. */
+function resolveMeasureLabelCollisions(layout) {
+  return layout
 }
 
 function buildLinearLabelOverlayEntry({
@@ -867,12 +851,158 @@ function ensureDistanceLabelChildren(vm, live, labelText, fontColor, measureLabe
 }
 
 function parseAnnotIdFromPointsJson(pointsJson) {
+  return parseAnnotIdsFromPointsJson(pointsJson)[0] ?? null
+}
+
+function parsePointsJsonSafe(pointsJson) {
   if (!pointsJson) return null
   try {
-    const raw = JSON.parse(pointsJson)
-    // AnnotName is stable across import/export; annotationId can be transient (measure1, measure2, ...)
-    return raw.AnnotName ?? raw.annotationId ?? raw.name ?? null
-  } catch { return null }
+    return typeof pointsJson === 'string' ? JSON.parse(pointsJson) : pointsJson
+  } catch {
+    return null
+  }
+}
+
+function stripOccurrenceContainer(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  const { occurrences, occurrenceModelVersion, itemId, ItemId, ...geometry } = raw
+  void occurrences
+  void occurrenceModelVersion
+  void itemId
+  void ItemId
+  return geometry
+}
+
+function getOccurrenceGeometry(occ) {
+  return stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
+}
+
+function isCustomPasteRaw(raw) {
+  return !!(raw?.customPaste || raw?.renderMode === 'customOverlay')
+}
+
+function buildPasteRawFromClipboard(clipboard) {
+  if (!clipboard) return null
+  const sourceAnnotId = clipboard.copyJson?.AnnotName
+    ?? clipboard.copyJson?.annotationId
+    ?? clipboard.copyJson?.name
+    ?? clipboard.raw?.AnnotName
+    ?? clipboard.raw?.annotationId
+    ?? clipboard.raw?.name
+    ?? clipboard.occurrenceId
+    ?? clipboard.sourceItemId
+    ?? clipboard.linkedItemId
+    ?? 'clipboard'
+  const pagePts = [
+    ...(Array.isArray(clipboard.customLinePagePoints) ? clipboard.customLinePagePoints : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.copyJson?.customLinePagePoints) ? clipboard.copyJson.customLinePagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.copyJson?.CustomLinePagePoints) ? clipboard.copyJson.CustomLinePagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.copyJson?.labelPagePoints) ? clipboard.copyJson.labelPagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.copyJson?.LabelPagePoints) ? clipboard.copyJson.LabelPagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.raw?.customLinePagePoints) ? clipboard.raw.customLinePagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.raw?.CustomLinePagePoints) ? clipboard.raw.CustomLinePagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.raw?.labelPagePoints) ? clipboard.raw.labelPagePoints : [])
+      : []),
+    ...(!Array.isArray(clipboard.customLinePagePoints) || clipboard.customLinePagePoints.length < 2
+      ? (Array.isArray(clipboard.raw?.LabelPagePoints) ? clipboard.raw.LabelPagePoints : [])
+      : []),
+  ]
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+  const pts = Array.isArray(clipboard.sourcePoints) && clipboard.sourcePoints.length >= 2
+    ? clipboard.sourcePoints
+    : [
+        clipboard.startPoint,
+        clipboard.endPoint,
+      ].filter(Boolean)
+  const cleanPts = pts
+    .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+  const rawCoordMode = clipboard.copyJson?.customCoordMode
+    ?? clipboard.copyJson?.CustomCoordMode
+    ?? clipboard.raw?.customCoordMode
+    ?? clipboard.raw?.CustomCoordMode
+  const isPageRatioSource = String(rawCoordMode ?? '').replace(/[-_\s]/g, '').toLowerCase() === 'pageratio'
+  const effectivePagePts = pagePts.length >= 2
+    ? pagePts
+    : (isPageRatioSource && cleanPts.length >= 2 ? cleanPts : [])
+  if (cleanPts.length < 2 && effectivePagePts.length < 2) return clipboard.copyJson ?? clipboard.raw ?? null
+  return {
+    annotationId: sourceAnnotId,
+    AnnotName: sourceAnnotId,
+    name: sourceAnnotId,
+    shapeAnnotationType: 'Distance',
+    ShapeAnnotationType: 'Distance',
+    IT: 'LineDimension',
+    type: 'Line',
+    pageNumber: clipboard.pageNumber ?? 1,
+    page: String((clipboard.pageNumber ?? 1) - 1),
+    vertexPoints: cleanPts,
+    VertexPoints: cleanPts.map(p => ({ X: p.x, Y: p.y })),
+    customPaste: clipboard.copyJson?.customPaste ?? clipboard.copyJson?.CustomPaste ?? clipboard.raw?.customPaste ?? clipboard.raw?.CustomPaste,
+    renderMode: clipboard.copyJson?.renderMode ?? clipboard.copyJson?.RenderMode ?? clipboard.raw?.renderMode ?? clipboard.raw?.RenderMode,
+    customCoordMode: rawCoordMode,
+    CustomCoordMode: rawCoordMode,
+    ...(effectivePagePts.length >= 2 ? {
+      labelPagePoints: effectivePagePts,
+      LabelPagePoints: effectivePagePts.map(p => ({ X: p.x, Y: p.y })),
+      customLinePagePoints: effectivePagePts,
+      CustomLinePagePoints: effectivePagePts.map(p => ({ X: p.x, Y: p.y })),
+    } : {}),
+    strokeColor: clipboard.color,
+    StrokeColor: clipboard.color,
+    thickness: clipboard.thickness,
+    Thickness: clipboard.thickness,
+    Calibrate: clipboard.copyJson?.Calibrate ?? clipboard.raw?.Calibrate ?? clipboard.copyJson?.calibrate ?? clipboard.raw?.calibrate,
+    calibrate: clipboard.copyJson?.calibrate ?? clipboard.raw?.calibrate ?? clipboard.copyJson?.Calibrate ?? clipboard.raw?.Calibrate,
+    borderDashArray: clipboard.lineStyle === 'solid' ? '0' : clipboard.copyJson?.borderDashArray,
+    BorderDashArray: clipboard.lineStyle === 'solid' ? '0' : clipboard.copyJson?.BorderDashArray,
+    lineStyle: clipboard.lineStyle,
+    LineStyle: clipboard.lineStyle,
+    start: cleanPts.length >= 2 ? `${cleanPts[0].x},${cleanPts[0].y}` : clipboard.copyJson?.start ?? clipboard.raw?.start,
+    end: cleanPts.length >= 2 ? `${cleanPts[cleanPts.length - 1].x},${cleanPts[cleanPts.length - 1].y}` : clipboard.copyJson?.end ?? clipboard.raw?.end,
+  }
+}
+
+function parseOccurrenceRawsFromPointsJson(pointsJson) {
+  const raw = parsePointsJsonSafe(pointsJson)
+  if (!raw || typeof raw !== 'object') return []
+  if (Array.isArray(raw.occurrences) && raw.occurrences.length) {
+    return raw.occurrences
+      .map(occ => {
+        const geometry = getOccurrenceGeometry(occ)
+        if (!geometry) return null
+        const id = occ?.annotationName ?? resolveStableAnnotationId(geometry)
+        return id ? { ...geometry, AnnotName: id, annotationId: id, name: id } : geometry
+      })
+      .filter(Boolean)
+  }
+  return [stripOccurrenceContainer(raw)]
+}
+
+function parseAnnotIdsFromPointsJson(pointsJson) {
+  const raw = parsePointsJsonSafe(pointsJson)
+  if (!raw || typeof raw !== 'object') return []
+  if (Array.isArray(raw.occurrences) && raw.occurrences.length) {
+    return raw.occurrences
+      .map(occ => occ?.annotationName ?? resolveStableAnnotationId(getOccurrenceGeometry(occ)))
+      .filter(Boolean)
+  }
+  const id = resolveStableAnnotationId(raw)
+  return id ? [id] : []
 }
 
 /** Stable Syncfusion id — same order as pointsJson persistence. */
@@ -1026,6 +1156,29 @@ function pageRatioPointToContainerCoords(point, pageIndex, vm, containerEl) {
   }
 }
 
+function containerScreenPointToPageRatio(point, pageIndex, vm, containerEl) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl || !containerEl || !point) return null
+  const x = Number(point.left)
+  const y = Number(point.top)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  const pageRect = pageEl.getBoundingClientRect()
+  const containerRect = containerEl.getBoundingClientRect()
+  const clientX = containerRect.left + x
+  const clientY = containerRect.top + y
+  return {
+    x: pageRect.width > 0 ? (clientX - pageRect.left) / pageRect.width : 0,
+    y: pageRect.height > 0 ? (clientY - pageRect.top) / pageRect.height : 0,
+  }
+}
+
+function containerScreenLineToPageRatioPoints(line, pageIndex, vm, containerEl) {
+  if (!line?.p0 || !line?.p1) return []
+  const p0 = containerScreenPointToPageRatio(line.p0, pageIndex, vm, containerEl)
+  const p1 = containerScreenPointToPageRatio(line.p1, pageIndex, vm, containerEl)
+  return [p0, p1].filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y))
+}
+
 function measurePointToContainerCoords(point, pageIndex, vm, containerEl) {
   const pageEl = resolvePdfPageElement(vm, pageIndex)
   if (!pageEl || !containerEl || !point) return null
@@ -1078,7 +1231,185 @@ function containerScreenToDiagramPoint(containerLeft, containerTop, containerEl,
   return screenClientToDiagramPoint(cr.left + containerLeft, cr.top + containerTop, pageIndex, vm)
 }
 
+function screenProjectionError(projected, expected) {
+  if (!projected || !expected) return Number.POSITIVE_INFINITY
+  const dx = Number(projected.left) - Number(expected.left)
+  const dy = Number(projected.top) - Number(expected.top)
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return Number.POSITIVE_INFINITY
+  return Math.hypot(dx, dy)
+}
+
+function screenLineToAnnotationPoints(p0Screen, p1Screen, pageIndex, vm, containerEl) {
+  if (!p0Screen || !p1Screen || !containerEl || !vm) return null
+
+  const pdf0 = containerScreenToPdfPoint(p0Screen.left, p0Screen.top, containerEl, pageIndex, vm)
+  const pdf1 = containerScreenToPdfPoint(p1Screen.left, p1Screen.top, containerEl, pageIndex, vm)
+  const pdfError = pdf0 && pdf1
+    ? screenProjectionError(pdfPointToContainerCoords(pdf0.x, pdf0.y, pageIndex, vm, containerEl), p0Screen)
+      + screenProjectionError(pdfPointToContainerCoords(pdf1.x, pdf1.y, pageIndex, vm, containerEl), p1Screen)
+    : Number.POSITIVE_INFINITY
+
+  const diagram0 = containerScreenToDiagramPoint(p0Screen.left, p0Screen.top, containerEl, pageIndex, vm)
+  const diagram1 = containerScreenToDiagramPoint(p1Screen.left, p1Screen.top, containerEl, pageIndex, vm)
+  const diagramError = diagram0 && diagram1
+    ? screenProjectionError(diagramPointToContainerCoords(diagram0.x, diagram0.y, pageIndex, vm, containerEl), p0Screen)
+      + screenProjectionError(diagramPointToContainerCoords(diagram1.x, diagram1.y, pageIndex, vm, containerEl), p1Screen)
+    : Number.POSITIVE_INFINITY
+
+  if (Number.isFinite(diagramError) && diagramError <= pdfError) {
+    return [{ x: diagram0.x, y: diagram0.y }, { x: diagram1.x, y: diagram1.y }]
+  }
+  if (Number.isFinite(pdfError)) {
+    return [{ x: pdf0.x, y: pdf0.y }, { x: pdf1.x, y: pdf1.y }]
+  }
+  return null
+}
+
 /** Paste anchor from click — PDF page space (same as stored vertexPoints / label mapping). */
+function annotationPointToContainer(point, mode, pageIndex, vm, containerEl) {
+  if (!point) return null
+  if (mode === 'pageRatio') return pageRatioPointToContainerCoords(point, pageIndex, vm, containerEl)
+  if (mode === 'pdf') return pdfPointToContainerCoords(point.x, point.y, pageIndex, vm, containerEl)
+  return diagramPointToContainerCoords(point.x, point.y, pageIndex, vm, containerEl)
+}
+
+function screenToAnnotationPoint(containerLeft, containerTop, mode, pageIndex, vm, containerEl) {
+  if (mode === 'pageRatio') return containerScreenPointToPageRatio({ left: containerLeft, top: containerTop }, pageIndex, vm, containerEl)
+  if (mode === 'pdf') return containerScreenToPdfPoint(containerLeft, containerTop, containerEl, pageIndex, vm)
+  return containerScreenToDiagramPoint(containerLeft, containerTop, containerEl, pageIndex, vm)
+}
+
+function lineProjectionError(p0, p1, visual) {
+  if (!p0 || !p1 || !visual?.p0 || !visual?.p1) return Number.POSITIVE_INFINITY
+  const direct = screenProjectionError(p0, visual.p0) + screenProjectionError(p1, visual.p1)
+  const reversed = screenProjectionError(p0, visual.p1) + screenProjectionError(p1, visual.p0)
+  return Math.min(direct, reversed)
+}
+
+function inferAnnotationCoordinateMode(raw, pageIndex, vm, containerEl) {
+  const coordMode = String(raw?.customCoordMode ?? raw?.CustomCoordMode ?? '').replace(/[-_\s]/g, '').toLowerCase()
+  if (coordMode === 'pageratio') return 'pageRatio'
+  if (isCustomPasteRaw(raw) && extractStoredLabelPagePoints(raw).length >= 2) return 'pageRatio'
+  const pts = extractAnnotationPoints(raw)
+  if (pts.length < 2 || !vm || !containerEl) return 'diagram'
+  const sourceId = raw?.annotationId ?? raw?.AnnotName ?? raw?.name
+  const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : null
+  const visual = live?.wrapper ? extractVisibleLineScreenEndpoints(live.wrapper, containerEl) : null
+  if (!visual) return 'diagram'
+
+  const pdfError = lineProjectionError(
+    annotationPointToContainer(pts[0], 'pdf', pageIndex, vm, containerEl),
+    annotationPointToContainer(pts[pts.length - 1], 'pdf', pageIndex, vm, containerEl),
+    visual,
+  )
+  const diagramError = lineProjectionError(
+    annotationPointToContainer(pts[0], 'diagram', pageIndex, vm, containerEl),
+    annotationPointToContainer(pts[pts.length - 1], 'diagram', pageIndex, vm, containerEl),
+    visual,
+  )
+  return pdfError < diagramError ? 'pdf' : 'diagram'
+}
+
+function computeTranslatedPastePoints(sourceRaw, anchor, pageIndex, vm, containerEl) {
+  const pts = extractAnnotationPoints(sourceRaw)
+  if (pts.length < 2 || !anchor || !vm || !containerEl) return null
+  const mode = anchor.coordMode ?? inferAnnotationCoordinateMode(sourceRaw, pageIndex, vm, containerEl)
+  const dest = Number.isFinite(anchor.screenLeft) && Number.isFinite(anchor.screenTop)
+    ? screenToAnnotationPoint(anchor.screenLeft, anchor.screenTop, mode, pageIndex, vm, containerEl)
+    : null
+  if (!dest) return null
+  const first = pts[0]
+  const last = pts[pts.length - 1]
+  const center = { x: (first.x + last.x) / 2, y: (first.y + last.y) / 2 }
+  const offsetX = dest.x - center.x
+  const offsetY = dest.y - center.y
+  return pts.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }))
+}
+
+function buildPasteAnchorFromScreenPoint(screenPoint, pageNumber, coordMode, sourceRaw, pageIndex, vm, containerEl) {
+  if (!screenPoint || !containerEl || !vm) return null
+  const anchor = {
+    pageNumber,
+    screenLeft: screenPoint.left,
+    screenTop: screenPoint.top,
+    coordMode,
+  }
+  const previewPoints = computeTranslatedPastePoints(sourceRaw, anchor, pageIndex, vm, containerEl)
+  if (previewPoints?.length >= 2) anchor.previewPoints = previewPoints
+  return anchor
+}
+
+function computePasteScreenVector(sourceRaw, pageIndex, vm, containerEl, mode = null) {
+  if (!vm || !containerEl) return null
+  const visual = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
+  if (visual?.p0 && visual?.p1) {
+    return {
+      halfDx: (visual.p1.left - visual.p0.left) / 2,
+      halfDy: (visual.p1.top - visual.p0.top) / 2,
+      coordMode: 'screen',
+      sourceLengthPx: Math.hypot(visual.p1.left - visual.p0.left, visual.p1.top - visual.p0.top),
+    }
+  }
+  const pts = extractAnnotationPoints(sourceRaw)
+  if (pts.length < 2) return null
+  const coordMode = mode ?? inferAnnotationCoordinateMode(sourceRaw, pageIndex, vm, containerEl)
+  const p0 = annotationPointToContainer(pts[0], coordMode, pageIndex, vm, containerEl)
+  const p1 = annotationPointToContainer(pts[pts.length - 1], coordMode, pageIndex, vm, containerEl)
+  if (!p0 || !p1) return null
+  return {
+    halfDx: (p1.left - p0.left) / 2,
+    halfDy: (p1.top - p0.top) / 2,
+    coordMode,
+  }
+}
+
+function nearestPointOnScreenSegment(point, a, b) {
+  const vx = b.left - a.left
+  const vy = b.top - a.top
+  const lenSq = vx * vx + vy * vy
+  if (lenSq <= 0.01) return a
+  const t = Math.max(0, Math.min(1, ((point.left - a.left) * vx + (point.top - a.top) * vy) / lenSq))
+  return { left: a.left + vx * t, top: a.top + vy * t }
+}
+
+function resolvePasteSnapScreenTarget(click, vm, containerEl, pageIndex, sourceRaw) {
+  if (!click || !vm || !containerEl) return click
+  const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
+  const lists = [
+    Array.isArray(vm.annotations) ? vm.annotations : [],
+    Array.isArray(vm.annotationCollection) ? vm.annotationCollection : [],
+    Array.isArray(vm.drawing?.annotationCollection) ? vm.drawing.annotationCollection : [],
+  ]
+  const candidates = []
+  const seen = new Set()
+  for (const annot of lists.flat()) {
+    const id = resolveStableAnnotationId(annot)
+    if (!id || id === sourceId || seen.has(id) || !isLinearMeasureAnnotation(annot)) continue
+    seen.add(id)
+    let visual = annot.wrapper ? extractVisibleLineScreenEndpoints(annot.wrapper, containerEl) : null
+    if (!visual) {
+      const pts = extractAnnotationPoints(annot)
+      if (pts.length >= 2) {
+        const mode = inferAnnotationCoordinateMode(annot, pageIndex, vm, containerEl)
+        const p0 = annotationPointToContainer(pts[0], mode, pageIndex, vm, containerEl)
+        const p1 = annotationPointToContainer(pts[pts.length - 1], mode, pageIndex, vm, containerEl)
+        if (p0 && p1) visual = { p0, p1 }
+      }
+    }
+    if (!visual?.p0 || !visual?.p1) continue
+    candidates.push(
+      visual.p0,
+      visual.p1,
+      { left: (visual.p0.left + visual.p1.left) / 2, top: (visual.p0.top + visual.p1.top) / 2 },
+      nearestPointOnScreenSegment(click, visual.p0, visual.p1),
+    )
+  }
+  const best = candidates
+    .map(p => ({ p, d: Math.hypot(p.left - click.left, p.top - click.top) }))
+    .sort((a, b) => a.d - b.d)[0]
+  return best && best.d <= 18 ? best.p : click
+}
+
 function resolvePasteAnchorFromClick(clientX, clientY, pageIndex, vm, containerEl) {
   const pdfPt = containerClientToPdfPoint(clientX, clientY, pageIndex, vm)
   if (pdfPt) return pdfPt
@@ -1224,6 +1555,100 @@ function extractVisibleLineScreenEndpoints(wrapper, container, preferredColor = 
   return lines[0]
 }
 
+function screenLineLength(line) {
+  if (!line?.p0 || !line?.p1) return 0
+  return Math.hypot(line.p1.left - line.p0.left, line.p1.top - line.p0.top)
+}
+
+function normalizeScreenLine(line) {
+  if (!line?.p0 || !line?.p1) return null
+  const p0 = { left: Number(line.p0.left), top: Number(line.p0.top) }
+  const p1 = { left: Number(line.p1.left), top: Number(line.p1.top) }
+  if (![p0.left, p0.top, p1.left, p1.top].every(Number.isFinite)) return null
+  const len = screenLineLength({ p0, p1 })
+  if (!Number.isFinite(len) || len < 2) return null
+  return { p0, p1, len }
+}
+
+function lineWithinPage(line, pageIndex, vm, containerEl, pad = 160) {
+  if (!line?.p0 || !line?.p1 || !containerEl) return false
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl) return true
+  const pr = pageEl.getBoundingClientRect()
+  const cr = containerEl.getBoundingClientRect()
+  const minLeft = pr.left - cr.left - pad
+  const maxLeft = pr.right - cr.left + pad
+  const minTop = pr.top - cr.top - pad
+  const maxTop = pr.bottom - cr.top + pad
+  return [line.p0, line.p1].every(p => (
+    p.left >= minLeft && p.left <= maxLeft && p.top >= minTop && p.top <= maxTop
+  ))
+}
+
+function chooseProjectedMeasureLine(sourceRaw, pageIndex, vm, containerEl) {
+  const pts = extractAnnotationPoints(sourceRaw)
+  if (pts.length < 2 || !vm || !containerEl) return null
+  const first = pts[0]
+  const last = pts[pts.length - 1]
+  const modeHint = String(sourceRaw?.customCoordMode ?? sourceRaw?.CustomCoordMode ?? '').toLowerCase()
+  const candidates = []
+  const push = (line, mode, priority = 0) => {
+    const normalized = normalizeScreenLine(line)
+    if (!normalized) return
+    if (!lineWithinPage(normalized, pageIndex, vm, containerEl)) return
+    candidates.push({
+      ...normalized,
+      mode,
+      priority,
+      score: normalized.len + priority,
+    })
+  }
+
+  push({
+    p0: diagramPointToContainerCoords(first.x, first.y, pageIndex, vm, containerEl),
+    p1: diagramPointToContainerCoords(last.x, last.y, pageIndex, vm, containerEl),
+  }, 'diagram', modeHint === 'diagram' ? 10000 : 120)
+
+  push({
+    p0: pdfPointToContainerCoords(first.x, first.y, pageIndex, vm, containerEl),
+    p1: pdfPointToContainerCoords(last.x, last.y, pageIndex, vm, containerEl),
+  }, 'pdf', modeHint === 'pdf' ? 10000 : 0)
+
+  if (modeHint.replace(/[-_\s]/g, '') === 'pageratio') {
+    push({
+      p0: pageRatioPointToContainerCoords(first.x, first.y, pageIndex, vm, containerEl),
+      p1: pageRatioPointToContainerCoords(last.x, last.y, pageIndex, vm, containerEl),
+    }, 'pageRatio', 20000)
+  }
+
+  if (!candidates.length) return null
+  candidates.sort((a, b) => b.score - a.score)
+  return candidates[0]
+}
+
+function chooseTrustedMeasureLine({ saved, projected, visual }) {
+  const normalizedSaved = normalizeScreenLine(saved)
+  const normalizedProjected = normalizeScreenLine(projected)
+  const normalizedVisual = normalizeScreenLine(visual)
+  if (normalizedSaved) return normalizedSaved
+  const baseline = normalizedProjected ?? normalizedSaved
+
+  if (baseline && normalizedVisual) {
+    const minAcceptable = baseline.len * 0.65
+    const maxAcceptable = baseline.len * 1.45
+    if (normalizedVisual.len >= minAcceptable && normalizedVisual.len <= maxAcceptable) {
+      return normalizedVisual
+    }
+  }
+
+  if (normalizedProjected && normalizedSaved) {
+    if (normalizedSaved.len >= normalizedProjected.len * 0.65) return normalizedSaved
+    return normalizedProjected
+  }
+
+  return baseline ?? normalizedVisual ?? null
+}
+
 /** Screen endpoints of a linear measure — prefers live DOM line over stored vertexPoints. */
 function findAnnotationDomElement(vm, pageIndex, ids) {
   const rootId = vm?.element?.id ?? 'sfPdfViewer'
@@ -1304,11 +1729,35 @@ function attachVisibleLabelLineToAnnotation(plain, vm, container, pageIndex, col
 
 function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) {
   if (!containerEl) return null
+  let savedLine = null
+  const savedPagePts = extractStoredLabelPagePoints(sourceRaw)
+  if (savedPagePts.length >= 2) {
+    const p0 = pageRatioPointToContainerCoords(savedPagePts[0], pageIndex, vm, containerEl)
+    const p1 = pageRatioPointToContainerCoords(savedPagePts[savedPagePts.length - 1], pageIndex, vm, containerEl)
+    savedLine = normalizeScreenLine({ p0, p1 })
+  }
+
+  const projectedLine = chooseProjectedMeasureLine(sourceRaw, pageIndex, vm, containerEl)
   const sourceId = sourceRaw?.annotationId ?? sourceRaw?.AnnotName ?? sourceRaw?.name
   const live = sourceId ? resolveLiveAnnotation(vm, sourceId) : resolveLiveForTakeoffItem(vm, sourceRaw)
+  const preferredLine = projectedLine ?? savedLine
+  let visualLine = null
   if (live?.wrapper) {
-    const visual = extractVisibleLineScreenEndpoints(live.wrapper, containerEl)
-    if (visual) return visual
+    visualLine = extractVisibleLineScreenEndpoints(
+      live.wrapper,
+      containerEl,
+      sourceRaw?.strokeColor ?? sourceRaw?.StrokeColor,
+      preferredLine,
+    )
+  }
+
+  const trusted = chooseTrustedMeasureLine({
+    saved: savedLine,
+    projected: projectedLine,
+    visual: visualLine,
+  })
+  if (trusted) {
+    return { p0: trusted.p0, p1: trusted.p1, len: trusted.len }
   }
 
   const pts = extractAnnotationPoints(live ?? sourceRaw)
@@ -1337,6 +1786,9 @@ function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) 
 /** Container-relative screen position for paste crosshair — always reproject at current zoom/scroll. */
 function resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, containerEl) {
   if (!anchor || !containerEl) return null
+  if (anchor.coordMode && Number.isFinite(anchor.screenLeft) && Number.isFinite(anchor.screenTop)) {
+    return { left: anchor.screenLeft, top: anchor.screenTop }
+  }
   if (Number.isFinite(anchor.x) && Number.isFinite(anchor.y) && vm) {
     const fromPdf = pdfPointToContainerCoords(anchor.x, anchor.y, pageIndex, vm, containerEl)
     if (fromPdf) return fromPdf
@@ -1367,21 +1819,14 @@ function nudgeLiveLinearMeasureToScreenAnchor(vm, annotId, anchor, containerEl, 
   const errTop = target.top - midTop
   if (Math.abs(errLeft) < 0.5 && Math.abs(errTop) < 0.5) return true
 
-  const newP0 = containerScreenToPdfPoint(
-    visual.p0.left + errLeft, visual.p0.top + errTop, containerEl, pageIndex, vm,
+  const newPts = screenLineToAnnotationPoints(
+    { left: visual.p0.left + errLeft, top: visual.p0.top + errTop },
+    { left: visual.p1.left + errLeft, top: visual.p1.top + errTop },
+    pageIndex,
+    vm,
+    containerEl,
   )
-    ?? containerScreenToDiagramPoint(
-      visual.p0.left + errLeft, visual.p0.top + errTop, containerEl, pageIndex, vm,
-    )
-  const newP1 = containerScreenToPdfPoint(
-    visual.p1.left + errLeft, visual.p1.top + errTop, containerEl, pageIndex, vm,
-  )
-    ?? containerScreenToDiagramPoint(
-      visual.p1.left + errLeft, visual.p1.top + errTop, containerEl, pageIndex, vm,
-    )
-  if (!newP0 || !newP1) return false
-
-  const newPts = [{ x: newP0.x, y: newP0.y }, { x: newP1.x, y: newP1.y }]
+  if (!newPts?.length) return false
   live.vertexPoints = newPts
   live.VertexPoints = newPts.map(p => ({ X: p.x, Y: p.y }))
   live.start = `${newPts[0].x},${newPts[0].y}`
@@ -1419,24 +1864,20 @@ function resolvePasteSourcePoints(sourceRaw, pageIndex, vm) {
  */
 function computePastedVertexPoints(sourceRaw, anchor, pageIndex, vm, containerEl) {
   if (!anchor || !containerEl || !vm) return null
-
-  const screenEnds = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
-  const target = resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, containerEl)
-  if (!screenEnds || !target) return null
-
-  const halfDx = (screenEnds.p1.left - screenEnds.p0.left) / 2
-  const halfDy = (screenEnds.p1.top - screenEnds.p0.top) / 2
-  const toPagePt = (left, top) => (
-    containerScreenToPdfPoint(left, top, containerEl, pageIndex, vm)
-    ?? containerScreenToDiagramPoint(left, top, containerEl, pageIndex, vm)
-  )
-  const newP0 = toPagePt(target.left - halfDx, target.top - halfDy)
-  const newP1 = toPagePt(target.left + halfDx, target.top + halfDy)
-  if (!newP0 || !newP1) return null
-  return [
-    { x: newP0.x, y: newP0.y },
-    { x: newP1.x, y: newP1.y },
-  ]
+  if (anchor.previewScreenLine?.p0 && anchor.previewScreenLine?.p1) {
+    const screenPts = screenLineToAnnotationPoints(
+      anchor.previewScreenLine.p0,
+      anchor.previewScreenLine.p1,
+      pageIndex,
+      vm,
+      containerEl,
+    )
+    if (screenPts?.length >= 2) return screenPts
+  }
+  if (Array.isArray(anchor.previewPoints) && anchor.previewPoints.length >= 2) {
+    return anchor.previewPoints
+  }
+  return computeTranslatedPastePoints(sourceRaw, anchor, pageIndex, vm, containerEl)
 }
 
 /**
@@ -1450,6 +1891,7 @@ function computeLinearPasteOffsetForAnchor(sourceRaw, anchor, pageIndex, vm, con
   if (!pastedPts || pastedPts.length < 2) return null
 
   const pts = resolvePasteSourcePoints(sourceRaw, pageIndex, vm)
+  if (!pts || pts.length < 2) return null
   return {
     offsetX: pastedPts[0].x - pts[0].x,
     offsetY: pastedPts[0].y - pts[0].y,
@@ -1474,18 +1916,6 @@ function buildPasteAnchorFromClick(clientX, clientY, pageNumber, pageIndex, vm, 
     screenLeft: clientX - cr.left,
     screenTop: clientY - cr.top,
   }
-}
-
-/** Convert screen pixels to PDF page coordinate units at the current zoom. */
-function screenPixelsToPdfUnits(pixels, pageIndex, vm) {
-  const pageEl = resolvePdfPageElement(vm, pageIndex)
-  if (!pageEl) return Math.max(8, pixels)
-  const pageRect = pageEl.getBoundingClientRect()
-  const pageSize = getPdfPageSize(vm, pageIndex)
-  if (pageSize && pageRect.width > 0 && pageRect.height > 0) {
-    return pixels * (pageSize.width / pageRect.width)
-  }
-  return Math.max(8, pixels)
 }
 
 /** Hide perpendicular end-cap leaders and reposition the value label above the line. */
@@ -1737,11 +2167,9 @@ function hydrateTakeoffLabelsOnViewer(vm, items, pdfScale) {
   if (!vm || !items?.length) return
   for (const item of items) {
     if ((item.itemType || 'Line') !== 'Line' || !item.pointsJson) continue
-    try {
-      const raw = JSON.parse(item.pointsJson)
-      const id = raw.AnnotName ?? raw.annotationId ?? raw.name ?? `db-${item.id}`
+    for (const id of parseAnnotIdsFromPointsJson(item.pointsJson)) {
       hideLineMeasureLabelOnViewer(vm, id)
-    } catch (_) {}
+    }
   }
   try { vm.renderDrawing?.() } catch (_) {}
 }
@@ -1837,8 +2265,8 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
 
   for (const item of items) {
     if (!item.pointsJson) continue
-    try {
-      const raw = JSON.parse(item.pointsJson)
+    for (const raw of parseOccurrenceRawsFromPointsJson(item.pointsJson)) {
+      try {
       const isLine = (item.itemType || 'Line') === 'Line'
       const isArea = item.itemType === 'Area'
       const id = raw.AnnotName ?? raw.annotationId ?? raw.name ?? `db-${item.id}`
@@ -1894,7 +2322,8 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
             displayUnit,
           })
       if (!ok) anyLabelPending = true
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   if ((anyMissing || anyLabelPending) && attempt < 12) {
@@ -1906,10 +2335,10 @@ function hydrateTakeoffItemsOnViewer(vm, items, pdfScale, attempt = 0) {
   try { scheduleMeasureLabelLayoutFn?.() } catch (_) {}
 }
 
-function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
-  if (!item?.pointsJson) return null
+function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale, rawOverride = null) {
+  if (!item?.pointsJson && !rawOverride) return null
   try {
-    const raw = JSON.parse(item.pointsJson)
+    const raw = rawOverride ?? JSON.parse(item.pointsJson)
     const fallbackId = `bt-${item.id ?? Date.now()}`
     const rawShape = String(raw.ShapeAnnotationType ?? raw.shapeAnnotationType ?? '').toLowerCase()
     const rawIT = String(raw.IT ?? raw.it ?? '').toLowerCase()
@@ -2046,6 +2475,18 @@ function buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
 }
 
 /** Syncfusion requires Calibrate.X/Distance entries with Unit — empty arrays crash on .unit access. */
+function buildImportablesFromTakeoffItem(item, measureLabelFontSize, pdfScale) {
+  const raws = parseOccurrenceRawsFromPointsJson(item?.pointsJson)
+  if (!raws.length) {
+    const built = buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale)
+    return built ? [built] : []
+  }
+  return raws
+    .filter(raw => !isCustomPasteRaw(raw))
+    .map(raw => buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale, raw))
+    .filter(Boolean)
+}
+
 function defaultCalibrateUnitEntry(displayUnit = 'mm') {
   const u = String(displayUnit || 'mm').toLowerCase()
   return {
@@ -2522,7 +2963,7 @@ function findTakeoffItemByAnnotId(annotations, annotId) {
   if (!annotId || !annotations?.length) return null
   return annotations.find(t => {
     if ((t.itemType || 'Line') !== 'Line' || !t.pointsJson) return false
-    return parseAnnotIdFromPointsJson(t.pointsJson) === annotId
+    return parseAnnotIdsFromPointsJson(t.pointsJson).includes(annotId)
   }) ?? null
 }
 
@@ -2704,13 +3145,14 @@ function listAllLinearTargets(annotations, vm) {
   const targets = []
   for (const item of annotations) {
     if ((item.itemType || 'Line') !== 'Line' || !item.pointsJson) continue
-    const id = parseAnnotIdFromPointsJson(item.pointsJson)
-    if (!id) continue
-    targets.push({
-      annotId: id,
-      item,
-      annot: vm ? resolveLiveAnnotation(vm, id) : null,
-    })
+    for (const id of parseAnnotIdsFromPointsJson(item.pointsJson)) {
+      if (!id) continue
+      targets.push({
+        annotId: id,
+        item,
+        annot: vm ? resolveLiveAnnotation(vm, id) : null,
+      })
+    }
   }
   return targets
 }
@@ -2820,6 +3262,7 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
   if (linearStyle.thickness != null) nodePatch.thickness = linearStyle.thickness
   if (linearStyle.leaderLength != null) nodePatch.leaderHeight = linearStyle.leaderLength
   if (linearStyle.strokeColor) nodePatch.strokeColor = linearStyle.strokeColor
+  if (linearStyle.borderDashArray != null) nodePatch.borderDashArray = linearStyle.borderDashArray
   nodePatch.lineHeadStartStyle = startHead
   nodePatch.lineHeadEndStyle = endHead
 
@@ -2833,6 +3276,10 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
   if (linearStyle.thickness != null) {
     live.thickness = linearStyle.thickness
     live.Thickness = linearStyle.thickness
+  }
+  if (linearStyle.borderDashArray != null) {
+    live.borderDashArray = linearStyle.borderDashArray
+    live.BorderDashArray = linearStyle.borderDashArray
   }
 
   if (Object.keys(nodePatch).length) {
@@ -2852,6 +3299,11 @@ function applyLinearVisualStyleToDiagram(vm, annotationId, linearStyle) {
       if (child.style && !isLabelEl) {
         if (linearStyle.thickness != null) child.style.strokeWidth = linearStyle.thickness
         if (linearStyle.strokeColor) child.style.strokeColor = linearStyle.strokeColor
+        if (linearStyle.borderDashArray != null) {
+          child.style.strokeDashArray = String(linearStyle.borderDashArray) === '0'
+            ? ''
+            : String(linearStyle.borderDashArray)
+        }
       }
     }
   }
@@ -2941,6 +3393,7 @@ export default function PdfViewer({
   styleEditTargetId = null,
   onAnnotationSelect,
   onMeasurementThicknessChange, // (dbItemId, thickness, annotId?) => void — persist thickness to pointsJson
+  onMeasurementGeometryChange,
   resolveMeasurementDbId,       // (annotId) => db row id | null — includes in-flight pending save
   getProtectedAnnotIds,       // () => Set of DB-persisted annotation IDs (safe from Clear)
   onClearPending,             // () => Promise<boolean> — clear active pending measurement
@@ -2958,6 +3411,7 @@ export default function PdfViewer({
   // True while Syncfusion's pdfium WASM is parsing/rendering the document (fetch done, page not yet visible)
   const [docRendering, setDocRendering] = useState(false)
   const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
+  const [fallbackLineLayout, setFallbackLineLayout] = useState([])
   const [fallbackLabelLayout, setFallbackLabelLayout] = useState([])
   const [fallbackLabelTick, setFallbackLabelTick] = useState(0)
   const [liveDrawLabel, setLiveDrawLabel] = useState(null)
@@ -2978,7 +3432,7 @@ export default function PdfViewer({
     measureLabelFontSize, activeUnit,
     setCountSession,
     selectedMemberScheduleItem, lastMeasureMember,
-    measurementClipboard, setPasteAnchor, pasteAnchor, clearPasteAnchor,
+    measurementClipboard, clearPasteAnchor,
     takeoffItems,
   } = useAppStore()
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
@@ -3009,6 +3463,7 @@ export default function PdfViewer({
   useEffect(() => {
     setCountMarkers([])
     setCountSession(0)
+    setFallbackLineLayout([])
     setFallbackLabelLayout([])
   }, [drawingUrl, setCountSession])
 
@@ -3201,7 +3656,7 @@ export default function PdfViewer({
 
     let debugLogged = false
 
-    const LABEL_OFFSET_PX = 22  // perpendicular distance from line midpoint to label centre
+    const LABEL_OFFSET_PX = 14  // minimum perpendicular distance from line midpoint to label centre
 
     // Helper: find the real SVG <g> element for an annotation using the live object's
     // CURRENT id (post-rehydration), then fall back to the stored AnnotName.
@@ -3234,10 +3689,11 @@ export default function PdfViewer({
     }
 
     const layout = []
+    const lineLayout = []
     for (const item of items) {
       if (!item.pointsJson || (item.itemType || 'Line') !== 'Line') continue
-      try {
-        const raw = JSON.parse(item.pointsJson)
+      for (const raw of parseOccurrenceRawsFromPointsJson(item.pointsJson)) {
+        try {
         const storedId = raw.AnnotName ?? raw.annotationId ?? raw.name
 
         const text = resolveTakeoffLabelText(item, displayUnit)
@@ -3259,9 +3715,19 @@ export default function PdfViewer({
         if (pts.length < 2 && savedLabelPagePts.length < 2) continue
 
         let s0, s1  // screen-space endpoints (container-relative px)
-        if (pts.length >= 2) {
-          s0 = measurePointToContainerCoords(pts[0], pageIndex, vm, container)
-          s1 = measurePointToContainerCoords(pts[pts.length - 1], pageIndex, vm, container)
+        if (isCustomPasteRaw(raw) && savedLabelPagePts.length >= 2) {
+          s0 = pageRatioPointToContainerCoords(savedLabelPagePts[0], pageIndex, vm, container)
+          s1 = pageRatioPointToContainerCoords(savedLabelPagePts[savedLabelPagePts.length - 1], pageIndex, vm, container)
+        }
+        if ((!s0 || !s1) && pts.length >= 2) {
+          if (isCustomPasteRaw(raw)) {
+            const mode = raw.customCoordMode ?? 'diagram'
+            s0 = annotationPointToContainer(pts[0], mode, pageIndex, vm, container)
+            s1 = annotationPointToContainer(pts[pts.length - 1], mode, pageIndex, vm, container)
+          } else {
+            s0 = measurePointToContainerCoords(pts[0], pageIndex, vm, container)
+            s1 = measurePointToContainerCoords(pts[pts.length - 1], pageIndex, vm, container)
+          }
         }
         if ((!s0 || !s1) && savedLabelPagePts.length >= 2) {
           s0 = pageRatioPointToContainerCoords(savedLabelPagePts[0], pageIndex, vm, container)
@@ -3314,11 +3780,27 @@ export default function PdfViewer({
         }
         if (!s0 || !s1) continue
 
+        if (isCustomPasteRaw(raw)) {
+          lineLayout.push({
+            key: `${storedId ?? `item-${item.id}`}-line`,
+            x1: s0.left,
+            y1: s0.top,
+            x2: s1.left,
+            y2: s1.top,
+            color,
+            thickness: Number(raw.thickness ?? raw.Thickness ?? item.thickness ?? 2) || 2,
+            dash: raw.borderDashArray ?? raw.BorderDashArray ?? '0',
+          })
+        }
+
         // ── Perpendicular-offset label position (user's exact algorithm) ─────────
         // All maths in screen space — never guess PDF offsets.
+        const labelWidth = Math.max(72, Math.min(180, (String(mark).length + String(text).length) * (labelPt * 0.55) + 18))
+        const labelHeight = mark ? labelPt * 2.6 : labelPt * 1.6
+        const labelOffsetPx = Math.max(LABEL_OFFSET_PX, labelHeight / 2 + 1)
         const midX = (s0.left + s1.left) / 2
         const midY = (s0.top  + s1.top)  / 2
-        const labelPos = offsetAboveLineScreen(s0, s1, { left: midX, top: midY }, LABEL_OFFSET_PX)
+        const labelPos = offsetAboveLineScreen(s0, s1, { left: midX, top: midY }, labelOffsetPx)
         if (!labelPos) continue
 
 
@@ -3333,12 +3815,14 @@ export default function PdfViewer({
           text,
           color,
           fontSizePt: labelPt,
-          labelWidth: Math.max(72, Math.min(180, (String(mark).length + String(text).length) * (labelPt * 0.55) + 18)),
-          labelHeight: mark ? labelPt * 2.6 : labelPt * 1.6,
+          labelWidth,
+          labelHeight,
         })
-      } catch (_) {}
+        } catch (_) {}
+      }
     }
 
+    setFallbackLineLayout(lineLayout)
     setFallbackLabelLayout(resolveMeasureLabelCollisions(layout))
   }, [])
 
@@ -3440,6 +3924,8 @@ export default function PdfViewer({
   useEffect(() => { getProtectedAnnotIdsRef.current = getProtectedAnnotIds }, [getProtectedAnnotIds])
   const onMeasurementThicknessChangeRef = useRef(onMeasurementThicknessChange)
   useEffect(() => { onMeasurementThicknessChangeRef.current = onMeasurementThicknessChange }, [onMeasurementThicknessChange])
+  const onMeasurementGeometryChangeRef = useRef(onMeasurementGeometryChange)
+  useEffect(() => { onMeasurementGeometryChangeRef.current = onMeasurementGeometryChange }, [onMeasurementGeometryChange])
   const resolveMeasurementDbIdRef = useRef(resolveMeasurementDbId)
   useEffect(() => { resolveMeasurementDbIdRef.current = resolveMeasurementDbId }, [resolveMeasurementDbId])
   const annotationsRef = useRef(annotations)
@@ -3465,9 +3951,10 @@ export default function PdfViewer({
   const pasteStyleRef = useRef(null)
   const pastePlacementRef = useRef(null)
   const pasteCommitInProgressRef = useRef(null)
+  const pastePlacementActiveRef = useRef(false)
+  const suppressNativeMeasureUntilRef = useRef(0)
   const [pastePlacementActive, setPastePlacementActive] = useState(false)
   const [pasteCursorPos, setPasteCursorPos] = useState(null) // {left,top} container-relative px
-  const [pasteAnchorScreen, setPasteAnchorScreen] = useState(null)
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
   const importedTakeoffIdsRef = useRef(new Set())
@@ -3482,6 +3969,8 @@ export default function PdfViewer({
     annotationsSyncKeyRef.current = ''
     importedTakeoffIdsRef.current = new Set()
     blobFallbackImportedRef.current = false
+    pastePlacementActiveRef.current = false
+    suppressNativeMeasureUntilRef.current = 0
     measureCompleteTimersRef.current.forEach(t => clearTimeout(t))
     measureCompleteTimersRef.current.clear()
     pastePlacementRef.current = null
@@ -3501,11 +3990,9 @@ export default function PdfViewer({
     if (!drawing?.id) return
     annotations.forEach(item => {
       if (!item.pointsJson) return
-      try {
-        const raw = JSON.parse(item.pointsJson)
-        const id = raw.AnnotName ?? raw.annotationId ?? raw.uniqueKey ?? raw.name
+      parseAnnotIdsFromPointsJson(item.pointsJson).forEach(id => {
         if (id) processedAnnotsRef.current.add(id)
-      } catch (_) {}
+      })
     })
   }, [drawing?.id, annotations])
 
@@ -3815,6 +4302,7 @@ export default function PdfViewer({
   const ensureContinuousMeasureMode = useCallback(() => {
     const vm = viewerRef.current
     if (!vm) return
+    if (pastePlacementActiveRef.current) return
     const {
       activeTool: tool, pdfPage: page, measureColor, measureLabelFontSize: labelPt,
       lineThickness, arrowStyle, linearLineMode, pdfScale: zoom, fillOpacity,
@@ -4039,10 +4527,26 @@ export default function PdfViewer({
   }, [applyLabelToAnnot])
 
   // ── Shared helper: extract measurement + call onMeasure ──────────────────
+  const suppressNativeMeasureForPaste = useCallback((ms = 1000) => {
+    suppressNativeMeasureUntilRef.current = Math.max(
+      suppressNativeMeasureUntilRef.current,
+      Date.now() + ms,
+    )
+  }, [])
+
+  const isPasteNativeMeasureSuppressed = useCallback(() => (
+    pastePlacementActiveRef.current || Date.now() < suppressNativeMeasureUntilRef.current
+  ), [])
+
   const processMeasureAnnotation = useCallback((anno) => {
     let a = anno
     if (typeof a === 'string') { try { a = JSON.parse(a) } catch (_) { return } }
     if (!a || typeof a !== 'object') return
+
+    if (isPasteNativeMeasureSuppressed()) {
+      console.log('[BT-Paste] processMeasureAnnotation skipped during paste placement/native suppression')
+      return
+    }
 
     if (!isMeasureAnnotation(a)) {
       console.log('[BT-Lifecycle] processMeasureAnnotation — NOT a measure annotation, skipping. IT:', a?.IT, 'type:', a?.shapeAnnotationType)
@@ -4326,18 +4830,43 @@ export default function PdfViewer({
 
   const cancelPastePlacement = useCallback(() => {
     pastePlacementRef.current = null
+    pastePlacementActiveRef.current = false
     setPastePlacementActive(false)
     setPasteCursorPos(null)
+    setTimeout(() => {
+      if (!pastePlacementActiveRef.current) applyActiveToolToViewerRef.current?.()
+    }, 120)
   }, [])
+
+  const swallowPastePlacementEvent = useCallback((e) => {
+    if (!pastePlacementActiveRef.current) return
+    suppressNativeMeasureForPaste(1200)
+    e.preventDefault()
+    e.stopPropagation()
+    e.nativeEvent?.stopImmediatePropagation?.()
+  }, [suppressNativeMeasureForPaste])
 
   const commitPasteLinearMeasurement = useCallback((clipboard, offsetX, offsetY, targetPage, pasteAnchor = null) => {
     const vm = viewerRef.current
-    if (!vm || !(clipboard?.copyJson ?? clipboard?.raw)) return false
+    if (!vm || !clipboard) return false
 
     if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
       toast.error('Could not paste — invalid placement offset')
       return false
     }
+
+    const pasteLineStyle = ['dashed', 'dotted'].includes(String(clipboard.lineStyle ?? '').toLowerCase())
+      ? String(clipboard.lineStyle).toLowerCase()
+      : 'solid'
+    const pasteDashArray = pasteLineStyle === 'dashed'
+      ? '5 3'
+      : pasteLineStyle === 'dotted'
+        ? '2 3'
+        : '0'
+    const linkedItemId = clipboard.linkedItemId ?? clipboard.sourceItemId ?? null
+    const occurrenceId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `occ-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
     pasteStyleRef.current = {
       color: clipboard.color,
@@ -4346,14 +4875,145 @@ export default function PdfViewer({
       labelFontSize: clipboard.labelFontSize,
       arrowStyle: clipboard.arrowStyle,
       linearLineMode: clipboard.linearLineMode,
+      lineStyle: pasteLineStyle,
     }
 
-    const sourceRaw = clipboard.copyJson ?? clipboard.raw
+    const sourceRaw = buildPasteRawFromClipboard(clipboard)
+    if (!sourceRaw) {
+      pasteStyleRef.current = null
+      toast.error('Could not paste â€” invalid copied measurement')
+      return false
+    }
     const pageIndexNum = Math.max(0, targetPage - 1)
     const container = containerRef.current
     const pastedPts = pasteAnchor && container
       ? computePastedVertexPoints(sourceRaw, pasteAnchor, pageIndexNum, vm, container)
       : null
+
+    if (pasteAnchor?.previewScreenLine?.p0 && pasteAnchor?.previewScreenLine?.p1) {
+      const newId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `paste-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      const pageIdx = String(targetPage - 1)
+      const stylePatch = buildLinearDistanceStyle(
+        clipboard.labelFontSize,
+        pdfScale,
+        clipboard.color,
+        clipboard.thickness,
+        clipboard.arrowStyle,
+        clipboard.linearLineMode,
+      )
+      const pastedPageLinePts = containerScreenLineToPageRatioPoints(
+        pasteAnchor.previewScreenLine,
+        pageIndexNum,
+        vm,
+        container,
+      )
+      if (pastedPageLinePts.length !== 2) {
+        pasteStyleRef.current = null
+        toast.error('Could not paste - invalid preview geometry')
+        return false
+      }
+      const canonicalLinePts = pastedPageLinePts.map(p => ({ x: p.x, y: p.y }))
+      const pxLen = Math.hypot(
+        pasteAnchor.previewScreenLine.p1.left - pasteAnchor.previewScreenLine.p0.left,
+        pasteAnchor.previewScreenLine.p1.top - pasteAnchor.previewScreenLine.p0.top,
+      )
+      const rawAnnotForSave = {
+        annotationId: newId,
+        AnnotName: newId,
+        name: newId,
+        shapeAnnotationType: 'Distance',
+        ShapeAnnotationType: 'Distance',
+        IT: 'LineDimension',
+        type: 'Line',
+        pageNumber: targetPage,
+        page: pageIdx,
+        vertexPoints: canonicalLinePts,
+        VertexPoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
+        strokeColor: clipboard.color,
+        StrokeColor: clipboard.color,
+        thickness: clipboard.thickness,
+        Thickness: clipboard.thickness,
+        FontSize: stylePatch.fontSize,
+        fontSize: stylePatch.fontSize,
+        LeaderLength: stylePatch.leaderLength,
+        leaderLength: stylePatch.leaderLength,
+        LeaderLineExtension: stylePatch.leaderLineExtension,
+        leaderLineExtension: stylePatch.leaderLineExtension,
+        LineHeadStart: stylePatch.lineHeadStartStyle ?? 'None',
+        lineHeadStartStyle: stylePatch.lineHeadStartStyle ?? 'None',
+        LineHeadEnd: stylePatch.lineHeadEndStyle ?? 'None',
+        lineHeadEndStyle: stylePatch.lineHeadEndStyle ?? 'None',
+        borderDashArray: pasteDashArray,
+        BorderDashArray: pasteDashArray,
+        lineStyle: pasteLineStyle,
+        LineStyle: pasteLineStyle,
+        customPaste: true,
+        renderMode: 'customOverlay',
+        customCoordMode: 'pageRatio',
+        labelPagePoints: canonicalLinePts,
+        LabelPagePoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
+        customLinePagePoints: canonicalLinePts,
+        CustomLinePagePoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
+        Subject: 'Takeoff Line Occurrence',
+        Text: `${clipboard.material ?? clipboard.mark ?? ''} - ${clipboard.length ?? ''} ${clipboard.unit ?? ''}`.trim(),
+        ItemId: linkedItemId,
+        itemId: linkedItemId,
+        OccurrenceId: occurrenceId,
+        occurrenceId,
+        CustomData: { ItemId: linkedItemId, OccurrenceId: occurrenceId },
+        customData: { itemId: linkedItemId, occurrenceId },
+        labelSettings: stylePatch.labelSettings,
+        Calibrate: sourceRaw.Calibrate ?? sourceRaw.calibrate,
+        calibrate: sourceRaw.calibrate ?? sourceRaw.Calibrate,
+        start: `${canonicalLinePts[0].x},${canonicalLinePts[0].y}`,
+        end: `${canonicalLinePts[1].x},${canonicalLinePts[1].y}`,
+      }
+      const displayUnit = getDisplayUnit()
+      const pastePayload = {
+        length: clipboard.length,
+        area: null,
+        pixelLength: pxLen > 0 ? pxLen : 1,
+        pixelArea: 0,
+        unit: clipboard.unit ?? displayUnit,
+        points: [],
+        annotationId: newId,
+        pageNumber: targetPage,
+        memberMark: clipboard.material ?? clipboard.mark ?? '',
+        drawingMark: clipboard.mark ?? clipboard.material ?? '',
+        memberScheduleId: clipboard.memberScheduleId ?? null,
+        linkedItemId,
+        sourceItemId: linkedItemId,
+        occurrenceId,
+        memberType: clipboard.memberType ?? clipboard.category ?? '',
+        category: clipboard.category ?? 'General',
+        material: clipboard.material ?? clipboard.mark ?? '',
+        description: clipboard.description ?? '',
+        notes: clipboard.notes ?? '',
+        quantity: 1,
+        unitWeight: clipboard.unitWeight ?? null,
+        totalWeight: clipboard.totalWeight ?? null,
+        rawAnnotation: rawAnnotForSave,
+        measureType: 'Line',
+      }
+      processedAnnotsRef.current.add(newId)
+      pasteCommitInProgressRef.current = newId
+      onMeasureRef.current?.(pastePayload, { isPaste: true })
+      setTimeout(() => {
+        pasteCommitInProgressRef.current = null
+        pasteStyleRef.current = null
+        bumpFallbackLabelLayout()
+      }, 250)
+      return true
+    }
+
+    pasteStyleRef.current = null
+    toast.error('Could not paste - missing preview line')
+
+    // Legacy Syncfusion paste fallback intentionally disabled for normal use.
+    // It can create a tiny connector while the custom label still shows the copied length.
+    if (pastedPts?.legacySyncfusionPasteFallback === true) {
     const cloned = pastedPts?.length >= 2
       ? cloneLinearAnnotationForPaste(sourceRaw, 0, 0, targetPage, pastedPts)
       : cloneLinearAnnotationForPaste(sourceRaw, offsetX, offsetY, targetPage)
@@ -4376,6 +5036,19 @@ export default function PdfViewer({
       StrokeColor: clipboard.color,
       Thickness: clipboard.thickness,
       thickness: clipboard.thickness,
+      BorderDashArray: pasteDashArray,
+      borderDashArray: pasteDashArray,
+      lineStyle: pasteLineStyle,
+      LineStyle: pasteLineStyle,
+      customPaste: true,
+      renderMode: 'customOverlay',
+      customCoordMode: pasteAnchor?.coordMode ?? null,
+      Subject: 'Takeoff Line Occurrence',
+      Text: `${clipboard.material ?? clipboard.mark ?? ''} - ${clipboard.length ?? ''} ${clipboard.unit ?? ''}`.trim(),
+      ItemId: linkedItemId,
+      itemId: linkedItemId,
+      OccurrenceId: occurrenceId,
+      occurrenceId,
     })
 
     if (targetPage !== pdfPage) {
@@ -4414,6 +5087,18 @@ export default function PdfViewer({
       lineHeadStartStyle: stylePatch.lineHeadStartStyle ?? 'None',
       LineHeadEnd: stylePatch.lineHeadEndStyle ?? 'None',
       lineHeadEndStyle: stylePatch.lineHeadEndStyle ?? 'None',
+      borderDashArray: pasteDashArray,
+      BorderDashArray: pasteDashArray,
+      lineStyle: pasteLineStyle,
+      LineStyle: pasteLineStyle,
+      Subject: 'Takeoff Line Occurrence',
+      Text: `${clipboard.material ?? clipboard.mark ?? ''} - ${clipboard.length ?? ''} ${clipboard.unit ?? ''}`.trim(),
+      ItemId: linkedItemId,
+      itemId: linkedItemId,
+      OccurrenceId: occurrenceId,
+      occurrenceId,
+      CustomData: { ItemId: linkedItemId, OccurrenceId: occurrenceId },
+      customData: { itemId: linkedItemId, occurrenceId },
       labelSettings: stylePatch.labelSettings,
       Calibrate: cloned.Calibrate ?? cloned.calibrate,
       calibrate: cloned.calibrate ?? cloned.Calibrate,
@@ -4421,11 +5106,54 @@ export default function PdfViewer({
       end: ptsForSave.length >= 2 ? `${ptsForSave[ptsForSave.length - 1].x},${ptsForSave[ptsForSave.length - 1].y}` : '',
     }
 
+    if (pasteAnchor?.previewPoints?.length >= 2) {
+      const customDisplayUnit = getDisplayUnit()
+      const pastePayload = {
+        length: clipboard.length,
+        area: null,
+        pixelLength: pxLen > 0 ? pxLen : 1,
+        pixelArea: 0,
+        unit: clipboard.unit ?? customDisplayUnit,
+        points: [],
+        annotationId: newId,
+        pageNumber: targetPage,
+        memberMark: clipboard.material ?? clipboard.mark ?? '',
+        drawingMark: clipboard.mark ?? clipboard.material ?? '',
+        memberScheduleId: clipboard.memberScheduleId ?? null,
+        linkedItemId,
+        sourceItemId: linkedItemId,
+        occurrenceId,
+        memberType: clipboard.memberType ?? clipboard.category ?? '',
+        category: clipboard.category ?? 'General',
+        material: clipboard.material ?? clipboard.mark ?? '',
+        description: clipboard.description ?? '',
+        notes: clipboard.notes ?? '',
+        quantity: 1,
+        unitWeight: clipboard.unitWeight ?? null,
+        totalWeight: clipboard.totalWeight ?? null,
+        rawAnnotation: rawAnnotForSave,
+        measureType: 'Line',
+      }
+      processedAnnotsRef.current.add(newId)
+      pasteCommitInProgressRef.current = newId
+      onMeasureRef.current?.(pastePayload, { isPaste: true })
+      setTimeout(() => {
+        pasteCommitInProgressRef.current = null
+        pasteStyleRef.current = null
+        bumpFallbackLabelLayout()
+      }, 250)
+      return true
+    }
+
     const fakeItem = {
       id: newId,
       itemType: 'Line',
+      mark: clipboard.mark ?? '',
+      material: clipboard.material ?? clipboard.mark ?? '',
       color: clipboard.color,
       category: clipboard.category ?? 'General',
+      description: clipboard.description ?? '',
+      notes: clipboard.notes ?? '',
       length: clipboard.length,
       unit: clipboard.unit,
       pointsJson: JSON.stringify(rawAnnotForSave),
@@ -4450,7 +5178,17 @@ export default function PdfViewer({
       State: '',
       StateModel: '',
       Author: 'BuildTakeoff',
-      Subject: 'Distance calculation',
+      Subject: 'Takeoff Line Occurrence',
+      BorderDashArray: pasteDashArray,
+      borderDashArray: pasteDashArray,
+      lineStyle: pasteLineStyle,
+      LineStyle: pasteLineStyle,
+      ItemId: linkedItemId,
+      itemId: linkedItemId,
+      OccurrenceId: occurrenceId,
+      occurrenceId,
+      CustomData: { ItemId: linkedItemId, OccurrenceId: occurrenceId },
+      customData: { itemId: linkedItemId, occurrenceId },
     }, displayUnit, d)
 
     const pageIndex = targetPage - 1
@@ -4535,9 +5273,20 @@ export default function PdfViewer({
             points: [],
             annotationId: newId,
             pageNumber: targetPage,
-            memberMark: '',
-            drawingMark: null,
-            memberScheduleId: null,
+            memberMark: clipboard.material ?? clipboard.mark ?? '',
+            drawingMark: clipboard.mark ?? clipboard.material ?? '',
+            memberScheduleId: clipboard.memberScheduleId ?? null,
+            linkedItemId,
+            sourceItemId: linkedItemId,
+            occurrenceId,
+            memberType: clipboard.memberType ?? clipboard.category ?? '',
+            category: clipboard.category ?? 'General',
+            material: clipboard.material ?? clipboard.mark ?? '',
+            description: clipboard.description ?? '',
+            notes: clipboard.notes ?? '',
+            quantity: 1,
+            unitWeight: clipboard.unitWeight ?? null,
+            totalWeight: clipboard.totalWeight ?? null,
             rawAnnotation: {
               ...finalRawAnnot,
               Calibrate: clonedImportable.Calibrate,
@@ -4585,22 +5334,11 @@ export default function PdfViewer({
             setTimeout(() => runFinalize(attempt + 1), 50)
             return
           }
-          applyLinearVisualStyleToDiagram(vm, newId, { ...stylePatch, strokeColor: clipboard.color })
-          let aligned = false
-          if (pasteAnchor && containerRef.current) {
-            for (let i = 0; i < 3; i++) {
-              try {
-                aligned = nudgeLiveLinearMeasureToScreenAnchor(
-                  vm, newId, pasteAnchor, containerRef.current, pageIndexNum,
-                )
-                if (aligned) break
-              } catch (_) {}
-            }
-          }
-          if (pasteAnchor && !aligned && attempt < 12) {
-            setTimeout(() => runFinalize(attempt + 1), 80)
-            return
-          }
+          applyLinearVisualStyleToDiagram(vm, newId, {
+            ...stylePatch,
+            strokeColor: clipboard.color,
+            borderDashArray: pasteDashArray,
+          })
           finalizePasteCommit()
         }
 
@@ -4613,6 +5351,8 @@ export default function PdfViewer({
       }
     }, 200)
     return true
+    }
+    return false
   }, [pdfScale, pdfPage, getDisplayUnit, measureLabelFontSize])
 
   // Stable ref so the pdfCommand useEffect can call commitPasteLinearMeasurement
@@ -4620,97 +5360,54 @@ export default function PdfViewer({
   const commitPasteRef = useRef(null)
   useEffect(() => { commitPasteRef.current = commitPasteLinearMeasurement }, [commitPasteLinearMeasurement])
 
-  // Copy → click on plan → Ctrl+V: record PDF click as paste destination while clipboard has data.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el || !pdfBase64) return
-
-    let downX = 0
-    let downY = 0
-
-    const onMouseDown = (e) => {
-      if (e.button !== 0) return
-      downX = e.clientX
-      downY = e.clientY
-    }
-
-    const onMouseUp = (e) => {
-      const { measurementClipboard: clip, activeTool } = useAppStore.getState()
-      if (!clip || pastePlacementActive) return
-      if (importingAnnotsRef.current) return
-      if (e.button !== 0) return
-      if (Math.abs(e.clientX - downX) > 6 || Math.abs(e.clientY - downY) > 6) return
-
-      const drawTools = ['line', 'area', 'perimeter', 'calibrate']
-      if (drawTools.includes(activeTool) && !e.shiftKey) return
-
-      const vm = viewerRef.current
-      if (!vm) return
-      const page = useAppStore.getState().pdfPage ?? 1
-      const pageIndex = Math.max(0, page - 1)
-      const anchor = buildPasteAnchorFromClick(e.clientX, e.clientY, page, pageIndex, vm, el)
-      if (!anchor) return
-
-      setPasteAnchor(anchor)
-      toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
-    }
-
-    el.addEventListener('mousedown', onMouseDown, true)
-    el.addEventListener('mouseup', onMouseUp, true)
-    return () => {
-      el.removeEventListener('mousedown', onMouseDown, true)
-      el.removeEventListener('mouseup', onMouseUp, true)
-    }
-  }, [pdfBase64, pastePlacementActive, setPasteAnchor])
-
-  // Screen position for paste-anchor crosshair (updates on zoom/scroll/page).
-  useEffect(() => {
-    if (!pasteAnchor || !viewerRef.current || !containerRef.current) {
-      setPasteAnchorScreen(null)
-      return
-    }
-    const pageIndex = Math.max(0, (pasteAnchor.pageNumber ?? 1) - 1)
-    const vm = viewerRef.current
-    const container = containerRef.current
-
-    const updatePos = () => {
-      const pos = resolvePasteAnchorScreenPosition(pasteAnchor, pageIndex, vm, container)
-      setPasteAnchorScreen(pos)
-    }
-    updatePos()
-
-    const scrollEl = vm?.viewerBase?.viewerContainer
-      ?? document.getElementById('sfPdfViewer_viewerContainer')
-    scrollEl?.addEventListener('scroll', updatePos, { passive: true })
-    window.addEventListener('resize', updatePos)
-    return () => {
-      scrollEl?.removeEventListener('scroll', updatePos)
-      window.removeEventListener('resize', updatePos)
-    }
-  }, [pasteAnchor, pdfScale, pdfPage, fallbackLabelTick, canvasSelectionTick])
 
   const handlePastePlacementClick = useCallback((e) => {
+    swallowPastePlacementEvent(e)
+    suppressNativeMeasureForPaste(1200)
     const pending = pastePlacementRef.current
-    const sourceRaw = pending?.clipboard?.copyJson ?? pending?.clipboard?.raw
+    const sourceRaw = buildPasteRawFromClipboard(pending?.clipboard)
     if (!sourceRaw) return
-    e.preventDefault()
-    e.stopPropagation()
 
     const vm = viewerRef.current
     if (!vm) return
+    const container = containerRef.current
+    if (!container) return
 
     const targetPage = pdfPage ?? pending.clipboard.pageNumber ?? 1
     const pageIndex = Math.max(0, targetPage - 1)
-    const anchor = buildPasteAnchorFromClick(
-      e.clientX, e.clientY, targetPage, pageIndex, vm, containerRef.current,
+    const cr = container.getBoundingClientRect()
+    const clickLeft = e.clientX - cr.left
+    const clickTop = e.clientY - cr.top
+    const screenVec = pending.screenVec
+    if (!screenVec) {
+      toast.error('Could not paste — invalid line geometry')
+      return
+    }
+    const anchor = buildPasteAnchorFromScreenPoint(
+      { left: clickLeft, top: clickTop },
+      targetPage,
+      pending.coordMode ?? screenVec.coordMode,
+      sourceRaw,
+      pageIndex,
+      vm,
+      container,
     )
     if (!anchor) {
       toast.error('Could not place measurement — click on the drawing')
       return
     }
+    if (!anchor) {
+      toast.error('Could not place measurement — click on the drawing')
+      return
+    }
+
+    anchor.previewScreenLine = {
+      p0: { left: clickLeft - screenVec.halfDx, top: clickTop - screenVec.halfDy },
+      p1: { left: clickLeft + screenVec.halfDx, top: clickTop + screenVec.halfDy },
+    }
 
     const offset = computeLinearPasteOffsetForAnchor(
-      sourceRaw, anchor, pageIndex, vm, containerRef.current,
+      sourceRaw, anchor, pageIndex, vm, container,
     )
     if (!offset) {
       cancelPastePlacement()
@@ -4723,7 +5420,7 @@ export default function PdfViewer({
     )
     cancelPastePlacement()
     if (!ok) toast.error('Paste failed')
-  }, [pdfPage, commitPasteLinearMeasurement, cancelPastePlacement])
+  }, [pdfPage, commitPasteLinearMeasurement, cancelPastePlacement, swallowPastePlacementEvent, suppressNativeMeasureForPaste])
 
   useEffect(() => {
     if (!pastePlacementActive) return
@@ -4758,6 +5455,11 @@ export default function PdfViewer({
     if (!id) return
 
     console.log('[BT-Lifecycle] scheduleMeasurementComplete — id:', id)
+    if (isPasteNativeMeasureSuppressed()) {
+      console.log('[BT-Paste] scheduleMeasurementComplete skipped during paste placement/native suppression:', id)
+      return
+    }
+
     const prev = measureCompleteTimersRef.current.get(id)
     if (prev) clearTimeout(prev)
 
@@ -4873,7 +5575,7 @@ export default function PdfViewer({
     }
 
     measureCompleteTimersRef.current.set(id, setTimeout(() => finishMeasure(0), 250))
-  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode, getDisplayUnit, clearLiveDrawLabel, bumpFallbackLabelLayout])
+  }, [exportAndProcessUnsaved, ensureContinuousMeasureMode, getDisplayUnit, clearLiveDrawLabel, bumpFallbackLabelLayout, isPasteNativeMeasureSuppressed])
 
   // ── ResizeObserver: give Syncfusion explicit pixel dimensions ──────────
   useEffect(() => {
@@ -4931,8 +5633,8 @@ export default function PdfViewer({
 
         // Fallback: import annotation blob if some rows still missing on canvas
         const stillMissing = annotations.some(item => {
-          const id = parseAnnotIdFromPointsJson(item.pointsJson)
-          return id && !resolveLiveAnnotation(vm, id)
+          return parseAnnotIdsFromPointsJson(item.pointsJson)
+            .some(id => id && !resolveLiveAnnotation(vm, id))
         })
         if (stillMissing && drawing.annotationData && !blobFallbackImportedRef.current) {
           blobFallbackImportedRef.current = true
@@ -4964,13 +5666,17 @@ export default function PdfViewer({
     }
 
     const itemsToImport = annotations.filter(item => {
-      if (!item.pointsJson || importedTakeoffIdsRef.current.has(item.id)) return false
-      const id = parseAnnotIdFromPointsJson(item.pointsJson)
-      if (id && resolveLiveAnnotation(vm, id)) {
+      if (!item.pointsJson) return false
+      const ids = parseOccurrenceRawsFromPointsJson(item.pointsJson)
+        .filter(raw => !isCustomPasteRaw(raw))
+        .map(raw => resolveStableAnnotationId(raw))
+        .filter(Boolean)
+      if (!ids.length) return false
+      if (ids.length && ids.every(id => resolveLiveAnnotation(vm, id))) {
         importedTakeoffIdsRef.current.add(item.id)
         return false
       }
-      return true
+      return ids.length ? ids.some(id => !importedAnnotIdsRef.current.has(id) || !resolveLiveAnnotation(vm, id)) : true
     })
 
     if (!itemsToImport.length) {
@@ -4992,16 +5698,24 @@ export default function PdfViewer({
     const byPage = {}
     const importedBatch = []
     itemsToImport.forEach(item => {
-      const built = buildImportableFromTakeoffItem(item, measureLabelFontSize, pdfScale)
-      if (!built) {
+      const builtList = buildImportablesFromTakeoffItem(item, measureLabelFontSize, pdfScale)
+      if (!builtList.length) {
         console.warn('[BuildTakeoff] skip import — no geometry in pointsJson for item', item.id, item.mark)
         return
       }
-      if (!byPage[built.pageIdx]) byPage[built.pageIdx] = []
-      byPage[built.pageIdx].push(built.importable)
-      importedBatch.push(item)
-      const id = built.importable.AnnotName ?? built.importable.annotationId ?? built.importable.name
-      if (id) importedAnnotIdsRef.current.add(id)
+      let importedAny = false
+      builtList.forEach(built => {
+        const id = built.importable.AnnotName ?? built.importable.annotationId ?? built.importable.name
+        if (id && resolveLiveAnnotation(vm, id)) {
+          importedAnnotIdsRef.current.add(id)
+          return
+        }
+        if (!byPage[built.pageIdx]) byPage[built.pageIdx] = []
+        byPage[built.pageIdx].push(built.importable)
+        importedAny = true
+        if (id) importedAnnotIdsRef.current.add(id)
+      })
+      if (importedAny) importedBatch.push(item)
     })
 
     if (!Object.keys(byPage).length) {
@@ -5151,29 +5865,11 @@ export default function PdfViewer({
 
     const onMouseUp = (e) => {
       if (!state.dragging) return
-      const wasClick = !state.hasMoved
       state.dragging = false
       state.scrollEls = null
       state.hasMoved = false
       outer.style.cursor = 'grab'
 
-      if (wasClick && e?.button === 0 && !pastePlacementActive && !importingAnnotsRef.current) {
-        const clip = useAppStore.getState().measurementClipboard
-        if (clip) {
-          const vm = viewerRef.current
-          if (vm) {
-            const page = useAppStore.getState().pdfPage ?? 1
-            const pageIndex = Math.max(0, page - 1)
-            const anchor = buildPasteAnchorFromClick(
-              e.clientX, e.clientY, page, pageIndex, vm, containerRef.current,
-            )
-            if (anchor) {
-              setPasteAnchor(anchor)
-              toast('Paste location set — press Ctrl+V or Paste', { duration: 2500, icon: '📍' })
-            }
-          }
-        }
-      }
     }
 
     const viewerRoot = document.getElementById('sfPdfViewer')
@@ -5192,7 +5888,7 @@ export default function PdfViewer({
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [activeTool, docLoaded, setPasteAnchor, pastePlacementActive])
+  }, [activeTool, docLoaded])
 
   // ── Handle imperative viewer commands (fitPage, selectAnnotation, …) ───
   useEffect(() => {
@@ -5203,6 +5899,17 @@ export default function PdfViewer({
     try {
       if (type === 'fitPage') {
         applyFitPageToViewer(vm, setPdfScale, containerRef.current?.clientWidth, pageMetaRef.current)
+      } else if (type === 'cancelPastePlacement') {
+        cancelPastePlacement()
+      } else if (type === 'undo' || type === 'redo') {
+        const fn = type === 'undo'
+          ? (vm.undo ?? vm.annotation?.undo ?? vm.annotationModule?.undo)
+          : (vm.redo ?? vm.annotation?.redo ?? vm.annotationModule?.redo)
+        if (typeof fn === 'function') {
+          try { fn.call(vm) } catch (_) {
+            try { fn.call(vm.annotation) } catch (_) {}
+          }
+        }
       } else if (type === 'refreshCalibration') {
         // After calibration, the import cycle (if any) is always complete — force-clear the gate
         // so the user can immediately draw new measurements.
@@ -5372,70 +6079,10 @@ export default function PdfViewer({
         }
 
         runClear()
-      } else if (type === 'pasteWithFixedOffset') {
-        // Direct paste: places the clone immediately with a fixed 15-screen-pixel
-        // offset from the original — no extra click required.
-        const clipboard = payload.clipboard
-        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
-          toast('Nothing to paste — copy a line measurement first')
-          return
-        }
-        if ((clipboard.itemType || 'Line') !== 'Line') {
-          toast('Only linear measurements can be pasted')
-          return
-        }
-        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
-        const { pdfPage: currentPage } = useAppStore.getState()
-        const targetPage = currentPage ?? 1
-        const pageIndex = Math.max(0, targetPage - 1)
-        const pdfOffsetX = screenPixelsToPdfUnits(15, pageIndex, vm)
-        const pdfOffsetY = screenPixelsToPdfUnits(15, pageIndex, vm)
-        const ok = commitPasteRef.current?.(clipboard, pdfOffsetX, pdfOffsetY, targetPage)
-        if (!ok) toast.error('Paste failed')
-      } else if (type === 'pasteAtPoint') {
-        const clipboard = payload.clipboard
-        const anchor = payload.anchor
-        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
-          toast('Nothing to paste — copy a line measurement first')
-          return
-        }
-        if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) {
-          toast('Click on the drawing where you want to paste, then press Ctrl+V', { duration: 3500, icon: '📍' })
-          return
-        }
-        if ((clipboard.itemType || 'Line') !== 'Line') {
-          toast('Only linear measurements can be pasted')
-          return
-        }
-        try { vm.annotation.setAnnotationMode('None') } catch (_) {}
-        const sourceRaw = clipboard.copyJson ?? clipboard.raw
-        const targetPage = anchor.pageNumber ?? useAppStore.getState().pdfPage ?? 1
-        const pageIndex = Math.max(0, targetPage - 1)
-        const container = containerRef.current
-        const anchorScreen = container
-          ? resolvePasteAnchorScreenPosition(anchor, pageIndex, vm, container)
-          : null
-        const anchorForPaste = {
-          ...anchor,
-          screenLeft: anchorScreen?.left ?? anchor.screenLeft,
-          screenTop: anchorScreen?.top ?? anchor.screenTop,
-        }
-        const offset = computeLinearPasteOffsetForAnchor(
-          sourceRaw, anchorForPaste, pageIndex, vm, container,
-        )
-        if (!offset) {
-          toast.error('Could not paste — invalid line geometry')
-          return
-        }
-        const ok = commitPasteRef.current?.(clipboard, offset.offsetX, offset.offsetY, targetPage, anchorForPaste)
-        if (ok) {
-          useAppStore.getState().clearPasteAnchor()
-        } else {
-          toast.error('Paste failed')
-        }
       } else if (type === 'pasteMeasurement') {
         const clipboard = payload.clipboard
-        if (!(clipboard?.copyJson ?? clipboard?.raw)) {
+        const sourceRaw = buildPasteRawFromClipboard(clipboard)
+        if (!sourceRaw) {
           toast('Nothing to paste — copy a line measurement first')
           return
         }
@@ -5444,25 +6091,23 @@ export default function PdfViewer({
           return
         }
 
+        pastePlacementActiveRef.current = true
+        suppressNativeMeasureForPaste(1200)
         try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+        try { vm.interactionMode = 'TextSelection' } catch (_) {}
         const { pdfPage: currentPage } = useAppStore.getState()
         const targetPage = currentPage ?? clipboard.pageNumber ?? 1
         const pageIndex = Math.max(0, targetPage - 1)
-        const sourceRaw = clipboard.copyJson ?? clipboard.raw
         let screenVec = null
+        let coordMode = null
         try {
           const container = containerRef.current
           if (container) {
-            const screenEnds = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, container)
-            if (screenEnds) {
-              screenVec = {
-                halfDx: (screenEnds.p1.left - screenEnds.p0.left) / 2,
-                halfDy: (screenEnds.p1.top - screenEnds.p0.top) / 2,
-              }
-            }
+            coordMode = inferAnnotationCoordinateMode(sourceRaw, pageIndex, vm, container)
+            screenVec = computePasteScreenVector(sourceRaw, pageIndex, vm, container, coordMode)
           }
         } catch (_) {}
-        pastePlacementRef.current = { clipboard, screenVec }
+        pastePlacementRef.current = { clipboard, screenVec, coordMode }
         setPasteCursorPos(null)
         setPastePlacementActive(true)
         toast('Click on the drawing to place the measurement', { duration: 3500 })
@@ -5621,7 +6266,7 @@ export default function PdfViewer({
       }
     } catch (_) { }
     clearPdfCommand()
-  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale, scheduleLabelLayoutWithRetries, pdfScale])
+  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale, scheduleLabelLayoutWithRetries, pdfScale, cancelPastePlacement, suppressNativeMeasureForPaste])
 
   // ── Load PDF as base64 whenever drawingUrl changes ─────────────────────
   useEffect(() => {
@@ -5712,6 +6357,11 @@ export default function PdfViewer({
   const applyActiveToolToViewer = useCallback(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded) return
+    if (pastePlacementActiveRef.current) {
+      try { vm.annotation.setAnnotationMode('None') } catch (_) {}
+      try { vm.interactionMode = 'TextSelection' } catch (_) {}
+      return
+    }
     const tool = useAppStore.getState().activeTool
     selectedAnnotDataRef.current = null
     try {
@@ -5995,6 +6645,10 @@ export default function PdfViewer({
   const handleAnnotationAdd = useCallback((args) => {
     const firstId = args?.annotation?.annotationId ?? args?.annotation?.name ?? '?'
     console.log('[BT-Lifecycle] annotationAdd entry — importing:', importingAnnotsRef.current, 'id:', firstId)
+    if (isPasteNativeMeasureSuppressed()) {
+      console.log('[BT-Paste] annotationAdd skipped during paste placement/native suppression:', firstId)
+      return
+    }
     if (importingAnnotsRef.current) {
       console.warn('[BT-Lifecycle] annotationAdd BLOCKED by importingAnnotsRef=true — measurement will NOT be saved!')
       return
@@ -6041,7 +6695,69 @@ export default function PdfViewer({
     setTimeout(() => bumpFallbackLabelLayout(), 450)
     // Do not set selectedAnnotDataRef here — continuous draw keeps the tool active;
     // explicit selection uses handleAnnotationSelect (PDF click or grid row).
-  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout])
+  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout, isPasteNativeMeasureSuppressed])
+
+  const persistExistingLinearGeometry = useCallback((annotation) => {
+    if (!annotation || !isLinearMeasureAnnotation(annotation)) return false
+    const annotId = resolveStableAnnotationId(annotation)
+    if (!annotId) return false
+    const dbId = resolveMeasurementDbIdRef.current?.(annotId)
+    if (dbId == null) return false
+
+    const vm = viewerRef.current
+    const live = vm ? resolveLiveAnnotation(vm, annotId) : null
+    let plain = live ? buildPlainAnnot(live) : buildPlainAnnot(annotation)
+    if (extractAnnotationPoints(plain).length < 2) plain = buildPlainAnnot(annotation)
+    const pts = extractAnnotationPoints(plain)
+    if (pts.length < 2) return true
+
+    const d = getCalibratedDrawing(drawingRef)
+    const displayUnit = getDisplayUnit()
+    const pageNumber = plain.pageNumber ?? plain.PageNumber ?? (parseInt(plain.page ?? '0', 10) + 1)
+    const pageIndex = Math.max(0, pageNumber - 1)
+    const pixelLength = extractPixelLengthFromAnnot(plain, polylineLength(pts))
+    const resolved = resolveCalibratedMeasure(pixelLength, 0, d, displayUnit, { isArea: false })
+    let length = resolved.length ?? computeRealLengthFromDrawing(pixelLength, d, displayUnit)
+    if (length == null || !Number.isFinite(length) || length <= 0) {
+      const displayed = extractDisplayedMeasureFromAnnot(plain, displayUnit)
+      if (displayed.length != null && Number.isFinite(displayed.length) && displayed.length > 0) {
+        length = displayed.length
+      }
+    }
+    if (length == null || !Number.isFinite(length) || length <= 0) {
+      const fallback = resolveUncalibratedMeasureLength(pixelLength, plain, displayUnit)
+      if (fallback != null && Number.isFinite(fallback) && fallback > 0) length = fallback
+    }
+
+    const labelText = length != null && Number.isFinite(length) && length > 0
+      ? formatMeasureLength(length, displayUnit)
+      : ''
+    if (labelText) {
+      plain.Note = labelText
+      plain.note = labelText
+      plain.notes = labelText
+      plain.LabelContent = labelText
+      plain.labelContent = labelText
+    }
+    plain = attachVisibleLabelLineToAnnotation(
+      plain,
+      vm,
+      containerRef.current,
+      pageIndex,
+      plain.strokeColor ?? plain.StrokeColor,
+    )
+
+    onMeasurementGeometryChangeRef.current?.({
+      dbId,
+      annotationId: annotId,
+      pageNumber,
+      pixelLength,
+      length,
+      unit: displayUnit,
+      rawAnnotation: plain,
+    })
+    return true
+  }, [getDisplayUnit])
 
   const handleAnnotationPropertiesChange = useCallback((args) => {
     if (importingAnnotsRef.current || editingAnnotRef.current) return
@@ -6063,13 +6779,21 @@ export default function PdfViewer({
       suppressNativeMeasureLabelsOnPage(vm, pageIdx)
       if (live) hideSyncfusionNativeMeasureLabelText(live)
     }
-    scheduleMeasurementComplete(buildPlainAnnot(a))
+    const plain = buildPlainAnnot(a)
+    if (!persistExistingLinearGeometry(plain)) {
+      scheduleMeasurementComplete(plain)
+    }
     setTimeout(() => bumpFallbackLabelLayout(), 120)
-  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout, scheduleLiveDrawLabel])
+  }, [scheduleMeasurementComplete, bumpFallbackLabelLayout, scheduleLiveDrawLabel, persistExistingLinearGeometry])
 
   const handleAnnotationSelect = useCallback((args) => {
-    const annotation = args?.annotation
-    const id = annotation?.annotationId
+    const annotation = Array.isArray(args?.annotation)
+      ? args.annotation[0]
+      : (args?.annotation ?? args?.annotationSettings ?? args)
+    const id = resolveStableAnnotationId(annotation)
+      ?? args?.annotationId
+      ?? args?.annotName
+      ?? args?.name
     if (!id) return
     onAnnotationSelect?.(id)
     const { activeTool: tool } = useAppStore.getState()
@@ -6433,10 +7157,46 @@ export default function PdfViewer({
       )}
 
       {/* Bluebeam-style measurement labels ─ anchored to line midpoint + perpendicular offset */}
+      {pdfBase64 && !loading && fallbackLineLayout.length > 0 && (
+        <svg
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 12,
+            pointerEvents: 'none',
+            overflow: 'visible',
+          }}
+        >
+          {fallbackLineLayout.map(line => {
+            const zoomFactor = Number(pdfScale) > 10
+              ? Number(pdfScale) / 100
+              : (Number(pdfScale) || 1)
+            const strokeWidth = Math.max(2.5, (Number(line.thickness) || 2) * zoomFactor)
+            return (
+              <line
+                key={line.key}
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke={line.color ?? '#EF233C'}
+                strokeWidth={strokeWidth}
+                strokeDasharray={String(line.dash ?? '0') === '0' ? undefined : String(line.dash)}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )
+          })}
+        </svg>
+      )}
+
       {pdfBase64 && !loading && fallbackLabelLayout.length > 0 && (
         <div
           aria-hidden="true"
-          style={{ position: 'absolute', inset: 0, zIndex: 11, pointerEvents: 'none', overflow: 'hidden' }}
+          style={{ position: 'absolute', inset: 0, zIndex: 13, pointerEvents: 'none', overflow: 'visible' }}
         >
           {fallbackLabelLayout.map(entry => {
             const fsPx = Math.min(Math.max(entry.fontSizePt ?? 12, 9), 16)
@@ -6482,29 +7242,6 @@ export default function PdfViewer({
         </div>
       )}
 
-      {/* Paste destination marker (set by click after copy, before Ctrl+V) */}
-      {pdfBase64 && !loading && measurementClipboard && pasteAnchorScreen && !pastePlacementActive && (
-        <div
-          data-paste-marker
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: `${pasteAnchorScreen.left}px`,
-            top: `${pasteAnchorScreen.top}px`,
-            transform: 'translate(-50%, -50%)',
-            zIndex: 12,
-            pointerEvents: 'none',
-            width: 22,
-            height: 22,
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 22 22" style={{ overflow: 'visible' }}>
-            <circle cx="11" cy="11" r="9" fill="rgba(239,35,60,0.15)" stroke="#EF233C" strokeWidth="1.5" />
-            <line x1="11" y1="2" x2="11" y2="20" stroke="#EF233C" strokeWidth="1.5" />
-            <line x1="2" y1="11" x2="20" y2="11" stroke="#EF233C" strokeWidth="1.5" />
-          </svg>
-        </div>
-      )}
 
       {/* ── Paste placement overlay — line preview follows cursor, click to place ── */}
       {pdfBase64 && !loading && pastePlacementActive && (() => {
@@ -6526,9 +7263,16 @@ export default function PdfViewer({
           : null
         return (
           <div
-            style={{ position: 'absolute', inset: 0, zIndex: 13, cursor: 'crosshair' }}
+            style={{ position: 'absolute', inset: 0, zIndex: 15, cursor: 'crosshair' }}
+            onPointerDown={swallowPastePlacementEvent}
+            onPointerUp={swallowPastePlacementEvent}
+            onMouseDown={swallowPastePlacementEvent}
+            onMouseUp={swallowPastePlacementEvent}
             onClick={handlePastePlacementClick}
+            onDoubleClick={swallowPastePlacementEvent}
+            onContextMenu={swallowPastePlacementEvent}
             onMouseMove={(e) => {
+              e.stopPropagation()
               const cr = containerRef.current?.getBoundingClientRect()
               if (!cr) return
               setPasteCursorPos({ left: e.clientX - cr.left, top: e.clientY - cr.top })
@@ -6548,8 +7292,7 @@ export default function PdfViewer({
                   x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke={color}
                   strokeWidth={thick}
-                  strokeDasharray="6 3"
-                  opacity={0.85}
+                  opacity={0.55}
                 />
                 {/* Measurement label near midpoint */}
                 {labelText && (
@@ -6663,10 +7406,8 @@ export default function PdfViewer({
             <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/>
             <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2a8 8 0 0 1-8-8 2 2 0 1 1 4 0"/>
           </svg>
-          {measurementClipboard
-            ? (pasteAnchor
-              ? 'Paste location set — press Ctrl+V or Paste'
-              : 'Click where to paste, then Ctrl+V')
+          {pastePlacementActive
+            ? 'Move preview, then click to place'
             : 'Hold and drag to pan the drawing'}
         </div>
       )}
