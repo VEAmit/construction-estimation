@@ -3657,6 +3657,7 @@ export default function PdfViewer({
     let debugLogged = false
 
     const LABEL_OFFSET_PX = 14  // minimum perpendicular distance from line midpoint to label centre
+    const LABEL_LINE_CLEARANCE_PX = 7  // visible gap between measurement line and label box
 
     // Helper: find the real SVG <g> element for an annotation using the live object's
     // CURRENT id (post-rehydration), then fall back to the stored AnnotName.
@@ -3797,7 +3798,7 @@ export default function PdfViewer({
         // All maths in screen space — never guess PDF offsets.
         const labelWidth = Math.max(72, Math.min(180, (String(mark).length + String(text).length) * (labelPt * 0.55) + 18))
         const labelHeight = mark ? labelPt * 2.6 : labelPt * 1.6
-        const labelOffsetPx = Math.max(LABEL_OFFSET_PX, labelHeight / 2 + 1)
+        const labelOffsetPx = Math.max(LABEL_OFFSET_PX, labelHeight / 2 + LABEL_LINE_CLEARANCE_PX)
         const midX = (s0.left + s1.left) / 2
         const midY = (s0.top  + s1.top)  / 2
         const labelPos = offsetAboveLineScreen(s0, s1, { left: midX, top: midY }, labelOffsetPx)
