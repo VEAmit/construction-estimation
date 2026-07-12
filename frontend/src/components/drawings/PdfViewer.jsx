@@ -64,6 +64,29 @@ function getMagnification(vm) {
   return vm?.magnificationModule ?? vm?.magnification ?? null
 }
 
+function normalizeZoomScale(value, fallback = 1) {
+  const zoom = Number(value)
+  if (!Number.isFinite(zoom) || zoom <= 0) return fallback
+  return zoom > 10 ? zoom / 100 : zoom
+}
+
+function resolveViewerZoomScale(vm, fallback = 1) {
+  const liveZoom = Number(getMagnification(vm)?.zoomFactor)
+  return Number.isFinite(liveZoom) && liveZoom > 0
+    ? liveZoom
+    : normalizeZoomScale(fallback, 1)
+}
+
+function resolveLabelVisualScale(zoomValue) {
+  const zoom = normalizeZoomScale(zoomValue, 1)
+  if (zoom <= 1) return zoom
+
+  // Shrink proportionally when zoomed out, but keep high-zoom labels compact.
+  // Construction drawings commonly open above 200% after fit-to-width; scaling
+  // labels 1:1 at that level makes them obscure the member being measured.
+  return Math.min(1.25, 1 + (zoom - 1) * 0.15)
+}
+
 /**
  * Tell Syncfusion the viewer uses full container width.
  * CSS-only sidebar hide leaves ~48–200px in fit math → tiny PDF in the corner.
@@ -3757,9 +3780,11 @@ export default function PdfViewer({
       return
     }
 
-    const { measureLabelFontSize: labelPt, activeUnit } = useAppStore.getState()
+    const { measureLabelFontSize: labelPt, activeUnit, pdfScale: storedZoom } = useAppStore.getState()
     const displayUnit = activeUnit ?? drawingRef.current?.calibrationUnit ?? 'Mm'
-    const GAP_PX = 10
+    const zoomScale = resolveLabelVisualScale(resolveViewerZoomScale(vm, storedZoom))
+    const baseFontPx = Math.min(Math.max(Number(labelPt) || 12, 9), 16)
+    const scaledFontPx = baseFontPx * zoomScale
 
     let debugLogged = false
 
@@ -3905,9 +3930,18 @@ export default function PdfViewer({
 
         // ── Perpendicular-offset label position (user's exact algorithm) ─────────
         // All maths in screen space — never guess PDF offsets.
-        const labelWidth = Math.max(72, Math.min(180, (String(mark).length + String(text).length) * (labelPt * 0.55) + 18))
-        const labelHeight = mark ? labelPt * 2.6 : labelPt * 1.6
-        const labelOffsetPx = Math.max(LABEL_OFFSET_PX, labelHeight / 2 + LABEL_LINE_CLEARANCE_PX)
+        const labelWidth = Math.max(
+          72 * zoomScale,
+          Math.min(
+            180 * zoomScale,
+            (String(mark).length + String(text).length) * (scaledFontPx * 0.55) + 18 * zoomScale,
+          ),
+        )
+        const labelHeight = (mark ? baseFontPx * 2.6 : baseFontPx * 1.6) * zoomScale
+        const labelOffsetPx = Math.max(
+          LABEL_OFFSET_PX * zoomScale,
+          labelHeight / 2 + LABEL_LINE_CLEARANCE_PX * zoomScale,
+        )
         const midX = (s0.left + s1.left) / 2
         const midY = (s0.top  + s1.top)  / 2
         const labelPos = offsetAboveLineScreen(s0, s1, { left: midX, top: midY }, labelOffsetPx)
@@ -3925,6 +3959,8 @@ export default function PdfViewer({
           text,
           color,
           fontSizePt: labelPt,
+          fontSizePx: scaledFontPx,
+          zoomScale,
           labelWidth,
           labelHeight,
         })
@@ -6787,6 +6823,18 @@ export default function PdfViewer({
     }
   }, [setPdfPage, bumpFallbackLabelLayout])
 
+  const handleZoomChange = useCallback((args) => {
+    const zoomScale = normalizeZoomScale(args?.zoomValue, resolveViewerZoomScale(viewerRef.current, pdfScale))
+    setPdfScale(current => Math.abs(Number(current) - zoomScale) < 0.001
+      ? current
+      : Number(zoomScale.toFixed(3)))
+
+    // Syncfusion fires zoomChange before every page/annotation layer has completed
+    // its DOM transform. Recalculate on the next frame and once after that settles.
+    requestAnimationFrame(scheduleFallbackLabelLayout)
+    setTimeout(scheduleFallbackLabelLayout, 100)
+  }, [pdfScale, scheduleFallbackLabelLayout, setPdfScale])
+
   // ── Fired by Syncfusion when an annotation is added ──────────────────────
   const handleAnnotationAdd = useCallback((args) => {
     const firstId = args?.annotation?.annotationId ?? args?.annotation?.name ?? '?'
@@ -7317,9 +7365,7 @@ export default function PdfViewer({
           }}
         >
           {fallbackLineLayout.map(line => {
-            const zoomFactor = Number(pdfScale) > 10
-              ? Number(pdfScale) / 100
-              : (Number(pdfScale) || 1)
+            const zoomFactor = normalizeZoomScale(pdfScale, 1)
             const strokeWidth = Math.max(2.5, (Number(line.thickness) || 2) * zoomFactor)
             return (
               <line
@@ -7345,7 +7391,9 @@ export default function PdfViewer({
           style={{ position: 'absolute', inset: 0, zIndex: 13, pointerEvents: 'none', overflow: 'visible' }}
         >
           {fallbackLabelLayout.map(entry => {
-            const fsPx = Math.min(Math.max(entry.fontSizePt ?? 12, 9), 16)
+            const zoomScale = entry.zoomScale ?? resolveLabelVisualScale(pdfScale)
+            const fsPx = entry.fontSizePx
+              ?? Math.min(Math.max(entry.fontSizePt ?? 12, 9), 16) * zoomScale
             const color = entry.color ?? '#EF233C'
             const angle = entry.angle ?? 0
             return (
@@ -7368,10 +7416,12 @@ export default function PdfViewer({
                     lineHeight: 1.25,
                     whiteSpace: 'nowrap',
                     background: '#ffffff',
-                    border: `1px solid ${color}`,
-                    borderRadius: '3px',
-                    padding: '2px 6px 2px',
+                    border: `${Math.max(0.5, zoomScale)}px solid ${color}`,
+                    borderRadius: `${3 * zoomScale}px`,
+                    padding: `${2 * zoomScale}px ${6 * zoomScale}px`,
                   }}
+                  data-bt-measure-label={String(entry.key)}
+                  data-bt-label-zoom={zoomScale.toFixed(3)}
                 >
                   {entry.mark && (
                     <div style={{ fontSize: `${fsPx}px`, fontWeight: 700, color }}>
@@ -7619,6 +7669,7 @@ export default function PdfViewer({
           documentLoad={handleDocumentLoaded}
           pageRenderComplete={handlePageRenderComplete}
           pageChange={handlePageChange}
+          zoomChange={handleZoomChange}
           annotationAdd={handleAnnotationAdd}
           annotationPropertiesChange={handleAnnotationPropertiesChange}
           annotationSelect={handleAnnotationSelect}
