@@ -3752,6 +3752,7 @@ export default function PdfViewer({
     const items = annotationsRef.current ?? []
 
     if (!vm || !container || items.length === 0) {
+      setFallbackLineLayout(prev => prev.length > 0 ? [] : prev)
       setFallbackLabelLayout(prev => prev.length > 0 ? [] : prev)
       return
     }
@@ -6081,17 +6082,39 @@ export default function PdfViewer({
         }, 80)
       } else if (type === 'applyLineThickness') {
         applyLineThicknessRef.current?.(payload.thickness, { persist: true })
-      } else if (type === 'deleteAnnotation' && payload.annotationId) {
-        // Mark as processed so scheduleMeasurementComplete (triggered by the selectAnnotation call
-        // below) does not re-save the annotation as a new measurement after it's deleted.
-        processedAnnotsRef.current.add(payload.annotationId)
-        pendingLabelByAnnotRef.current.delete(payload.annotationId)
-        if (lastDrawnAnnotRef.current === payload.annotationId) lastDrawnAnnotRef.current = null
-        // Also add to importedAnnotIds so handleAnnotationSelect skips it
-        importedAnnotIdsRef.current.add(payload.annotationId)
-        vm.annotation.selectAnnotation(payload.annotationId, payload.pageNumber ?? 1)
-        // Small delay to let Syncfusion register the selection before deleting
-        setTimeout(() => { try { vm.annotation.deleteAnnotation() } catch (_) {} }, 80)
+      } else if ((type === 'deleteAnnotation' || type === 'deleteAnnotations')
+        && (payload.annotationId || payload.annotationIds?.length)) {
+        const annotationIds = Array.from(new Set([
+          ...(payload.annotationIds ?? []),
+          payload.annotationId,
+        ].filter(Boolean)))
+        const deletedIds = new Set(annotationIds.map(String))
+
+        // Custom pasted occurrences are React SVG lines, not Syncfusion annotations.
+        // Remove them immediately instead of waiting for the next layout pass.
+        setFallbackLineLayout(prev => prev.filter(line => {
+          const key = String(line.key ?? '')
+          return !annotationIds.some(annotationId => key === `${annotationId}-line`)
+        }))
+        setFallbackLabelLayout(prev => prev.filter(label => !deletedIds.has(String(label.key ?? ''))))
+
+        const selectedId = resolveStableAnnotationId(selectedAnnotDataRef.current)
+        if (selectedId && deletedIds.has(String(selectedId))) selectedAnnotDataRef.current = null
+
+        for (const annotationId of annotationIds) {
+          // Prevent deletion callbacks from treating this persisted annotation as a new draw.
+          processedAnnotsRef.current.add(annotationId)
+          pendingLabelByAnnotRef.current.delete(annotationId)
+          if (lastDrawnAnnotRef.current === annotationId) lastDrawnAnnotRef.current = null
+          importedAnnotIdsRef.current.add(annotationId)
+
+          // deleteAnnotation() acts on the current selection. Delaying that call allowed a later
+          // row deletion to replace the selection, leaving an orphan line until page refresh.
+          const live = resolveLiveAnnotation(vm, annotationId)
+          if (!live) continue
+          const liveAnnotationId = live.annotName ?? live.annotationId ?? live.name ?? annotationId
+          try { vm.annotation.deleteAnnotationById(liveAnnotationId) } catch (_) {}
+        }
       } else if (type === 'saveCount') {
         // Save all current-page count markers as one measurement entry
         const pageMarkers = countMarkersRef.current.filter(m => m.page === pdfPage)

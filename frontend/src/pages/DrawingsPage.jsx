@@ -1386,6 +1386,11 @@ export default function DrawingsPage() {
     const annot = annotationMapRef.current[id]
     const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
     const itemBeingDeleted = beforeDeleteItems.find(t => Number(t.id) === Number(id))
+    const annotationIds = Array.from(new Set([
+      ...(annot?.annotationIds ?? []),
+      annot?.annotationId,
+      ...extractTakeoffAnnotationIds(itemBeingDeleted?.pointsJson),
+    ].filter(Boolean)))
     const linkedRootBeforeDelete = parseLinkedItemId(itemBeingDeleted?.notes)
     try {
       await takeoffService.delete(id)
@@ -1406,9 +1411,13 @@ export default function DrawingsPage() {
       }
       if (selectedAnnotId === id) setSelectedAnnotId(null)
       if (pendingMeasurementRef.current?.dbId === id) pendingMeasurementRef.current = null
-      if (annot?.annotationId) {
-        persistedAnnotIdsRef.current.delete(annot.annotationId)
-        triggerPdfCommand({ type: 'deleteAnnotation', annotationId: annot.annotationId, pageNumber: annot.pageNumber ?? 1 })
+      if (annotationIds.length) {
+        annotationIds.forEach(annotationId => persistedAnnotIdsRef.current.delete(annotationId))
+        triggerPdfCommand({
+          type: 'deleteAnnotations',
+          annotationIds,
+          pageNumber: annot?.pageNumber ?? 1,
+        })
       }
       if (selectedDrawing) {
         takeoffService.getSummary(selectedDrawing.id)
