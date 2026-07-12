@@ -119,8 +119,24 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
   const linkedItemId = linkedMatch ? Number(linkedMatch[1]) : (item.sourceItemId ?? item.id ?? null)
   const lineStyle = inferLineStyleFromAnnot(raw)
   const sourcePoints = extractPointsFromRaw(raw)
+  let rootPoints = []
+  try {
+    const itemRaw = typeof item.pointsJson === 'string' ? JSON.parse(item.pointsJson) : item.pointsJson
+    const rootOccurrence = Array.isArray(itemRaw?.occurrences)
+      ? (itemRaw.occurrences.find(occ => occ?.isRoot) ?? itemRaw.occurrences[0])
+      : null
+    rootPoints = extractPointsFromRaw(rootOccurrence?.geometry ?? itemRaw ?? {})
+  } catch (_) {}
+  const vectorPoints = rootPoints.length >= 2 ? rootPoints : sourcePoints
+  const sourceVector = vectorPoints.length >= 2
+    ? {
+        dx: vectorPoints[vectorPoints.length - 1].x - vectorPoints[0].x,
+        dy: vectorPoints[vectorPoints.length - 1].y - vectorPoints[0].y,
+      }
+    : null
   const customLinePagePoints = extractPageRatioPointsFromRaw(raw)
   const copyJson = JSON.parse(JSON.stringify({
+    ...raw,
     annotationId: raw.AnnotName ?? raw.annotationId ?? raw.name,
     shapeAnnotationType: raw.shapeAnnotationType ?? raw.ShapeAnnotationType ?? 'Distance',
     IT: raw.IT ?? raw.it ?? 'LineDimension',
@@ -176,6 +192,7 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     startPoint: sourcePoints[0] ?? null,
     endPoint: sourcePoints[sourcePoints.length - 1] ?? null,
     sourcePoints,
+    sourceVector,
     customLinePagePoints,
     labelAnchor: sourcePoints.length >= 2
       ? {

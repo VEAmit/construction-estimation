@@ -1142,6 +1142,45 @@ function pdfPointToContainerCoords(pdfX, pdfY, pageIndex, vm, containerEl) {
   }
 }
 
+/**
+ * Legacy custom occurrences (created before measure-coordinate storage) use
+ * page ratios. Recover the original unzoomed measurement surface from the root
+ * occurrence so their rendered vector matches the native Syncfusion line.
+ */
+function legacyPageRatioLineToContainerCoords(ratioPts, item, pageIndex, vm, containerEl) {
+  if (!Array.isArray(ratioPts) || ratioPts.length < 2 || !containerEl) return null
+  const root = parsePointsJsonSafe(item?.pointsJson)
+  if (!root) return null
+  const rootGeometry = stripOccurrenceContainer(root)
+  const measurePts = extractAnnotationPoints(rootGeometry)
+  if (measurePts.length < 2) return null
+  const pageRect = resolvePdfPageElement(vm, pageIndex)?.getBoundingClientRect?.()
+  if (!pageRect) return null
+  const containerRect = containerEl.getBoundingClientRect()
+  const firstRatio = ratioPts[0]
+  const lastRatio = ratioPts[ratioPts.length - 1]
+  const centerRatioX = (Number(firstRatio.x ?? firstRatio.X) + Number(lastRatio.x ?? lastRatio.X)) / 2
+  const centerRatioY = (Number(firstRatio.y ?? firstRatio.Y) + Number(lastRatio.y ?? lastRatio.Y)) / 2
+  if (!Number.isFinite(centerRatioX) || !Number.isFinite(centerRatioY)) return null
+
+  // The old format stored placement against the constrained page div, but its
+  // intended vector was the native root measurement vector. Preserve that
+  // center and rebuild only the vector at the current viewer zoom.
+  const center = {
+    left: pageRect.left - containerRect.left + centerRatioX * pageRect.width,
+    top: pageRect.top - containerRect.top + centerRatioY * pageRect.height,
+  }
+  const rootP0 = measurePointToContainerCoords(measurePts[0], pageIndex, vm, containerEl)
+  const rootP1 = measurePointToContainerCoords(measurePts[measurePts.length - 1], pageIndex, vm, containerEl)
+  if (!rootP0 || !rootP1) return null
+  const halfDx = (rootP1.left - rootP0.left) / 2
+  const halfDy = (rootP1.top - rootP0.top) / 2
+  return {
+    p0: { left: center.left - halfDx, top: center.top - halfDy },
+    p1: { left: center.left + halfDx, top: center.top + halfDy },
+  }
+}
+
 function pageRatioPointToContainerCoords(point, pageIndex, vm, containerEl) {
   const pageEl = resolvePdfPageElement(vm, pageIndex)
   if (!pageEl || !containerEl || !point) return null
@@ -1198,6 +1237,35 @@ function measurePointToContainerCoords(point, pageIndex, vm, containerEl) {
     left: pageRect.left - containerRect.left + x * scale,
     top: pageRect.top - containerRect.top + y * scale,
   }
+}
+
+/** Inverse of measurePointToContainerCoords for the custom occurrence model. */
+function containerScreenPointToMeasurePoint(point, pageIndex, vm, containerEl) {
+  const pageEl = resolvePdfPageElement(vm, pageIndex)
+  if (!pageEl || !containerEl || !point) return null
+  const left = Number(point.left)
+  const top = Number(point.top)
+  if (!Number.isFinite(left) || !Number.isFinite(top)) return null
+  const pageRect = pageEl.getBoundingClientRect()
+  const containerRect = containerEl.getBoundingClientRect()
+  const viewerZoom = Number(getMagnification(vm)?.zoomFactor)
+  const storeZoom = Number(useAppStore.getState().pdfScale ?? 1)
+  const scale = Number.isFinite(viewerZoom) && viewerZoom > 0
+    ? viewerZoom
+    : Number.isFinite(storeZoom) && storeZoom > 0
+      ? (storeZoom > 10 ? storeZoom / 100 : storeZoom)
+      : 1
+  return {
+    x: (containerRect.left + left - pageRect.left) / scale,
+    y: (containerRect.top + top - pageRect.top) / scale,
+  }
+}
+
+function containerScreenLineToMeasurePoints(line, pageIndex, vm, containerEl) {
+  if (!line?.p0 || !line?.p1) return []
+  const p0 = containerScreenPointToMeasurePoint(line.p0, pageIndex, vm, containerEl)
+  const p1 = containerScreenPointToMeasurePoint(line.p1, pageIndex, vm, containerEl)
+  return [p0, p1].filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y))
 }
 
 /** Map a screen click to PDF page coordinates (inverse of pdfPointToContainerCoords). */
@@ -1269,12 +1337,14 @@ function screenLineToAnnotationPoints(p0Screen, p1Screen, pageIndex, vm, contain
 function annotationPointToContainer(point, mode, pageIndex, vm, containerEl) {
   if (!point) return null
   if (mode === 'pageRatio') return pageRatioPointToContainerCoords(point, pageIndex, vm, containerEl)
+  if (mode === 'measure') return measurePointToContainerCoords(point, pageIndex, vm, containerEl)
   if (mode === 'pdf') return pdfPointToContainerCoords(point.x, point.y, pageIndex, vm, containerEl)
   return diagramPointToContainerCoords(point.x, point.y, pageIndex, vm, containerEl)
 }
 
 function screenToAnnotationPoint(containerLeft, containerTop, mode, pageIndex, vm, containerEl) {
   if (mode === 'pageRatio') return containerScreenPointToPageRatio({ left: containerLeft, top: containerTop }, pageIndex, vm, containerEl)
+  if (mode === 'measure') return containerScreenPointToMeasurePoint({ left: containerLeft, top: containerTop }, pageIndex, vm, containerEl)
   if (mode === 'pdf') return containerScreenToPdfPoint(containerLeft, containerTop, containerEl, pageIndex, vm)
   return containerScreenToDiagramPoint(containerLeft, containerTop, containerEl, pageIndex, vm)
 }
@@ -1289,6 +1359,7 @@ function lineProjectionError(p0, p1, visual) {
 function inferAnnotationCoordinateMode(raw, pageIndex, vm, containerEl) {
   const coordMode = String(raw?.customCoordMode ?? raw?.CustomCoordMode ?? '').replace(/[-_\s]/g, '').toLowerCase()
   if (coordMode === 'pageratio') return 'pageRatio'
+  if (coordMode === 'measure') return 'measure'
   if (isCustomPasteRaw(raw) && extractStoredLabelPagePoints(raw).length >= 2) return 'pageRatio'
   const pts = extractAnnotationPoints(raw)
   if (pts.length < 2 || !vm || !containerEl) return 'diagram'
@@ -1339,8 +1410,44 @@ function buildPasteAnchorFromScreenPoint(screenPoint, pageNumber, coordMode, sou
   return anchor
 }
 
-function computePasteScreenVector(sourceRaw, pageIndex, vm, containerEl, mode = null) {
+function computePasteScreenVector(sourceRaw, pageIndex, vm, containerEl, mode = null, sourceVector = null) {
   if (!vm || !containerEl) return null
+  const pts = extractAnnotationPoints(sourceRaw)
+  if (pts.length < 2) return null
+  const explicitMode = String(sourceRaw?.customCoordMode ?? sourceRaw?.CustomCoordMode ?? '')
+    .replace(/[-_\s]/g, '')
+    .toLowerCase()
+
+  // A cloned measurement needs only its source vector, never a page origin. Syncfusion
+  // stores native distance vertexPoints in unzoomed measurement coordinates, so the
+  // exact on-screen clone vector is simply (end - start) multiplied by viewer zoom.
+  // This avoids every page/container CSS sizing path that previously shortened copies.
+  const canonicalDx = Number(sourceVector?.dx)
+  const canonicalDy = Number(sourceVector?.dy)
+  const hasCanonicalVector = Number.isFinite(canonicalDx) && Number.isFinite(canonicalDy)
+    && Math.hypot(canonicalDx, canonicalDy) > 0.01
+  if (hasCanonicalVector || explicitMode !== 'pageratio') {
+    const first = pts[0]
+    const last = pts[pts.length - 1]
+    const viewerZoom = Number(getMagnification(vm)?.zoomFactor)
+    const storeZoom = Number(useAppStore.getState().pdfScale ?? 1)
+    const scale = Number.isFinite(viewerZoom) && viewerZoom > 0
+      ? viewerZoom
+      : Number.isFinite(storeZoom) && storeZoom > 0
+        ? (storeZoom > 10 ? storeZoom / 100 : storeZoom)
+        : 1
+    const dx = (hasCanonicalVector ? canonicalDx : last.x - first.x) * scale
+    const dy = (hasCanonicalVector ? canonicalDy : last.y - first.y) * scale
+    if (Number.isFinite(dx) && Number.isFinite(dy) && Math.hypot(dx, dy) > 0.01) {
+      return {
+        halfDx: dx / 2,
+        halfDy: dy / 2,
+        coordMode: 'measure',
+        sourceLengthPx: Math.hypot(dx, dy),
+      }
+    }
+  }
+
   const visual = getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl)
   if (visual?.p0 && visual?.p1) {
     return {
@@ -1350,8 +1457,6 @@ function computePasteScreenVector(sourceRaw, pageIndex, vm, containerEl, mode = 
       sourceLengthPx: Math.hypot(visual.p1.left - visual.p0.left, visual.p1.top - visual.p0.top),
     }
   }
-  const pts = extractAnnotationPoints(sourceRaw)
-  if (pts.length < 2) return null
   const coordMode = mode ?? inferAnnotationCoordinateMode(sourceRaw, pageIndex, vm, containerEl)
   const p0 = annotationPointToContainer(pts[0], coordMode, pageIndex, vm, containerEl)
   const p1 = annotationPointToContainer(pts[pts.length - 1], coordMode, pageIndex, vm, containerEl)
@@ -1729,6 +1834,7 @@ function attachVisibleLabelLineToAnnotation(plain, vm, container, pageIndex, col
 
 function getLinearMeasureScreenEndpoints(sourceRaw, pageIndex, vm, containerEl) {
   if (!containerEl) return null
+
   let savedLine = null
   const savedPagePts = extractStoredLabelPagePoints(sourceRaw)
   if (savedPagePts.length >= 2) {
@@ -3717,8 +3823,10 @@ export default function PdfViewer({
 
         let s0, s1  // screen-space endpoints (container-relative px)
         if (isCustomPasteRaw(raw) && savedLabelPagePts.length >= 2) {
-          s0 = pageRatioPointToContainerCoords(savedLabelPagePts[0], pageIndex, vm, container)
-          s1 = pageRatioPointToContainerCoords(savedLabelPagePts[savedLabelPagePts.length - 1], pageIndex, vm, container)
+          const legacyLine = legacyPageRatioLineToContainerCoords(savedLabelPagePts, item, pageIndex, vm, container)
+          s0 = legacyLine?.p0 ?? pageRatioPointToContainerCoords(savedLabelPagePts[0], pageIndex, vm, container)
+          s1 = legacyLine?.p1
+            ?? pageRatioPointToContainerCoords(savedLabelPagePts[savedLabelPagePts.length - 1], pageIndex, vm, container)
         }
         if ((!s0 || !s1) && pts.length >= 2) {
           if (isCustomPasteRaw(raw)) {
@@ -4887,9 +4995,6 @@ export default function PdfViewer({
     }
     const pageIndexNum = Math.max(0, targetPage - 1)
     const container = containerRef.current
-    const pastedPts = pasteAnchor && container
-      ? computePastedVertexPoints(sourceRaw, pasteAnchor, pageIndexNum, vm, container)
-      : null
 
     if (pasteAnchor?.previewScreenLine?.p0 && pasteAnchor?.previewScreenLine?.p1) {
       const newId = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -4904,23 +5009,24 @@ export default function PdfViewer({
         clipboard.arrowStyle,
         clipboard.linearLineMode,
       )
-      const pastedPageLinePts = containerScreenLineToPageRatioPoints(
+      const pastedMeasureLinePts = containerScreenLineToMeasurePoints(
         pasteAnchor.previewScreenLine,
         pageIndexNum,
         vm,
         container,
       )
-      if (pastedPageLinePts.length !== 2) {
+      if (pastedMeasureLinePts.length !== 2) {
         pasteStyleRef.current = null
         toast.error('Could not paste - invalid preview geometry')
         return false
       }
-      const canonicalLinePts = pastedPageLinePts.map(p => ({ x: p.x, y: p.y }))
+      const canonicalLinePts = pastedMeasureLinePts.map(p => ({ x: p.x, y: p.y }))
       const pxLen = Math.hypot(
         pasteAnchor.previewScreenLine.p1.left - pasteAnchor.previewScreenLine.p0.left,
         pasteAnchor.previewScreenLine.p1.top - pasteAnchor.previewScreenLine.p0.top,
       )
       const rawAnnotForSave = {
+        ...JSON.parse(JSON.stringify(sourceRaw)),
         annotationId: newId,
         AnnotName: newId,
         name: newId,
@@ -4936,27 +5042,48 @@ export default function PdfViewer({
         StrokeColor: clipboard.color,
         thickness: clipboard.thickness,
         Thickness: clipboard.thickness,
-        FontSize: stylePatch.fontSize,
-        fontSize: stylePatch.fontSize,
-        LeaderLength: stylePatch.leaderLength,
-        leaderLength: stylePatch.leaderLength,
-        LeaderLineExtension: stylePatch.leaderLineExtension,
-        leaderLineExtension: stylePatch.leaderLineExtension,
-        LineHeadStart: stylePatch.lineHeadStartStyle ?? 'None',
-        lineHeadStartStyle: stylePatch.lineHeadStartStyle ?? 'None',
-        LineHeadEnd: stylePatch.lineHeadEndStyle ?? 'None',
-        lineHeadEndStyle: stylePatch.lineHeadEndStyle ?? 'None',
-        borderDashArray: pasteDashArray,
-        BorderDashArray: pasteDashArray,
+        FontSize: sourceRaw.FontSize ?? sourceRaw.fontSize ?? stylePatch.fontSize,
+        fontSize: sourceRaw.fontSize ?? sourceRaw.FontSize ?? stylePatch.fontSize,
+        LeaderLength: sourceRaw.LeaderLength ?? sourceRaw.leaderLength ?? stylePatch.leaderLength,
+        leaderLength: sourceRaw.leaderLength ?? sourceRaw.LeaderLength ?? stylePatch.leaderLength,
+        LeaderLineExtension: sourceRaw.LeaderLineExtension
+          ?? sourceRaw.leaderLineExtension
+          ?? stylePatch.leaderLineExtension,
+        leaderLineExtension: sourceRaw.leaderLineExtension
+          ?? sourceRaw.LeaderLineExtension
+          ?? stylePatch.leaderLineExtension,
+        LineHeadStart: sourceRaw.LineHeadStart
+          ?? sourceRaw.lineHeadStartStyle
+          ?? stylePatch.lineHeadStartStyle
+          ?? 'None',
+        lineHeadStartStyle: sourceRaw.lineHeadStartStyle
+          ?? sourceRaw.LineHeadStart
+          ?? stylePatch.lineHeadStartStyle
+          ?? 'None',
+        LineHeadEnd: sourceRaw.LineHeadEnd
+          ?? sourceRaw.lineHeadEndStyle
+          ?? stylePatch.lineHeadEndStyle
+          ?? 'None',
+        lineHeadEndStyle: sourceRaw.lineHeadEndStyle
+          ?? sourceRaw.LineHeadEnd
+          ?? stylePatch.lineHeadEndStyle
+          ?? 'None',
+        borderDashArray: sourceRaw.borderDashArray ?? sourceRaw.BorderDashArray ?? pasteDashArray,
+        BorderDashArray: sourceRaw.BorderDashArray ?? sourceRaw.borderDashArray ?? pasteDashArray,
         lineStyle: pasteLineStyle,
         LineStyle: pasteLineStyle,
         customPaste: true,
         renderMode: 'customOverlay',
-        customCoordMode: 'pageRatio',
-        labelPagePoints: canonicalLinePts,
-        LabelPagePoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
-        customLinePagePoints: canonicalLinePts,
-        CustomLinePagePoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
+        customCoordMode: 'measure',
+        CustomCoordMode: 'measure',
+        labelPagePoints: undefined,
+        LabelPagePoints: undefined,
+        customLinePagePoints: undefined,
+        CustomLinePagePoints: undefined,
+        labelVertexPoints: canonicalLinePts,
+        LabelVertexPoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
+        customLineMeasurePoints: canonicalLinePts,
+        CustomLineMeasurePoints: canonicalLinePts.map(p => ({ X: p.x, Y: p.y })),
         Subject: 'Takeoff Line Occurrence',
         Text: `${clipboard.material ?? clipboard.mark ?? ''} - ${clipboard.length ?? ''} ${clipboard.unit ?? ''}`.trim(),
         ItemId: linkedItemId,
@@ -4965,7 +5092,7 @@ export default function PdfViewer({
         occurrenceId,
         CustomData: { ItemId: linkedItemId, OccurrenceId: occurrenceId },
         customData: { itemId: linkedItemId, occurrenceId },
-        labelSettings: stylePatch.labelSettings,
+        labelSettings: sourceRaw.labelSettings ?? sourceRaw.LabelSettings ?? stylePatch.labelSettings,
         Calibrate: sourceRaw.Calibrate ?? sourceRaw.calibrate,
         calibrate: sourceRaw.calibrate ?? sourceRaw.Calibrate,
         start: `${canonicalLinePts[0].x},${canonicalLinePts[0].y}`,
@@ -5014,6 +5141,9 @@ export default function PdfViewer({
 
     // Legacy Syncfusion paste fallback intentionally disabled for normal use.
     // It can create a tiny connector while the custom label still shows the copied length.
+    const pastedPts = pasteAnchor && container
+      ? computePastedVertexPoints(sourceRaw, pasteAnchor, pageIndexNum, vm, container)
+      : null
     if (pastedPts?.legacySyncfusionPasteFallback === true) {
     const cloned = pastedPts?.length >= 2
       ? cloneLinearAnnotationForPaste(sourceRaw, 0, 0, targetPage, pastedPts)
@@ -5363,6 +5493,10 @@ export default function PdfViewer({
 
 
   const handlePastePlacementClick = useCallback((e) => {
+    if (e.button != null && e.button !== 0) {
+      swallowPastePlacementEvent(e)
+      return
+    }
     swallowPastePlacementEvent(e)
     suppressNativeMeasureForPaste(1200)
     const pending = pastePlacementRef.current
@@ -5375,7 +5509,6 @@ export default function PdfViewer({
     if (!container) return
 
     const targetPage = pdfPage ?? pending.clipboard.pageNumber ?? 1
-    const pageIndex = Math.max(0, targetPage - 1)
     const cr = container.getBoundingClientRect()
     const clickLeft = e.clientX - cr.left
     const clickTop = e.clientY - cr.top
@@ -5384,40 +5517,22 @@ export default function PdfViewer({
       toast.error('Could not paste — invalid line geometry')
       return
     }
-    const anchor = buildPasteAnchorFromScreenPoint(
-      { left: clickLeft, top: clickTop },
-      targetPage,
-      pending.coordMode ?? screenVec.coordMode,
-      sourceRaw,
-      pageIndex,
-      vm,
-      container,
-    )
-    if (!anchor) {
-      toast.error('Could not place measurement — click on the drawing')
-      return
+    // Paste is a pure clone translation: the click is the new midpoint and the
+    // clipboard vector remains untouched. Do not route through measurement,
+    // snapping, inferred endpoints, or distance calculations.
+    const anchor = {
+      pageNumber: targetPage,
+      screenLeft: clickLeft,
+      screenTop: clickTop,
+      coordMode: 'measure',
     }
-    if (!anchor) {
-      toast.error('Could not place measurement — click on the drawing')
-      return
-    }
-
     anchor.previewScreenLine = {
       p0: { left: clickLeft - screenVec.halfDx, top: clickTop - screenVec.halfDy },
       p1: { left: clickLeft + screenVec.halfDx, top: clickTop + screenVec.halfDy },
     }
 
-    const offset = computeLinearPasteOffsetForAnchor(
-      sourceRaw, anchor, pageIndex, vm, container,
-    )
-    if (!offset) {
-      cancelPastePlacement()
-      toast.error('Could not paste — invalid line geometry')
-      return
-    }
-
     const ok = commitPasteLinearMeasurement(
-      pending.clipboard, offset.offsetX, offset.offsetY, targetPage, anchor,
+      pending.clipboard, 0, 0, targetPage, anchor,
     )
     cancelPastePlacement()
     if (!ok) toast.error('Paste failed')
@@ -6105,7 +6220,14 @@ export default function PdfViewer({
           const container = containerRef.current
           if (container) {
             coordMode = inferAnnotationCoordinateMode(sourceRaw, pageIndex, vm, container)
-            screenVec = computePasteScreenVector(sourceRaw, pageIndex, vm, container, coordMode)
+            screenVec = computePasteScreenVector(
+              sourceRaw,
+              pageIndex,
+              vm,
+              container,
+              coordMode,
+              clipboard.sourceVector,
+            )
           }
         } catch (_) {}
         pastePlacementRef.current = { clipboard, screenVec, coordMode }
@@ -7265,20 +7387,17 @@ export default function PdfViewer({
         return (
           <div
             style={{ position: 'absolute', inset: 0, zIndex: 15, cursor: 'crosshair' }}
-            onPointerDown={swallowPastePlacementEvent}
+            onPointerDown={handlePastePlacementClick}
             onPointerUp={swallowPastePlacementEvent}
-            onMouseDown={swallowPastePlacementEvent}
-            onMouseUp={swallowPastePlacementEvent}
-            onClick={handlePastePlacementClick}
             onDoubleClick={swallowPastePlacementEvent}
             onContextMenu={swallowPastePlacementEvent}
-            onMouseMove={(e) => {
+            onPointerMove={(e) => {
               e.stopPropagation()
               const cr = containerRef.current?.getBoundingClientRect()
               if (!cr) return
               setPasteCursorPos({ left: e.clientX - cr.left, top: e.clientY - cr.top })
             }}
-            onMouseLeave={() => setPasteCursorPos(null)}
+            onPointerLeave={() => setPasteCursorPos(null)}
           >
             {/* SVG preview line that follows the cursor */}
             {hasPreview && (
