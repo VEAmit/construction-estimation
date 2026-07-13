@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
+import { APP_VERSION } from '../version'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -384,7 +385,7 @@ export default function LoginPage() {
           </div>
 
           <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.2)', fontSize: '11px', marginTop: '24px' }}>
-            © 2026 BuildTakeoff Pro. All rights reserved.
+            © 2026 BuildTakeoff Pro. All rights reserved. · <span style={{ color: '#EF233C', fontWeight: 700 }}>v{APP_VERSION}</span>
           </p>
         </div>
       </div>

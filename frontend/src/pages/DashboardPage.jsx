@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
 import ConfirmModal from '../components/common/ConfirmModal'
 import toast from 'react-hot-toast'
+import { APP_VERSION } from '../version'
 
 const emptyForm = { name: '', projectNumber: '', clientName: '', description: '' }
 
@@ -477,6 +478,10 @@ export default function DashboardPage() {
         loading={deleting}
         danger
       />
+
+      <p style={{ textAlign: 'center', color: '#EF233C', fontWeight: 700, fontSize: '11px', marginTop: '32px' }}>
+        v{APP_VERSION}
+      </p>
     </div>
   )
 }

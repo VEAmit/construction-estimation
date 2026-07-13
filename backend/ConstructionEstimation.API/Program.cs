@@ -71,7 +71,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "BuildTakeoff Pro API",
-        Version = "v1",
+        Version = "1.0.0",
         Description = "Construction Estimation & Digital Takeoff API"
     });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -115,7 +115,7 @@ var enableSwagger = app.Configuration.GetValue("EnableSwagger", app.Environment.
 if (enableSwagger)
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuildTakeoff Pro API v1"));
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuildTakeoff Pro API v1.0.0"));
 }
 
 app.UseCors("ReactApp");
