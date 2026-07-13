@@ -36,9 +36,81 @@ import { buildLinearMeasurementClipboard, isValidLinearMeasurementForCopy } from
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
+import { Files, TableProperties } from 'lucide-react'
+import { BottomDock, SideDock } from '../components/layout/WorkspaceDock'
 
 const _MS_PALETTE = ['#3B82F6','#22C55E','#F97316','#A855F7','#06B6D4','#EAB308','#EC4899','#EF4444','#14B8A6','#F59E0B','#6366F1','#84CC16']
 const _MS_HEX = /^#[0-9A-Fa-f]{6}$/
+const DOCK_LAYOUT_VERSION = 2
+const LEGACY_DOCK_LAYOUT_VERSION = 1
+const LEFT_DOCK_MIN_WIDTH = 250
+const LEFT_DOCK_DEFAULT_WIDTH = 290
+const LEFT_DOCK_MIGRATION_WIDTH = 300
+const LEFT_DOCK_MAX_WIDTH = 420
+
+function clampDockSize(value, min, max, fallback) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.round(parsed))) : fallback
+}
+
+function getLeftDockMaxWidth(viewportWidth) {
+  return Math.max(
+    LEFT_DOCK_MIN_WIDTH,
+    Math.min(LEFT_DOCK_MAX_WIDTH, Math.floor(viewportWidth * 0.32)),
+  )
+}
+
+function getDockLayoutDefaults(isMobile, isTablet) {
+  const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth
+  const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight
+  const leftMaxWidth = getLeftDockMaxWidth(viewportWidth)
+  return {
+    version: DOCK_LAYOUT_VERSION,
+    leftTab: 'drawings',
+    leftOpen: true,
+    leftPinned: true,
+    leftWidth: clampDockSize(
+      Math.min(LEFT_DOCK_MIGRATION_WIDTH, viewportWidth * 0.18),
+      LEFT_DOCK_MIN_WIDTH,
+      leftMaxWidth,
+      LEFT_DOCK_DEFAULT_WIDTH,
+    ),
+    rightOpen: true,
+    rightPinned: true,
+    rightWidth: clampDockSize(viewportWidth * 0.18, 250, 440, 280),
+    bottomOpen: true,
+    bottomPinned: true,
+    bottomHeight: isMobile ? 190 : isTablet ? 230 : clampDockSize(viewportHeight * 0.28, 210, 380, 260),
+  }
+}
+
+function readDockLayout(projectId, isMobile, isTablet) {
+  const defaults = getDockLayoutDefaults(isMobile, isTablet)
+  if (typeof window === 'undefined') return defaults
+  try {
+    const saved = JSON.parse(localStorage.getItem(`buildtakeoff:workspace:${projectId ?? 'default'}`) || 'null')
+    if (!saved || ![LEGACY_DOCK_LAYOUT_VERSION, DOCK_LAYOUT_VERSION].includes(saved.version)) return defaults
+    const savedLeftWidth = saved.version === LEGACY_DOCK_LAYOUT_VERSION
+      ? Math.min(Number(saved.leftWidth) || defaults.leftWidth, LEFT_DOCK_MIGRATION_WIDTH)
+      : saved.leftWidth
+    return {
+      ...defaults,
+      ...saved,
+      version: DOCK_LAYOUT_VERSION,
+      leftTab: saved.leftTab === 'members' ? 'members' : 'drawings',
+      leftWidth: clampDockSize(
+        savedLeftWidth,
+        LEFT_DOCK_MIN_WIDTH,
+        getLeftDockMaxWidth(window.innerWidth),
+        defaults.leftWidth,
+      ),
+      rightWidth: clampDockSize(saved.rightWidth, 250, Math.max(250, window.innerWidth * 0.4), defaults.rightWidth),
+      bottomHeight: clampDockSize(saved.bottomHeight, 180, Math.max(180, window.innerHeight * 0.68), defaults.bottomHeight),
+    }
+  } catch {
+    return defaults
+  }
+}
 
 function assignMemberColors(members) {
   const sorted = [...members].sort((a, b) =>
@@ -135,7 +207,7 @@ function extractTakeoffAnnotationIds(pointsJson) {
 
 export default function DrawingsPage() {
   const navigate = useNavigate()
-  const { isMobile, isTablet, isDesktop } = useBreakpoint()
+  const { isMobile, isTablet } = useBreakpoint()
 
   const {
     selectedProject, setSelectedProject,
@@ -152,6 +224,12 @@ export default function DrawingsPage() {
     setMeasureColor,
     setLineThickness,
   } = useAppStore()
+
+  const initialDockLayoutRef = useRef(null)
+  if (initialDockLayoutRef.current == null) {
+    initialDockLayoutRef.current = readDockLayout(selectedProject?.id, isMobile, isTablet)
+  }
+  const initialDockLayout = initialDockLayoutRef.current
 
   const readThicknessFromPointsJson = useCallback((pointsJson) => {
     if (!pointsJson) return null
@@ -195,8 +273,11 @@ export default function DrawingsPage() {
   const [scaleSetupFirstMeasure, setScaleSetupFirstMeasure] = useState(false)
   const [calSaving,        setCalSaving]         = useState(false)
   const [autoSaving,       setAutoSaving]        = useState(false)
-  const [showBottom,       setShowBottom]        = useState(true)
-  const [bottomTab,        setBottomTab]         = useState('measurements')
+  const [showBottom,       setShowBottom]        = useState(initialDockLayout.bottomOpen)
+  const [bottomPinned,     setBottomPinned]      = useState(initialDockLayout.bottomPinned)
+  const [bottomHovered,    setBottomHovered]     = useState(false)
+  const [bottomH,          setBottomH]           = useState(initialDockLayout.bottomHeight)
+  const [isDraggingBottom, setIsDraggingBottom]  = useState(false)
   const [summary,          setSummaryLocal]      = useState(null)
   const [selectedAnnotId,  setSelectedAnnotId]   = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
@@ -207,12 +288,22 @@ export default function DrawingsPage() {
   const [rightOpen,    setRightOpen]    = useState(false)
 
   // Desktop side panel open/hover state (independent of mobile)
-  const [leftPanelOpen,  setLeftPanelOpen]  = useState(true)
-  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  const [leftPanelOpen,  setLeftPanelOpen]  = useState(initialDockLayout.leftOpen)
+  const [rightPanelOpen, setRightPanelOpen] = useState(initialDockLayout.rightOpen)
+  const [leftPanelPinned, setLeftPanelPinned] = useState(initialDockLayout.leftPinned)
+  const [rightPanelPinned, setRightPanelPinned] = useState(initialDockLayout.rightPinned)
+  const [leftPanelTab, setLeftPanelTab] = useState(initialDockLayout.leftTab)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(initialDockLayout.leftWidth)
+  const [rightPanelWidth, setRightPanelWidth] = useState(initialDockLayout.rightWidth)
   const [leftHovered,    setLeftHovered]    = useState(false)
   const [rightHovered,   setRightHovered]   = useState(false)
+  const [isResizingLeft, setIsResizingLeft] = useState(false)
+  const [isResizingRight, setIsResizingRight] = useState(false)
   const leftHoverTimer  = useRef(null)
   const rightHoverTimer = useRef(null)
+  const bottomHoverTimer = useRef(null)
+  const dockLayoutProjectIdRef = useRef(selectedProject?.id ?? null)
+  const skipNextDockLayoutSaveRef = useRef(false)
 
   const annotationMapRef = useRef({})
   const selectedOccurrenceAnnotIdRef = useRef(null)
@@ -316,6 +407,75 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (!isMobile) { setSidebarOpen(false); setRightOpen(false) }
   }, [isMobile])
+
+  useEffect(() => {
+    const projectId = selectedProject?.id
+    if (!projectId || dockLayoutProjectIdRef.current === projectId) return
+
+    const layout = readDockLayout(projectId, isMobile, isTablet)
+    dockLayoutProjectIdRef.current = projectId
+    skipNextDockLayoutSaveRef.current = true
+    setLeftPanelTab(layout.leftTab)
+    setLeftPanelOpen(layout.leftOpen)
+    setLeftPanelPinned(layout.leftPinned)
+    setLeftPanelWidth(layout.leftWidth)
+    setRightPanelOpen(layout.rightOpen)
+    setRightPanelPinned(layout.rightPinned)
+    setRightPanelWidth(layout.rightWidth)
+    setShowBottom(layout.bottomOpen)
+    setBottomPinned(layout.bottomPinned)
+    setBottomH(layout.bottomHeight)
+    setLeftHovered(false)
+    setRightHovered(false)
+    setBottomHovered(false)
+  }, [selectedProject?.id, isMobile, isTablet])
+
+  useEffect(() => {
+    if (!selectedProject?.id || typeof window === 'undefined') return
+    if (skipNextDockLayoutSaveRef.current) {
+      skipNextDockLayoutSaveRef.current = false
+      return
+    }
+    const layout = {
+      version: DOCK_LAYOUT_VERSION,
+      leftTab: leftPanelTab,
+      leftOpen: leftPanelOpen,
+      leftPinned: leftPanelPinned,
+      leftWidth: leftPanelWidth,
+      rightOpen: rightPanelOpen,
+      rightPinned: rightPanelPinned,
+      rightWidth: rightPanelWidth,
+      bottomOpen: showBottom,
+      bottomPinned,
+      bottomHeight: bottomH,
+    }
+    localStorage.setItem(`buildtakeoff:workspace:${selectedProject.id}`, JSON.stringify(layout))
+  }, [
+    selectedProject?.id,
+    leftPanelTab, leftPanelOpen, leftPanelPinned, leftPanelWidth,
+    rightPanelOpen, rightPanelPinned, rightPanelWidth,
+    showBottom, bottomPinned, bottomH,
+  ])
+
+  useEffect(() => () => {
+    clearTimeout(leftHoverTimer.current)
+    clearTimeout(rightHoverTimer.current)
+    clearTimeout(bottomHoverTimer.current)
+  }, [])
+
+  useEffect(() => {
+    const clampLayoutToViewport = () => {
+      const leftMax = getLeftDockMaxWidth(window.innerWidth)
+      const rightMax = Math.max(250, Math.floor(window.innerWidth * 0.4))
+      const bottomMax = Math.max(180, Math.floor(window.innerHeight * 0.68))
+      setLeftPanelWidth(width => clampDockSize(width, LEFT_DOCK_MIN_WIDTH, leftMax, LEFT_DOCK_DEFAULT_WIDTH))
+      setRightPanelWidth(width => clampDockSize(width, 250, rightMax, 280))
+      setBottomH(height => clampDockSize(height, 180, bottomMax, 260))
+    }
+
+    window.addEventListener('resize', clampLayoutToViewport)
+    return () => window.removeEventListener('resize', clampLayoutToViewport)
+  }, [])
 
   useEffect(() => {
     if (!_hydrated) return
@@ -808,7 +968,6 @@ export default function DrawingsPage() {
           }
           persistedAnnotIdsRef.current.add(annotationName)
           setShowBottom(true)
-          setBottomTab('measurements')
           setSelectedAnnotId(savedRoot.id)
           setStyleEditTargetId(null)
           annotStyleBaselineRef.current = null
@@ -873,9 +1032,6 @@ export default function DrawingsPage() {
       }
       console.log('[BT-Lifecycle] autoSave — database success, id:', finalSaved.id, 'mark:', finalSaved.mark, 'length:', finalSaved.length)
       setShowBottom(true)
-      if (!linkedMember) {
-        setBottomTab('measurements')
-      }
 
       if (linkedMember?.id && !isCount && !isArea && itemType === 'Line') {
         try {
@@ -1605,8 +1761,9 @@ export default function DrawingsPage() {
       ])
       setMemberScheduleItems(assignMemberColors(members))
       setMemberScheduleSummary(memberSum)
-      setBottomTab('members')
-      setShowBottom(true)
+      setLeftPanelTab('members')
+      setLeftPanelOpen(true)
+      setLeftHovered(true)
       toast.success(`${count} member(s) saved — schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
     } catch { /* ignore */ }
     setShowExtractModal(false)
@@ -1623,17 +1780,27 @@ export default function DrawingsPage() {
     : null
 
   // Bottom panel height — resizable via drag
-  const [bottomH, setBottomH] = useState(() => isMobile ? 200 : isTablet ? 240 : 280)
-  const [isDraggingBottom, setIsDraggingBottom] = useState(false)
+  const effectiveBottomOpen = bottomPinned ? showBottom : bottomHovered
+  const leftDockMaxWidth = typeof window === 'undefined'
+    ? LEFT_DOCK_MAX_WIDTH
+    : getLeftDockMaxWidth(window.innerWidth)
+  const rightDockMaxWidth = typeof window === 'undefined' ? 440 : Math.max(250, Math.floor(window.innerWidth * 0.4))
+  const bottomDockMaxHeight = typeof window === 'undefined' ? 520 : Math.max(180, Math.floor(window.innerHeight * 0.68))
 
-  // Desktop side panels: show when pinned OR hovered
-  const effectiveLeftOpen  = leftPanelOpen  || leftHovered
-  const effectiveRightOpen = rightPanelOpen || rightHovered
-
-  // Toggle bottom panel tab: click active tab → collapse; click other tab → switch+expand
-  const handleBottomTabClick = (tab) => {
-    if (showBottom && bottomTab === tab) setShowBottom(false)
-    else { setBottomTab(tab); setShowBottom(true) }
+  const handleLeftDockHover = (hovered) => {
+    clearTimeout(leftHoverTimer.current)
+    if (hovered) setLeftHovered(true)
+    else leftHoverTimer.current = setTimeout(() => setLeftHovered(false), 240)
+  }
+  const handleRightDockHover = (hovered) => {
+    clearTimeout(rightHoverTimer.current)
+    if (hovered) setRightHovered(true)
+    else rightHoverTimer.current = setTimeout(() => setRightHovered(false), 240)
+  }
+  const handleBottomDockHover = (hovered) => {
+    clearTimeout(bottomHoverTimer.current)
+    if (hovered) setBottomHovered(true)
+    else bottomHoverTimer.current = setTimeout(() => setBottomHovered(false), 240)
   }
 
   return (
@@ -1800,22 +1967,29 @@ export default function DrawingsPage() {
         </div>
 
         {/* Data panel toggle */}
-        <button onClick={() => setShowBottom(t => !t)} style={{
+        <button onClick={() => {
+          if (!bottomPinned) {
+            setBottomPinned(true)
+            setShowBottom(true)
+          } else {
+            setShowBottom(t => !t)
+          }
+        }} style={{
           display: 'flex', alignItems: 'center', gap: '4px',
           padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-          border: `1px solid ${showBottom ? 'rgba(239,35,60,.35)' : 'rgba(255,255,255,.1)'}`,
-          background: showBottom ? 'rgba(239,35,60,.12)' : 'transparent',
-          color: showBottom ? '#EF233C' : '#64748b', cursor: 'pointer',
+          border: `1px solid ${effectiveBottomOpen ? 'rgba(239,35,60,.35)' : 'rgba(255,255,255,.1)'}`,
+          background: effectiveBottomOpen ? 'rgba(239,35,60,.12)' : 'transparent',
+          color: effectiveBottomOpen ? '#EF233C' : '#64748b', cursor: 'pointer',
           transition: 'all .15s', flexShrink: 0, touchAction: 'manipulation',
         }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <line x1="3" y1="15" x2="21" y2="15"/>
           </svg>
-          {!isMobile && (showBottom ? 'Hide' : 'Show')}
-          {(takeoffItems.length > 0 || memberScheduleItems.length > 0) && (
+          {!isMobile && (effectiveBottomOpen ? 'Hide' : 'Show')}
+          {takeoffItems.length > 0 && (
             <span style={{ background: '#EF233C', color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '9px' }}>
-              {takeoffItems.length + memberScheduleItems.length}
+              {takeoffItems.length}
             </span>
           )}
         </button>
@@ -1856,48 +2030,97 @@ export default function DrawingsPage() {
       {/* ── Main work area ──────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
 
-        {/* Left: Drawing sidebar */}
+        {/* Left workspace: drawings and member schedule */}
         {isMobile ? (
           <div
             className="panel-drawer"
             style={{
               position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 200,
+              width: 'min(92vw, 420px)',
               transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
               display: 'flex', flexDirection: 'column',
+              background: '#0B1320',
               boxShadow: sidebarOpen ? '4px 0 30px rgba(0,0,0,.7)' : 'none',
             }}
           >
-            <DrawingSidebar
-              drawings={drawings}
-              selectedDrawing={selectedDrawing}
-              onSelect={(d) => {
-                const norm = normalizeDrawing(d)
-                setSelectedDrawing(norm)
-                setSelectedAnnotId(null)
-                annotationMapRef.current = {}
-                if (!norm.isCalibrated) {
-                  setActiveTool('line')
-                  setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
-                }
-                setSidebarOpen(false)
-              }}
-              onUploaded={handleDrawingUploaded}
-              onDeleted={handleDrawingDeleted}
-            />
+            <div style={{ height: 42, display: 'flex', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,.07)' }}>
+              {[
+                { id: 'drawings', label: 'Drawings', Icon: Files, count: drawings.length },
+                { id: 'members', label: 'Members', Icon: TableProperties, count: memberScheduleItems.length },
+              ].map(({ id, label, Icon, count }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setLeftPanelTab(id)}
+                  style={{
+                    flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    color: leftPanelTab === id ? '#EF233C' : '#64748b', background: 'transparent', border: 'none',
+                    borderBottom: leftPanelTab === id ? '2px solid #EF233C' : '2px solid transparent',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  <Icon size={14} />
+                  {label}
+                  {count > 0 && <span style={{ fontSize: 9, color: '#fff', background: '#EF233C', borderRadius: 9, padding: '1px 5px' }}>{count}</span>}
+                </button>
+              ))}
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+              {leftPanelTab === 'drawings' ? (
+                <DrawingSidebar
+                  width="100%"
+                  drawings={drawings}
+                  selectedDrawing={selectedDrawing}
+                  onSelect={(d) => {
+                    const norm = normalizeDrawing(d)
+                    setSelectedDrawing(norm)
+                    setSelectedAnnotId(null)
+                    annotationMapRef.current = {}
+                    if (!norm.isCalibrated) {
+                      setActiveTool('line')
+                      setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
+                    }
+                    setSidebarOpen(false)
+                  }}
+                  onUploaded={handleDrawingUploaded}
+                  onDeleted={handleDrawingDeleted}
+                />
+              ) : (
+                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} />
+              )}
+            </div>
           </div>
         ) : (
-          <div
-            style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}
-            onMouseEnter={() => { clearTimeout(leftHoverTimer.current); setLeftHovered(true) }}
-            onMouseLeave={() => { leftHoverTimer.current = setTimeout(() => setLeftHovered(false), 300) }}
+          <SideDock
+            side="left"
+            title="Workspace"
+            width={leftPanelWidth}
+            minWidth={LEFT_DOCK_MIN_WIDTH}
+            maxWidth={leftDockMaxWidth}
+            open={leftPanelOpen}
+            pinned={leftPanelPinned}
+            hovered={leftHovered}
+            resizing={isResizingLeft}
+            tabs={[
+              { id: 'drawings', label: 'Drawings', icon: Files, badge: drawings.length },
+              { id: 'members', label: 'Member Schedule', icon: TableProperties, badge: memberScheduleItems.length },
+            ]}
+            activeTab={leftPanelTab}
+            onOpenChange={setLeftPanelOpen}
+            onPinnedChange={(pinned) => {
+              setLeftPanelPinned(pinned)
+              if (pinned) setLeftPanelOpen(true)
+              else setLeftHovered(false)
+            }}
+            onHoveredChange={handleLeftDockHover}
+            onActiveTabChange={setLeftPanelTab}
+            onWidthChange={setLeftPanelWidth}
+            onResizeStart={() => setIsResizingLeft(true)}
+            onResizeEnd={() => setIsResizingLeft(false)}
           >
-            <div style={{
-              width: effectiveLeftOpen ? '240px' : '0px',
-              overflow: 'hidden', flexShrink: 0,
-              transition: 'width 250ms cubic-bezier(0.4,0,0.2,1)',
-              willChange: 'width',
-            }}>
+            {leftPanelTab === 'drawings' ? (
               <DrawingSidebar
+                width="100%"
                 drawings={drawings}
                 selectedDrawing={selectedDrawing}
                 onSelect={(d) => {
@@ -1913,27 +2136,10 @@ export default function DrawingsPage() {
                 onUploaded={handleDrawingUploaded}
                 onDeleted={handleDrawingDeleted}
               />
-            </div>
-            <button
-              onClick={() => { clearTimeout(leftHoverTimer.current); setLeftHovered(false); setLeftPanelOpen(o => !o) }}
-              className="panel-toggle-tab panel-toggle-tab-left"
-              title={leftPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
-            >
-              <svg width="9" height="13" viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                {effectiveLeftOpen ? (
-                  <>
-                    <polyline points="9,1 5,7 9,13"/>
-                    <polyline points="5,1 1,7 5,13"/>
-                  </>
-                ) : (
-                  <>
-                    <polyline points="3,1 7,7 3,13"/>
-                    <polyline points="7,1 11,7 7,13"/>
-                  </>
-                )}
-              </svg>
-            </button>
-          </div>
+            ) : (
+              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} />
+            )}
+          </SideDock>
         )}
 
         {/* Center: PDF viewer + bottom panel */}
@@ -2079,134 +2285,35 @@ export default function DrawingsPage() {
             )}
           </div>
 
-          {/* Bottom data panel: tab strip + animated content */}
-          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-
-            {/* Persistent tab strip — top border is also the drag-to-resize zone */}
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              background: '#0D1526',
-              borderTop: '2px solid rgba(239,35,60,.2)',
-              borderBottom: showBottom ? '1px solid rgba(255,255,255,.07)' : 'none',
-              flexShrink: 0, overflowX: 'auto',
-              position: 'relative',
-            }}>
-              {/* Invisible hit-zone over the top border — drag here to resize */}
-              {showBottom && (
-                <div
-                  style={{
-                    position: 'absolute', top: -4, left: 0, right: 0, height: '8px',
-                    cursor: 'ns-resize', zIndex: 5, touchAction: 'none',
-                  }}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const startY = e.clientY
-                    const startH = bottomH
-                    let lastY = startY
-                    let rafId = null
-                    setIsDraggingBottom(true)
-                    const onMove = (ev) => {
-                      lastY = ev.clientY
-                      if (rafId !== null) return
-                      rafId = requestAnimationFrame(() => {
-                        rafId = null
-                        const newH = Math.max(180, Math.min(Math.floor(window.innerHeight * 0.65), startH + (startY - lastY)))
-                        setBottomH(newH)
-                      })
-                    }
-                    const onUp = () => {
-                      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-                      setIsDraggingBottom(false)
-                      window.removeEventListener('pointermove', onMove)
-                      window.removeEventListener('pointerup', onUp)
-                    }
-                    window.addEventListener('pointermove', onMove)
-                    window.addEventListener('pointerup', onUp)
-                  }}
-                />
-              )}
-              <TabBtn
-                active={bottomTab === 'measurements' && showBottom}
-                onClick={() => handleBottomTabClick('measurements')}
-                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke={bottomTab === 'measurements' && showBottom ? '#EF233C' : '#64748b'} strokeWidth="2">
-                  <line x1="5" y1="19" x2="19" y2="5"/>
-                  <circle cx="5" cy="19" r="2" fill="currentColor"/>
-                  <circle cx="19" cy="5" r="2" fill="currentColor"/>
-                </svg>}
-                label="Measurements"
-                badge={takeoffItems.length}
-              />
-              <TabBtn
-                active={bottomTab === 'members' && showBottom}
-                onClick={() => handleBottomTabClick('members')}
-                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke={bottomTab === 'members' && showBottom ? '#EF233C' : '#64748b'} strokeWidth="2">
-                  <path d="M3 9h18M3 15h18M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>
-                </svg>}
-                label="Member Schedule"
-                badge={memberScheduleItems.length}
-              />
-              <div style={{ flex: 1 }} />
-              {memberScheduleItems.length > 0 && bottomTab === 'measurements' && !isMobile && showBottom && (
-                <div style={{ fontSize: '11px', color: '#475569', padding: '0 12px', whiteSpace: 'nowrap' }}>
-                  {memberScheduleItems.length} members · {memberScheduleItems.reduce((s, m) => s + (m.totalWeight ?? 0), 0).toFixed(0)} kg
-                </div>
-              )}
-              {/* Collapse/expand double-arrow */}
-              <button
-                onClick={() => setShowBottom(o => !o)}
-                title={showBottom ? 'Collapse Panel' : 'Expand Panel'}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  padding: '0 12px', height: '100%', display: 'flex', alignItems: 'center',
-                  color: 'rgba(239,35,60,0.5)', transition: 'color .15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#EF233C' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(239,35,60,0.5)' }}
-              >
-                <svg width="13" height="9" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  {showBottom ? (
-                    <>
-                      <polyline points="1,2 6,5 11,2"/>
-                      <polyline points="1,5 6,8 11,5"/>
-                    </>
-                  ) : (
-                    <>
-                      <polyline points="1,8 6,5 11,8"/>
-                      <polyline points="1,5 6,2 11,5"/>
-                    </>
-                  )}
-                </svg>
-              </button>
-            </div>
-
-            {/* Animated content area */}
-            <div style={{
-              height: showBottom ? `${bottomH}px` : '0px',
-              overflow: 'hidden',
-              transition: isDraggingBottom ? 'none' : 'height 250ms cubic-bezier(0.4,0,0.2,1)',
-              background: '#080B12',
-            }}>
-              <div style={{ height: `${bottomH}px`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {bottomTab === 'measurements' ? (
-                  <MeasurementTable
-                    drawing={activeDrawing}
-                    selectedId={selectedAnnotId}
-                    onRowSelect={handleRowSelect}
-                    onDelete={handleRowDelete}
-                    onAddClick={() => { setPendingMeas(null); setShowAddModal(true) }}
-                  />
-                ) : (
-                  <MemberSchedulePanel
-                    drawing={activeDrawing}
-                    onExport={handleExport}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+          <BottomDock
+            height={bottomH}
+            minHeight={180}
+            maxHeight={bottomDockMaxHeight}
+            open={showBottom}
+            pinned={bottomPinned}
+            hovered={bottomHovered}
+            resizing={isDraggingBottom}
+            count={takeoffItems.length}
+            summary={takeoffItems.length > 0 ? `${takeoffItems.length} item${takeoffItems.length === 1 ? '' : 's'}` : null}
+            onOpenChange={setShowBottom}
+            onPinnedChange={(pinned) => {
+              setBottomPinned(pinned)
+              if (pinned) setShowBottom(true)
+              else setBottomHovered(false)
+            }}
+            onHoveredChange={handleBottomDockHover}
+            onHeightChange={setBottomH}
+            onResizeStart={() => setIsDraggingBottom(true)}
+            onResizeEnd={() => setIsDraggingBottom(false)}
+          >
+            <MeasurementTable
+              drawing={activeDrawing}
+              selectedId={selectedAnnotId}
+              onRowSelect={handleRowSelect}
+              onDelete={handleRowDelete}
+              onAddClick={() => { setPendingMeas(null); setShowAddModal(true) }}
+            />
+          </BottomDock>
         </div>
 
         {/* Right panel */}
@@ -2215,12 +2322,14 @@ export default function DrawingsPage() {
             className="panel-drawer"
             style={{
               position: 'fixed', top: 0, bottom: 0, right: 0, zIndex: 200,
+              width: 'min(88vw, 360px)',
               transform: rightOpen ? 'translateX(0)' : 'translateX(100%)',
               display: 'flex', flexDirection: 'column',
               boxShadow: rightOpen ? '-4px 0 30px rgba(0,0,0,.7)' : 'none',
             }}
           >
             <RightPanel
+              width="100%"
               drawing={activeDrawing}
               lastMeasurement={lastMeasurement}
               selectedItem={selectedAnnotItem}
@@ -2232,48 +2341,40 @@ export default function DrawingsPage() {
             />
           </div>
         ) : (
-          <div
-            style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}
-            onMouseEnter={() => { clearTimeout(rightHoverTimer.current); setRightHovered(true) }}
-            onMouseLeave={() => { rightHoverTimer.current = setTimeout(() => setRightHovered(false), 300) }}
+          <SideDock
+            side="right"
+            title="Properties & Calibration"
+            width={rightPanelWidth}
+            minWidth={250}
+            maxWidth={rightDockMaxWidth}
+            open={rightPanelOpen}
+            pinned={rightPanelPinned}
+            hovered={rightHovered}
+            resizing={isResizingRight}
+            activeTab="panel"
+            onOpenChange={setRightPanelOpen}
+            onPinnedChange={(pinned) => {
+              setRightPanelPinned(pinned)
+              if (pinned) setRightPanelOpen(true)
+              else setRightHovered(false)
+            }}
+            onHoveredChange={handleRightDockHover}
+            onWidthChange={setRightPanelWidth}
+            onResizeStart={() => setIsResizingRight(true)}
+            onResizeEnd={() => setIsResizingRight(false)}
           >
-            <button
-              onClick={() => { clearTimeout(rightHoverTimer.current); setRightHovered(false); setRightPanelOpen(o => !o) }}
-              className="panel-toggle-tab panel-toggle-tab-right"
-              title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
-            >
-              <svg width="9" height="13" viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                {effectiveRightOpen ? (
-                  <>
-                    <polyline points="3,1 7,7 3,13"/>
-                    <polyline points="7,1 11,7 7,13"/>
-                  </>
-                ) : (
-                  <>
-                    <polyline points="9,1 5,7 9,13"/>
-                    <polyline points="5,1 1,7 5,13"/>
-                  </>
-                )}
-              </svg>
-            </button>
-            <div style={{
-              width: effectiveRightOpen ? '228px' : '0px',
-              overflow: 'hidden', flexShrink: 0,
-              transition: 'width 250ms cubic-bezier(0.4,0,0.2,1)',
-              willChange: 'width',
-            }}>
-              <RightPanel
-                drawing={activeDrawing}
-                lastMeasurement={lastMeasurement}
-                selectedItem={selectedAnnotItem}
-                summary={summary}
-                onCalibrated={handleCalibrated}
-                onQuickScale={handleQuickScale}
-                onCalibrateScale={handleCalibrateScaleClick}
-                onResetCalibration={handleResetCalibration}
-              />
-            </div>
-          </div>
+            <RightPanel
+              width="100%"
+              drawing={activeDrawing}
+              lastMeasurement={lastMeasurement}
+              selectedItem={selectedAnnotItem}
+              summary={summary}
+              onCalibrated={handleCalibrated}
+              onQuickScale={handleQuickScale}
+              onCalibrateScale={handleCalibrateScaleClick}
+              onResetCalibration={handleResetCalibration}
+            />
+          </SideDock>
         )}
       </div>
 
@@ -2322,31 +2423,5 @@ export default function DrawingsPage() {
         />
       )}
     </div>
-  )
-}
-
-function TabBtn({ active, onClick, icon, label, badge }) {
-  return (
-    <button onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: '6px',
-      padding: '8px 14px', fontSize: '12px',
-      fontWeight: active ? 700 : 400,
-      color: active ? '#EF233C' : '#64748b',
-      background: 'transparent', border: 'none', cursor: 'pointer',
-      borderBottom: active ? '2px solid #EF233C' : '2px solid transparent',
-      marginBottom: '-1px', transition: 'all .15s', whiteSpace: 'nowrap',
-      touchAction: 'manipulation',
-    }}>
-      {icon}
-      {label}
-      {badge > 0 && (
-        <span style={{
-          background: active ? '#EF233C' : 'rgba(255,255,255,.1)',
-          color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '10px',
-        }}>
-          {badge}
-        </span>
-      )}
-    </button>
   )
 }

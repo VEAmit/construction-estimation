@@ -5,7 +5,7 @@ import { fmtSize } from '../../utils/calculations'
 import ConfirmModal from '../common/ConfirmModal'
 import toast from 'react-hot-toast'
 
-export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, onUploaded, onDeleted }) {
+export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, onUploaded, onDeleted, width = '240px' }) {
   const { selectedProject } = useAppStore()
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
@@ -71,7 +71,7 @@ export default function DrawingSidebar({ drawings, selectedDrawing, onSelect, on
 
   return (
     <div style={{
-      width: '240px',
+      width,
       flexShrink: 0,
       background: '#0B1320',
       borderRight: '1px solid rgba(255,255,255,0.07)',

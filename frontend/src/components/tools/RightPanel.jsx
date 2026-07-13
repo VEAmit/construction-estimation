@@ -16,7 +16,7 @@ const SCALE_PRESETS = [
   { label: '1 : 1000', n: 1000 },
 ]
 
-export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale, onResetCalibration }) {
+export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selectedItem, summary, onCalibrated, onQuickScale, onCalibrateScale, onResetCalibration, width = '228px' }) {
   const { activeUnit, setActiveUnit, memberScheduleItems, setActiveTool, takeoffItems, activeTool, selectedMemberScheduleItem, lastMeasureMember } = useAppStore()
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
   const [quickN,       setQuickN]       = useState('')
@@ -39,7 +39,7 @@ export default function RightPanel({ drawing: rawDrawing, lastMeasurement, selec
 
   return (
     <div style={{
-      width: '228px', flexShrink: 0,
+      width, flexShrink: 0,
       background: '#0B1320',
       borderLeft: '1px solid rgba(255,255,255,.07)',
       display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
