@@ -368,7 +368,7 @@ export default function LoginPage() {
           </form>
 
           {/* Demo credentials */}
-          <div style={{
+          {/* <div style={{
             marginTop: '24px', padding: '14px 16px',
             background: 'rgba(239,35,60,.06)',
             borderRadius: '8px', border: '1px solid rgba(239,35,60,.15)',
@@ -382,7 +382,7 @@ export default function LoginPage() {
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,.5)', margin: 0 }}>
               <span style={{ color: 'rgba(255,255,255,.3)' }}>Password:</span> Admin@123
             </p>
-          </div>
+          </div> */}
 
           <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.2)', fontSize: '11px', marginTop: '24px' }}>
             © 2026 BuildTakeoff Pro. All rights reserved. · <span style={{ color: '#EF233C', fontWeight: 700 }}>v{APP_VERSION}</span>
