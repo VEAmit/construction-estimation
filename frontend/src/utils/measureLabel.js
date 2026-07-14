@@ -394,7 +394,12 @@ export function buildLinearDistanceStyle(
   const thickness = resolveLinearThickness(userPt, thicknessOverride)
   const effectiveArrow = resolveLinearArrowStyle(arrowStyle, linearLineMode)
   const labelGap = computeLinearLabelGap(userPt, pdfScale)
-  const syncLeaderHeight = preset.syncLeaderHeight ?? 8
+  // Bluebeam-style plain line — no perpendicular witness/leader ticks at the
+  // endpoints. A non-zero leader height here is what renders as a small
+  // stray line at the start/end of the draw (looks like a box with the
+  // endpoint resize handles). Both "simple" and "arrow" line modes are a
+  // single straight line, so this is always 0.
+  const syncLeaderHeight = 0
   return {
     thickness,
     leaderLength: syncLeaderHeight,
@@ -409,14 +414,14 @@ export function buildLinearDistanceStyle(
 /** Style fields applied to live Syncfusion diagram text (label halo + size). */
 export function buildLinearLabelDiagramStyle(userPt, pdfScale, fontColor = '#111827') {
   const patch = buildMeasureLabelPatch(userPt, pdfScale, fontColor)
-  const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
   return {
     fontSize: patch.fontSize,
     fontColor: patch.fontColor,
     labelFillColor: patch.labelFillColor,
     labelBorderColor: patch.labelBorderColor,
     labelGap: computeLinearLabelGap(userPt, pdfScale),
-    syncLeaderHeight: preset.syncLeaderHeight ?? 8,
-    leaderLength: preset.syncLeaderHeight ?? 8,
+    // No perpendicular leader/witness ticks — plain Bluebeam-style line.
+    syncLeaderHeight: 0,
+    leaderLength: 0,
   }
 }
