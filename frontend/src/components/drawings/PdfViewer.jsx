@@ -3581,6 +3581,9 @@ export default function PdfViewer({
   const selectedAnnotDataRef = useRef(null)
   // Suppress handleAnnotationPropertiesChange re-saves while we are calling editAnnotation ourselves.
   const editingAnnotRef = useRef(false)
+  // Screen position of the last placed Perimeter/Polyline vertex — lets a second
+  // click on (near) that same spot finish the shape instead of requiring a double-click.
+  const perimeterClickRef = useRef({ x: null, y: null })
 
   // Keep countMarkers ref in sync and update the store's countSession badge
   useEffect(() => {
@@ -5921,6 +5924,58 @@ export default function PdfViewer({
     }
   }, [activeTool, exportAndProcessUnsaved])
 
+  // ── Perimeter/Polyline: click on the last-placed vertex again to finish ──
+  // Syncfusion's Polygon/Perimeter tool only ends a shape on a native browser
+  // dblclick. Clicking back on (near) the vertex you just placed is not, by
+  // itself, always fast/close enough for the browser to register it as one —
+  // so we track the screen position of each click while this tool is active
+  // and, when the next click lands within a few pixels of it, synthesize a
+  // real 'dblclick' at that spot. Syncfusion's own (untouched) finish logic
+  // then runs exactly as it would for a manual double-click.
+  useEffect(() => {
+    if (activeTool !== 'perimeter') return
+    const el = containerRef.current
+    if (!el) return
+
+    // Matches Syncfusion's own "snap back to start point" tolerance (a 40x40 px
+    // box, i.e. ±20px) so this feels as forgiving as their native proximity check.
+    const CLOSE_PX = 18
+    const onMouseUp = (e) => {
+      if (e.button !== 0) return
+      const last = perimeterClickRef.current
+      const dx = last.x == null ? Infinity : e.clientX - last.x
+      const dy = last.y == null ? Infinity : e.clientY - last.y
+      const dist = Math.hypot(dx, dy)
+
+      if (last.x != null && dist <= CLOSE_PX) {
+        perimeterClickRef.current = { x: null, y: null }
+        const { clientX, clientY } = e
+        // Dispatch on the actual element Syncfusion's dblclick listener is bound to
+        // (not e.target) — Syncfusion re-renders the annotation SVG after every vertex
+        // is added, so e.target from this mouseup can already be a detached node by the
+        // time this fires, in which case the event would never reach that listener.
+        setTimeout(() => {
+          try {
+            const vm = viewerRef.current
+            const viewerContainer = vm?.viewerBase?.viewerContainer
+              ?? document.getElementById('sfPdfViewer_viewerContainer')
+            viewerContainer?.dispatchEvent(new MouseEvent('dblclick', {
+              bubbles: true, cancelable: true, view: window,
+              clientX, clientY, button: 0, detail: 2,
+            }))
+          } catch (_) {}
+        }, 30)
+        return
+      }
+      perimeterClickRef.current = { x: e.clientX, y: e.clientY }
+    }
+    el.addEventListener('mouseup', onMouseUp, true)
+    return () => {
+      el.removeEventListener('mouseup', onMouseUp, true)
+      perimeterClickRef.current = { x: null, y: null }
+    }
+  }, [activeTool])
+
   // ── Ctrl+scroll wheel zoom ─────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current
@@ -6672,7 +6727,8 @@ export default function PdfViewer({
       } else if (activeTool === 'area') {
         try { vm.annotation.updateMeasurementSettings('Area', { strokeColor: safeHex, fillColor: fillRgba, opacity: 1, thickness: thick, displayUnit: sfUnit, conversionUnit: sfUnit, ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
       } else if (activeTool === 'perimeter') {
-        try { vm.annotation.updateMeasurementSettings('Perimeter', { strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick, displayUnit: sfUnit, conversionUnit: sfUnit, ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
+        // No arrowheads — plain line segments, same look as the Linear tool.
+        try { vm.annotation.updateMeasurementSettings('Perimeter', { strokeColor: safeHex, fillColor: fillLight, opacity: 1, thickness: thick, displayUnit: sfUnit, conversionUnit: sfUnit, lineHeadStartStyle: 'None', lineHeadEndStyle: 'None', ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, safeHex) }) } catch (_) {}
       }
 
       // ── Shape / markup tools ─────────────────────────────
@@ -6837,6 +6893,9 @@ export default function PdfViewer({
 
   // ── Fired by Syncfusion when an annotation is added ──────────────────────
   const handleAnnotationAdd = useCallback((args) => {
+    // A shape just completed — the next click anywhere starts a new one, so drop
+    // any remembered "last vertex" position used by the Perimeter click-to-finish handler.
+    perimeterClickRef.current = { x: null, y: null }
     const firstId = args?.annotation?.annotationId ?? args?.annotation?.name ?? '?'
     console.log('[BT-Lifecycle] annotationAdd entry — importing:', importingAnnotsRef.current, 'id:', firstId)
     if (isPasteNativeMeasureSuppressed()) {
@@ -7036,6 +7095,39 @@ export default function PdfViewer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measureColor, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit,
       fillOpacity, measureLabelFontSize, pdfScale, lineThickness, arrowStyle, linearLineMode])
+
+  // Stable perimeterSettings — mirrors memoDistanceSettings above. vm.annotation
+  // .updateMeasurementSettings('Perimeter', {...}) (used elsewhere in this file) is a
+  // Syncfusion no-op that ignores its arguments; this prop is the only channel that
+  // actually reaches vm.perimeterSettings, which the Perimeter tool reads directly.
+  // No "arrow mode" toggle exists for this tool (unlike Linear), so line heads are
+  // always None — a plain line, matching the Linear tool's simple-line look.
+  const memoPerimeterSettings = useMemo(() => {
+    const hex = measureColor ?? '#111827'
+    const r = parseInt(hex.slice(1, 3), 16) || 17
+    const g = parseInt(hex.slice(3, 5), 16) || 24
+    const b = parseInt(hex.slice(5, 7), 16) || 39
+    return {
+      displayUnit:    toSfUnit(getSyncfusionNativeUnit(drawing)),
+      conversionUnit: toSfUnit(getSyncfusionNativeUnit(drawing)),
+      ...(drawing?.isCalibrated && drawing?.scaleRatio ? {
+        depth: drawing.scaleRatio,
+        scaleRatio: 1,
+      } : {
+        depth: 25.4 / 72,
+        scaleRatio: 1,
+      }),
+      strokeColor: hex,
+      fillColor:   `rgba(${r},${g},${b},${Math.min(fillOpacity ?? 0.15, 0.15)})`,
+      opacity: 1,
+      thickness: lineThickness ?? 2,
+      lineHeadStartStyle: 'None',
+      lineHeadEndStyle: 'None',
+      ...buildMeasureLabelPatch(measureLabelFontSize, pdfScale, hex),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measureColor, drawing?.isCalibrated, drawing?.scaleRatio, drawing?.calibrationUnit,
+      fillOpacity, measureLabelFontSize, pdfScale, lineThickness])
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -7310,7 +7402,7 @@ export default function PdfViewer({
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
-          Click polygon vertices → Double-click to close perimeter
+          Click polygon vertices → click the last point again to finish
         </div>
       )}
 
@@ -7658,6 +7750,7 @@ export default function PdfViewer({
 
           /* ── Measurement units + initial appearance ──────────────────────── */
           distanceSettings={memoDistanceSettings}
+          perimeterSettings={memoPerimeterSettings}
 
           /* ── Annotation appearance ────────────────────────────────────────── */
           annotationSettings={{
