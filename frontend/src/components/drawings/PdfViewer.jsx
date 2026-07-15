@@ -305,6 +305,33 @@ function applyViewerZoomPct(vm, pct) {
 // Guard: prevent two simultaneous recovery calls overlapping.
 let _recoverInProgress = false
 
+// Recovery must never run while the user is actively mid-gesture (wheel-zooming
+// or scrolling). A blind background check landing between ticks reads
+// Syncfusion's zoomFactor/scroll position before they've caught up to the
+// user's latest input, so "restoring the current state" actually restores a
+// stale, already-superseded one — visibly fighting the zoom/scroll the user
+// just performed (reported as "zoom-out jumps back to zoom-in" and general
+// zoom/scroll jerkiness). markZoomScrollInteraction() is called on every real
+// zoom or scroll tick; recovery bails out until things have been quiet for a
+// beat.
+let _lastZoomScrollInteractionAt = 0
+const INTERACTION_SETTLE_MS = 700
+function markZoomScrollInteraction() {
+  _lastZoomScrollInteractionAt = Date.now()
+}
+
+// Throttle recovery attempts themselves — the zoom-settle timer, the
+// scroll-settle timer, and the blind stale-page watchdog can all decide
+// "still blank" within the same second. Firing a zoom micro-bump for each one
+// back-to-back is itself a source of visible jerkiness.
+const RECOVER_COOLDOWN_MS = 4000
+let _lastRecoverAttemptAt = 0
+// Bump size cycles 1/2/3% across consecutive attempts — Syncfusion's
+// server-mode render requests are deduplicated by exact zoom percentage, so
+// retrying the identical bump value can be silently swallowed if that exact
+// percentage was already requested once.
+let _recoverBumpStep = 0
+
 /**
  * Check whether a canvas is blank/unrendered by sampling 5 pixels.
  *
@@ -362,6 +389,8 @@ function isPageCanvasBlank(canvas) {
  */
 function recoverBlankVisiblePages(vm) {
   if (_recoverInProgress) return
+  if (Date.now() - _lastZoomScrollInteractionAt < INTERACTION_SETTLE_MS) return
+  if (Date.now() - _lastRecoverAttemptAt < RECOVER_COOLDOWN_MS) return
   if (!vm?.viewerBase?.viewerContainer) return
   const vb = vm.viewerBase
   const vc = vb.viewerContainer
@@ -404,13 +433,17 @@ function recoverBlankVisiblePages(vm) {
   if (!anyBlank) return
 
   _recoverInProgress = true
+  _lastRecoverAttemptAt = Date.now()
   console.log('[SF-Render] recovering — zoom micro-bump to force pdfium re-render')
 
   const mag = getMagnification(vm)
   const currentPct = Math.round((mag?.zoomFactor ?? 1) * 100)
-  // +1% bump (visually imperceptible, ~1 frame) forces Syncfusion to invalidate
-  // page caches and re-queue pdfium renders for all visible pages.
-  const bumpPct = currentPct < 400 ? currentPct + 1 : currentPct - 1
+  // Bump size cycles 1/2/3% (visually near-imperceptible, ~1 frame) to force
+  // Syncfusion to invalidate page caches and re-queue pdfium renders for all
+  // visible pages, while dodging server-mode's exact-percentage dedup.
+  const bumpAmount = (_recoverBumpStep % 3) + 1
+  _recoverBumpStep += 1
+  const bumpPct = currentPct < 400 ? currentPct + bumpAmount : currentPct - bumpAmount
 
   try {
     if (mag) mag.fitType = null
@@ -3553,6 +3586,13 @@ export default function PdfViewer({
   const pageTextByPageRef = useRef({})
   const firstRenderDoneRef = useRef(false)
   const fitPassRef = useRef(0)
+  // Set right before setPdfPage() inside handlePageChange (Syncfusion's own
+  // scroll-based page detection) so the "Sync page navigation" effect below
+  // can tell "the viewer told us it moved to this page" apart from "something
+  // else wants the viewer to jump to this page" — without this, every natural
+  // scroll across a page boundary got echoed back as an explicit goToPage()
+  // call, which force-snaps scroll position and fights the user's own scroll.
+  const skipNextGoToPageRef = useRef(false)
 
   const {
     pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
@@ -4038,6 +4078,7 @@ export default function PdfViewer({
     // Scroll handler: update label positions immediately via RAF, then schedule
     // blank-page recovery 300ms after scrolling stops.
     const onScroll = () => {
+      markZoomScrollInteraction()
       scheduleFallbackLabelLayout()
       if (scrollEndTimer) clearTimeout(scrollEndTimer)
       scrollEndTimer = setTimeout(() => {
@@ -6678,13 +6719,21 @@ export default function PdfViewer({
   // DEBOUNCED: rapid zoom clicks (user pressing + quickly) generate many pdfScale
   // changes. Applying each immediately would cancel the prior pdfium render before
   // it completes, causing blank pages. Wait 150 ms for clicks to settle, then
-  // apply once. After zoom settles, run a recovery check at 900 ms.
+  // apply once.
+  //
+  // The recovery check waits 1800 ms, not 900 — Syncfusion's own zoomTo() does
+  // NOT request a re-render immediately; it schedules that internally after its
+  // own ~800 ms debounce, so the real render request (server round-trip for
+  // large-format sheets) typically isn't dispatched until ~150+800=950 ms after
+  // the user stops zooming. Checking earlier races that internal timer and
+  // flags pages as "blank" before Syncfusion even asked for a re-render.
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded || !firstRenderDoneRef.current) return
     console.log(`[SF-Render] zoomTo ${Math.round(pdfScale * 100)}% (debounced)`)
+    markZoomScrollInteraction()
     const applyT   = setTimeout(() => applyViewerZoomPct(vm, pdfScale * 100), 150)
-    const recoverT = setTimeout(() => recoverBlankVisiblePages(vm), 900)
+    const recoverT = setTimeout(() => recoverBlankVisiblePages(vm), 1800)
     return () => { clearTimeout(applyT); clearTimeout(recoverT) }
   }, [pdfScale, pdfBase64, docLoaded])
 
@@ -6716,6 +6765,14 @@ export default function PdfViewer({
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded) return
+    if (skipNextGoToPageRef.current) {
+      // This pdfPage change came from Syncfusion's own pageChange event (the
+      // user scrolled past a page boundary naturally) — the viewer is already
+      // there, so calling goToPage() again would just force-snap the scroll
+      // position and interrupt the user's own scroll momentum.
+      skipNextGoToPageRef.current = false
+      return
+    }
     try { vm.navigation.goToPage(pdfPage) } catch (_) { }
   }, [pdfPage, pdfBase64, docLoaded])
 
@@ -6908,6 +6965,7 @@ export default function PdfViewer({
   // ── Fired by Syncfusion on page change ────────────────────────────────
   const handlePageChange = useCallback((args) => {
     console.log(`[SF-Render] pageChange currentPage=${args.currentPageNumber}`)
+    skipNextGoToPageRef.current = true
     setPdfPage(args.currentPageNumber)
     bumpFallbackLabelLayout()
     // Repaint annotation overlays when Syncfusion signals a new page is in view.
@@ -7195,6 +7253,16 @@ export default function PdfViewer({
           display: none !important;
           visibility: hidden !important;
           pointer-events: none !important;
+        }
+
+        /* Hide Syncfusion's own per-page loading spinner (shown by
+           showPageLoadingIndicator on every zoomTo() call, including debounced
+           wheel-zoom). The app's own "Loading drawing…" / "Preparing drawing…"
+           overlays already cover the initial-load phase, so this only ever
+           suppresses the redundant flash that would otherwise appear on every
+           zoom/pan tick after the document has finished loading. */
+        #sfPdfViewer .e-spinner-pane {
+          display: none !important;
         }
 
         /* ── Left sidebar toolbar (thumbnail / bookmark / text-search icons) ──────────
