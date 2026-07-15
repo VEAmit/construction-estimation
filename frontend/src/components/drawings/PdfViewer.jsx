@@ -4894,6 +4894,13 @@ export default function PdfViewer({
     }
 
     if (currentTool === 'calibrate') {
+      // Mark processed like the other two exit paths below — otherwise the
+      // completion-retry loop in finishMeasure() (scheduleMeasurementComplete)
+      // keeps re-invoking this for up to ~2.3s. If a retry lands after the user
+      // has already saved the calibration and the tool has switched to 'line',
+      // it falls through to the generic autosave path below and gets mis-saved
+      // as a brand-new regular measurement from the (by-then-deleted) reference line.
+      if (annotationId) processedAnnotsRef.current.add(annotationId)
       onMeasureRef.current?.(measurePayload)
       return
     }

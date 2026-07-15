@@ -13,7 +13,9 @@ public record CreateTakeoffItemRequest(
     string Notes,
     string? PointsJson,
     string? Color,
-    string? Category
+    string? Category,
+    double? ScaleRatioAtCreation = null,
+    string? CalibrationUnitAtCreation = null
 );
 
 public record UpdateTakeoffItemRequest(
@@ -28,7 +30,9 @@ public record UpdateTakeoffItemRequest(
     string Notes,
     string? PointsJson,
     string? Color,
-    string? Category
+    string? Category,
+    double? ScaleRatioAtCreation = null,
+    string? CalibrationUnitAtCreation = null
 );
 
 public record TakeoffItemResponse(
@@ -48,7 +52,9 @@ public record TakeoffItemResponse(
     int DrawingId,
     DateTime CreatedAt,
     string? Color,
-    string? Category
+    string? Category,
+    double? ScaleRatioAtCreation,
+    string? CalibrationUnitAtCreation
 );
 
 public record TakeoffSummaryResponse(

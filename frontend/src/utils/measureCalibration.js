@@ -330,6 +330,16 @@ export async function recalculateTakeoffItemsAfterCalibration(items, drawing, di
       updated.push(item)
       continue
     }
+    // Only backfill items that were never successfully calibrated at creation —
+    // an item with a real stored length already reflects the calibration that
+    // was active when it was drawn, and must never be rewritten by a later
+    // recalibration. This is what makes it safe to call this function
+    // unconditionally after every recalibration (it used to rewrite everything).
+    const alreadyCalibrated = item.length != null && !/not calibrated/i.test(item.description ?? '')
+    if (alreadyCalibrated) {
+      updated.push(item)
+      continue
+    }
     let px = pixelLengthFromStoredAnnotation(item.pointsJson)
     if (px < 0.1) {
       const m = String(item.description ?? '').match(/([\d.]+)\s*px/i)
@@ -344,7 +354,11 @@ export async function recalculateTakeoffItemsAfterCalibration(items, drawing, di
       ? `Polyline: ${formatMeasureLength(length, displayUnit)}`
       : formatMeasureLength(length, displayUnit)
     try {
-      const saved = await updateFn({ ...item, length, description: desc, unit: displayUnit })
+      const saved = await updateFn({
+        ...item, length, description: desc, unit: displayUnit,
+        scaleRatioAtCreation: d.scaleRatio,
+        calibrationUnitAtCreation: d.calibrationUnit,
+      })
       onUpdated?.(saved)
       updated.push(saved)
     } catch {

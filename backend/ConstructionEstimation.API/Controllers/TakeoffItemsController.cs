@@ -66,6 +66,8 @@ public class TakeoffItemsController : ControllerBase
             PointsJson = request.PointsJson,
             Color = request.Color,
             Category = request.Category,
+            ScaleRatioAtCreation = request.ScaleRatioAtCreation,
+            CalibrationUnitAtCreation = request.CalibrationUnitAtCreation,
             DrawingId = drawingId
         };
 
@@ -96,6 +98,8 @@ public class TakeoffItemsController : ControllerBase
         item.PointsJson = request.PointsJson;
         item.Color = request.Color;
         item.Category = request.Category;
+        item.ScaleRatioAtCreation = request.ScaleRatioAtCreation;
+        item.CalibrationUnitAtCreation = request.CalibrationUnitAtCreation;
 
         if (request.UnitWeight.HasValue && request.Length.HasValue)
         {
@@ -152,6 +156,7 @@ public class TakeoffItemsController : ControllerBase
         t.Id, t.Mark, t.Description, t.ItemType.ToString(),
         t.Length, t.Area, t.Quantity, t.Unit.ToString(),
         t.Material, t.UnitWeight, t.TotalWeight, t.Notes, t.PointsJson,
-        t.DrawingId, t.CreatedAt, t.Color, t.Category
+        t.DrawingId, t.CreatedAt, t.Color, t.Category,
+        t.ScaleRatioAtCreation, t.CalibrationUnitAtCreation
     );
 }

@@ -14,12 +14,7 @@ const emptyRow = {
   unitWeight: 0, length: 0, quantity: 0, description: '', takeoffItemId: null, color: null,
 }
 
-const DISPLAY_HEADERS = ['Color', 'Mark', 'Section Size', 'Type', 'PDF Source Line', '']
-
-function formatPdfSource(description) {
-  if (!description) return '—'
-  return description.replace(/^(Schedule|Pattern):\s*/i, '')
-}
+const DISPLAY_HEADERS = ['Color', 'Mark', 'Section Size', 'Type', '']
 
 /** Silently update a single takeoff item's color via the existing PUT endpoint. */
 async function patchTakeoffItemColor(item, color) {
@@ -375,11 +370,6 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                       {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </td>
-                  <td style={td}>
-                    <input value={newRow.description}
-                      onChange={e => set(newRow, setNewRow, 'description', e.target.value)}
-                      placeholder="SC2 - 360 UB 45" style={{ ...ei, width: '100%', minWidth: '160px' }} />
-                  </td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
                     <span style={{ display: 'flex', gap: '3px' }}>
                       <button onClick={handleSaveNew} disabled={saving} style={ab('#22c55e')}>
@@ -470,11 +460,6 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
                             border: `1px solid ${color}30` }}>
                             {item.memberType}
                           </span>}
-                    </td>
-                    <td style={{ ...td, color: '#94a3b8', maxWidth: '280px' }}>
-                      {isEditing
-                        ? <input value={row.description} onChange={e => setEditBuf(b => ({ ...b, description: e.target.value }))} style={{ ...ei, width: '100%' }} />
-                        : <span title={item.description}>{formatPdfSource(item.description)}</span>}
                     </td>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>
                       {isEditing ? (

@@ -31,6 +31,8 @@ export const takeoffService = {
       pointsJson:  data.pointsJson  ?? null,
       color:       data.color       ?? null,
       category:    data.category    ?? null,
+      scaleRatioAtCreation:      data.scaleRatioAtCreation      ?? null,
+      calibrationUnitAtCreation: data.calibrationUnitAtCreation ?? null,
     })
     return unwrapApiPayload(res)
   },

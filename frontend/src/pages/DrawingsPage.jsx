@@ -1003,6 +1003,8 @@ export default function DrawingsPage() {
         color:       saveColor,
         category:    saveCategoryFinal,
         pointsJson,
+        scaleRatioAtCreation:      normDrw.scaleRatio,
+        calibrationUnitAtCreation: normDrw.calibrationUnit,
       })
       let finalSaved = saved
       const latestThick = pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness
@@ -1116,28 +1118,21 @@ export default function DrawingsPage() {
       const drw = getCalibratedDrawingFromStore()
       const isFirstTimeCal = !drw?.isCalibrated
 
-      if (isFirstTimeCal) {
-        // Bluebeam workflow: the line that triggered first-time calibration IS the first measurement.
-        // Store it so handleCalibrationApply saves it after the scale is confirmed.
-        // calibrateOnly = false → autoSave will be called; annotation stays on canvas.
-        // Nullify length so autoSave recalculates it from pixelLength using the calibrated scale.
-        console.log('[BT-Lifecycle] handleMeasure — first-time calibration, storing measurement for post-calibration save')
-        calibrateOnlyRef.current = false
-        pendingCalibMeasureRef.current = { ...measurement, length: null }
-        pendingMeasurementRef.current = {
-          annotationId: measurement.annotationId,
-          dbId: null,
-          mark: measurement.memberMark ?? measurement.drawingMark ?? null,
-          pageNumber: measurement.pageNumber ?? 1,
-          pendingThickness: useAppStore.getState().lineThickness,
-          rawPointsJson: measurement.rawAnnotation ?? null,
-        }
-      } else {
-        // Explicit re-calibration on an already-calibrated drawing: reference line is ONLY for
-        // scale adjustment and must be deleted after calibration. Do not save as a measurement.
-        console.log('[BT-Lifecycle] handleMeasure — re-calibration, calibrateOnly=true, no measurement save')
-        calibrateOnlyRef.current = true
-        pendingCalibMeasureRef.current = null
+      // Bluebeam workflow, same for first-time calibration AND re-calibration: the reference
+      // line that establishes the scale IS also the first measurement under that scale.
+      // Store it so handleCalibrationApply saves it after the scale is confirmed.
+      // calibrateOnly = false → autoSave will be called; annotation stays on canvas.
+      // Nullify length so autoSave recalculates it from pixelLength using the just-applied scale.
+      console.log('[BT-Lifecycle] handleMeasure —', isFirstTimeCal ? 'first-time' : 're-', 'calibration, storing measurement for post-calibration save')
+      calibrateOnlyRef.current = false
+      pendingCalibMeasureRef.current = { ...measurement, length: null }
+      pendingMeasurementRef.current = {
+        annotationId: measurement.annotationId,
+        dbId: null,
+        mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+        pageNumber: measurement.pageNumber ?? 1,
+        pendingThickness: useAppStore.getState().lineThickness,
+        rawPointsJson: measurement.rawAnnotation ?? null,
       }
 
       setScaleSetupFirstMeasure(isFirstTimeCal)
@@ -1202,9 +1197,19 @@ export default function DrawingsPage() {
       toast.error('Draw a line along a labelled dimension on the plan first')
       return
     }
-    calibrateOnlyRef.current = true
-    pendingCalibMeasureRef.current = null
-    setScaleSetupFirstMeasure(false)
+    // Same Bluebeam workflow as handleMeasure's calibrate branch: the reference line becomes
+    // a real measurement under the new scale, whether this is first-time or re-calibration.
+    calibrateOnlyRef.current = false
+    pendingCalibMeasureRef.current = { ...lastMeasurement, length: null }
+    pendingMeasurementRef.current = {
+      annotationId: lastMeasurement.annotationId,
+      dbId: null,
+      mark: lastMeasurement.memberMark ?? lastMeasurement.drawingMark ?? null,
+      pageNumber: lastMeasurement.pageNumber ?? 1,
+      pendingThickness: useAppStore.getState().lineThickness,
+      rawPointsJson: lastMeasurement.rawAnnotation ?? null,
+    }
+    setScaleSetupFirstMeasure(!getCalibratedDrawingFromStore()?.isCalibrated)
     setShowCalModal(true)
   }, [lastMeasurement])
 
@@ -1278,7 +1283,8 @@ export default function DrawingsPage() {
       }
     } catch (err) {
       console.error('[BuildTakeoff] calibration apply failed:', err)
-      toast.error('Could not save scale — try again')
+      const apiMessage = err?.response?.data?.message || err?.response?.data?.errors?.[0]
+      toast.error(apiMessage || err?.message || 'Could not save scale — try again')
     } finally {
       setCalSaving(false)
     }
@@ -1308,8 +1314,10 @@ export default function DrawingsPage() {
       triggerPdfCommand('rehydrateMeasureLabels')
       setActiveTool('line')
       toast.success('Scale set — ready to measure', { duration: 3000, icon: '✅' })
-    } catch {
-      toast.error('Failed to apply quick scale')
+    } catch (err) {
+      console.error('[BuildTakeoff] quick scale apply failed:', err)
+      const apiMessage = err?.response?.data?.message || err?.response?.data?.errors?.[0]
+      toast.error(apiMessage || err?.message || 'Failed to apply quick scale')
     }
   }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem])
 

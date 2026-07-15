@@ -26,6 +26,12 @@ public class TakeoffItem : BaseEntity
     public string? Color { get; set; }
     public string? Category { get; set; }
 
+    // Snapshot of the drawing's calibration at the moment this item was created —
+    // never rewritten by a later recalibration, so Length/Area always reflect the
+    // scale that was active when the measurement was drawn.
+    public double? ScaleRatioAtCreation { get; set; }
+    public string? CalibrationUnitAtCreation { get; set; }
+
     public int DrawingId { get; set; }
     public Drawing Drawing { get; set; } = null!;
 }

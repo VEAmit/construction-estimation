@@ -73,7 +73,12 @@ export const drawingService = {
         sent: { scaleRatio, unit },
         received: calibrationSnapshot(verified),
       })
+      // The write appeared to succeed (no HTTP error) but the drawing doesn't come
+      // back calibrated — surface this instead of letting the caller believe the
+      // new scale is active when it silently isn't.
+      throw new Error('Calibration was saved but did not take effect — please try again')
     }
+    return verified
   },
   async saveAnnotations(id, annotationData) {
     await api.put(`/drawings/${id}/annotations`, { annotationData })
