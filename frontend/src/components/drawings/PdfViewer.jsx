@@ -3521,6 +3521,7 @@ export default function PdfViewer({
   selectedAnnotationId,
   styleEditTargetId = null,
   onAnnotationSelect,
+  onClearSelection,            // () => void — unconditionally reset parent's selection state (Esc during paste)
   onMeasurementThicknessChange, // (dbItemId, thickness, annotId?) => void — persist thickness to pointsJson
   onMeasurementGeometryChange,
   resolveMeasurementDbId,       // (annotId) => db row id | null — includes in-flight pending save
@@ -4104,6 +4105,7 @@ export default function PdfViewer({
   const suppressNativeMeasureUntilRef = useRef(0)
   const [pastePlacementActive, setPastePlacementActive] = useState(false)
   const [pasteCursorPos, setPasteCursorPos] = useState(null) // {left,top} container-relative px
+  const prevToolForPasteRef = useRef(activeTool)
   const suppressStyleSelectRef = useRef(null)
   const annotationsSyncKeyRef = useRef('')
   const importedTakeoffIdsRef = useRef(new Set())
@@ -5581,21 +5583,48 @@ export default function PdfViewer({
     const ok = commitPasteLinearMeasurement(
       pending.clipboard, 0, 0, targetPage, anchor,
     )
-    cancelPastePlacement()
+    // Stay in paste mode — each click places another copy. Mode ends only via
+    // Esc, an explicit Done/Cancel click, or switching tools (see effects below).
     if (!ok) toast.error('Paste failed')
-  }, [pdfPage, commitPasteLinearMeasurement, cancelPastePlacement, swallowPastePlacementEvent, suppressNativeMeasureForPaste])
+  }, [pdfPage, commitPasteLinearMeasurement, swallowPastePlacementEvent, suppressNativeMeasureForPaste])
+
+  // Full reset on Esc: exit paste mode (if any), clear any selected/highlighted
+  // annotation on the canvas and in the grid, drop the preview/ghost line — but
+  // never touch already-saved measurements, those stay exactly as placed. Runs
+  // from both the in-viewer Esc listener (paste mode) and DrawingsPage's global
+  // Escape handler (general "nothing selected" reset), so it always clears the
+  // canvas-level selection regardless of whether paste mode was active.
+  const resetPasteAndSelection = useCallback(() => {
+    cancelPastePlacement()
+    const vm = viewerRef.current
+    try {
+      const pageIdx = Math.max(0, (pdfPage ?? 1) - 1)
+      vm?.clearSelection?.(pageIdx)
+      vm?.annotation?.clearSelection?.()
+    } catch (_) {}
+    selectedAnnotDataRef.current = null
+    onClearSelection?.()
+  }, [cancelPastePlacement, pdfPage, onClearSelection])
 
   useEffect(() => {
     if (!pastePlacementActive) return
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
-        cancelPastePlacement()
+        resetPasteAndSelection()
         toast('Paste cancelled', { duration: 1500 })
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [pastePlacementActive, cancelPastePlacement])
+  }, [pastePlacementActive, resetPasteAndSelection])
+
+  // Switching tools while pasting also ends paste mode (but leaves placed copies alone).
+  useEffect(() => {
+    if (pastePlacementActiveRef.current && prevToolForPasteRef.current !== activeTool) {
+      cancelPastePlacement()
+    }
+    prevToolForPasteRef.current = activeTool
+  }, [activeTool, cancelPastePlacement])
 
   // Exit draw mode before export — Syncfusion only commits finished annotations in None mode
   // (same pattern as the manual Save button / captureAnnotations).
@@ -6115,7 +6144,9 @@ export default function PdfViewer({
       if (type === 'fitPage') {
         applyFitPageToViewer(vm, setPdfScale, containerRef.current?.clientWidth, pageMetaRef.current)
       } else if (type === 'cancelPastePlacement') {
-        cancelPastePlacement()
+        // Routed here from DrawingsPage's global Escape handler — same full reset
+        // (exit paste mode, clear selection, drop preview) as the in-viewer Esc path.
+        resetPasteAndSelection()
       } else if (type === 'undo' || type === 'redo') {
         const fn = type === 'undo'
           ? (vm.undo ?? vm.annotation?.undo ?? vm.annotationModule?.undo)
@@ -6510,7 +6541,7 @@ export default function PdfViewer({
       }
     } catch (_) { }
     clearPdfCommand()
-  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale, scheduleLabelLayoutWithRetries, pdfScale, cancelPastePlacement, suppressNativeMeasureForPaste])
+  }, [pdfCommand, pdfBase64, clearPdfCommand, processMeasureAnnotation, applyCalibrationToViewer, setPdfScale, scheduleLabelLayoutWithRetries, pdfScale, resetPasteAndSelection, suppressNativeMeasureForPaste])
 
   // ── Load PDF as base64 whenever drawingUrl changes ─────────────────────
   useEffect(() => {
@@ -7605,26 +7636,58 @@ export default function PdfViewer({
                 )}
               </svg>
             )}
-            {/* Instruction banner */}
+            {/* Instruction banner — Done/Cancel are the explicit stop-pasting action from
+                requirement 3; both just end paste mode, same as Esc. Neither one touches
+                copies already placed by earlier clicks. */}
             <div
               style={{
                 position: 'absolute',
                 bottom: 16,
                 left: '50%',
                 transform: 'translateX(-50%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
                 background: 'rgba(15,23,42,0.92)',
                 color: '#e2e8f0',
                 fontSize: 12,
                 fontWeight: 600,
-                padding: '6px 14px',
+                padding: '6px 8px 6px 14px',
                 borderRadius: 6,
                 border: '1px solid #334155',
-                pointerEvents: 'none',
                 userSelect: 'none',
                 whiteSpace: 'nowrap',
               }}
             >
-              Click to place {labelText ? `${labelText} measurement` : 'measurement'} · Esc to cancel
+              <span style={{ pointerEvents: 'none' }}>
+                Click to place copies • Esc to finish
+              </span>
+              <button
+                type="button"
+                onPointerDown={e => { e.stopPropagation() }}
+                onClick={e => { e.stopPropagation(); resetPasteAndSelection() }}
+                title="Finish placing copies"
+                style={{
+                  padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                  border: '1px solid rgba(34,197,94,.4)', background: 'rgba(34,197,94,.15)',
+                  color: '#4ade80', cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                onPointerDown={e => { e.stopPropagation() }}
+                onClick={e => { e.stopPropagation(); resetPasteAndSelection() }}
+                title="Cancel paste mode"
+                style={{
+                  padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                  border: '1px solid rgba(148,163,184,.35)', background: 'transparent',
+                  color: '#94a3b8', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )

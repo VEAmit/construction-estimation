@@ -1630,6 +1630,20 @@ export default function DrawingsPage() {
         closeCtxMenu()
         clearPasteAnchor()
         triggerPdfCommand({ type: 'cancelPastePlacement' })
+        // Reset to a clean "nothing selected" state — the just-drawn/selected
+        // measurement itself is already saved, this only clears UI highlighting.
+        // Skip while the calibration modal is open — it still needs lastMeasurement
+        // (the reference line just drawn) to save the scale.
+        if (!showCalModal) {
+          setLastMeasurement(null)
+          setSelectedAnnotId(null)
+          setStyleEditTargetId(null)
+          selectedOccurrenceAnnotIdRef.current = null
+          annotStyleBaselineRef.current = null
+          // Exit whatever draw/measure tool was active back to the default Select
+          // tool — Esc means "stop what I'm doing," not "stay armed to draw again."
+          if (useAppStore.getState().activeTool !== 'select') setActiveTool('select')
+        }
         return
       }
 
@@ -1661,7 +1675,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu])
+  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, setActiveTool])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2216,6 +2230,12 @@ export default function DrawingsPage() {
                   const item = takeoffItems.find(t => t.id === dbId)
                   syncToolbarFromTakeoffItem(item)
                 }
+              }}
+              onClearSelection={() => {
+                selectedOccurrenceAnnotIdRef.current = null
+                setSelectedAnnotId(null)
+                setStyleEditTargetId(null)
+                annotStyleBaselineRef.current = null
               }}
               onMeasurementThicknessChange={handleMeasurementThicknessChange}
               onMeasurementGeometryChange={handleMeasurementGeometryChange}
