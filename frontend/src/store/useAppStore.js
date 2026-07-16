@@ -108,6 +108,7 @@ export const useAppStore = create(
       pdfScale: 1.2,
       pdfPage: 1,
       pdfTotalPages: 1,
+      wheelZoomSensitivity: 1, // multiplier on mouse-wheel zoom speed — 0.5 (slow) .. 2 (fast)
       setActiveTool:     (tool)  => set({ activeTool: tool }),
       setActiveUnit:     (unit)  => set({ activeUnit: unit }),
       setMeasureColor:   (color) => set({ measureColor: color }),
@@ -125,6 +126,7 @@ export const useAppStore = create(
       setPdfPage: (pageFn) =>
         set((s) => ({ pdfPage: typeof pageFn === 'function' ? pageFn(s.pdfPage) : pageFn })),
       setPdfTotalPages: (total) => set({ pdfTotalPages: total }),
+      setWheelZoomSensitivity: (v) => set({ wheelZoomSensitivity: Math.min(2, Math.max(0.5, Number(v) || 1)) }),
 
       // ── Imperative viewer commands ────────────────────────
       pdfCommand: null,
@@ -155,6 +157,7 @@ export const useAppStore = create(
         activeUnit: s.activeUnit,
         measureLabelFontSize: s.measureLabelFontSize,
         selectedProject: s.selectedProject,
+        wheelZoomSensitivity: s.wheelZoomSensitivity,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) state._setHydrated()

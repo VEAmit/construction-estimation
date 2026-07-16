@@ -867,6 +867,55 @@ function isLinearMeasureAnnotation(live) {
   return live.measureType === 'Distance' || live.IT === 'LineDimension' || live.it === 'LineDimension'
 }
 
+function distPointToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq < 1e-9) return Math.hypot(px - ax, py - ay)
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+function isDiagramPointInPolygon(px, py, pts) {
+  let inside = false
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y
+    const intersect = ((yi > py) !== (yj > py))
+      && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+/**
+ * Is a diagram-space point within `tolerance` (diagram units) of any live
+ * annotation on the given page — border proximity for lines/polylines, or
+ * inside the boundary for polygon/area shapes. Used to tell "empty page
+ * area" (safe to auto-pan) apart from "on a measurement" (must stay
+ * click/drag-to-select-and-move) when the Select tool is active.
+ */
+function isDiagramPointOnAnyAnnotation(vm, pageIndex, px, py, tolerance) {
+  const annots = vm?.annotations ?? []
+  for (const a of annots) {
+    const pIdx = a?.pageIndex
+    if (pIdx != null && Number(pIdx) !== pageIndex) continue
+    const pts = extractAnnotationPoints(a)
+    if (pts.length < 2) continue
+    let minDist = Infinity
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = distPointToSegment(px, py, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+      if (d < minDist) minDist = d
+    }
+    if (pts.length > 2) {
+      const closing = distPointToSegment(px, py, pts[pts.length - 1].x, pts[pts.length - 1].y, pts[0].x, pts[0].y)
+      if (closing < minDist) minDist = closing
+      if (isDiagramPointInPolygon(px, py, pts)) return true
+    }
+    if (minDist <= tolerance) return true
+  }
+  return false
+}
+
 /** Rebuild Syncfusion distance label text nodes when import did not create them. */
 function ensureDistanceLabelChildren(vm, live, labelText, fontColor, measureLabelFontSize, pdfScale) {
   if (!vm || !live || !isLinearMeasureAnnotation(live)) return false
@@ -3593,6 +3642,17 @@ export default function PdfViewer({
   // scroll across a page boundary got echoed back as an explicit goToPage()
   // call, which force-snaps scroll position and fights the user's own scroll.
   const skipNextGoToPageRef = useRef(false)
+  // Set on mouseup when a middle/right-drag pan gesture actually moved the
+  // view — the very next contextmenu event (fired by the browser right after
+  // a right-button release) is swallowed so a drag-to-pan doesn't also pop up
+  // the copy/paste context menu at the release point. A plain right-click
+  // with no drag never sets this, so the context menu still opens normally.
+  const suppressNextContextMenuRef = useRef(false)
+  // True while the spacebar is held — Photoshop/Bluebeam-style temporary pan:
+  // hold Space and left-drag to pan without switching off whatever tool
+  // (Select, Linear, Area, …) is active. Left-click keeps its normal
+  // select/draw behavior the instant Space is released.
+  const spaceHeldRef = useRef(false)
 
   const {
     pdfScale, pdfPage, setPdfPage, setPdfTotalPages, setPdfScale,
@@ -6053,15 +6113,31 @@ export default function PdfViewer({
     }
   }, [activeTool])
 
-  // ── Ctrl+scroll wheel zoom ─────────────────────────────────────────────
+  // ── Ctrl/Cmd+wheel zoom — plain wheel scrolls between pages ─────────────
+  // Reverted from plain-wheel-zooms (Bluebeam-style): with a multi-page
+  // drawing, taking over every plain wheel tick for zoom left no way to
+  // scroll from page 1 to page 3/4 with the mouse wheel. Ctrl/Cmd+wheel zooms;
+  // plain wheel falls through untouched to the native page scroll. Step is
+  // still proportional to the wheel's own deltaY (clamped) rather than a
+  // fixed amount per event, so a trackpad's many small deltas feel smooth and
+  // continuous while a mouse wheel's larger single notches don't overshoot.
+  // wheelZoomSensitivity (toolbar setting, persisted) scales the whole thing.
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    const BASE_SENSITIVITY = 0.0012
     const onWheel = (e) => {
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
-      const delta = e.deltaY < 0 ? 0.1 : -0.1
-      setPdfScale(s => Math.min(5, Math.max(0.25, +(s + delta).toFixed(2))))
+      markZoomScrollInteraction()
+      const { wheelZoomSensitivity } = useAppStore.getState()
+      const sensitivity = Number.isFinite(wheelZoomSensitivity) && wheelZoomSensitivity > 0
+        ? wheelZoomSensitivity
+        : 1
+      const rawStep = Math.abs(e.deltaY) * BASE_SENSITIVITY * sensitivity
+      const step = Math.min(0.15 * sensitivity, Math.max(0.01, rawStep))
+      const delta = e.deltaY < 0 ? step : -step
+      setPdfScale(s => Math.min(5, Math.max(0.25, +(s + delta).toFixed(3))))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
@@ -6174,6 +6250,231 @@ export default function PdfViewer({
       window.removeEventListener('mouseup', onMouseUp)
     }
   }, [activeTool, docLoaded])
+
+  // ── Hold Space to pan with the left button — Photoshop/Illustrator/Bluebeam
+  // convention. Tracked separately from the drag effect below so the cursor
+  // can show "ready to pan" the instant Space is pressed, before any drag
+  // starts. Ignored while typing in an input/textarea/button so Space still
+  // works normally there.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      if (spaceHeldRef.current) return
+      if (e.target?.closest?.('button, input, select, a, textarea, [contenteditable="true"]')) return
+      spaceHeldRef.current = true
+      e.preventDefault()
+      const outer = containerRef.current
+      if (outer) outer.style.cursor = 'grab'
+    }
+    const releaseSpace = () => {
+      if (!spaceHeldRef.current) return
+      spaceHeldRef.current = false
+      const outer = containerRef.current
+      if (outer) {
+        outer.style.cursor = useAppStore.getState().activeTool === 'pan' ? 'grab' : ''
+        if (!outer.style.cursor) outer.style.removeProperty('cursor')
+      }
+    }
+    const onKeyUp = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      releaseSpace()
+    }
+    // Safety net: if the window/tab loses focus while Space is physically still
+    // held down (alt-tab, a browser dialog stealing focus, dragging the mouse
+    // outside the window, DevTools grabbing focus, …), no keyup ever fires and
+    // spaceHeldRef would stay stuck "true" forever — silently turning every
+    // future plain left-click into a pan attempt instead of select/drag/draw.
+    // Force-release on any focus loss so a stuck key can never survive it.
+    const onVisibilityChange = () => { if (document.hidden) releaseSpace() }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', releaseSpace)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      spaceHeldRef.current = false
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', releaseSpace)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
+
+  // ── Auto-pan: middle/right-drag anywhere, Space+left-drag anywhere, or a
+  // plain left-drag starting on empty page area while the Select tool is
+  // active. Never touches activeTool or Syncfusion's annotation/interaction
+  // mode, so it can't interrupt an in-progress multi-click draw (e.g. a
+  // half-finished Polyline) and never changes which tool button looks
+  // selected in the toolbar. Left-drag on a Measure/Markup tool, or on an
+  // existing annotation while Select is active, is untouched — normal
+  // draw/select/move behavior — as is the dedicated Pan-tool effect above.
+  useEffect(() => {
+    const outer = containerRef.current
+    if (!outer || !docLoaded) return
+
+    const state = {
+      dragging: false, hasMoved: false, button: null, isEmptySelectDrag: false,
+      startX: 0, startY: 0, prevX: 0, prevY: 0, scrollEls: null,
+    }
+
+    const findScrollEls = () => {
+      const els = []
+      const vm = viewerRef.current
+      const primary = vm?.viewerBase?.viewerContainer
+        ?? document.getElementById('sfPdfViewer_viewerContainer')
+      if (primary) els.push(primary)
+
+      const viewer = document.getElementById('sfPdfViewer')
+      if (viewer) {
+        for (const el of viewer.querySelectorAll('div')) {
+          if (els.includes(el)) continue
+          const cs = window.getComputedStyle(el)
+          const scrollableY = (cs.overflowY === 'auto' || cs.overflowY === 'scroll')
+            && el.scrollHeight > el.clientHeight + 1
+          const scrollableX = (cs.overflowX === 'auto' || cs.overflowX === 'scroll' || cs.overflow === 'auto' || cs.overflow === 'scroll')
+            && el.scrollWidth > el.clientWidth + 1
+          if (scrollableY || scrollableX) els.push(el)
+        }
+      }
+      return els
+    }
+
+    const applyScroll = (dx, dy) => {
+      const els = state.scrollEls?.length ? state.scrollEls : findScrollEls()
+      let moved = false
+      for (const el of els) {
+        const prevTop = el.scrollTop
+        const prevLeft = el.scrollLeft
+        el.scrollTop += dy
+        el.scrollLeft += dx
+        if (el.scrollTop !== prevTop || el.scrollLeft !== prevLeft) moved = true
+      }
+      if (!moved && els[0]) {
+        els[0].dispatchEvent(new WheelEvent('wheel', {
+          bubbles: true, cancelable: false,
+          deltaX: dx, deltaY: dy,
+          deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+          view: window,
+        }))
+      }
+    }
+
+    const restoreCursor = () => {
+      if (spaceHeldRef.current) { outer.style.cursor = 'grab'; return }
+      outer.style.cursor = useAppStore.getState().activeTool === 'pan' ? 'grab' : ''
+      if (!outer.style.cursor) outer.style.removeProperty('cursor')
+    }
+
+    const onMouseDown = (e) => {
+      const isSpaceLeftDrag = e.button === 0 && spaceHeldRef.current
+      if (e.target.closest('button, input, select, a, textarea')) return
+      if (pastePlacementActiveRef.current) return
+
+      // Plain left-drag (no Space) auto-pans too, but only when: the Select
+      // tool is active (never Linear/Area/Perimeter/Markup — those need every
+      // left-drag for drawing, at any zoom) AND the press didn't land on an
+      // existing measurement (checked via a geometric hit-test in diagram
+      // space, tolerance converted from screen px so it stays a constant
+      // few pixels regardless of zoom level). A hit still selects/drags the
+      // annotation normally; only genuinely empty page area auto-pans.
+      let isEmptySelectDrag = false
+      if (!isSpaceLeftDrag && e.button === 0) {
+        const { activeTool: tool, pdfPage: currentPage } = useAppStore.getState()
+        if (tool === 'select') {
+          const vm = viewerRef.current
+          const container = containerRef.current
+          if (vm && container) {
+            const cr = container.getBoundingClientRect()
+            const pageIndex = Math.max(0, (currentPage ?? 1) - 1)
+            const diag = containerScreenToDiagramPoint(e.clientX - cr.left, e.clientY - cr.top, container, pageIndex, vm)
+            if (diag && Number.isFinite(diag.x) && Number.isFinite(diag.y)) {
+              const zf = getMagnification(vm)?.zoomFactor || useAppStore.getState().pdfScale || 1
+              const tolerance = 10 / (zf > 0 ? zf : 1)
+              isEmptySelectDrag = !isDiagramPointOnAnyAnnotation(vm, pageIndex, diag.x, diag.y, tolerance)
+            }
+          }
+        }
+      }
+
+      if (!isSpaceLeftDrag && !isEmptySelectDrag && e.button !== 1 && e.button !== 2) return
+
+      state.scrollEls = findScrollEls()
+      state.dragging = true
+      state.hasMoved = false
+      state.button = e.button
+      state.isEmptySelectDrag = isEmptySelectDrag
+      state.startX = e.clientX
+      state.startY = e.clientY
+      state.prevX = e.clientX
+      state.prevY = e.clientY
+      // Middle-button default action is the browser's autoscroll icon — suppress
+      // it. Right-button is left alone here; it's only conditionally suppressed
+      // on the resulting contextmenu event, and only if a real drag happened.
+      // Space+left-drag is fully hijacked (preventDefault + stopPropagation) so
+      // Syncfusion never also starts a select/draw/move-annotation gesture from
+      // the same left-button press. Empty-space left-drag is left alone here
+      // too — a plain click (no movement) still reaches Syncfusion normally
+      // (e.g. to deselect); it's only intercepted once a real drag starts, in
+      // onMouseMove below.
+      if (e.button === 1 || isSpaceLeftDrag) e.preventDefault()
+      if (isSpaceLeftDrag) e.stopPropagation()
+      outer.style.cursor = 'grabbing'
+    }
+
+    const onMouseMove = (e) => {
+      if (!state.dragging) return
+      markZoomScrollInteraction()
+      if (!state.hasMoved) {
+        if (Math.abs(e.clientX - state.startX) < 3 && Math.abs(e.clientY - state.startY) < 3) return
+        state.hasMoved = true
+      }
+      // Once a real drag is confirmed, stop the default action on every
+      // subsequent move too — mainly suppresses incidental PDF text-selection
+      // highlighting from happening underneath an empty-space pan drag.
+      e.preventDefault()
+      const dx = state.prevX - e.clientX
+      const dy = state.prevY - e.clientY
+      state.prevX = e.clientX
+      state.prevY = e.clientY
+      if (dx !== 0 || dy !== 0) applyScroll(dx, dy)
+    }
+
+    const onMouseUp = () => {
+      if (!state.dragging) return
+      if (state.button === 2 && state.hasMoved) suppressNextContextMenuRef.current = true
+      state.dragging = false
+      state.scrollEls = null
+      state.hasMoved = false
+      state.button = null
+      state.isEmptySelectDrag = false
+      restoreCursor()
+    }
+
+    const onContextMenuCapture = (e) => {
+      if (suppressNextContextMenuRef.current) {
+        suppressNextContextMenuRef.current = false
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+
+    const viewerRoot = document.getElementById('sfPdfViewer')
+    const targets = [outer, viewerRoot].filter(Boolean)
+    for (const t of targets) t.addEventListener('mousedown', onMouseDown, { capture: true })
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    outer.addEventListener('contextmenu', onContextMenuCapture, { capture: true })
+
+    return () => {
+      state.dragging = false
+      state.scrollEls = null
+      state.hasMoved = false
+      outer.style.removeProperty('cursor')
+      for (const t of targets) t.removeEventListener('mousedown', onMouseDown, { capture: true })
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      outer.removeEventListener('contextmenu', onContextMenuCapture, { capture: true })
+    }
+  }, [docLoaded])
 
   // ── Handle imperative viewer commands (fitPage, selectAnnotation, …) ───
   useEffect(() => {

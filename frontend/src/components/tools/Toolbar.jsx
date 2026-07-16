@@ -153,6 +153,7 @@ export default function Toolbar({
   const {
     activeTool, setActiveTool,
     pdfScale, setPdfScale,
+    wheelZoomSensitivity, setWheelZoomSensitivity,
     pdfPage, setPdfPage, pdfTotalPages,
     triggerPdfCommand,
     measureColor,    setMeasureColor,
@@ -432,6 +433,26 @@ export default function Toolbar({
             title="Fit page [0]">
             Fit
           </button>
+
+          {!compact && (
+            <span style={{ fontSize: '10px', color: '#334155', marginLeft: '4px' }}>Wheel speed:</span>
+          )}
+          <select
+            value={wheelZoomSensitivity ?? 1}
+            onChange={e => setWheelZoomSensitivity(Number(e.target.value))}
+            title="Mouse-wheel zoom speed"
+            style={{
+              background: '#111827', border: '1px solid rgba(255,255,255,.1)',
+              color: '#94a3b8', fontSize: '11px', borderRadius: '5px',
+              padding: '2px 6px', cursor: 'pointer', outline: 'none',
+              appearance: 'none', WebkitAppearance: 'none', height: '22px',
+              flexShrink: 0,
+            }}>
+            <option value={0.5}>Slow</option>
+            <option value={1}>Normal</option>
+            <option value={1.5}>Fast</option>
+            <option value={2}>Fastest</option>
+          </select>
         </div>
       </div>
 
