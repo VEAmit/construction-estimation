@@ -3724,6 +3724,16 @@ export default function PdfViewer({
         setDocRendering(false)
         clearInterval(timer)
       } else if (Date.now() - startedAt > 15000) {
+        // Neither documentLoad nor documentLoadFailed/ajaxRequestFailed fired
+        // within 15s, and no page ever rendered — Syncfusion's client has no
+        // built-in retry for a lost/failed server response, so without this
+        // the viewer hangs on "Preparing drawing…" forever with no
+        // indication anything went wrong. Surface it instead of giving up
+        // silently.
+        console.error('[SF-Render] document never rendered within 15s — treating as load failure')
+        setErrorMsg('This drawing is taking too long to load. It may be too large, or the server hit an error. Please try again.')
+        setDocRendering(false)
+        setLoading(false)
         clearInterval(timer)
       }
     }, 500)
@@ -7203,6 +7213,35 @@ export default function PdfViewer({
     }
   }, [measureLabelFontSize, pdfScale, pdfBase64, docLoaded, arrowStyle, linearLineMode, fillOpacity, activeTool, getDisplayUnit, bumpFallbackLabelLayout, measureColor, selectedMemberScheduleItem, lastMeasureMember])
 
+  // ── Fired by Syncfusion when the document itself fails to load (corrupt
+  // file, password-protected, or the server-side /Load call errored) ─────
+  const handleDocumentLoadFailed = useCallback((args) => {
+    console.error('[SF-Render] documentLoadFailed', args)
+    const msg = args?.isPasswordRequired
+      ? 'This PDF is password-protected and cannot be opened here.'
+      : `Could not open "${args?.documentName || 'this drawing'}" — the file may be corrupted or in an unsupported format.`
+    setErrorMsg(msg)
+    toast.error(msg)
+    setDocRendering(false)
+    setLoading(false)
+  }, [])
+
+  // ── Fired by Syncfusion when any server round-trip fails (Load,
+  // RenderPdfPages, …) — without this the viewer silently hangs on
+  // "Preparing drawing…" forever with no indication anything went wrong.
+  const handleAjaxRequestFailed = useCallback((args) => {
+    console.error('[SF-Render] ajaxRequestFailed', args)
+    const status = args?.errorStatusCode
+    const action = args?.actionName ?? 'request'
+    const msg = status === 500
+      ? 'The drawing server hit an internal error while rendering this PDF. Please try again, or contact support if this keeps happening.'
+      : `Could not load this drawing (${action} failed${status ? `, status ${status}` : ''}).`
+    setErrorMsg(msg)
+    toast.error(msg)
+    setDocRendering(false)
+    setLoading(false)
+  }, [])
+
   // ── Fired by Syncfusion when PDF fully loads ───────────────────────────
   const handleDocumentLoaded = useCallback((args) => {
     console.log(`[SF-Render] documentLoad pageCount=${args.pageCount ?? 1}`)
@@ -8199,6 +8238,8 @@ export default function PdfViewer({
 
           /* ── Events ──────────────────────────────────────────────────────── */
           documentLoad={handleDocumentLoaded}
+          documentLoadFailed={handleDocumentLoadFailed}
+          ajaxRequestFailed={handleAjaxRequestFailed}
           pageRenderComplete={handlePageRenderComplete}
           pageChange={handlePageChange}
           zoomChange={handleZoomChange}

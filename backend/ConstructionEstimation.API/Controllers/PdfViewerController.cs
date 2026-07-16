@@ -99,72 +99,70 @@ public class PdfViewerController : ControllerBase
         }
     }
 
-    [HttpPost("Bookmarks")]
-    public IActionResult Bookmarks([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetBookmarks(ToStringDict(body))), "application/json");
-
-    [HttpPost("RenderPdfPages")]
-    public IActionResult RenderPdfPages([FromBody] JsonElement body)
+    // Every action below previously called CreateRenderer()/PdfRenderer methods
+    // directly with no try/catch — any exception (native rendering failure,
+    // license/environment issue, corrupt file, missing temp-dir permissions,
+    // etc.) surfaced as a bare, unlogged 500 with zero diagnostic trail,
+    // making it impossible to tell "the PDF itself," "the Syncfusion
+    // pipeline," or "environment/config" apart from a bug report alone.
+    // RunAction wraps each one the same way Load/RenderPdfPages already were.
+    private IActionResult RunAction(string actionName, Func<PdfRenderer, object?> action)
     {
         try
         {
-            var result = CreateRenderer().GetPage(ToStringDict(body));
-            return Content(JsonConvert.SerializeObject(result), "application/json");
+            var result = action(CreateRenderer());
+            return Content(result is string s ? (s ?? "null") : JsonConvert.SerializeObject(result), "application/json");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "RenderPdfPages exception");
-            return StatusCode(500, new { error = ex.Message });
+            _logger.LogError(ex, "{Action} exception", actionName);
+            return StatusCode(500, new { error = ex.Message, action = actionName });
         }
     }
 
+    [HttpPost("Bookmarks")]
+    public IActionResult Bookmarks([FromBody] JsonElement body) =>
+        RunAction(nameof(Bookmarks), r => r.GetBookmarks(ToStringDict(body)));
+
+    [HttpPost("RenderPdfPages")]
+    public IActionResult RenderPdfPages([FromBody] JsonElement body) =>
+        RunAction(nameof(RenderPdfPages), r => r.GetPage(ToStringDict(body)));
+
     [HttpPost("RenderThumbnailImages")]
     public IActionResult RenderThumbnailImages([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetThumbnailImages(ToStringDict(body))), "application/json");
+        RunAction(nameof(RenderThumbnailImages), r => r.GetThumbnailImages(ToStringDict(body)));
 
     [HttpPost("RenderAnnotationComments")]
     public IActionResult RenderAnnotationComments([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetAnnotationComments(ToStringDict(body))), "application/json");
+        RunAction(nameof(RenderAnnotationComments), r => r.GetAnnotationComments(ToStringDict(body)));
 
     [HttpPost("ExportAnnotations")]
-    public IActionResult ExportAnnotations([FromBody] JsonElement body)
-    {
-        string result = CreateRenderer().ExportAnnotation(ToStringDict(body));
-        return Content(result ?? "null", "application/json");
-    }
+    public IActionResult ExportAnnotations([FromBody] JsonElement body) =>
+        RunAction(nameof(ExportAnnotations), r => r.ExportAnnotation(ToStringDict(body)));
 
     [HttpPost("ImportAnnotations")]
     public IActionResult ImportAnnotations([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().ImportAnnotation(ToStringDict(body))), "application/json");
+        RunAction(nameof(ImportAnnotations), r => r.ImportAnnotation(ToStringDict(body)));
 
     [HttpPost("ExportFormFields")]
-    public IActionResult ExportFormFields([FromBody] JsonElement body)
-    {
-        string result = CreateRenderer().ExportFormFields(ToStringDict(body));
-        return Content(result ?? "null", "application/json");
-    }
+    public IActionResult ExportFormFields([FromBody] JsonElement body) =>
+        RunAction(nameof(ExportFormFields), r => r.ExportFormFields(ToStringDict(body)));
 
     [HttpPost("ImportFormFields")]
     public IActionResult ImportFormFields([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().ImportFormFields(ToStringDict(body))), "application/json");
+        RunAction(nameof(ImportFormFields), r => r.ImportFormFields(ToStringDict(body)));
 
     [HttpPost("Unload")]
-    public IActionResult Unload([FromBody] JsonElement body)
-    {
-        CreateRenderer().ClearCache(ToStringDict(body));
-        return Content("{\"message\":\"Document unloaded\"}", "application/json");
-    }
+    public IActionResult Unload([FromBody] JsonElement body) =>
+        RunAction(nameof(Unload), r => { r.ClearCache(ToStringDict(body)); return "{\"message\":\"Document unloaded\"}"; });
 
     [HttpPost("Download")]
-    public IActionResult Download([FromBody] JsonElement body)
-    {
-        string result = CreateRenderer().GetDocumentAsBase64(ToStringDict(body));
-        return Content(result ?? "null", "application/json");
-    }
+    public IActionResult Download([FromBody] JsonElement body) =>
+        RunAction(nameof(Download), r => r.GetDocumentAsBase64(ToStringDict(body)));
 
     [HttpPost("PrintImages")]
     public IActionResult PrintImages([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetPrintImage(ToStringDict(body))), "application/json");
+        RunAction(nameof(PrintImages), r => r.GetPrintImage(ToStringDict(body)));
 
     [HttpPost("Search")]
     public IActionResult Search([FromBody] JsonElement body)
@@ -175,9 +173,9 @@ public class PdfViewerController : ControllerBase
 
     [HttpPost("GetDocumentText")]
     public IActionResult GetDocumentText([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetDocumentText(ToStringDict(body))), "application/json");
+        RunAction(nameof(GetDocumentText), r => r.GetDocumentText(ToStringDict(body)));
 
     [HttpPost("RenderPdfTexts")]
     public IActionResult RenderPdfTexts([FromBody] JsonElement body) =>
-        Content(JsonConvert.SerializeObject(CreateRenderer().GetDocumentText(ToStringDict(body))), "application/json");
+        RunAction(nameof(RenderPdfTexts), r => r.GetDocumentText(ToStringDict(body)));
 }
