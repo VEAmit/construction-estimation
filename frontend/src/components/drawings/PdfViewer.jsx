@@ -333,20 +333,43 @@ let _lastRecoverAttemptAt = 0
 let _recoverBumpStep = 0
 
 /**
- * Check whether a canvas is blank/unrendered by sampling 5 pixels.
+ * Check whether a page's canvas/img is blank/unrendered.
  *
- * Syncfusion pre-fills every page canvas with OPAQUE WHITE before handing it
- * to pdfium. A canvas pdfium never painted therefore has ALL 5 sample pixels
- * identical (255,255,255,255). A rendered PDF page — even one with lots of
- * white space — will almost always have at least one non-white pixel among
- * those 5 positions (due to lines, text, borders, or anti-aliasing).
+ * Syncfusion renders a page one of two ways, and `${id}_pageCanvas_${i}` is a
+ * DIFFERENT element type depending on which:
  *
- * Returns true  → canvas is uniformly blank (safe to trigger recovery).
- * Returns false → canvas has pixel variation (likely rendered; don't recover).
- * Returns false on any error (cross-origin, WebGL, etc.) → safer default.
+ *  - Client-side rendering (small pages): a real <canvas>, painted directly by
+ *    pdfium. Detected by sampling 5 pixels — pre-filled OPAQUE WHITE before
+ *    painting, so a canvas pdfium never touched has all 5 samples identical.
+ *
+ *  - Server-side TILED rendering (large pages — the case that matters here,
+ *    since every page big enough to hit this app's server-render threshold is
+ *    also big enough to cross Syncfusion's own internal tiling threshold):
+ *    `_pageCanvas_${i}` is an <img> placeholder, NOT a canvas — Syncfusion
+ *    stacks the real content on top as separate `_tileimg_*` <img> elements,
+ *    and only hides this placeholder (display:none) once EVERY tile for the
+ *    page has finished loading. Calling .getContext('2d') on an <img> doesn't
+ *    just fail to find content — the method doesn't exist at all and throws,
+ *    which the original version of this function caught and treated as
+ *    "assume rendered" — permanently disabling this whole recovery mechanism
+ *    for every tiled page (i.e. every construction drawing large enough to
+ *    need it) since it could never detect "still incomplete" in the first
+ *    place. Checking whether the placeholder is still visible is Syncfusion's
+ *    own authoritative "not all tiles are in yet" signal.
+ *
+ * Returns true  → still blank / incomplete (safe to trigger recovery).
+ * Returns false → considered rendered; don't recover.
  */
 function isPageCanvasBlank(canvas) {
-  if (!canvas || canvas.width < 4 || canvas.height < 4) return true
+  if (!canvas) return true
+  if (canvas.tagName === 'IMG') {
+    try {
+      return window.getComputedStyle(canvas).display !== 'none'
+    } catch (_) {
+      return false // Error → assume rendered, avoid false recovery
+    }
+  }
+  if (canvas.width < 4 || canvas.height < 4) return true
   try {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return false
