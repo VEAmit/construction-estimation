@@ -16,6 +16,13 @@ public class ExtractionService
     private const int MarkDetectionDpi = 320;
     private static readonly ConcurrentDictionary<string, byte[]> RenderedPagePngCache = new();
 
+    // Shared "mark shape" fragment — an optional 1-2 digit level/storey prefix (e.g. the "1" in
+    // "1FB1", "2C3" — common on multi-level structural drawings) followed by the usual
+    // letters+digits+letter mark shape. Used everywhere a mark is matched or validated so a
+    // level-prefixed mark is captured whole instead of having its leading digit silently
+    // dropped (e.g. "1FB1" being read back as just "FB1").
+    private const string MarkPrefix = @"\d{0,2}";
+
     // Weight suffix optional → matches "310 UB 40.4" AND "200 PFC"
     private static readonly Regex SteelSectionPattern = new(
         @"\b(\d{2,4})\s*(UB|UC|PFC|TFC|CHS|RHS|SHS|EA|UA|RSJ|WB|WC|TFB|BFB|HRS)\s*(\d{1,3}(?:\.\d+)?)?\b",
@@ -39,15 +46,29 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
-    // Marks as shown on drawings: SC2, B1, C7, FB1 — UB/UC or hollow (75 x 5 SHS)
-    private static readonly Regex PdfScheduleMarkPattern = new(
-        @"\b([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]\s*(?:\d+\s*)?(?:(?:\d+\s*[xX×]\s*)+\d+(?:\.\d+)?\s*)?(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS|RB\d+)\b",
+    // Lipped-channel purlins/girts — "C20019", "C15015", "C10010" (depth+thickness code, no
+    // space, common on roof framing plans — was previously unhandled entirely, meaning every
+    // purlin row on a roof plan silently failed to extract regardless of table structure).
+    private static readonly Regex PurlinSectionPattern = new(
+        @"\bC\d{3,5}\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
-    // Table row: mark then section at line start — "SC2  360UB45" or "B1 610 UB 113"
+    // Rod bracing — "16# ROD", "12mm ROD WITH TURNBUCKLE"
+    private static readonly Regex RodBracingPattern = new(
+        @"\b\d{1,3}\s*(?:#|mm)\s*ROD\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Marks as shown on drawings: SC2, B1, C7, FB1 — UB/UC or hollow (75 x 5 SHS)
+    private static readonly Regex PdfScheduleMarkPattern = new(
+        @"\b(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]\s*(?:\d+\s*)?(?:(?:\d+\s*[xX×]\s*)+\d+(?:\.\d+)?\s*)?(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS|RB\d+)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Table row: mark then section at line start — "SC2  360UB45", "B1 610 UB 113", "1FB1 410UB53.7"
     private static readonly Regex TableRowMarkPattern = new(
-        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s+\d{2,4}\s*(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS)\b",
+        @"^\s*(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s+\d{2,4}\s*(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -55,14 +76,17 @@ public class ExtractionService
     // Note: "/" intentionally excluded — it appears in address text ("Unit 10/18 Stirling HWY")
     // and causes false member matches from the title block.
     private static readonly Regex DrawingListLinePattern = new(
-        @"^\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•]\s*(.+)$",
+        @"^\s*(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•]\s*(.+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
     // Looser pattern used when already inside a drawing-list block — tolerates space-only separator
-    // e.g. "PF2  1200 × 1200 × 300 DEEP" (table cell without explicit dash)
+    // e.g. "PF2  1200 × 1200 × 300 DEEP" (table cell without explicit dash), including a table
+    // whose cells are separated by just a single space rather than two-plus — this pattern is
+    // only ever used once we're already confirmed to be inside a recognized member-list block
+    // (see ParseDrawingLists), so a single space isn't at real risk of matching unrelated prose.
     private static readonly Regex DrawingListLoosePattern = new(
-        @"^\s*([A-Z]{1,4}\d{1,3}[A-Z]?)\s{2,}(.+)$",
+        @"^\s*(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)\s+(.+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -76,6 +100,8 @@ public class ExtractionService
         "COLUMNS", "BEAMS", "RAFTERS", "PURLINS", "GIRTS", "BRACES",
         "FLOOR BEAMS", "FLOORBEAMS", "ROOF BEAMS", "PAD FOOTINGS", "STRUTS",
         "SECONDARY MEMBERS", "OTHERS", "OTHER",
+        "FASCIA BEAM", "WALL STIFFENERS", "RAKING ANGLES", "ROOF BRACING",
+        "PARAPET", "STUB COLUMNS",
     };
 
     private static readonly string[] ScheduleHeaders = {
@@ -89,6 +115,10 @@ public class ExtractionService
         "project title", "company logo", "tender", "revision", "drawing number",
         "scale", "date", "stirling", "nedlands", "government of", "department of",
         "buildings and contracts", "terpkos", "architect", "client", "drawn",
+        // Generic (not project-specific) revision/legend/general-note noise —
+        // safe to apply to any drawing, unlike the hardcoded company/address tokens above.
+        "legend", "denotes", "issued for", "amendment", "addendum",
+        "do not scale", "unless noted otherwise", "not to scale",
     };
 
     public ExtractionService(ILogger<ExtractionService> logger, IWebHostEnvironment env)
@@ -1013,7 +1043,7 @@ public class ExtractionService
     private static string MergeMarkFragments(string line)
     {
         // Match letter prefix (1-4) + space + digit suffix (1-3 + optional letter)
-        return Regex.Replace(line,
+        var merged = Regex.Replace(line,
             @"\b([A-Z]{1,4})\s+(\d{1,3}[A-Z]?)\b",
             m =>
             {
@@ -1024,6 +1054,23 @@ public class ExtractionService
                 return m.Value;
             },
             RegexOptions.IgnoreCase);
+
+        // Same CAD-export word-splitting artifact, but for a leading level/storey prefix:
+        // "1 FB2" -> "1FB2" (the mark as printed on the drawing has no gap; PdfPig sometimes
+        // reconstructs the level-number and the rest of the mark as separate words because
+        // they're separate glyph runs in the PDF, even though they render with no visible gap).
+        merged = Regex.Replace(merged,
+            @"\b(\d{1,2})\s+([A-Z]{1,4}\d{1,3}[A-Z]?)\b",
+            m =>
+            {
+                var combined = m.Groups[1].Value + m.Groups[2].Value;
+                if (combined.Length <= 6)
+                    return combined;
+                return m.Value;
+            },
+            RegexOptions.IgnoreCase);
+
+        return merged;
     }
 
     /// <summary>Only rows with a real PDF mark + section — drops note lines (PROVIDE, REINFORCEMENT, etc.).</summary>
@@ -1031,7 +1078,7 @@ public class ExtractionService
     {
         if (string.IsNullOrWhiteSpace(r.Mark) || string.IsNullOrWhiteSpace(r.MemberSize))
             return false;
-        if (!Regex.IsMatch(r.Mark, @"^[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
+        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
             return false;
         // Auto-guess marks M1/M2 — not used on structural drawings
         if (Regex.IsMatch(r.Mark, @"^M\d+$", RegexOptions.IgnoreCase))
@@ -1045,6 +1092,8 @@ public class ExtractionService
             || HollowSectionPattern.IsMatch(r.MemberSize)
             || ReidBarPattern.IsMatch(r.MemberSize)
             || ConcreteDimPattern.IsMatch(r.MemberSize)
+            || PurlinSectionPattern.IsMatch(r.MemberSize)
+            || RodBracingPattern.IsMatch(r.MemberSize)
             || (r.Confidence >= 0.95 && r.MemberSize.Length >= 2);
     }
 
@@ -1115,7 +1164,7 @@ public class ExtractionService
             else if (inList)
             {
                 // Detect a standalone mark token — its spec may be on the next line
-                var solo = Regex.Match(line, @"^([A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
+                var solo = Regex.Match(line, "^(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
                 if (solo.Success)
                 {
                     pendingMark = solo.Groups[1].Value.ToUpperInvariant();
@@ -1183,6 +1232,8 @@ public class ExtractionService
 
         var sectionMatch = SteelSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(rest);
         if (sectionMatch.Success)
         {
             var sectionRaw = sectionMatch.Value.Trim();
@@ -1213,7 +1264,7 @@ public class ExtractionService
     private static List<ExtractedMemberDto> TryParseSplitDrawingListLine(string line)
     {
         var match = Regex.Match(line.Trim(),
-            @"^([A-Z]{1,4}\d{1,3}[A-Z]?)\s+([A-Z]{1,4}\d{1,3}[A-Z]?)\s*[-–—]\s*[-–—]\s*(.+)$",
+            "^(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)\s+(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)\s*[-–—]\s*[-–—]\s*(.+)$",
             RegexOptions.IgnoreCase);
         if (!match.Success) return [];
 
@@ -1352,7 +1403,7 @@ public class ExtractionService
             }
 
             // Standalone mark token — description may be on the next line.
-            var solo = Regex.Match(line, @"^([A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
+            var solo = Regex.Match(line, "^(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
             if (solo.Success)
             {
                 pendingMark = solo.Groups[1].Value.ToUpperInvariant();
@@ -1369,8 +1420,20 @@ public class ExtractionService
     private static bool IsStopLine(string line)
     {
         var lower = line.ToLowerInvariant();
-        return lower.StartsWith("note") || lower.StartsWith("general")
-            || lower.StartsWith("drawing") || lower.StartsWith("detail");
+        if (lower.StartsWith("note") || lower.StartsWith("general")
+            || lower.StartsWith("drawing") || lower.StartsWith("detail"))
+            return true;
+
+        // Revision tables, legends, and generic notes sit right next to (or below) schedule
+        // boxes on the same sheet — without this a schedule block can run straight into them
+        // and pick up rows that are not structural members at all.
+        if (RevisionRowPattern.IsMatch(line)) return true;
+        if (lower.Contains("issued for") || lower.Contains("amendment") || lower.Contains("addendum"))
+            return true;
+        if (lower.StartsWith("legend") || lower.Contains("denotes"))
+            return true;
+
+        return false;
     }
 
     private static readonly HashSet<string> SubHeaders =
@@ -1378,7 +1441,9 @@ public class ExtractionService
         {
             "RAFTERS","BEAMS","COLUMNS","PURLINS","GIRTS","BRACES",
             "FLOOR BEAMS","FLOORBEAMS","ROOF BEAMS","PORTAL FRAMES",
-            "SECONDARY MEMBERS","OTHERS","OTHER"
+            "SECONDARY MEMBERS","OTHERS","OTHER",
+            "FASCIA BEAM","WALL STIFFENERS","RAKING ANGLES","STRUTS",
+            "ROOF BRACING","PARAPET","STUB COLUMNS",
         };
 
     private static bool IsSubHeader(string line) => SubHeaders.Contains(line.Trim());
@@ -1387,6 +1452,8 @@ public class ExtractionService
     {
         var sectionMatch = SteelSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(line);
+        if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(line);
+        if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(line);
 
         if (sectionMatch.Success)
         {
@@ -1425,8 +1492,12 @@ public class ExtractionService
         var cleaned = MergeMarkFragments(Regex.Replace(line.Trim(), @"\s+", " "));
         cleaned = Regex.Replace(cleaned, @"^[|:\-–—\s]+", "");
 
+        // The optional non-captured `\d{1,3}\s+` prefix is a separate "ITEM" row-number column
+        // some schedule tables have before the mark (e.g. "1  FB1  410UB53.7"); MarkPrefix inside
+        // the capture group instead handles a level prefix directly attached to the mark itself
+        // with no space (e.g. "1FB1  410UB53.7") — both can appear, independently of each other.
         var match = Regex.Match(cleaned,
-            @"^(?:\d{1,3}\s+)?([A-Z]{1,4}\d{1,3}[A-Z]?)\s+(.{2,})$",
+            @"^(?:\d{1,3}\s+)?(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)\s+(.{2,})$",
             RegexOptions.IgnoreCase);
         if (!match.Success) return null;
 
@@ -1447,20 +1518,27 @@ public class ExtractionService
 
     private static bool IsLikelyScheduleMark(string mark)
     {
-        if (!Regex.IsMatch(mark, @"^[A-Z]{1,4}\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase))
+        if (!Regex.IsMatch(mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase))
             return false;
 
         var upper = mark.ToUpperInvariant();
         if (Regex.IsMatch(upper, @"^(UNIT|DATE|DWG|REV|SCALE|SHEET|TENDER|NOTE)\d*$"))
             return false;
 
-        return Regex.IsMatch(upper, @"^(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FB|C|B|W)\d", RegexOptions.IgnoreCase);
+        // Strip a leading level/storey prefix (e.g. "1FB1" -> "FB1") before checking against the
+        // known prefix-letter list below, which only knows about the letter part of the mark.
+        var withoutLevelPrefix = Regex.Replace(upper, "^" + MarkPrefix, "");
+        return Regex.IsMatch(withoutLevelPrefix,
+            @"^(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FAB|FB|RBR|RB|RA|WS|PB|ST|R|P|S|C|B|W)\d",
+            RegexOptions.IgnoreCase);
     }
 
     private static string ExtractGenericScheduleSection(string rest)
     {
         var sectionMatch = SteelSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(rest);
         if (sectionMatch.Success) return NormalizeSection(sectionMatch.Value.Trim());
 
         var concreteMatch = ConcreteDimPattern.Match(rest);
@@ -1516,6 +1594,18 @@ public class ExtractionService
                 TryAddPatternRow(results, line, hm);
             }
 
+            foreach (Match pm in PurlinSectionPattern.Matches(line))
+            {
+                if (IsNoisePatternLine(line, pm)) continue;
+                TryAddPatternRow(results, line, pm);
+            }
+
+            foreach (Match rm in RodBracingPattern.Matches(line))
+            {
+                if (IsNoisePatternLine(line, rm)) continue;
+                TryAddPatternRow(results, line, rm);
+            }
+
             var reidMatch = ReidBarPattern.Match(line);
             if (reidMatch.Success && !IsNoisePatternLine(line, reidMatch))
             {
@@ -1565,9 +1655,9 @@ public class ExtractionService
     /// </summary>
     private static string? ExtractPdfMark(string line, Match sectionMatch)
     {
-        // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113"
+        // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113" / "1FB1 - 410UB53.7"
         var leading = Regex.Match(line.Trim(),
-            @"^([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*",
+            "^(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*",
             RegexOptions.IgnoreCase);
         if (leading.Success) return leading.Groups[1].Value.ToUpperInvariant();
 
@@ -1578,15 +1668,20 @@ public class ExtractionService
         if (schedMark.Success) return schedMark.Groups[1].Value.ToUpperInvariant();
 
         var labelMark = Regex.Match(line,
-            @"(?:Schedule|Pattern|SCHEDULE|PATTERN)\s*:\s*([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]",
+            @"(?:Schedule|Pattern|SCHEDULE|PATTERN)\s*:\s*(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]",
             RegexOptions.IgnoreCase);
         if (labelMark.Success) return labelMark.Groups[1].Value.ToUpperInvariant();
 
         if (sectionMatch.Index > 0)
         {
             var before = line[..sectionMatch.Index].Trim();
+            // Anchored at the END ($) only, not the start — this is deliberately allowed to
+            // begin matching partway into `before` (e.g. skip leading junk like a stray "|").
+            // MarkPrefix is folded into the capture itself (not left for the engine to skip
+            // over) so a level-prefixed mark like "1FB1" is captured whole instead of the
+            // match starting one character later at "FB1", silently losing the leading digit.
             var dashMark = Regex.Match(before,
-                @"([A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]?\s*$",
+                "(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]?\s*$",
                 RegexOptions.IgnoreCase);
             if (dashMark.Success) return dashMark.Groups[1].Value.ToUpperInvariant();
 
@@ -1594,7 +1689,7 @@ public class ExtractionService
             if (tokens.Length > 0)
             {
                 var last = tokens[^1].Trim().TrimEnd('-', '–', '—');
-                if (Regex.IsMatch(last, @"^[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
+                if (Regex.IsMatch(last, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
                     return last.ToUpperInvariant();
             }
         }
@@ -1607,6 +1702,12 @@ public class ExtractionService
         return null;
     }
 
+    // Revision/amendment table rows — "0 ISSUED FOR TENDER 12.03.26 J.V.", "T1 TENDER ADDENDUM ..."
+    private static readonly Regex RevisionRowPattern = new(
+        @"^\s*[A-Z0-9]{1,3}\s+(ISSUED|REVISION|AMENDMENT|ADDENDUM|REVIEW|COORDINATION|CONSTRUCTION)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
     private static bool IsNoisePatternLine(string line, Match sectionMatch)
     {
         var upper = line.ToUpperInvariant();
@@ -1614,6 +1715,19 @@ public class ExtractionService
         if (Regex.IsMatch(upper, @"\bPROVIDE\b")) return true;
         if (upper.Contains("WELD AT") || upper.Contains("WELD ON")) return true;
         if (upper.Contains("GENERAL NOTE") || upper.StartsWith("NOTE ")) return true;
+
+        // Revision/amendment history rows — never structural members, but can superficially
+        // contain digit runs (dates, rev numbers) that trip the dimension/section regexes.
+        if (RevisionRowPattern.IsMatch(line)) return true;
+        if (upper.Contains("ISSUED FOR") || upper.Contains("AMENDMENT") || upper.Contains("ADDENDUM")) return true;
+
+        // Legends and generic drawing notes ("DENOTES...", "REFER TO...", "TYPICAL", scale/NTS
+        // callouts) — descriptive text, not schedule entries, even when it mentions a size.
+        if (upper.Contains("DENOTES") || upper.Contains("LEGEND")) return true;
+        if (upper.Contains("REFER TO") || upper.Contains("REFER ARCH") || upper.Contains("REFER ENG")) return true;
+        if (upper.Contains("TYPICAL") || upper.Contains("UNLESS NOTED OTHERWISE") || upper == "UNO") return true;
+        if (upper.Contains("N.T.S") || upper.Contains("NOT TO SCALE") || upper.Contains("DO NOT SCALE")) return true;
+
         return false;
     }
 

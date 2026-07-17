@@ -10,7 +10,6 @@ import {
   ThumbnailView,
   Print,
   TextSelection,
-  TextSearch,
   Annotation,
   Inject,
 } from '@syncfusion/ej2-react-pdfviewer'
@@ -8200,12 +8199,20 @@ export default function PdfViewer({
 
       {/* Syncfusion PDF Viewer — only mount once we know the container size. */}
       {pdfBase64 && !errorMsg && viewerSize.h > 0 && (() => {
+        // documentPath is a raw base64 string, not a URL/path — Syncfusion has no filename
+        // to derive from it and falls back to a literal "undefined" (sent to the server-mode
+        // /Load endpoint as documentName: "undefined.pdf"), which the backend then fails to
+        // process as a 500. Syncfusion has a dedicated `fileName` prop for exactly this case;
+        // it was never being set.
+        const rawName = drawing?.name || drawing?.fileName || 'drawing'
+        const pdfFileName = /\.pdf$/i.test(rawName) ? rawName : `${rawName}.pdf`
         return (
         <PdfViewerComponent
           key={`${drawingUrl ?? 'pdf-viewer'}-${useServerPdfRendering ? 'server' : 'client'}`}
           id="sfPdfViewer"
           ref={viewerRef}
           documentPath={pdfBase64}
+          fileName={pdfFileName}
           serviceUrl={useServerPdfRendering ? SF_SERVICE_URL : undefined}
           resourceUrl={useServerPdfRendering ? undefined : SF_RESOURCE_URL}
           initialRenderPages={1}
@@ -8273,7 +8280,7 @@ export default function PdfViewer({
           <Inject services={[
             Toolbar, Magnification, Navigation,
             LinkAnnotation, BookmarkView, ThumbnailView,
-            Print, TextSelection, TextSearch,
+            Print, TextSelection,
             Annotation,
           ]} />
         </PdfViewerComponent>
