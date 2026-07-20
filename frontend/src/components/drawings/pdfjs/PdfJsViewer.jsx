@@ -52,7 +52,6 @@ export default function PdfJsViewer({
   onClearSelection,
   onMeasurementGeometryChange,
   measureReleaseRef,
-  onClearPending,
 }) {
   const containerRef = useRef(null)
   const loadingTaskRef = useRef(null)
@@ -357,8 +356,9 @@ export default function PdfJsViewer({
       onPointerUp={endPan}
       onPointerCancel={endPan}
       onKeyDown={event => {
-        if (event.key === 'Escape' && pasteClipboard) setPasteClipboard(null)
-        if (event.key === 'Escape') onClearPending?.()
+        if (event.key !== 'Escape') return
+        if (pasteClipboard) setPasteClipboard(null)
+        onClearSelection?.()
       }}
       tabIndex={0}
     >

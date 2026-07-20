@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { drawingService } from '../services/drawingService'
 import { takeoffService } from '../services/takeoffService'
 import { memberScheduleService } from '../services/memberScheduleService'
-import { extractionService } from '../services/extractionService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
 import DrawingSidebar from '../components/drawings/DrawingSidebar'
@@ -223,7 +222,12 @@ export default function DrawingsPage() {
     removeTakeoffItem,
     setMeasureColor,
     setLineThickness,
+    resetDrawingInteraction,
   } = useAppStore()
+
+  useEffect(() => {
+    resetDrawingInteraction()
+  }, [resetDrawingInteraction])
 
   const initialDockLayoutRef = useRef(null)
   if (initialDockLayoutRef.current == null) {
@@ -705,66 +709,6 @@ export default function DrawingsPage() {
     const isCount    = measurement.measureType === 'Count'
     const normDrw    = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
 
-    let detectedScheduleMember = null
-    if (!memberMark && !isArea && !isPerim && !isCount && measurement.rawAnnotation) {
-      const knownMarks = (memberScheduleItems ?? [])
-        .map(m => String(m.mark ?? m.Mark ?? '').trim())
-        .filter(Boolean)
-      const readPointList = (value) => Array.isArray(value)
-        ? value
-            .map(p => ({ x: Number(p.x ?? p.X), y: Number(p.y ?? p.Y) }))
-            .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
-        : []
-      const isNormalizedPointList = (list) => list.length >= 2
-        && list.every(p => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)
-      const vertexPoints = readPointList(
-        measurement.rawAnnotation.vertexPoints
-          ?? measurement.rawAnnotation.VertexPoints
-          ?? [],
-      )
-      const pagePoints = readPointList(
-        measurement.rawAnnotation.labelPagePoints
-          ?? measurement.rawAnnotation.LabelPagePoints
-          ?? [],
-      )
-      const labelVertexPoints = readPointList(
-        measurement.rawAnnotation.labelVertexPoints
-          ?? measurement.rawAnnotation.LabelVertexPoints
-          ?? [],
-      )
-      const pointCandidates = [
-        vertexPoints,
-        isNormalizedPointList(pagePoints) ? pagePoints : [],
-        labelVertexPoints,
-      ].filter(points => points.length >= 2)
-
-      if (knownMarks.length > 0 && pointCandidates.length > 0) {
-        try {
-          let detectedMark = ''
-          for (const points of pointCandidates) {
-            const detected = await extractionService.detectMark(drw.id, {
-              pageNumber: measurement.pageNumber ?? 1,
-              points,
-              knownMarks,
-            })
-            detectedMark = String(detected?.mark ?? detected?.Mark ?? '').trim()
-            if (detectedMark) break
-          }
-          if (detectedMark) {
-            detectedScheduleMember = memberScheduleItems.find(m =>
-              String(m.mark ?? m.Mark ?? '').trim().toUpperCase() === detectedMark.toUpperCase())
-            memberMark = String(detectedScheduleMember?.mark ?? detectedScheduleMember?.Mark ?? detectedMark).trim()
-            if (!pasteOverride?.color) {
-              saveColor = resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
-                ?? saveColor
-            }
-          }
-        } catch (err) {
-          console.warn('[BuildTakeoff] OCR mark fallback failed:', err)
-        }
-      }
-    }
-
     const resolved = resolveCalibratedMeasure(
       measurement.pixelLength ?? 0,
       measurement.pixelArea ?? 0,
@@ -882,13 +826,13 @@ export default function DrawingsPage() {
 
     const payloadMemberType = String(measurement.memberType ?? '').trim()
     const memberType = isPaste
-      ? (payloadMemberType || detectedScheduleMember?.memberType?.trim() || linkedMember?.memberType?.trim() || '')
-      : (linkedMember?.memberType?.trim() ?? detectedScheduleMember?.memberType?.trim() ?? '')
+      ? (payloadMemberType || linkedMember?.memberType?.trim() || '')
+      : (linkedMember?.memberType?.trim() ?? '')
     const saveCategoryFinal = memberType || saveCategory
     const saveMaterial = saveMaterialOverride ?? measurement.material ?? memberMark
     const msiId = isPaste
-      ? (measurement.memberScheduleId ?? detectedScheduleMember?.id ?? linkedMember?.id)
-      : (linkedMember?.id ?? measurement.memberScheduleId ?? detectedScheduleMember?.id)
+      ? (measurement.memberScheduleId ?? linkedMember?.id)
+      : (linkedMember?.id ?? measurement.memberScheduleId)
     const baseNotes = measurement.notes || (msiId ? `msi:${msiId}` : '')
     const linkedRootItemId = isPaste
       ? (measurement.linkedItemId ?? measurement.sourceItemId ?? null)
@@ -1537,15 +1481,6 @@ export default function DrawingsPage() {
   const canCopyMeasurement = !!copyTargetId
   const canPasteMeasurement = !!measurementClipboard && (measurementClipboard.itemType || 'Line') === 'Line'
 
-  const handleClearPending = useCallback(async () => {
-    const pending = pendingMeasurementRef.current
-    if (!pending) return false
-    if (!persistedAnnotIdsRef.current.has(pending.annotationId)) {
-      clearedMarkRef.current = pending.mark
-    }
-    return deletePendingMeasurement(pending)
-  }, [deletePendingMeasurement])
-
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
     const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
@@ -1621,31 +1556,27 @@ export default function DrawingsPage() {
   // so the PDF viewer cannot intercept our copy/paste shortcuts.
   useEffect(() => {
     const handler = (e) => {
-      const tag = e.target?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       const key = e.key?.toLowerCase?.() ?? ''
       const hasMod = e.ctrlKey || e.metaKey
 
       if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
         closeCtxMenu()
         clearPasteAnchor()
         triggerPdfCommand({ type: 'cancelPastePlacement' })
-        // Reset to a clean "nothing selected" state — the just-drawn/selected
-        // measurement itself is already saved, this only clears UI highlighting.
-        // Skip while the calibration modal is open — it still needs lastMeasurement
-        // (the reference line just drawn) to save the scale.
-        if (!showCalModal) {
-          setLastMeasurement(null)
-          setSelectedAnnotId(null)
-          setStyleEditTargetId(null)
-          selectedOccurrenceAnnotIdRef.current = null
-          annotStyleBaselineRef.current = null
-          // Exit whatever draw/measure tool was active back to the default Select
-          // tool — Esc means "stop what I'm doing," not "stay armed to draw again."
-          if (useAppStore.getState().activeTool !== 'select') setActiveTool('select')
-        }
+        resetDrawingInteraction()
+        setSelectedAnnotId(null)
+        setStyleEditTargetId(null)
+        selectedOccurrenceAnnotIdRef.current = null
+        annotStyleBaselineRef.current = null
+        // The calibration modal still needs its completed reference measurement.
+        if (!showCalModal) setLastMeasurement(null)
         return
       }
+
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
 
       if (!hasMod && (e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotId) {
         e.preventDefault()
@@ -1675,7 +1606,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, setActiveTool])
+  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2242,7 +2173,6 @@ export default function DrawingsPage() {
               resolveMeasurementDbId={resolveMeasurementDbId}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}
-              onClearPending={handleClearPending}
               onAnnotationsBlob={async (blobBase64) => {
                 const { selectedDrawing: drw } = useAppStore.getState()
                 if (!drw) return

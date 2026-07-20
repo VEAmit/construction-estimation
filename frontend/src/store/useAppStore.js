@@ -91,6 +91,13 @@ export const useAppStore = create(
         ...(item?.color ? { measureColor: item.color } : {}),
       })),
       clearSelectedMemberScheduleItem: () => set({ selectedMemberScheduleItem: null, lastMeasureMember: null }),
+      // Return to the neutral workspace without changing saved measurements.
+      resetDrawingInteraction: () => set({
+        activeTool: 'select',
+        selectedMemberScheduleItem: null,
+        lastMeasureMember: null,
+        pasteAnchor: null,
+      }),
 
       // ── Tool state ────────────────────────────────────────
       activeTool: 'select',

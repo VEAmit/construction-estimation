@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../../store/useAppStore'
 import { computeRealLengthFromDrawing } from '../../../utils/measureCalibration'
 import { createRawLine, translateRawLine } from './pdfGeometryAdapter'
-import { detectScheduleMemberFromTextLayer } from './pdfTextMarkDetector'
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -146,7 +145,7 @@ function PdfSvgOverlay({
 }) {
   const svgRef = useRef(null)
   const dragRef = useRef(null)
-  const drawRef = useRef(null)
+  const draftStartRef = useRef(null)
   const [draftStart, setDraftStart] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [dragged, setDragged] = useState(null)
@@ -159,16 +158,13 @@ function PdfSvgOverlay({
     lineThickness,
     lineStyle,
     measureLabelFontSize,
-    selectedMemberScheduleItem,
-    memberScheduleItems,
     selectedDrawing,
-    setActiveTool,
   } = useAppStore()
 
   useEffect(() => {
+    draftStartRef.current = null
     setDraftStart(null)
     setCursor(null)
-    drawRef.current = null
   }, [activeTool, pageNumber])
 
   const pageAnnotations = useMemo(() => annotations.map(annotation => {
@@ -186,20 +182,17 @@ function PdfSvgOverlay({
     const start = startOverride ?? draftStart
     if (!start) return
     const pixelLength = Math.hypot(end.x - start.x, end.y - start.y)
+    draftStartRef.current = null
     setDraftStart(null)
     setCursor(null)
     if (!Number.isFinite(pixelLength) || pixelLength < 0.25) return
     const length = computeRealLengthFromDrawing(pixelLength, selectedDrawing, activeUnit)
     if (!Number.isFinite(length) || length <= 0) return
-    const schedule = activeTool === 'line'
-      ? selectedMemberScheduleItem
-        ?? detectScheduleMemberFromTextLayer(
-          svgRef.current,
-          [start, end],
-          pageSize,
-          memberScheduleItems,
-        )
-      : null
+    // Read the store at finalization time so a schedule-row click always wins,
+    // even when React has not yet committed the overlay's next render.
+    const liveState = useAppStore.getState()
+    const manuallySelectedMember = liveState.selectedMemberScheduleItem
+    const schedule = activeTool === 'line' ? manuallySelectedMember : null
     const annotationColor = schedule?.color ?? schedule?.Color ?? measureColor
     const id = crypto.randomUUID()
     const rawAnnotation = createRawLine({
@@ -223,17 +216,15 @@ function PdfSvgOverlay({
       unit: activeUnit,
       memberMark: schedule?.mark ?? schedule?.Mark ?? '',
       drawingMark: schedule?.mark ?? schedule?.Mark ?? '',
-      memberType: schedule?.memberType ?? '',
+      memberType: schedule?.memberType ?? schedule?.MemberType ?? '',
       memberScheduleId: schedule?.id,
       material: schedule?.mark ?? schedule?.Mark ?? '',
       category: measureCategory,
       rawAnnotation,
     })
-    // A completed linear measurement is a single operation. Returning to
-    // Select prevents the next click (usually intended to deselect or pan)
-    // from silently starting another line.
-    if (activeTool === 'line') setActiveTool('select')
-  }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, memberScheduleItems, onMeasure, pageNumber, pageSize, selectedDrawing, selectedMemberScheduleItem, setActiveTool])
+    // Keep Linear and the selected schedule member armed for repeated
+    // occurrences. Escape/refresh owns the explicit return to Select mode.
+  }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, onMeasure, pageNumber, pageSize, selectedDrawing])
 
   const placePaste = useCallback((target) => {
     if (!sourceRaw) return
@@ -280,29 +271,21 @@ function PdfSvgOverlay({
     event.preventDefault()
     event.stopPropagation()
     const point = toPdfPoint(event, svgRef.current, pageSize)
-    const finishesExisting = Boolean(draftStart)
-    const start = draftStart ?? point
-    if (!draftStart) setDraftStart(point)
-    setCursor(point)
-    svgRef.current.setPointerCapture?.(event.pointerId)
-    drawRef.current = {
-      pointerId: event.pointerId,
-      start,
-      pointerStart: point,
-      finishesExisting,
-      moved: false,
+    const start = draftStartRef.current
+    if (start) {
+      finalizeLine(point, start)
+      return
     }
-  }, [activeTool, draftStart, pageSize, pasteClipboard])
+
+    draftStartRef.current = point
+    setDraftStart(point)
+    setCursor(point)
+  }, [activeTool, finalizeLine, pageSize, pasteClipboard])
 
   const handleMove = useCallback((event) => {
     if (!svgRef.current) return
     const point = toPdfPoint(event, svgRef.current, pageSize)
     setCursor(point)
-    const draw = drawRef.current
-    if (draw?.pointerId === event.pointerId
-      && Math.hypot(point.x - draw.pointerStart.x, point.y - draw.pointerStart.y) >= 1.5) {
-      draw.moved = true
-    }
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     const dx = point.x - drag.origin.x
@@ -343,16 +326,8 @@ function PdfSvgOverlay({
   }, [dragged, onGeometryChange, pageNumber, pageSize])
 
   const endPointer = useCallback((event) => {
-    const draw = drawRef.current
-    if (draw?.pointerId === event.pointerId && svgRef.current) {
-      const point = toPdfPoint(event, svgRef.current, pageSize)
-      svgRef.current.releasePointerCapture?.(event.pointerId)
-      drawRef.current = null
-      if (draw.finishesExisting || draw.moved) finalizeLine(point, draw.start)
-      return
-    }
     endDrag(event)
-  }, [endDrag, finalizeLine, pageSize])
+  }, [endDrag])
 
   const cancelPointer = useCallback((event) => {
     if (drawRef.current?.pointerId === event.pointerId) {
