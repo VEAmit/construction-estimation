@@ -7,7 +7,7 @@ import { extractionService } from '../services/extractionService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
 import DrawingSidebar from '../components/drawings/DrawingSidebar'
-import PdfViewer from '../components/drawings/PdfViewer'
+import DrawingViewer from '../components/drawings/DrawingViewer'
 import Toolbar from '../components/tools/Toolbar'
 import RightPanel from '../components/tools/RightPanel'
 import MeasurementTable from '../components/takeoff/TakeoffTable'
@@ -2210,7 +2210,7 @@ export default function DrawingsPage() {
             onContextMenu={handlePdfAreaContextMenu}
             onClick={ctxMenu ? closeCtxMenu : undefined}
           >
-            <PdfViewer
+            <DrawingViewer
               key={`${selectedProject?.id ?? 'p'}-${selectedDrawing?.id ?? 'd'}`}
               drawingUrl={drawingUrl}
               drawing={activeDrawing}

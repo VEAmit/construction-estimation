@@ -1,26 +1,5 @@
 @import "tailwindcss";
 
-/* ─── Syncfusion PDF Viewer styles ───────────────────────── */
-@import '@syncfusion/ej2-base/styles/material.css';
-@import '@syncfusion/ej2-buttons/styles/material.css';
-@import '@syncfusion/ej2-dropdowns/styles/material.css';
-@import '@syncfusion/ej2-inputs/styles/material.css';
-@import '@syncfusion/ej2-lists/styles/material.css';
-@import '@syncfusion/ej2-navigations/styles/material.css';
-@import '@syncfusion/ej2-popups/styles/material.css';
-@import '@syncfusion/ej2-splitbuttons/styles/material.css';
-@import '@syncfusion/ej2-notifications/styles/material.css';
-@import '@syncfusion/ej2-react-pdfviewer/styles/material.css';
-
-/* ─── Syncfusion PDF Viewer — hide built-in toolbars only ─── */
-.e-pdfviewer .e-toolbar,
-.e-pdfviewer .e-annotation-toolbar,
-.e-pdfviewer .e-pv-comment-panel { display: none !important; }
-.e-pdfviewer { border: none !important; }
-
-/* ─── Syncfusion measurement annotation label text ───────────
-   Labels are set via applyCalibratedLabelToDiagram in PdfViewer.jsx. */
-
 /* ─── Reset ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

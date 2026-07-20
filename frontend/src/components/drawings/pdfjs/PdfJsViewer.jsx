@@ -1,0 +1,396 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as pdfjsLib from 'pdfjs-dist'
+import 'pdfjs-dist/web/pdf_viewer.css'
+import { useAppStore } from '../../../store/useAppStore'
+import PdfJsPage, { clearDocumentBitmaps } from './PdfJsPage'
+import { normalizeAnnotations } from './pdfGeometryAdapter'
+import './pdfJsViewer.css'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.mjs`
+
+const RANGE_CHUNK_SIZE = 1024 * 1024
+const PAGE_GAP = 12
+
+function clampScale(value) {
+  return Math.min(5, Math.max(0.2, Number(value) || 1))
+}
+
+async function loadPageMetrics(pdfDocument, onMetric, isCancelled) {
+  const batchSize = 8
+  for (let start = 1; start <= pdfDocument.numPages; start += batchSize) {
+    if (isCancelled()) return
+    const end = Math.min(pdfDocument.numPages, start + batchSize - 1)
+    await Promise.all(Array.from({ length: end - start + 1 }, async (_, index) => {
+      const pageNumber = start + index
+      const page = await pdfDocument.getPage(pageNumber)
+      if (isCancelled()) return
+      const viewport = page.getViewport({ scale: 1 })
+      onMetric(pageNumber, {
+        width: viewport.width,
+        height: viewport.height,
+        rotation: viewport.rotation,
+      })
+    }))
+  }
+}
+
+function commandAnnotationIds(command) {
+  if (!command || typeof command !== 'object') return []
+  return Array.from(new Set([
+    command.annotationId,
+    ...(command.annotationIds ?? []),
+    ...(command.ids ?? []),
+  ].filter(Boolean).map(String)))
+}
+
+export default function PdfJsViewer({
+  drawingUrl,
+  annotations = [],
+  selectedAnnotationId,
+  onMeasure,
+  onAnnotationSelect,
+  onClearSelection,
+  onMeasurementGeometryChange,
+  measureReleaseRef,
+  onClearPending,
+}) {
+  const containerRef = useRef(null)
+  const loadingTaskRef = useRef(null)
+  const visibilityRef = useRef(new Map())
+  const programmaticPageRef = useRef(null)
+  const panRef = useRef(null)
+  const initialFitAppliedRef = useRef(false)
+  const zoomAnchorRef = useRef(null)
+
+  const {
+    activeTool,
+    pdfScale,
+    pdfPage,
+    pdfCommand,
+    wheelZoomSensitivity,
+    setPdfScale,
+    setPdfPage,
+    setPdfTotalPages,
+    clearPdfCommand,
+  } = useAppStore()
+
+  const [pdfDocument, setPdfDocument] = useState(null)
+  const [pageMetrics, setPageMetrics] = useState({})
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [pasteClipboard, setPasteClipboard] = useState(null)
+  const [hiddenAnnotationIds, setHiddenAnnotationIds] = useState(() => new Set())
+  const [optimisticGeometry, setOptimisticGeometry] = useState({})
+  const [pendingAnnotations, setPendingAnnotations] = useState([])
+
+  const updateMetric = useCallback((pageNumber, metric) => {
+    setPageMetrics((current) => {
+      const existing = current[pageNumber]
+      if (existing
+        && existing.width === metric.width
+        && existing.height === metric.height
+        && existing.rotation === metric.rotation) return current
+      return { ...current, [pageNumber]: metric }
+    })
+  }, [])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return undefined
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setContainerSize({ width, height })
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!drawingUrl) return undefined
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setPdfDocument(null)
+    setPageMetrics({})
+    setPasteClipboard(null)
+    setHiddenAnnotationIds(new Set())
+    setOptimisticGeometry({})
+    setPendingAnnotations([])
+    initialFitAppliedRef.current = false
+    visibilityRef.current.clear()
+
+    const loadingTask = pdfjsLib.getDocument({
+      url: drawingUrl,
+      disableRange: false,
+      disableStream: false,
+      disableAutoFetch: true,
+      rangeChunkSize: RANGE_CHUNK_SIZE,
+      verbosity: pdfjsLib.VerbosityLevel.ERRORS,
+    })
+    loadingTaskRef.current = loadingTask
+
+    loadingTask.promise.then(async (documentProxy) => {
+      if (cancelled) {
+        await documentProxy.destroy()
+        return
+      }
+      setPdfDocument(documentProxy)
+      setPdfTotalPages(documentProxy.numPages)
+      setPdfPage(1)
+      setLoading(false)
+      loadPageMetrics(documentProxy, updateMetric, () => cancelled).catch((metricError) => {
+        if (!cancelled) console.warn('[PDF.js] Page metric scan was interrupted', metricError)
+      })
+    }).catch((loadError) => {
+      if (cancelled) return
+      console.error('[PDF.js] Failed to load document', loadError)
+      setError(loadError?.message || 'Unable to load this PDF')
+      setLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+      loadingTaskRef.current = null
+      loadingTask.destroy().catch(() => {})
+      clearDocumentBitmaps(drawingUrl)
+    }
+  }, [drawingUrl, setPdfPage, setPdfTotalPages, updateMetric])
+
+  const firstMetric = pageMetrics[1]
+
+  const fitWidth = useCallback(() => {
+    if (!firstMetric || !containerSize.width) return
+    setPdfScale(clampScale(Math.max(1, containerSize.width - 32) / firstMetric.width))
+  }, [containerSize.width, firstMetric, setPdfScale])
+
+  const fitPage = useCallback(() => {
+    if (!firstMetric || !containerSize.width || !containerSize.height) return
+    const widthScale = Math.max(1, containerSize.width - 32) / firstMetric.width
+    const heightScale = Math.max(1, containerSize.height - 24) / firstMetric.height
+    setPdfScale(clampScale(Math.min(widthScale, heightScale)))
+  }, [containerSize, firstMetric, setPdfScale])
+
+  useEffect(() => {
+    if (!firstMetric || !containerSize.width || initialFitAppliedRef.current) return
+    initialFitAppliedRef.current = true
+    fitWidth()
+  }, [containerSize.width, firstMetric, fitWidth])
+
+  useEffect(() => {
+    if (!pdfCommand) return
+    const type = typeof pdfCommand === 'string' ? pdfCommand : pdfCommand.type
+    if (type === 'fitPage') fitPage()
+    else if (type === 'fitWidth') fitWidth()
+    else if (type === 'selectAnnotation') {
+      const pageNumber = Number(pdfCommand.pageNumber)
+      if (Number.isFinite(pageNumber) && pageNumber > 0) setPdfPage(pageNumber)
+    }
+    else if (type === 'pasteMeasurement') setPasteClipboard(pdfCommand.clipboard ?? null)
+    else if (type === 'cancelPastePlacement') setPasteClipboard(null)
+    else if (type === 'deleteAnnotation' || type === 'deleteAnnotations') {
+      const ids = commandAnnotationIds(pdfCommand)
+      setHiddenAnnotationIds(current => new Set([...current, ...ids]))
+      onClearSelection?.()
+    }
+    clearPdfCommand()
+  }, [clearPdfCommand, fitPage, fitWidth, onClearSelection, pdfCommand, setPdfPage])
+
+  useEffect(() => {
+    if (!measureReleaseRef) return undefined
+    measureReleaseRef.current = (annotationId) => {
+      setPendingAnnotations(current => current.filter(annotation => annotation.id !== String(annotationId)))
+    }
+    return () => { measureReleaseRef.current = null }
+  }, [measureReleaseRef])
+
+  useEffect(() => {
+    const persistedIds = new Set(normalizeAnnotations(annotations, pageMetrics).map(annotation => annotation.id))
+    setPendingAnnotations(current => current.filter(annotation => !persistedIds.has(annotation.id)))
+  }, [annotations, pageMetrics])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !pdfDocument || programmaticPageRef.current === pdfPage) return
+    const page = container.querySelector(`[data-page-number="${pdfPage}"]`)
+    if (!page) return
+    programmaticPageRef.current = pdfPage
+    page.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    window.setTimeout(() => { programmaticPageRef.current = null }, 350)
+  }, [pdfDocument, pdfPage])
+
+  useEffect(() => {
+    const anchor = zoomAnchorRef.current
+    const container = containerRef.current
+    if (!anchor || !container) return
+    requestAnimationFrame(() => {
+      const ratio = pdfScale / anchor.scale
+      container.scrollLeft = (anchor.scrollLeft + anchor.x) * ratio - anchor.x
+      container.scrollTop = (anchor.scrollTop + anchor.y) * ratio - anchor.y
+      zoomAnchorRef.current = null
+    })
+  }, [pdfScale])
+
+  const handleVisibility = useCallback((pageNumber, ratio) => {
+    visibilityRef.current.set(pageNumber, ratio)
+    if (programmaticPageRef.current != null) return
+    let visiblePage = null
+    let visibleRatio = 0
+    visibilityRef.current.forEach((candidateRatio, candidatePage) => {
+      if (candidateRatio > visibleRatio) {
+        visiblePage = candidatePage
+        visibleRatio = candidateRatio
+      }
+    })
+    if (visiblePage != null && visiblePage !== useAppStore.getState().pdfPage) setPdfPage(visiblePage)
+  }, [setPdfPage])
+
+  const normalizedAnnotations = useMemo(() => {
+    const saved = normalizeAnnotations(annotations, pageMetrics)
+      .filter(annotation => !hiddenAnnotationIds.has(annotation.id))
+      .map(annotation => optimisticGeometry[annotation.id]
+        ? { ...annotation, points: optimisticGeometry[annotation.id].points, raw: optimisticGeometry[annotation.id].raw }
+        : annotation)
+    return [...saved, ...pendingAnnotations.filter(annotation => !hiddenAnnotationIds.has(annotation.id))]
+  }, [annotations, hiddenAnnotationIds, optimisticGeometry, pageMetrics, pendingAnnotations])
+
+  const handleMeasure = useCallback((measurement, options) => {
+    const raw = measurement?.rawAnnotation
+    if (raw) {
+      const previewItem = {
+        id: measurement.annotationId,
+        itemType: measurement.measureType,
+        mark: measurement.memberMark ?? measurement.drawingMark ?? '',
+        length: measurement.length,
+        unit: measurement.unit,
+        color: raw.strokeColor ?? raw.StrokeColor,
+        pointsJson: raw,
+      }
+      const normalized = normalizeAnnotations([previewItem], pageMetrics)
+      if (normalized[0]) setPendingAnnotations(current => [...current.filter(a => a.id !== normalized[0].id), normalized[0]])
+    }
+    onMeasure?.(measurement, options)
+  }, [onMeasure, pageMetrics])
+
+  const handleGeometryChange = useCallback((payload) => {
+    const id = String(payload.annotationId)
+    const normalized = normalizeAnnotations([{
+      id: payload.dbId,
+      itemType: 'Line',
+      pointsJson: payload.rawAnnotation,
+    }], pageMetrics)[0]
+    if (normalized) {
+      setOptimisticGeometry(current => ({
+        ...current,
+        [id]: { points: normalized.points, raw: payload.rawAnnotation },
+      }))
+    }
+    onMeasurementGeometryChange?.(payload)
+  }, [onMeasurementGeometryChange, pageMetrics])
+
+  const pages = useMemo(() => pdfDocument
+    ? Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
+    : [], [pdfDocument])
+
+  const handlePointerDown = useCallback((event) => {
+    const canPan = activeTool === 'pan' ? event.button === 0 : event.button === 1
+    if (!canPan) return
+    const container = containerRef.current
+    if (!container) return
+    event.preventDefault()
+    container.setPointerCapture?.(event.pointerId)
+    panRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: container.scrollLeft,
+      top: container.scrollTop,
+    }
+  }, [activeTool])
+
+  const handlePointerMove = useCallback((event) => {
+    const pan = panRef.current
+    const container = containerRef.current
+    if (!pan || !container || pan.pointerId !== event.pointerId) return
+    container.scrollLeft = pan.left - (event.clientX - pan.x)
+    container.scrollTop = pan.top - (event.clientY - pan.y)
+  }, [])
+
+  const endPan = useCallback((event) => {
+    if (panRef.current?.pointerId !== event.pointerId) return
+    containerRef.current?.releasePointerCapture?.(event.pointerId)
+    panRef.current = null
+  }, [])
+
+  const handleWheel = useCallback((event) => {
+    if (!event.ctrlKey) return
+    event.preventDefault()
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    zoomAnchorRef.current = {
+      scale: pdfScale,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+    const direction = event.deltaY < 0 ? 1 : -1
+    const factor = 1 + direction * 0.1 * (wheelZoomSensitivity ?? 1)
+    setPdfScale(clampScale(pdfScale * factor))
+  }, [pdfScale, setPdfScale, wheelZoomSensitivity])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return undefined
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => container.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
+
+  return (
+    <div
+      ref={containerRef}
+      className={`pdfjs-viewer ${activeTool === 'pan' ? 'is-pan-mode' : ''} ${pasteClipboard ? 'is-paste-mode' : ''}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && pasteClipboard) setPasteClipboard(null)
+        if (event.key === 'Escape') onClearPending?.()
+      }}
+      tabIndex={0}
+    >
+      {loading && <div className="pdfjs-document-status">Preparing drawing...</div>}
+      {error && <div className="pdfjs-document-error">{error}</div>}
+      {pasteClipboard && <div className="pdfjs-paste-hint">Move preview, then click to place. Esc cancels.</div>}
+      {pdfDocument && (
+        <div className="pdfjs-page-stack" style={{ gap: PAGE_GAP }}>
+          {pages.map((pageNumber) => (
+            <PdfJsPage
+              key={pageNumber}
+              pdfDocument={pdfDocument}
+              documentKey={drawingUrl}
+              pageNumber={pageNumber}
+              scale={clampScale(pdfScale)}
+              root={containerRef.current}
+              initialSize={pageMetrics[pageNumber] ?? firstMetric}
+              onMetric={updateMetric}
+              onVisibility={handleVisibility}
+              forceRender={Math.abs(pageNumber - pdfPage) <= 2}
+              annotations={normalizedAnnotations.filter(annotation => annotation.pageNumber === pageNumber)}
+              selectedAnnotationId={selectedAnnotationId}
+              pasteClipboard={pasteClipboard}
+              onPasteComplete={() => setPasteClipboard(null)}
+              onMeasure={handleMeasure}
+              onSelect={onAnnotationSelect}
+              onClearSelection={onClearSelection}
+              onGeometryChange={handleGeometryChange}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

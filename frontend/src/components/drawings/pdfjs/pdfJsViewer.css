@@ -1,0 +1,128 @@
+.pdfjs-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #d7d7d7;
+  scrollbar-gutter: stable;
+  touch-action: pan-x pan-y;
+}
+
+.pdfjs-viewer.is-pan-mode {
+  cursor: grab;
+  user-select: none;
+}
+
+.pdfjs-viewer.is-pan-mode:active {
+  cursor: grabbing;
+}
+
+.pdfjs-page-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  min-width: 100%;
+  padding: 8px 16px 24px;
+  box-sizing: border-box;
+}
+
+.pdfjs-page-shell {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+  transition: width 120ms ease-out, height 120ms ease-out;
+}
+
+.pdfjs-page-canvas,
+.pdfjs-text-layer,
+.pdfjs-annotation-layer,
+.pdfjs-page-placeholder {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.pdfjs-page-canvas {
+  z-index: 1;
+  transform-origin: 0 0;
+}
+
+.pdfjs-text-layer {
+  z-index: 2;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+}
+
+.pdfjs-annotation-layer {
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.pdfjs-annotation-layer.is-interactive {
+  pointer-events: auto;
+}
+
+.pdfjs-viewer.is-paste-mode,
+.pdfjs-viewer.is-paste-mode .pdfjs-annotation-layer {
+  cursor: copy;
+}
+
+.pdfjs-paste-hint {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  width: max-content;
+  margin: 0 auto -32px;
+  padding: 7px 12px;
+  border: 1px solid #365474;
+  border-radius: 6px;
+  background: #10233a;
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.pdfjs-page-placeholder {
+  z-index: 0;
+  background: #fff;
+}
+
+.pdfjs-document-status,
+.pdfjs-document-error,
+.pdfjs-page-error {
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.pdfjs-document-status,
+.pdfjs-document-error {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #0b1324;
+}
+
+.pdfjs-document-error,
+.pdfjs-page-error {
+  color: #ef233c;
+}
+
+.pdfjs-page-error {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(255, 255, 255, 0.94);
+}

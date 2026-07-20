@@ -134,7 +134,23 @@ function syncViewerLayout(vm, recalcPages = false, containerWidth = null) {
     if (vb.pageContainer && fullW > 0) {
       vb.pageContainer.style.width = `${fullW}px`
     }
-    if (recalcPages) vb.onWindowResize?.()
+    if (recalcPages) {
+      // onWindowResize() ends with Syncfusion's own updateZoomValue(), which
+      // silently re-runs fitToAuto()/fitToWidth()/fitToPage() if mag.isAutoZoom
+      // or mag.fitType is still set from Syncfusion's own initial load state.
+      // A scrollbar appearing/disappearing while scrolling a tall multi-page
+      // doc nudges this container's observed width, firing this reflow — and
+      // without clearing these first, that silent recompute can hand back a
+      // wildly different zoom (Syncfusion's zoomTo() clamps it to exactly
+      // 400%), reported as "zoom jumps to 400% by itself while scrolling."
+      // Same guard applyFitWidthToViewer/applyFitPageToViewer already use.
+      const mag = getMagnification(vm)
+      if (mag) {
+        mag.fitType = null
+        mag.isAutoZoom = false
+      }
+      vb.onWindowResize?.()
+    }
   } catch (_) { /* viewer mid-init */ }
 }
 
@@ -329,7 +345,17 @@ let _lastRecoverAttemptAt = 0
 // server-mode render requests are deduplicated by exact zoom percentage, so
 // retrying the identical bump value can be silently swallowed if that exact
 // percentage was already requested once.
-let _recoverBumpStep = 0
+
+// Remembers the last zoom percentage that was confirmed fully rendered (every
+// visible page non-blank) and when. Quickly returning to that same percentage
+// (e.g. zoom out then immediately back in, or a settle-triggered re-check
+// firing twice for a zoom the user isn't even at anymore) skips scheduling a
+// redundant recovery check — avoiding unnecessary work/potential micro-bump
+// disruption for a zoom level already known to be fine, without touching
+// Syncfusion's own render/cache behavior.
+let _lastConfirmedGoodZoomPct = null
+let _lastConfirmedGoodZoomAt = 0
+const CONFIRMED_ZOOM_TTL_MS = 8000
 
 /**
  * Check whether a page's canvas/img is blank/unrendered.
@@ -394,6 +420,12 @@ function isPageCanvasBlank(canvas) {
   }
 }
 
+/** Was this exact zoom percentage confirmed fully rendered within the last few seconds? */
+function isZoomPctRecentlyConfirmed(pct) {
+  return _lastConfirmedGoodZoomPct === Math.round(pct)
+    && (Date.now() - _lastConfirmedGoodZoomAt) < CONFIRMED_ZOOM_TTL_MS
+}
+
 /**
  * Called after scroll/zoom settles and by the stale-page watchdog.
  * Finds visible pages whose pdfium canvas is still blank and forces a re-render.
@@ -405,9 +437,9 @@ function isPageCanvasBlank(canvas) {
  *      (this is the common case: Syncfusion pre-fills with white before pdfium
  *       renders, so transparent-pixel checks always return "not blank" → wrong)
  *
- * Recovery uses a 1% zoom micro-bump: zoomTo(N+1) → wait one frame → zoomTo(N).
- * This is the only reliable way to force Syncfusion/pdfium to invalidate page
- * caches and re-queue renders — calling zoomTo(N) when already at N% is a no-op.
+ * Recovery intentionally does not change zoom. A zoom micro-bump invalidates every
+ * rendered page and is noticeably disruptive on large drawings. Request only the
+ * missing visible pages through Syncfusion's own virtual-page queue instead.
  */
 function recoverBlankVisiblePages(vm) {
   if (_recoverInProgress) return
@@ -423,7 +455,7 @@ function recoverBlankVisiblePages(vm) {
   const pageCount  = vb.pageCount ?? 0
   if (pageCount === 0) return
 
-  let anyBlank = false
+  const blankPageIndices = []
   for (let i = 0; i < pageCount; i++) {
     const div = document.getElementById(`${id}_pageDiv_${i}`)
     if (!div) continue
@@ -442,54 +474,57 @@ function recoverBlankVisiblePages(vm) {
     // Case A/B: canvas missing or far smaller than its container
     if (!pageCvs || (divW > 20 && pageCvs.width < divW * 0.4)) {
       console.log(`[SF-Render] page ${i} blank (case A/B): canvas=${pageCvs?.width ?? 'null'} divW=${divW}`)
-      anyBlank = true; break
+      blankPageIndices.push(i); continue
     }
 
     // Case C: canvas has correct size but content is uniformly blank
     if (isPageCanvasBlank(pageCvs)) {
       console.log(`[SF-Render] page ${i} blank (case C): uniform pixels at zoom=${getMagnification(vm)?.zoomFactor?.toFixed(2) ?? '?'}`)
-      anyBlank = true; break
+      blankPageIndices.push(i)
     }
   }
+  const anyBlank = blankPageIndices.length > 0
 
-  if (!anyBlank) return
-
-  _recoverInProgress = true
-  _lastRecoverAttemptAt = Date.now()
-  console.log('[SF-Render] recovering — zoom micro-bump to force pdfium re-render')
-
-  const mag = getMagnification(vm)
-  const currentPct = Math.round((mag?.zoomFactor ?? 1) * 100)
-  // Bump size cycles 1/2/3% (visually near-imperceptible, ~1 frame) to force
-  // Syncfusion to invalidate page caches and re-queue pdfium renders for all
-  // visible pages, while dodging server-mode's exact-percentage dedup.
-  const bumpAmount = (_recoverBumpStep % 3) + 1
-  _recoverBumpStep += 1
-  const bumpPct = currentPct < 400 ? currentPct + bumpAmount : currentPct - bumpAmount
-
-  try {
-    if (mag) mag.fitType = null
-    mag?.zoomTo?.(bumpPct)
-  } catch (_) {
-    _recoverInProgress = false
+  if (!anyBlank) {
+    _lastConfirmedGoodZoomPct = Math.round((getMagnification(vm)?.zoomFactor ?? 1) * 100)
+    _lastConfirmedGoodZoomAt = Date.now()
     return
   }
 
-  // Restore original zoom after one frame, then re-check scroll position.
-  requestAnimationFrame(() => {
+  _recoverInProgress = true
+  _lastRecoverAttemptAt = Date.now()
+  console.log('[SF-Render] requesting visible blank pages without invalidating the render cache')
+
+  // Direct nudge for multi-page blanks: the zoom-bump trick below only forces
+  // a re-render via Syncfusion's own isMagnified-clear side effect, which
+  // re-fires pageViewScrollChanged for a SINGLE page — whichever one
+  // Syncfusion's internal currentPageNumber currently points to (plus its
+  // immediate neighbour). In continuous-scroll mode at a low zoom%, several
+  // separate pages can be visible and blank at once (e.g. every page after
+  // page 1 the first time they scroll into view, since initialRenderPages=1
+  // pre-renders only page 1) — the bump alone won't reach pages outside that
+  // single current-page neighbourhood. pageViewScrollChanged is the exact
+  // function Syncfusion's own scroll handler calls to request a page's render;
+  // calling it directly per blank page (its own renderedPagesList dedup check
+  // makes redundant calls harmless) reaches every one of them, not just one.
+  try {
+    const vbase = vm.viewerBase
+    if (typeof vbase?.pageViewScrollChanged === 'function') {
+      for (const idx of blankPageIndices) {
+        vbase.pageViewScrollChanged(idx + 1)
+      }
+    }
+  } catch (_) {}
+
+  // Let the existing virtual rendering queue complete. We deliberately retain the
+  // current page bitmap and scroll position rather than invalidating all canvases.
+  setTimeout(() => {
+    _recoverInProgress = false
     try {
-      if (mag) mag.fitType = null
-      mag?.zoomTo?.(currentPct)
+      if (Math.abs(vc.scrollTop - scrollTop) > 4) vc.scrollTop = scrollTop
+      if (Math.abs(vc.scrollLeft - scrollLeft) > 4) vc.scrollLeft = scrollLeft
     } catch (_) {}
-    // Allow pdfium ~150 ms to finish renders at the restored zoom before unlocking.
-    setTimeout(() => {
-      _recoverInProgress = false
-      try {
-        if (Math.abs(vc.scrollTop  - scrollTop)  > 4) vc.scrollTop  = scrollTop
-        if (Math.abs(vc.scrollLeft - scrollLeft) > 4) vc.scrollLeft = scrollLeft
-      } catch (_) {}
-    }, 150)
-  })
+  }, 350)
 }
 
 const MEASURE_MODES = { line: 'Distance', calibrate: 'Distance', area: 'Area', perimeter: 'Perimeter' }
@@ -3642,6 +3677,10 @@ export default function PdfViewer({
   const [viewerSize, setViewerSize]   = useState({ w: 0, h: 0 })
   const [docLoaded,  setDocLoaded]    = useState(false)
   const [useServerPdfRendering, setUseServerPdfRendering] = useState(false)
+  // Once a page is visible, never cover it with a loading layer during normal
+  // virtual-page rendering. This mirrors browser PDF viewers: the old bitmap
+  // stays on screen until the replacement tile is ready.
+  const [hasVisiblePdf, setHasVisiblePdf] = useState(false)
   // True while Syncfusion's pdfium WASM is parsing/rendering the document (fetch done, page not yet visible)
   const [docRendering, setDocRendering] = useState(false)
   const [countMarkers, setCountMarkers] = useState([])  // [{id, xPct, yPct, page, label}]
@@ -3653,6 +3692,8 @@ export default function PdfViewer({
   const countMarkersRef = useRef([])
   const fallbackLabelRafRef = useRef(null)
   const liveDrawRafRef = useRef(null)
+  const annotationRenderRafRef = useRef(null)
+  const lastViewerLayoutRef = useRef({ width: 0, height: 0 })
   const prevUrlRef  = useRef(null)
   const pageTextByPageRef = useRef({})
   const firstRenderDoneRef = useRef(false)
@@ -3724,12 +3765,12 @@ export default function PdfViewer({
 
   // Track Syncfusion WASM/parse phase: show rendering overlay between fetch-complete and documentLoad
   useEffect(() => {
-    if (pdfBase64 && !docLoaded) {
+    if (pdfBase64 && !hasVisiblePdf) {
       setDocRendering(true)
     } else {
       setDocRendering(false)
     }
-  }, [pdfBase64, docLoaded])
+  }, [pdfBase64, hasVisiblePdf])
 
   useEffect(() => {
     if (!pdfBase64 || docLoaded) return
@@ -3866,6 +3907,14 @@ export default function PdfViewer({
     applyFitWidthToViewer(viewerRef.current, setPdfScale, containerW, pageMetaRef.current)
   }, [setPdfScale])
 
+  const scheduleAnnotationOverlayRender = useCallback(() => {
+    if (annotationRenderRafRef.current) return
+    annotationRenderRafRef.current = requestAnimationFrame(() => {
+      annotationRenderRafRef.current = null
+      try { viewerRef.current?.renderDrawing?.() } catch (_) {}
+    })
+  }, [])
+
   // Two-pass fit: first pageRenderComplete fits, second finalizes after retile.
   // Every subsequent call (scroll/zoom-triggered virtual renders) repaints annotation overlays.
   const handlePageRenderComplete = useCallback(() => {
@@ -3874,6 +3923,7 @@ export default function PdfViewer({
     patchSyncfusionCommentDateGuard(vm)
     setDocLoaded(true)
     setDocRendering(false)
+    setHasVisiblePdf(true)
     const pass = fitPassRef.current
     console.log(`[SF-Render] pageRenderComplete pass=${pass} zoom=${getMagnification(vm)?.zoomFactor?.toFixed(3) ?? '?'}`)
     if (pass === 0) {
@@ -3898,8 +3948,8 @@ export default function PdfViewer({
     }
     // Scroll/zoom-triggered re-renders: repaint annotation canvas overlay for the
     // newly rendered page so measurements stay visible as the user scrolls.
-    try { vm.renderDrawing?.() } catch (_) {}
-  }, [applyFitWidth])
+    scheduleAnnotationOverlayRender()
+  }, [applyFitWidth, scheduleAnnotationOverlayRender])
 
   const updateFallbackMeasureLabels = useCallback(() => {
     // Skip while any measurement-complete timers are pending — avoids interfering
@@ -4167,8 +4217,9 @@ export default function PdfViewer({
 
     let scrollEndTimer = null
 
-    // Scroll handler: update label positions immediately via RAF, then schedule
-    // blank-page recovery 300ms after scrolling stops.
+    // Scroll handler: update label positions immediately via RAF. Recovery is
+    // deliberately delayed until scrolling has been quiet long enough for
+    // Syncfusion's virtual-page queue to finish naturally.
     const onScroll = () => {
       markZoomScrollInteraction()
       scheduleFallbackLabelLayout()
@@ -4176,7 +4227,7 @@ export default function PdfViewer({
       scrollEndTimer = setTimeout(() => {
         scrollEndTimer = null
         recoverBlankVisiblePages(viewerRef.current)
-      }, 300)
+      }, 1100)
     }
 
     const onMove = () => scheduleFallbackLabelLayout()
@@ -6317,7 +6368,13 @@ export default function PdfViewer({
     // spaceHeldRef would stay stuck "true" forever — silently turning every
     // future plain left-click into a pan attempt instead of select/drag/draw.
     // Force-release on any focus loss so a stuck key can never survive it.
-    const onVisibilityChange = () => { if (document.hidden) releaseSpace() }
+    const onVisibilityChange = () => {
+      if (!document.hidden) return
+      releaseSpace()
+      // A background tab can pause delayed visible-page recovery. Do not let
+      // that transient guard survive a focus change and block a later recovery.
+      _recoverInProgress = false
+    }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', releaseSpace)
@@ -6936,6 +6993,8 @@ export default function PdfViewer({
     pageMetaRef.current = null
     setUseServerPdfRendering(false)
     setDocLoaded(false)
+    setHasVisiblePdf(false)
+    lastViewerLayoutRef.current = { width: 0, height: 0 }
     firstRenderDoneRef.current = false
     fitPassRef.current = 0
     setPdfScale(1.2)
@@ -7063,11 +7122,16 @@ export default function PdfViewer({
   useEffect(() => {
     const vm = viewerRef.current
     if (!vm || !pdfBase64 || !docLoaded || !firstRenderDoneRef.current) return
-    console.log(`[SF-Render] zoomTo ${Math.round(pdfScale * 100)}% (debounced)`)
+    const targetPct = pdfScale * 100
+    const currentPct = Math.round(resolveViewerZoomScale(vm, pdfScale) * 100)
+    if (Math.abs(currentPct - targetPct) <= 1) return
+    console.log(`[SF-Render] applying requested zoom ${Math.round(targetPct)}%`)
     markZoomScrollInteraction()
-    const applyT   = setTimeout(() => applyViewerZoomPct(vm, pdfScale * 100), 150)
-    const recoverT = setTimeout(() => recoverBlankVisiblePages(vm), 1800)
-    return () => { clearTimeout(applyT); clearTimeout(recoverT) }
+    const applyT = setTimeout(() => applyViewerZoomPct(vm, targetPct), 150)
+    // Skip scheduling the recovery check entirely when this exact percentage was
+    // just confirmed fully rendered (e.g. zoom out then straight back in to the
+    // same level) — nothing to recover, so there's no reason to even run the scan.
+    return () => clearTimeout(applyT)
   }, [pdfScale, pdfBase64, docLoaded])
 
   // ── Reflow when container resizes (fixes scroll-to-see-PDF symptom) ───
@@ -7077,8 +7141,14 @@ export default function PdfViewer({
   useEffect(() => {
     if (!docLoaded || !firstRenderDoneRef.current) return
     const t = setTimeout(() => {
-      const containerW = containerRef.current?.clientWidth
-      syncViewerLayout(viewerRef.current, true, containerW)
+      const container = containerRef.current
+      const width = container?.clientWidth ?? 0
+      const height = container?.clientHeight ?? 0
+      const previous = lastViewerLayoutRef.current
+      // Grid/panel height changes should not evict rendered PDF pages. Only a
+      // real width change needs Syncfusion's expensive page reflow.
+      syncViewerLayout(viewerRef.current, Math.abs(width - previous.width) > 2, width)
+      lastViewerLayoutRef.current = { width, height }
     }, 200)
     return () => clearTimeout(t)
   }, [viewerSize.w, viewerSize.h, docLoaded])
@@ -7088,12 +7158,6 @@ export default function PdfViewer({
   // has a blank/transparent canvas (render deadlock from rapid scroll/zoom),
   // recoverBlankVisiblePages re-applies the current zoom to flush the queue.
   // The check itself is near-zero cost when all pages are already rendered.
-  useEffect(() => {
-    if (!docLoaded) return
-    const t = setInterval(() => recoverBlankVisiblePages(viewerRef.current), 2500)
-    return () => clearInterval(t)
-  }, [docLoaded])
-
   // ── Sync page navigation ───────────────────────────────────────────────
   useEffect(() => {
     const vm = viewerRef.current
@@ -7330,14 +7394,13 @@ export default function PdfViewer({
     skipNextGoToPageRef.current = true
     setPdfPage(args.currentPageNumber)
     bumpFallbackLabelLayout()
-    // Repaint annotation overlays when Syncfusion signals a new page is in view.
-    // firstRenderDoneRef guards against firing before initial fit completes.
-    if (firstRenderDoneRef.current) {
-      try { viewerRef.current?.renderDrawing?.() } catch (_) {}
-    }
-  }, [setPdfPage, bumpFallbackLabelLayout])
+    // Coalesce annotation repaints to one frame instead of redrawing for every
+    // scroll-driven page-change notification.
+    if (firstRenderDoneRef.current) scheduleAnnotationOverlayRender()
+  }, [setPdfPage, bumpFallbackLabelLayout, scheduleAnnotationOverlayRender])
 
   const handleZoomChange = useCallback((args) => {
+    markZoomScrollInteraction()
     const zoomScale = normalizeZoomScale(args?.zoomValue, resolveViewerZoomScale(viewerRef.current, pdfScale))
     setPdfScale(current => Math.abs(Number(current) - zoomScale) < 0.001
       ? current
@@ -7707,7 +7770,7 @@ export default function PdfViewer({
       )}
 
       {/* Syncfusion rendering overlay — shows while pdfium WASM parses/renders after fetch completes */}
-      {pdfBase64 && !loading && docRendering && (
+      {pdfBase64 && !loading && docRendering && !hasVisiblePdf && (
         <div style={{ position:'absolute', inset:0, zIndex:19,
           display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
           background:'#0a0f1e', gap:'12px' }}>

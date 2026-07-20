@@ -1,1 +1,1164 @@
 2026-07-17 07:32:23.265 +05:30 [INF] Database migrated successfully
+2026-07-17 07:32:23.854 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-17 07:34:58.928 +05:30 [INF] HTTP GET /api/projects responded 401 in 3255.9527 ms
+2026-07-17 07:34:59.304 +05:30 [INF] HTTP GET /api/projects responded 401 in 6.9268 ms
+2026-07-17 07:36:37.023 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 3982.9897 ms
+2026-07-17 07:36:40.329 +05:30 [INF] HTTP GET /api/projects responded 200 in 2757.1917 ms
+2026-07-17 07:36:40.354 +05:30 [INF] HTTP GET /api/projects responded 200 in 20.5371 ms
+2026-07-17 07:39:17.375 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 575.8618 ms
+2026-07-17 07:39:17.410 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 18.8393 ms
+2026-07-17 07:39:17.575 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 54.8539 ms
+2026-07-17 07:39:17.653 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 132.8531 ms
+2026-07-17 07:39:17.722 +05:30 [INF] HTTP GET /api/drawings/207/file responded 304 in 265.3553 ms
+2026-07-17 07:39:17.741 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 196.3618 ms
+2026-07-17 07:39:17.898 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 371.0820 ms
+2026-07-17 07:39:17.901 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 369.7027 ms
+2026-07-17 07:39:29.203 +05:30 [INF] HTTP GET /api/drawings/206/file responded 304 in 4.5524 ms
+2026-07-17 07:39:29.403 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 103.5838 ms
+2026-07-17 07:39:29.432 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 4.9085 ms
+2026-07-17 07:39:29.544 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 117.0778 ms
+2026-07-17 07:39:29.661 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 233.7626 ms
+2026-07-17 07:39:29.729 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 429.9053 ms
+2026-07-17 07:40:13.672 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 07:40:15.164 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 37011.5637 ms
+2026-07-17 07:43:37.425 +05:30 [INF] HTTP GET /api/drawings/205/file responded 304 in 18.7422 ms
+2026-07-17 07:43:37.425 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205/summary responded 200 in 8.8359 ms
+2026-07-17 07:43:37.427 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205 responded 200 in 12.9729 ms
+2026-07-17 07:43:37.428 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205 responded 200 in 7.1444 ms
+2026-07-17 07:43:37.436 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205/summary responded 200 in 15.1018 ms
+2026-07-17 07:43:37.449 +05:30 [INF] HTTP GET /api/drawings/205 responded 200 in 43.0721 ms
+2026-07-17 07:43:41.573 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 07:43:41.585 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 2113.8938 ms
+2026-07-17 07:43:43.620 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1835.4275 ms
+2026-07-17 07:43:43.620 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2000.0690 ms
+2026-07-17 07:43:43.620 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1835.0129 ms
+2026-07-17 07:43:43.620 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1998.9629 ms
+2026-07-17 07:43:43.621 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1834.6850 ms
+2026-07-17 07:43:43.874 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 271.3745 ms
+2026-07-17 07:43:43.933 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 327.8888 ms
+2026-07-17 07:43:43.951 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 348.9421 ms
+2026-07-17 07:43:43.952 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 345.2636 ms
+2026-07-17 07:43:44.125 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 247.8159 ms
+2026-07-17 07:43:44.126 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 187.6150 ms
+2026-07-17 07:43:44.137 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 529.1122 ms
+2026-07-17 07:43:44.156 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 192.3609 ms
+2026-07-17 07:43:44.391 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 428.3099 ms
+2026-07-17 07:43:44.393 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 238.3246 ms
+2026-07-17 07:43:44.404 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 252.5282 ms
+2026-07-17 07:43:44.445 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 283.4873 ms
+2026-07-17 07:43:44.458 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2845.5346 ms
+2026-07-17 07:43:44.532 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 377.4420 ms
+2026-07-17 07:43:44.625 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 188.3597 ms
+2026-07-17 07:43:44.826 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 389.7507 ms
+2026-07-17 07:43:44.827 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 411.5413 ms
+2026-07-17 07:43:44.833 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 382.2855 ms
+2026-07-17 07:43:44.858 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 298.3390 ms
+2026-07-17 07:43:45.036 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 243.6836 ms
+2026-07-17 07:43:45.096 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 633.3879 ms
+2026-07-17 07:43:45.196 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 355.3110 ms
+2026-07-17 07:43:45.198 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 356.2869 ms
+2026-07-17 07:43:45.197 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 342.7858 ms
+2026-07-17 07:43:45.348 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 304.8046 ms
+2026-07-17 07:43:45.348 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 485.4964 ms
+2026-07-17 07:43:45.378 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 277.7155 ms
+2026-07-17 07:43:45.381 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 165.9309 ms
+2026-07-17 07:43:45.487 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 251.7196 ms
+2026-07-17 07:43:45.489 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 253.8809 ms
+2026-07-17 07:43:45.672 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 151.5156 ms
+2026-07-17 07:43:45.679 +05:30 [INF] HTTP GET /api/drawings/204/file responded 304 in 6.2151 ms
+2026-07-17 07:43:45.685 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 328.0712 ms
+2026-07-17 07:43:45.709 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204 responded 200 in 5.7777 ms
+2026-07-17 07:43:45.709 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204/summary responded 200 in 4.8355 ms
+2026-07-17 07:43:45.717 +05:30 [INF] HTTP GET /api/drawings/204 responded 200 in 13.9991 ms
+2026-07-17 07:43:45.761 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 405.3247 ms
+2026-07-17 07:43:45.773 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204 responded 200 in 68.5885 ms
+2026-07-17 07:43:45.772 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204/summary responded 200 in 71.5661 ms
+2026-07-17 07:43:45.827 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 435.0826 ms
+2026-07-17 07:43:46.213 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 07:43:46.214 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 124.4707 ms
+2026-07-17 07:43:46.543 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 299.1402 ms
+2026-07-17 07:43:46.553 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 281.1815 ms
+2026-07-17 07:43:46.562 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 315.5693 ms
+2026-07-17 07:43:46.686 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 413.1679 ms
+2026-07-17 07:43:46.823 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 550.0992 ms
+2026-07-17 07:43:46.842 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 188.6802 ms
+2026-07-17 07:43:46.865 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 194.0256 ms
+2026-07-17 07:43:46.962 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 687.5186 ms
+2026-07-17 07:43:47.077 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 250.0963 ms
+2026-07-17 07:43:47.084 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 413.0904 ms
+2026-07-17 07:43:47.123 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 429.3656 ms
+2026-07-17 07:43:47.348 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 466.9702 ms
+2026-07-17 07:43:47.348 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 495.4953 ms
+2026-07-17 07:43:47.382 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 385.2754 ms
+2026-07-17 07:43:47.386 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 274.7259 ms
+2026-07-17 07:43:47.398 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 277.7949 ms
+2026-07-17 07:43:47.474 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 117.7374 ms
+2026-07-17 07:43:47.485 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 322.7385 ms
+2026-07-17 07:44:16.119 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 46.6557 ms
+2026-07-17 07:44:16.320 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205 responded 200 in 29.1241 ms
+2026-07-17 07:44:16.324 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205 responded 200 in 25.6603 ms
+2026-07-17 07:44:16.326 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205/summary responded 200 in 32.0112 ms
+2026-07-17 07:44:16.353 +05:30 [INF] HTTP GET /api/drawings/205 responded 200 in 65.2521 ms
+2026-07-17 07:44:16.359 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205/summary responded 200 in 60.1092 ms
+2026-07-17 07:44:17.885 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 07:44:17.885 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 80.1483 ms
+2026-07-17 07:44:18.343 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 442.0658 ms
+2026-07-17 07:44:18.343 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 424.2180 ms
+2026-07-17 07:44:18.347 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 440.2684 ms
+2026-07-17 07:44:18.369 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 458.6083 ms
+2026-07-17 07:44:18.497 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 597.4301 ms
+2026-07-17 07:44:18.615 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 247.3465 ms
+2026-07-17 07:44:18.618 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 252.9835 ms
+2026-07-17 07:44:18.841 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 472.0504 ms
+2026-07-17 07:44:18.974 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 474.3331 ms
+2026-07-17 07:44:19.090 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 418.8260 ms
+2026-07-17 07:44:19.092 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 453.5972 ms
+2026-07-17 07:44:19.101 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 697.7081 ms
+2026-07-17 07:44:19.132 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1232.6442 ms
+2026-07-17 07:44:19.165 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 253.9369 ms
+2026-07-17 07:44:19.329 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 342.9133 ms
+2026-07-17 07:44:19.403 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 274.4965 ms
+2026-07-17 07:44:19.476 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 348.0188 ms
+2026-07-17 07:44:19.480 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 310.7100 ms
+2026-07-17 07:44:19.484 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 367.1202 ms
+2026-07-17 07:44:19.553 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 402.1323 ms
+2026-07-17 07:44:19.654 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 298.5788 ms
+2026-07-17 07:44:19.654 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 200.7657 ms
+2026-07-17 07:44:19.809 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 277.5337 ms
+2026-07-17 07:44:19.809 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 273.9973 ms
+2026-07-17 07:44:19.811 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 261.4983 ms
+2026-07-17 07:44:19.811 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 250.2009 ms
+2026-07-17 07:44:19.883 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 221.5659 ms
+2026-07-17 07:44:20.006 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 343.0489 ms
+2026-07-17 07:44:20.034 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 190.0382 ms
+2026-07-17 07:44:20.035 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 204.9972 ms
+2026-07-17 07:44:20.093 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 249.7847 ms
+2026-07-17 07:44:20.198 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 350.1061 ms
+2026-07-17 07:44:20.199 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 310.3586 ms
+2026-07-17 07:44:20.247 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 148.2741 ms
+2026-07-17 07:44:20.248 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 234.7039 ms
+2026-07-17 07:44:20.263 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 211.1686 ms
+2026-07-17 07:44:20.274 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 214.9625 ms
+2026-07-17 07:44:20.328 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 118.8813 ms
+2026-07-17 07:44:21.037 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 1.2896 ms
+2026-07-17 07:44:21.088 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 8.5456 ms
+2026-07-17 07:44:21.115 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 15.9228 ms
+2026-07-17 07:44:21.117 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 12.8017 ms
+2026-07-17 07:44:21.375 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 267.9630 ms
+2026-07-17 07:44:21.375 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 274.3390 ms
+2026-07-17 07:44:21.779 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 07:44:21.780 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 273.4623 ms
+2026-07-17 07:44:22.878 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1009.6666 ms
+2026-07-17 07:44:22.894 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1031.3270 ms
+2026-07-17 07:44:22.915 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1046.2667 ms
+2026-07-17 07:44:23.233 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1363.7012 ms
+2026-07-17 07:44:23.386 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1523.3030 ms
+2026-07-17 07:44:23.530 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 647.0583 ms
+2026-07-17 07:44:23.547 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 640.6103 ms
+2026-07-17 07:44:23.683 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 746.2847 ms
+2026-07-17 07:44:23.926 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 687.1184 ms
+2026-07-17 07:44:24.066 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 654.3506 ms
+2026-07-17 07:44:24.385 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 696.7699 ms
+2026-07-17 07:44:24.425 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 865.2518 ms
+2026-07-17 07:44:24.436 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 900.3037 ms
+2026-07-17 07:44:24.734 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 804.2049 ms
+2026-07-17 07:44:25.259 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 353.7164 ms
+2026-07-17 07:44:25.446 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3602.6671 ms
+2026-07-17 07:44:26.855 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 809.2904 ms
+2026-07-17 07:44:26.961 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 906.6567 ms
+2026-07-17 07:44:27.149 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1094.4773 ms
+2026-07-17 07:44:27.769 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 802.1423 ms
+2026-07-17 07:44:27.773 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 911.6750 ms
+2026-07-17 07:44:27.779 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1622.9719 ms
+2026-07-17 07:44:28.159 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1005.4304 ms
+2026-07-17 07:44:28.163 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 379.5067 ms
+2026-07-17 07:44:28.164 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1492.9689 ms
+2026-07-17 07:44:28.556 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 588.6262 ms
+2026-07-17 07:44:28.998 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1015.4832 ms
+2026-07-17 07:44:29.493 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1315.5743 ms
+2026-07-17 07:44:29.509 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1334.5654 ms
+2026-07-17 07:44:29.530 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1351.1928 ms
+2026-07-17 07:44:29.554 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 993.6053 ms
+2026-07-17 07:44:29.695 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 691.2689 ms
+2026-07-17 07:44:29.981 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfTexts responded 200 in 483.6167 ms
+2026-07-17 07:44:30.195 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 4148.4431 ms
+2026-07-17 08:27:55.515 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.4157 ms
+2026-07-17 08:28:11.755 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-07-17 08:28:11.755 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-07-17 08:28:11.755 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-07-17 08:28:11.755 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-07-17 08:28:12.397 +05:30 [ERR] An error occurred using the connection to database 'ConstructionEstimationDB' on server 'DESKTOP-GCNBRSK\SQLEXPRESS2019'.
+2026-07-17 08:28:18.131 +05:30 [ERR] An exception occurred while iterating over the results of a query for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.131 +05:30 [ERR] An exception occurred while iterating over the results of a query for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.132 +05:30 [ERR] An exception occurred while iterating over the results of a query for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.131 +05:30 [ERR] An exception occurred while iterating over the results of a query for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.131 +05:30 [ERR] An exception occurred while iterating over the results of a query for context type 'ConstructionEstimation.Infrastructure.Data.AppDbContext'.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.366 +05:30 [ERR] HTTP GET /api/memberschedules/drawing/207 responded 500 in 22778.6409 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.MemberScheduleRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\MemberScheduleRepository.cs:line 14
+   at ConstructionEstimation.API.Controllers.MemberSchedulesController.GetByDrawing(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\MemberSchedulesController.cs:line 22
+   at lambda_method424(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.604 +05:30 [ERR] HTTP GET /api/memberschedules/drawing/207/summary responded 500 in 23038.8786 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.MemberScheduleRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\MemberScheduleRepository.cs:line 14
+   at ConstructionEstimation.API.Controllers.MemberSchedulesController.GetSummary(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\MemberSchedulesController.cs:line 98
+   at lambda_method414(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.601 +05:30 [ERR] HTTP GET /api/takeoffitems/drawing/207/summary responded 500 in 23039.3073 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.TakeoffItemRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\TakeoffItemRepository.cs:line 13
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.GetSummary(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 132
+   at lambda_method440(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.602 +05:30 [ERR] HTTP GET /api/takeoffitems/drawing/207 responded 500 in 23016.3820 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.TakeoffItemRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\TakeoffItemRepository.cs:line 13
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.GetByDrawing(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 22
+   at lambda_method402(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:18.603 +05:30 [ERR] HTTP GET /api/drawings/207 responded 500 in 23014.5709 ms
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.DrawingRepository.GetWithTakeoffItemsAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\DrawingRepository.cs:line 20
+   at ConstructionEstimation.API.Controllers.DrawingsController.GetById(Int32 id) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\DrawingsController.cs:line 43
+   at lambda_method401(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:21.856 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.DrawingRepository.GetWithTakeoffItemsAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\DrawingRepository.cs:line 20
+   at ConstructionEstimation.API.Controllers.DrawingsController.GetById(Int32 id) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\DrawingsController.cs:line 43
+   at lambda_method401(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:21.856 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.MemberScheduleRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\MemberScheduleRepository.cs:line 14
+   at ConstructionEstimation.API.Controllers.MemberSchedulesController.GetSummary(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\MemberSchedulesController.cs:line 98
+   at lambda_method414(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:21.856 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.MemberScheduleRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\MemberScheduleRepository.cs:line 14
+   at ConstructionEstimation.API.Controllers.MemberSchedulesController.GetByDrawing(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\MemberSchedulesController.cs:line 22
+   at lambda_method424(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:21.857 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.TakeoffItemRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\TakeoffItemRepository.cs:line 13
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.GetByDrawing(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 22
+   at lambda_method402(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:21.856 +05:30 [ERR] An unhandled exception has occurred while executing the request.
+Microsoft.Data.SqlClient.SqlException (0x80131904): Connection Timeout Expired.  The timeout period elapsed during the post-login phase.  The connection could have timed out while waiting for server to complete the login process and respond; Or it could have timed out while attempting to create multiple active connections.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=0; handshake=68; [Login] initialization=0; authentication=0; [Post-Login] complete=15007; 
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ThrowExceptionAndWarning(Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+   at Microsoft.Data.SqlClient.TdsParserStateObject.ReadSniSyncOverAsync()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryReadNetworkPacket()
+   at Microsoft.Data.SqlClient.TdsParserStateObject.TryPrepareBuffer()
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.TdsParser.Run(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.CompleteLogin(Boolean enlistOK)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternalAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.TakeoffItemRepository.GetByDrawingIdAsync(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\TakeoffItemRepository.cs:line 13
+   at ConstructionEstimation.API.Controllers.TakeoffItemsController.GetSummary(Int32 drawingId) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\TakeoffItemsController.cs:line 132
+   at lambda_method440(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+ClientConnectionId:087faced-b93e-4ea7-b719-18374bb90a77
+Error Number:-2,State:0,Class:11
+2026-07-17 08:28:38.825 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 678.3119 ms
+2026-07-17 08:28:38.832 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 3.3952 ms
+2026-07-17 08:28:38.924 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 27.3231 ms
+2026-07-17 08:28:38.954 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 52.3441 ms
+2026-07-17 08:28:38.956 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 54.3696 ms
+2026-07-17 08:28:39.091 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 177.0992 ms
+2026-07-17 08:28:39.091 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 188.0718 ms
+2026-07-17 08:28:45.651 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 13.9254 ms
+2026-07-17 08:28:45.652 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 14.7343 ms
+2026-07-17 08:28:45.670 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 34.0644 ms
+2026-07-17 08:28:45.898 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 4.7000 ms
+2026-07-17 08:28:45.900 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 7.1525 ms
+2026-07-17 08:28:46.901 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 08:28:46.902 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 194.2253 ms
+2026-07-17 08:28:48.049 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1116.5495 ms
+2026-07-17 08:28:48.049 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1116.5814 ms
+2026-07-17 08:28:48.186 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1253.0487 ms
+2026-07-17 08:28:48.505 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 767.9778 ms
+2026-07-17 08:28:48.681 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 810.8817 ms
+2026-07-17 08:28:48.893 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 808.3712 ms
+2026-07-17 08:28:48.910 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 825.7975 ms
+2026-07-17 08:28:48.930 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 737.6649 ms
+2026-07-17 08:28:49.170 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.2288 ms
+2026-07-17 08:28:49.308 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 799.0259 ms
+2026-07-17 08:28:49.455 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205/summary responded 200 in 6.8947 ms
+2026-07-17 08:28:49.456 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205 responded 200 in 7.7214 ms
+2026-07-17 08:28:49.464 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205 responded 200 in 13.7744 ms
+2026-07-17 08:28:49.465 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205/summary responded 200 in 14.4441 ms
+2026-07-17 08:28:49.474 +05:30 [INF] HTTP GET /api/drawings/205 responded 200 in 25.6489 ms
+2026-07-17 08:28:49.911 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1222.6625 ms
+2026-07-17 08:28:49.955 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1056.5901 ms
+2026-07-17 08:28:49.970 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1029.2058 ms
+2026-07-17 08:28:50.028 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1108.9171 ms
+2026-07-17 08:28:50.151 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 08:28:50.152 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 30.2113 ms
+2026-07-17 08:28:50.342 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3415.3680 ms
+2026-07-17 08:28:50.350 +05:30 [INF] HTTP GET /api/drawings/204 responded 200 in 21.5214 ms
+2026-07-17 08:28:50.458 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204/summary responded 200 in 124.2437 ms
+2026-07-17 08:28:50.459 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204 responded 200 in 126.5191 ms
+2026-07-17 08:28:50.481 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204/summary responded 200 in 3.7596 ms
+2026-07-17 08:28:50.481 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204 responded 200 in 4.7586 ms
+2026-07-17 08:28:51.004 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 08:28:51.004 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 68.8067 ms
+2026-07-17 08:28:51.335 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 272.9002 ms
+2026-07-17 08:28:51.337 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 282.2263 ms
+2026-07-17 08:28:51.371 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 311.4073 ms
+2026-07-17 08:28:51.496 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 414.2767 ms
+2026-07-17 08:28:51.531 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 457.6959 ms
+2026-07-17 08:28:51.618 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 256.6527 ms
+2026-07-17 08:28:51.681 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 309.2429 ms
+2026-07-17 08:28:51.688 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 263.3804 ms
+2026-07-17 08:28:51.717 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 670.3756 ms
+2026-07-17 08:28:51.924 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 383.7765 ms
+2026-07-17 08:28:51.924 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 282.6849 ms
+2026-07-17 08:28:51.924 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 424.9632 ms
+2026-07-17 08:28:52.065 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 365.7236 ms
+2026-07-17 08:28:52.067 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 351.8674 ms
+2026-07-17 08:28:52.076 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 352.3719 ms
+2026-07-17 08:28:52.117 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 130.5332 ms
+2026-07-17 08:28:52.128 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 157.1175 ms
+2026-07-17 08:32:17.475 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 1.0572 ms
+2026-07-17 08:32:17.559 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 19.5005 ms
+2026-07-17 08:32:17.560 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 31.1273 ms
+2026-07-17 08:32:17.576 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 34.2612 ms
+2026-07-17 08:32:17.581 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 13.8325 ms
+2026-07-17 08:32:17.584 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 56.2537 ms
+2026-07-17 08:32:22.275 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 16.6514 ms
+2026-07-17 08:32:22.281 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 2.9821 ms
+2026-07-17 08:32:22.365 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 13.6285 ms
+2026-07-17 08:32:22.367 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 15.7280 ms
+2026-07-17 08:32:22.374 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 21.1831 ms
+2026-07-17 08:32:22.419 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 66.2864 ms
+2026-07-17 08:32:22.419 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 66.6226 ms
+2026-07-17 10:08:21.405 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 760.7724 ms
+2026-07-17 10:08:21.684 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 206.0858 ms
+2026-07-17 10:08:21.943 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 40.2563 ms
+2026-07-17 10:08:22.315 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 376.2487 ms
+2026-07-17 10:08:22.518 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 615.8520 ms
+2026-07-17 10:08:22.717 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 778.0449 ms
+2026-07-17 10:08:22.720 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 746.8103 ms
+2026-07-17 10:08:23.196 +05:30 [INF] HTTP GET /api/drawings/207/file responded 304 in 1314.3320 ms
+2026-07-17 10:08:54.592 +05:30 [INF] HTTP GET /api/drawings/206/file responded 304 in 27.7729 ms
+2026-07-17 10:08:54.603 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 3.8636 ms
+2026-07-17 10:08:54.606 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 8.5936 ms
+2026-07-17 10:08:54.622 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 21.9588 ms
+2026-07-17 10:08:54.624 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 26.6919 ms
+2026-07-17 10:08:54.683 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 84.2111 ms
+2026-07-17 10:08:55.518 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 10:08:55.518 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 530.1536 ms
+2026-07-17 10:08:56.332 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.2768 ms
+2026-07-17 10:08:56.401 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205 responded 200 in 1.3785 ms
+2026-07-17 10:08:56.402 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205/summary responded 200 in 2.1040 ms
+2026-07-17 10:08:56.406 +05:30 [INF] HTTP GET /api/drawings/205 responded 200 in 4.6696 ms
+2026-07-17 10:08:56.507 +05:30 [INF] HTTP GET /api/drawings/205/file responded 304 in 40.3939 ms
+2026-07-17 10:08:56.525 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205/summary responded 200 in 58.4586 ms
+2026-07-17 10:08:56.525 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205 responded 200 in 58.7748 ms
+2026-07-17 10:08:57.030 +05:30 [INF] HTTP GET /api/drawings/204/file responded 304 in 25.4395 ms
+2026-07-17 10:08:57.043 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204 responded 200 in 11.6497 ms
+2026-07-17 10:08:57.043 +05:30 [INF] HTTP GET /api/drawings/204 responded 200 in 12.8051 ms
+2026-07-17 10:08:57.044 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204/summary responded 200 in 6.9332 ms
+2026-07-17 10:08:57.074 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204 responded 200 in 36.2422 ms
+2026-07-17 10:08:57.075 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204/summary responded 200 in 32.5794 ms
+2026-07-17 10:08:57.215 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1673.1819 ms
+2026-07-17 10:08:57.230 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1691.8710 ms
+2026-07-17 10:08:57.271 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1728.9795 ms
+2026-07-17 10:08:57.271 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 10:08:57.272 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 475.1121 ms
+2026-07-17 10:08:57.292 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1749.2433 ms
+2026-07-17 10:08:57.306 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1768.4491 ms
+2026-07-17 10:08:57.453 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 10:08:57.453 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 131.1540 ms
+2026-07-17 10:08:57.893 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 393.6323 ms
+2026-07-17 10:08:57.926 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 383.5773 ms
+2026-07-17 10:08:57.962 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 493.1521 ms
+2026-07-17 10:08:57.986 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 442.6176 ms
+2026-07-17 10:08:58.071 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 510.6544 ms
+2026-07-17 10:08:58.268 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 291.4476 ms
+2026-07-17 10:08:58.271 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 324.7050 ms
+2026-07-17 10:08:58.307 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 843.8129 ms
+2026-07-17 10:08:58.307 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 324.1723 ms
+2026-07-17 10:08:58.546 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 434.2363 ms
+2026-07-17 10:08:58.549 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 258.6600 ms
+2026-07-17 10:08:58.552 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 563.3836 ms
+2026-07-17 10:08:58.554 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 231.6011 ms
+2026-07-17 10:08:58.573 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 249.8883 ms
+2026-07-17 10:08:58.648 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 341.3579 ms
+2026-07-17 10:08:58.713 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 143.8973 ms
+2026-07-17 10:08:58.766 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 182.1548 ms
+2026-07-17 10:08:58.913 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 3377.3260 ms
+2026-07-17 10:09:04.790 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1315.9970 ms
+2026-07-17 10:09:05.189 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1706.0473 ms
+2026-07-17 10:09:05.201 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1717.1399 ms
+2026-07-17 10:09:05.458 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1974.7062 ms
+2026-07-17 10:09:05.778 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2294.2643 ms
+2026-07-17 10:09:05.779 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2294.8699 ms
+2026-07-17 10:09:06.864 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1999.2924 ms
+2026-07-17 10:09:07.361 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2073.8546 ms
+2026-07-17 10:09:07.593 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2362.0413 ms
+2026-07-17 10:09:07.594 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1892.4440 ms
+2026-07-17 10:09:07.595 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1457.4176 ms
+2026-07-17 10:09:08.372 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 2229.2645 ms
+2026-07-17 10:09:08.373 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1502.1401 ms
+2026-07-17 10:09:08.373 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 993.7322 ms
+2026-07-17 10:09:08.510 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 893.1425 ms
+2026-07-17 10:09:08.745 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1011.2107 ms
+2026-07-17 10:09:09.026 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1065.2927 ms
+2026-07-17 10:09:09.389 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 953.4678 ms
+2026-07-17 10:09:09.509 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1049.5416 ms
+2026-07-17 10:09:09.511 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1056.5456 ms
+2026-07-17 10:09:09.731 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1119.5376 ms
+2026-07-17 10:09:10.136 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1072.1741 ms
+2026-07-17 10:09:10.140 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 720.6327 ms
+2026-07-17 10:09:10.140 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1381.9813 ms
+2026-07-17 10:09:10.635 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 893.5047 ms
+2026-07-17 10:09:10.636 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1098.4542 ms
+2026-07-17 10:09:10.637 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1093.5216 ms
+2026-07-17 10:09:11.704 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1543.7969 ms
+2026-07-17 10:09:12.058 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1621.8167 ms
+2026-07-17 10:09:12.071 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1375.0329 ms
+2026-07-17 10:09:12.233 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1537.4047 ms
+2026-07-17 10:09:12.246 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1627.0700 ms
+2026-07-17 14:24:34.047 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 8502.1325 ms
+2026-07-17 14:24:34.630 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 318.4187 ms
+2026-07-17 14:24:35.956 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 978.3720 ms
+2026-07-17 14:24:36.323 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 1346.2369 ms
+2026-07-17 14:24:36.550 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 1468.5064 ms
+2026-07-17 14:24:36.621 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 1432.9357 ms
+2026-07-17 14:24:36.621 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 1446.5728 ms
+2026-07-17 14:24:37.149 +05:30 [INF] HTTP GET /api/drawings/207/file responded 304 in 2096.4430 ms
+2026-07-17 14:24:44.774 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 540.6493 ms
+2026-07-17 14:24:44.797 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 3.5017 ms
+2026-07-17 14:24:44.804 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 301.6844 ms
+2026-07-17 14:24:44.843 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 341.7067 ms
+2026-07-17 14:24:44.930 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 41.6746 ms
+2026-07-17 14:24:44.974 +05:30 [INF] HTTP GET /api/drawings/206/file responded 304 in 472.1632 ms
+2026-07-17 14:25:04.700 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 14:25:05.426 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 19363.9650 ms
+2026-07-17 14:29:08.334 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 2714.6128 ms
+2026-07-17 14:29:08.388 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 2767.8798 ms
+2026-07-17 14:29:08.623 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 3003.6594 ms
+2026-07-17 14:29:08.756 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 3135.5609 ms
+2026-07-17 14:29:08.794 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 3175.1526 ms
+2026-07-17 14:29:12.338 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 4.2705 ms
+2026-07-17 14:29:12.341 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 5.2937 ms
+2026-07-17 14:29:12.341 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 4.3345 ms
+2026-07-17 14:29:12.429 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 92.9010 ms
+2026-07-17 14:29:13.610 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 1275.6257 ms
+2026-07-17 14:29:18.263 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 14:29:18.279 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 3051.2869 ms
+2026-07-17 14:29:36.919 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 18450.7679 ms
+2026-07-17 14:29:36.919 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 18386.0688 ms
+2026-07-17 14:29:36.921 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 18459.3991 ms
+2026-07-17 14:29:37.077 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 18615.3608 ms
+2026-07-17 14:29:38.135 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 891.2544 ms
+2026-07-17 14:29:38.155 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 19621.9303 ms
+2026-07-17 14:29:38.158 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 917.1851 ms
+2026-07-17 14:29:38.923 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1600.6967 ms
+2026-07-17 14:29:39.182 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1219.8430 ms
+2026-07-17 14:29:41.021 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 22613.6427 ms
+2026-07-17 14:29:53.711 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 58.8318 ms
+2026-07-17 14:29:53.841 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 126.5283 ms
+2026-07-17 14:29:54.269 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 7.2944 ms
+2026-07-17 14:29:54.269 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 7.7729 ms
+2026-07-17 14:29:54.270 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 8.1464 ms
+2026-07-17 14:29:54.504 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 241.2608 ms
+2026-07-17 14:29:54.504 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 318.7833 ms
+2026-07-17 14:32:34.532 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206/summary responded 200 in 100.1148 ms
+2026-07-17 14:32:34.537 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206 responded 200 in 106.9457 ms
+2026-07-17 14:32:34.634 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/206/summary responded 200 in 204.0210 ms
+2026-07-17 14:32:34.635 +05:30 [INF] HTTP GET /api/memberschedules/drawing/206 responded 200 in 204.8805 ms
+2026-07-17 14:32:34.705 +05:30 [INF] HTTP GET /api/drawings/206 responded 200 in 276.1337 ms
+2026-07-17 14:32:38.915 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 14:32:38.915 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 1057.0743 ms
+2026-07-17 14:32:40.166 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1098.7763 ms
+2026-07-17 14:32:41.240 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1067.9917 ms
+2026-07-17 14:32:41.278 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1118.2681 ms
+2026-07-17 14:32:41.424 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1263.0901 ms
+2026-07-17 14:32:41.461 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1299.1100 ms
+2026-07-17 14:32:41.604 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1442.6875 ms
+2026-07-17 14:32:41.807 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1644.6253 ms
+2026-07-17 14:32:41.820 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 560.9925 ms
+2026-07-17 14:32:42.522 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1220.8574 ms
+2026-07-17 14:32:42.780 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1171.4251 ms
+2026-07-17 14:32:43.091 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1264.6046 ms
+2026-07-17 14:32:43.092 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1265.5827 ms
+2026-07-17 14:32:43.093 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1548.4492 ms
+2026-07-17 14:32:43.093 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1643.0223 ms
+2026-07-17 14:32:43.097 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 20.4377 ms
+2026-07-17 14:32:43.121 +05:30 [INF] HTTP GET /api/drawings/205/file responded 304 in 2.2291 ms
+2026-07-17 14:32:43.214 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205 responded 200 in 6.7326 ms
+2026-07-17 14:32:43.373 +05:30 [INF] HTTP GET /api/drawings/205 responded 200 in 162.8413 ms
+2026-07-17 14:32:43.373 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205/summary responded 200 in 164.0837 ms
+2026-07-17 14:32:43.390 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/205 responded 200 in 16.8578 ms
+2026-07-17 14:32:43.390 +05:30 [INF] HTTP GET /api/memberschedules/drawing/205/summary responded 200 in 16.0911 ms
+2026-07-17 14:32:44.233 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1706.9406 ms
+2026-07-17 14:32:44.321 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1202.0273 ms
+2026-07-17 14:32:44.390 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1605.7223 ms
+2026-07-17 14:32:44.656 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 14:32:44.657 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 1015.0583 ms
+2026-07-17 14:32:45.903 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1042.8350 ms
+2026-07-17 14:32:45.989 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1129.5461 ms
+2026-07-17 14:32:46.017 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1156.8128 ms
+2026-07-17 14:32:46.017 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1157.8412 ms
+2026-07-17 14:32:46.255 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1395.0656 ms
+2026-07-17 14:32:46.360 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 453.4812 ms
+2026-07-17 14:32:46.679 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 652.3668 ms
+2026-07-17 14:32:46.775 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 783.2054 ms
+2026-07-17 14:32:46.798 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 771.1125 ms
+2026-07-17 14:32:46.895 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 635.3852 ms
+2026-07-17 14:32:46.910 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 528.7596 ms
+2026-07-17 14:32:46.944 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 188.2122 ms
+2026-07-17 14:32:47.293 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 510.9228 ms
+2026-07-17 14:32:47.295 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 391.3519 ms
+2026-07-17 14:32:47.303 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 386.4442 ms
+2026-07-17 14:32:47.303 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 345.2828 ms
+2026-07-17 14:32:47.305 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 498.1094 ms
+2026-07-17 14:32:47.434 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 124.6824 ms
+2026-07-17 14:32:47.438 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 137.7501 ms
+2026-07-17 14:32:47.531 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 184.9525 ms
+2026-07-17 14:32:47.534 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 86.7486 ms
+2026-07-17 14:32:47.889 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 434.7802 ms
+2026-07-17 14:32:47.892 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 360.9155 ms
+2026-07-17 14:32:47.986 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 452.0773 ms
+2026-07-17 14:32:48.017 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 127.1437 ms
+2026-07-17 14:32:48.120 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 133.5311 ms
+2026-07-17 14:32:48.120 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 193.6729 ms
+2026-07-17 14:32:48.426 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 408.7268 ms
+2026-07-17 14:32:48.471 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 325.2827 ms
+2026-07-17 14:32:48.511 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 365.8355 ms
+2026-07-17 14:32:48.591 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 163.7259 ms
+2026-07-17 14:32:48.653 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 183.6381 ms
+2026-07-17 14:32:48.660 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 185.3314 ms
+2026-07-17 14:32:48.669 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 198.6041 ms
+2026-07-17 14:32:48.956 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 437.5740 ms
+2026-07-17 14:32:48.956 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 267.1029 ms
+2026-07-17 14:32:48.958 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 268.8784 ms
+2026-07-17 14:32:49.127 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 162.0029 ms
+2026-07-17 14:32:49.129 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 370.5437 ms
+2026-07-17 14:32:49.144 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 179.2281 ms
+2026-07-17 14:32:49.165 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 4414.9041 ms
+2026-07-17 14:32:49.270 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 301.6975 ms
+2026-07-17 14:32:49.372 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 231.9030 ms
+2026-07-17 14:32:49.393 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 252.6654 ms
+2026-07-17 14:32:49.564 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 394.1020 ms
+2026-07-17 14:32:49.567 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 293.6914 ms
+2026-07-17 14:32:49.572 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 414.2053 ms
+2026-07-17 14:32:49.580 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 204.4213 ms
+2026-07-17 14:32:49.863 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 113.7543 ms
+2026-07-17 14:32:49.863 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 466.1004 ms
+2026-07-17 14:32:49.864 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 274.2992 ms
+2026-07-17 14:32:49.976 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 226.4394 ms
+2026-07-17 14:32:49.979 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 349.2451 ms
+2026-07-17 14:32:49.979 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1308.7061 ms
+2026-07-17 14:32:50.009 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 125.7909 ms
+2026-07-17 14:32:50.190 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 198.7915 ms
+2026-07-17 14:32:50.191 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 288.1556 ms
+2026-07-17 14:32:50.191 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 301.3960 ms
+2026-07-17 14:32:50.192 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 201.4790 ms
+2026-07-17 14:32:50.202 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 210.9377 ms
+2026-07-17 14:32:50.389 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 376.3128 ms
+2026-07-17 14:32:50.416 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 174.3099 ms
+2026-07-17 14:32:50.474 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 232.1021 ms
+2026-07-17 14:32:50.543 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 298.5722 ms
+2026-07-17 14:32:50.628 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 383.0716 ms
+2026-07-17 14:32:50.643 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 397.7357 ms
+2026-07-17 14:32:50.673 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 277.3360 ms
+2026-07-17 14:32:50.673 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 249.6418 ms
+2026-07-17 14:32:50.767 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 255.8846 ms
+2026-07-17 14:32:50.767 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 196.9659 ms
+2026-07-17 14:32:50.767 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 83.1154 ms
+2026-07-17 14:32:50.768 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 133.7014 ms
+2026-07-17 14:32:50.823 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 173.0497 ms
+2026-07-17 14:45:10.166 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.3031 ms
+2026-07-17 14:45:12.149 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204 responded 200 in 1792.9005 ms
+2026-07-17 14:45:12.149 +05:30 [INF] HTTP GET /api/drawings/204 responded 200 in 1811.1102 ms
+2026-07-17 14:45:12.187 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/204/summary responded 200 in 1830.2019 ms
+2026-07-17 14:45:12.192 +05:30 [INF] HTTP GET /api/drawings/204/file responded 304 in 1835.4121 ms
+2026-07-17 14:45:12.349 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204/summary responded 200 in 1990.3578 ms
+2026-07-17 14:45:12.475 +05:30 [INF] HTTP GET /api/memberschedules/drawing/204 responded 200 in 2117.5781 ms
+2026-07-17 14:45:13.383 +05:30 [INF] PdfViewer Load: type=<>f__AnonymousType8`10
+2026-07-17 14:45:13.383 +05:30 [INF] HTTP POST /api/pdfviewer/Load responded 200 in 807.2512 ms
+2026-07-17 14:45:13.687 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 272.6105 ms
+2026-07-17 14:45:13.793 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 378.5944 ms
+2026-07-17 14:45:13.817 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 403.4698 ms
+2026-07-17 14:45:13.818 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 403.2751 ms
+2026-07-17 14:45:14.108 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 694.8628 ms
+2026-07-17 14:45:14.117 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 406.2611 ms
+2026-07-17 14:45:14.276 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 461.0126 ms
+2026-07-17 14:45:14.442 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 319.6559 ms
+2026-07-17 14:45:14.446 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 460.9556 ms
+2026-07-17 14:45:14.451 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 465.4024 ms
+2026-07-17 14:45:14.699 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 575.2831 ms
+2026-07-17 14:45:14.723 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 428.1066 ms
+2026-07-17 14:45:14.774 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 325.2128 ms
+2026-07-17 14:45:14.833 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 337.3679 ms
+2026-07-17 14:45:14.838 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 383.1492 ms
+2026-07-17 14:45:14.868 +05:30 [INF] HTTP POST /api/pdfviewer/RenderPdfPages responded 200 in 1469.1746 ms
+2026-07-17 14:45:16.208 +05:30 [INF] HTTP POST /api/pdfviewer/RenderAnnotationComments responded 200 in 1023.8845 ms
+2026-07-17 14:45:22.118 +05:30 [INF] HTTP POST /api/pdfviewer/Unload responded 200 in 0.2766 ms
+2026-07-17 14:45:22.447 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 24.1044 ms
+2026-07-17 14:45:23.175 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 754.1490 ms
+2026-07-17 14:45:23.176 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 757.9515 ms
+2026-07-17 14:45:23.176 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 751.8188 ms
+2026-07-17 14:45:23.409 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 994.4204 ms
+2026-07-17 16:30:27.694 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 401 in 2270.8753 ms
+2026-07-17 16:30:28.268 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 401 in 58.7036 ms
+2026-07-17 16:30:43.868 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 7686.9749 ms
+2026-07-17 16:30:46.450 +05:30 [INF] HTTP GET /api/projects responded 200 in 2192.9719 ms
+2026-07-17 16:30:46.456 +05:30 [INF] HTTP GET /api/projects responded 200 in 1.8019 ms
+2026-07-17 16:30:51.060 +05:30 [INF] HTTP GET /api/projects responded 200 in 53.1450 ms
+2026-07-17 16:30:51.148 +05:30 [INF] HTTP GET /api/projects responded 200 in 140.2996 ms
+2026-07-17 16:30:55.712 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 356.0027 ms
+2026-07-17 16:30:55.777 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 57.8365 ms
+2026-07-17 16:30:56.228 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 316.2057 ms
+2026-07-17 16:30:56.580 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 589.6836 ms
+2026-07-17 16:30:56.680 +05:30 [INF] HTTP GET /api/drawings/207/file responded 304 in 753.5378 ms
+2026-07-17 16:30:57.056 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 1065.8347 ms
+2026-07-17 16:30:57.131 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 1218.1926 ms
+2026-07-17 16:30:57.253 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 1205.5057 ms
+2026-07-17 16:31:43.513 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 31.8551 ms
+2026-07-17 16:31:43.544 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 27.6529 ms
+2026-07-17 16:31:43.693 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 5.3862 ms
+2026-07-17 16:31:43.693 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 5.6777 ms
+2026-07-17 16:31:43.713 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 24.0041 ms
+2026-07-17 16:31:44.210 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 522.5443 ms
+2026-07-17 16:31:44.210 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 549.3458 ms
+2026-07-17 16:57:28.902 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 769.0961 ms
+2026-07-17 16:57:28.910 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 3.3407 ms
+2026-07-17 16:57:29.053 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 48.6150 ms
+2026-07-17 16:57:29.199 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 136.8165 ms
+2026-07-17 16:57:29.269 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 220.8272 ms
+2026-07-17 16:57:30.063 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 1014.0823 ms
+2026-07-17 16:57:30.114 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 1066.0372 ms
+2026-07-17 17:03:57.547 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 146.8043 ms
+2026-07-17 17:03:57.567 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 3.9950 ms
+2026-07-17 17:03:57.644 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 4.4418 ms
+2026-07-17 17:03:57.644 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 5.4560 ms
+2026-07-17 17:03:57.666 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 1.8973 ms
+2026-07-17 17:03:57.735 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 66.3139 ms
+2026-07-17 17:03:57.787 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 123.4157 ms
+2026-07-17 17:10:32.517 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 1264.9822 ms
+2026-07-17 17:10:32.644 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 79.0907 ms
+2026-07-17 17:10:32.793 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 78.6253 ms
+2026-07-17 17:10:33.028 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 283.3050 ms
+2026-07-17 17:10:33.065 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 340.6204 ms
+2026-07-17 17:10:33.072 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 348.9716 ms
+2026-07-17 17:10:33.075 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 327.6336 ms
+2026-07-17 17:29:07.353 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 75087.5772 ms
+2026-07-17 17:29:45.211 +05:30 [INF] HTTP GET /api/projects responded 200 in 6878.8061 ms
+2026-07-17 17:29:45.263 +05:30 [INF] HTTP GET /api/projects responded 200 in 12724.3616 ms
+2026-07-17 19:53:46.464 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 12007.4475 ms
+2026-07-17 19:53:46.851 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 235.5430 ms
+2026-07-17 19:53:47.948 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 811.8968 ms
+2026-07-17 19:53:48.097 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 770.0987 ms
+2026-07-17 19:53:48.384 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 1093.5372 ms
+2026-07-17 19:53:48.942 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 1607.2290 ms
+2026-07-17 19:53:49.013 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 1694.0225 ms
+2026-07-17 19:53:49.725 +05:30 [INF] HTTP GET /api/drawings/207/file responded 304 in 2702.3725 ms
+2026-07-17 22:03:13.419 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 7101.3585 ms
+2026-07-17 22:03:13.965 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 68.3695 ms
+2026-07-17 22:03:15.649 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 300.4278 ms
+2026-07-17 22:03:16.373 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 811.6976 ms
+2026-07-17 22:03:18.605 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 3040.2604 ms
+2026-07-17 22:03:19.386 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 3843.4128 ms
+2026-07-17 22:03:19.593 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 4001.8487 ms
+2026-07-17 22:03:49.084 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 37.3543 ms
+2026-07-17 22:03:50.033 +05:30 [INF] HTTP GET /api/drawings/project/51 responded 200 in 70.3953 ms
+2026-07-17 22:03:50.176 +05:30 [INF] HTTP GET /api/drawings/207 responded 200 in 56.0072 ms
+2026-07-17 22:03:50.188 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207 responded 200 in 63.3594 ms
+2026-07-17 22:03:50.211 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207/summary responded 200 in 65.2400 ms
+2026-07-17 22:03:50.262 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/207/summary responded 200 in 153.4064 ms
+2026-07-17 22:03:50.403 +05:30 [INF] HTTP GET /api/memberschedules/drawing/207 responded 200 in 257.6661 ms
