@@ -116,7 +116,22 @@ export const useAppStore = create(
       pdfPage: 1,
       pdfTotalPages: 1,
       wheelZoomSensitivity: 1, // multiplier on mouse-wheel zoom speed — 0.5 (slow) .. 2 (fast)
-      setActiveTool:     (tool)  => set({ activeTool: tool }),
+      // Held-Space pan override, tracked by PdfJsViewer's keydown/keyup listeners.
+      // Line/Calibrate use left-drag to draw, so a plain left-drag meant only as
+      // a pan (e.g. repositioning the view right after upload, when Calibrate is
+      // auto-armed) would otherwise be captured as a draw gesture and commit a
+      // stray line + calibration popup. Holding Space lets it pan instead,
+      // regardless of which tool is active.
+      spaceHeld: false,
+      setSpaceHeld: (held) => set({ spaceHeld: held }),
+      // Switching to Calibrate always clears the selected member — a calibration
+      // reference line is never a member measurement (finalizeLine already
+      // excludes it from the schedule-linked branch), so leaving a member
+      // "Selected" in the UI while drawing the calibration line is misleading.
+      setActiveTool:     (tool)  => set({
+        activeTool: tool,
+        ...(tool === 'calibrate' ? { selectedMemberScheduleItem: null, lastMeasureMember: null } : {}),
+      }),
       setActiveUnit:     (unit)  => set({ activeUnit: unit }),
       setMeasureColor:   (color) => set({ measureColor: color }),
       setMeasureCategory:(cat)   => set({ measureCategory: cat }),

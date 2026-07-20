@@ -78,10 +78,12 @@ export default function PdfJsViewer({
     pdfPage,
     pdfCommand,
     wheelZoomSensitivity,
+    spaceHeld,
     setPdfScale,
     setPdfPage,
     setPdfTotalPages,
     clearPdfCommand,
+    setSpaceHeld,
   } = useAppStore()
 
   const [pdfDocument, setPdfDocument] = useState(null)
@@ -125,6 +127,44 @@ export default function PdfJsViewer({
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
+
+  // ── Held-Space pan override ─────────────────────────────────────────────
+  // Line/Calibrate draw on left-drag. Right after upload, Calibrate is
+  // auto-armed to prompt setting the scale — a plain left-drag meant only to
+  // reposition the view (e.g. to find a labelled dimension before drawing)
+  // would otherwise be captured as the draw gesture and commit a stray line
+  // plus the calibration popup. Holding Space lets that same drag pan
+  // instead, whatever tool is active. Ignored while typing in an input so
+  // Space still works normally there.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      if (e.target?.closest?.('button, input, select, a, textarea, [contenteditable="true"]')) return
+      e.preventDefault()
+      setSpaceHeld(true)
+    }
+    const onKeyUp = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      setSpaceHeld(false)
+    }
+    // Safety net: if the window/tab loses focus while Space is physically
+    // still held (alt-tab, a dialog stealing focus, dragging outside the
+    // window, DevTools grabbing focus, …), no keyup ever fires — force
+    // release on any focus loss so a stuck key can't survive it.
+    const onBlur = () => setSpaceHeld(false)
+    const onVisibilityChange = () => { if (document.hidden) setSpaceHeld(false) }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      setSpaceHeld(false)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [setSpaceHeld])
 
   useEffect(() => {
     if (!drawingUrl) return undefined
@@ -345,7 +385,9 @@ export default function PdfJsViewer({
     : [], [pdfDocument])
 
   const handlePointerDown = useCallback((event) => {
-    const canPan = PAN_TOOLS.has(activeTool) ? event.button === 0 : event.button === 1
+    // Held-Space always pans, regardless of tool — see spaceHeld's store comment.
+    const canPan = spaceHeld
+      || (PAN_TOOLS.has(activeTool) ? event.button === 0 : event.button === 1)
     if (!canPan) return
     const container = containerRef.current
     if (!container) return
@@ -358,7 +400,7 @@ export default function PdfJsViewer({
       left: container.scrollLeft,
       top: container.scrollTop,
     }
-  }, [activeTool])
+  }, [activeTool, spaceHeld])
 
   const handlePointerMove = useCallback((event) => {
     const pan = panRef.current
@@ -402,7 +444,7 @@ export default function PdfJsViewer({
   return (
     <div
       ref={containerRef}
-      className={`pdfjs-viewer ${activeTool === 'pan' ? 'is-pan-mode' : ''} ${pasteClipboard ? 'is-paste-mode' : ''}`}
+      className={`pdfjs-viewer ${activeTool === 'pan' || spaceHeld ? 'is-pan-mode' : ''} ${pasteClipboard ? 'is-paste-mode' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endPan}

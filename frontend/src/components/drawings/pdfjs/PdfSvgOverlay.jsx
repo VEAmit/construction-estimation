@@ -150,6 +150,7 @@ function PdfSvgOverlay({
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const draftStartRef = useRef(null)
+  const lineDragRef = useRef(null)
   const pasteInFlightRef = useRef(false)
   const [draftStart, setDraftStart] = useState(null)
   const [cursor, setCursor] = useState(null)
@@ -164,6 +165,7 @@ function PdfSvgOverlay({
     lineStyle,
     measureLabelFontSize,
     selectedDrawing,
+    spaceHeld,
   } = useAppStore()
 
   useEffect(() => {
@@ -313,6 +315,10 @@ function PdfSvgOverlay({
   }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste])
 
   const handlePointerDown = useCallback((event) => {
+    // Held-Space always means "pan", even over Line/Calibrate — bail without
+    // capturing so the gesture bubbles up to the viewer's own pan handler
+    // instead of starting/finalizing a draw.
+    if (spaceHeld) return
     if (pasteClipboard || !['line', 'calibrate'].includes(activeTool) || event.button !== 0) return
     if (!svgRef.current) return
     event.preventDefault()
@@ -327,12 +333,25 @@ function PdfSvgOverlay({
     draftStartRef.current = point
     setDraftStart(point)
     setCursor(point)
-  }, [activeTool, finalizeLine, pageSize, pasteClipboard])
+    // Support a single click-drag-release gesture in addition to click-click:
+    // if the user drags before releasing, finalize on release instead of
+    // requiring a second separate click. A plain click (no drag) falls
+    // through unchanged to the existing "second click finalizes" behavior
+    // below, since lineDragRef.moved stays false and endPointer skips it.
+    svgRef.current.setPointerCapture?.(event.pointerId)
+    lineDragRef.current = { pointerId: event.pointerId, moved: false, downX: event.clientX, downY: event.clientY }
+  }, [activeTool, finalizeLine, pageSize, pasteClipboard, spaceHeld])
 
   const handleMove = useCallback((event) => {
     if (!svgRef.current) return
     const point = toPdfPoint(event, svgRef.current, pageSize)
     setCursor(point)
+    const lineDrag = lineDragRef.current
+    if (lineDrag && lineDrag.pointerId === event.pointerId && !lineDrag.moved) {
+      const dx = event.clientX - lineDrag.downX
+      const dy = event.clientY - lineDrag.downY
+      if (Math.hypot(dx, dy) > 4) lineDrag.moved = true
+    }
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     const dx = point.x - drag.origin.x
@@ -341,13 +360,13 @@ function PdfSvgOverlay({
   }, [pageSize])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
-    if (activeTool !== 'select' || event.button !== 0) return
+    if (spaceHeld || activeTool !== 'select' || event.button !== 0) return
     event.stopPropagation()
     onSelect?.(annotation.id, annotation)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
     dragRef.current = { pointerId: event.pointerId, origin, annotation }
-  }, [activeTool, onSelect, pageSize])
+  }, [activeTool, onSelect, pageSize, spaceHeld])
 
   const handleShapeContextMenu = useCallback((event, annotation) => {
     event.preventDefault()
@@ -379,10 +398,26 @@ function PdfSvgOverlay({
   }, [dragged, onGeometryChange, pageNumber, pageSize])
 
   const endPointer = useCallback((event) => {
+    const lineDrag = lineDragRef.current
+    if (lineDrag && lineDrag.pointerId === event.pointerId) {
+      svgRef.current?.releasePointerCapture?.(event.pointerId)
+      lineDragRef.current = null
+      if (lineDrag.moved && draftStartRef.current && svgRef.current) {
+        const point = toPdfPoint(event, svgRef.current, pageSize)
+        finalizeLine(point, draftStartRef.current)
+      }
+      return
+    }
     endDrag(event)
-  }, [endDrag])
+  }, [endDrag, finalizeLine, pageSize])
 
   const cancelPointer = useCallback((event) => {
+    const lineDrag = lineDragRef.current
+    if (lineDrag && lineDrag.pointerId === event.pointerId) {
+      svgRef.current?.releasePointerCapture?.(event.pointerId)
+      lineDragRef.current = null
+      return
+    }
     endDrag(event)
   }, [endDrag])
 

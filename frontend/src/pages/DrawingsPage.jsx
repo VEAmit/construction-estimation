@@ -1731,8 +1731,14 @@ export default function DrawingsPage() {
     setSummaryLocal(null)
     annotationMapRef.current = {}
     persistedAnnotIdsRef.current = new Set()
-    setActiveTool('calibrate')
-    toast('New drawing uploaded — draw along a labelled dimension to set the scale first.', { duration: 5500, icon: '📐' })
+    // Do NOT auto-arm Calibrate here. Calibrate/Linear draw on left-drag, so
+    // silently arming it right after upload meant the very next drag the
+    // user made — even one meant only to pan and look around the new
+    // drawing — got captured as "draw the calibration line," committing a
+    // stray line + popup before the user ever chose to draw anything. The
+    // "Not Calibrated" banner and "Set Scale" button already guide them to
+    // click Calibrate explicitly when they're ready.
+    toast('New drawing uploaded — click Calibrate, then draw along a labelled dimension to set the scale.', { duration: 5500, icon: '📐' })
     if (isMobile) setSidebarOpen(false)
 
     try {
@@ -2413,9 +2419,14 @@ export default function DrawingsPage() {
           saving={calSaving}
           onApply={handleCalibrationApply}
           onClose={() => {
-            // On cancel during first-measure calibration, remove the orphaned reference line
-            // from the PDF so the drawing stays clean and the user can try again.
-            if (scaleSetupFirstMeasure && lastMeasurement?.annotationId) {
+            // Cancelling ALWAYS means "don't keep this as the calibration
+            // reference" — true whether it's the first-ever calibration or a
+            // later re-calibration attempt. The drawn line was never saved as
+            // a real takeoff row (handleMeasure's calibrate branch only ever
+            // stages it in pendingCalibMeasureRef), so without this it was
+            // being left as a permanently orphaned annotation on the canvas —
+            // visible, unlabeled, and with nothing in the grid to delete.
+            if (lastMeasurement?.annotationId) {
               triggerPdfCommand({
                 type: 'deleteAnnotation',
                 annotationId: lastMeasurement.annotationId,
