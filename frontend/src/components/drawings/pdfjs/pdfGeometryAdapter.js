@@ -31,6 +31,11 @@ export function annotationId(raw, fallback = '') {
 }
 
 export function annotationPoints(raw, pageSize) {
+  // PDF.js uses PDF-space vertices as the canonical geometry. Ratio points
+  // remain a compatibility fallback for older Syncfusion-only records.
+  const vertices = pointList(raw?.vertexPoints ?? raw?.VertexPoints ?? raw?.points ?? raw?.Points)
+  if (vertices.length >= 2) return vertices
+
   const ratioPoints = pointList(
     raw?.customLinePagePoints ?? raw?.CustomLinePagePoints
       ?? raw?.labelPagePoints ?? raw?.LabelPagePoints,
@@ -41,7 +46,6 @@ export function annotationPoints(raw, pageSize) {
     return ratioPoints.map(p => ({ x: p.x * pageSize.width, y: p.y * pageSize.height }))
   }
 
-  const vertices = pointList(raw?.vertexPoints ?? raw?.VertexPoints ?? raw?.points ?? raw?.Points)
   if (vertices.length >= 1) return vertices
   const start = pair(raw?.start ?? raw?.Start)
   const end = pair(raw?.end ?? raw?.End)
@@ -85,7 +89,9 @@ export function normalizeAnnotations(items, pageMetrics) {
         mark: String(item.mark ?? raw.Mark ?? raw.mark ?? ''),
         value: number(item.length ?? raw.measurementValue ?? raw.MeasurementValue, 0),
         unit: String(item.unit ?? raw.unit ?? 'mm').toLowerCase(),
-        color: item.color ?? raw.strokeColor ?? raw.StrokeColor ?? '#EF233C',
+        // Occurrences may have their own copied appearance. Prefer the saved
+        // annotation style over the shared item colour when rendering it.
+        color: raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#EF233C',
         thickness: Math.max(0.5, number(raw.thickness ?? raw.Thickness, 2)),
         opacity: Math.min(1, Math.max(0.05, number(raw.opacity ?? raw.Opacity, 1))),
         lineStyle: raw.lineStyle ?? raw.LineStyle ?? 'solid',

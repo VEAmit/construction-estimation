@@ -284,6 +284,9 @@ export default function DrawingsPage() {
   const [isDraggingBottom, setIsDraggingBottom]  = useState(false)
   const [summary,          setSummaryLocal]      = useState(null)
   const [selectedAnnotId,  setSelectedAnnotId]   = useState(null)
+  // Database row selection and PDF occurrence selection are different IDs.
+  // Keep both so the grid and SVG overlay can stay selected together.
+  const [selectedViewerAnnotId, setSelectedViewerAnnotId] = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
   const [ctxMenu, setCtxMenu] = useState(null) // { x, y } | null — right-click context menu
 
@@ -328,15 +331,20 @@ export default function DrawingsPage() {
 
   const resolveMeasurementDbId = useCallback((annotId) => {
     const pending = pendingMeasurementRef.current
-    if (!annotId) return pending?.dbId ?? null
-    if (pending?.annotationId === annotId) return pending.dbId ?? null
+    const annotationKey = annotId == null ? '' : String(annotId)
+    if (!annotationKey) return pending?.dbId ?? null
+    if (pending?.annotationId != null && String(pending.annotationId) === annotationKey) {
+      return pending.dbId ?? null
+    }
     const fromMap = Object.entries(annotationMapRef.current).find(([, v]) => {
-      if (v.annotationId === annotId) return true
-      return Array.isArray(v.annotationIds) && v.annotationIds.includes(annotId)
+      if (v.annotationId != null && String(v.annotationId) === annotationKey) return true
+      return Array.isArray(v.annotationIds)
+        && v.annotationIds.some(id => String(id) === annotationKey)
     })
     if (fromMap) return Number(fromMap[0])
     const items = useAppStore.getState().takeoffItems ?? []
-    const item = items.find(t => extractTakeoffAnnotationIds(t.pointsJson).includes(annotId))
+    const item = items.find(t => extractTakeoffAnnotationIds(t.pointsJson)
+      .some(id => String(id) === annotationKey))
     return item?.id ?? null
   }, [])
 
@@ -604,6 +612,10 @@ export default function DrawingsPage() {
         pageNumber: pending.pageNumber ?? 1,
       })
       if (selectedAnnotId === pending.dbId) setSelectedAnnotId(null)
+      if (String(selectedViewerAnnotId) === String(pending.annotationId)) {
+        setSelectedViewerAnnotId(null)
+        selectedOccurrenceAnnotIdRef.current = null
+      }
       if (pendingMeasurementRef.current?.dbId === pending.dbId) {
         pendingMeasurementRef.current = null
       }
@@ -618,7 +630,7 @@ export default function DrawingsPage() {
       if (!silent) toast.error('Failed to clear measurement')
       return false
     }
-  }, [removeTakeoffItem, selectedAnnotId, selectedDrawing, setSummary, triggerPdfCommand])
+  }, [removeTakeoffItem, selectedAnnotId, selectedDrawing, selectedViewerAnnotId, setSummary, triggerPdfCommand])
 
   const scheduleAnnotationBlobSave = useCallback(() => {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
@@ -687,11 +699,19 @@ export default function DrawingsPage() {
     const pasteOverride = pasteStyleOverrideRef.current
     if (pasteOverride) pasteStyleOverrideRef.current = null
     const { takeoffItems: itemsForColor, memberScheduleItems } = useAppStore.getState()
-    let saveColor = pasteOverride?.color
-      ?? resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
-      ?? '#111827'
-    const saveCategory = pasteOverride?.category ?? category ?? 'General'
-    const saveMaterialOverride = pasteOverride?.material
+    const copiedRaw = measurement.rawAnnotation ?? {}
+    const copiedColor = measurement.color ?? copiedRaw.strokeColor ?? copiedRaw.StrokeColor
+    let saveColor = isPaste
+      ? (copiedColor ?? pasteOverride?.color ?? color ?? '#111827')
+      : (pasteOverride?.color
+        ?? resolveDrawColorForMemberMark(memberMark, color, itemsForColor, memberScheduleItems)
+        ?? '#111827')
+    const saveCategory = isPaste
+      ? (measurement.category ?? pasteOverride?.category ?? category ?? 'General')
+      : (pasteOverride?.category ?? category ?? 'General')
+    const saveMaterialOverride = isPaste
+      ? (measurement.material ?? pasteOverride?.material)
+      : pasteOverride?.material
 
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
@@ -793,11 +813,13 @@ export default function DrawingsPage() {
           }
           return v
         }))
-        const thick = pendingMeasurementRef.current?.pendingThickness
-          ?? useAppStore.getState().lineThickness
-          ?? raw.thickness
-          ?? raw.Thickness
-          ?? 2
+        const thick = isPaste
+          ? (measurement.thickness ?? raw.thickness ?? raw.Thickness ?? 2)
+          : (pendingMeasurementRef.current?.pendingThickness
+            ?? useAppStore.getState().lineThickness
+            ?? raw.thickness
+            ?? raw.Thickness
+            ?? 2)
         raw.thickness = Number(thick) > 0 ? Number(thick) : 2
         raw.Thickness = raw.thickness
         if (pendingMeasurementRef.current) {
@@ -913,6 +935,8 @@ export default function DrawingsPage() {
           persistedAnnotIdsRef.current.add(annotationName)
           setShowBottom(true)
           setSelectedAnnotId(savedRoot.id)
+          setSelectedViewerAnnotId(String(annotationName))
+          selectedOccurrenceAnnotIdRef.current = String(annotationName)
           setStyleEditTargetId(null)
           annotStyleBaselineRef.current = null
           pendingMeasurementRef.current = {
@@ -920,7 +944,9 @@ export default function DrawingsPage() {
             annotationId: annotationName,
             mark: savedRoot.mark,
             pageNumber: measurement.pageNumber ?? 1,
-            pendingThickness: pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness,
+            pendingThickness: isPaste
+              ? (measurement.thickness ?? cleanNewGeometry.thickness ?? cleanNewGeometry.Thickness ?? 2)
+              : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness),
             rawPointsJson: cleanNewGeometry,
           }
           lastCopyTargetRef.current = savedRoot.id
@@ -951,7 +977,9 @@ export default function DrawingsPage() {
         calibrationUnitAtCreation: normDrw.calibrationUnit,
       })
       let finalSaved = saved
-      const latestThick = pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness
+      const latestThick = isPaste
+        ? null
+        : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness)
       if (latestThick != null && pointsJson) {
         try {
           const raw = JSON.parse(pointsJson)
@@ -995,11 +1023,16 @@ export default function DrawingsPage() {
       }
       if (isPaste) {
         setSelectedAnnotId(finalSaved.id)
+        const occurrenceId = measurement.annotationId == null ? null : String(measurement.annotationId)
+        setSelectedViewerAnnotId(occurrenceId)
+        selectedOccurrenceAnnotIdRef.current = occurrenceId
         setStyleEditTargetId(null)
         annotStyleBaselineRef.current = null
       } else {
         // Continuous draw: do not keep the new row in "style edit" mode — toolbar color is for the next mark.
         setSelectedAnnotId(null)
+        setSelectedViewerAnnotId(null)
+        selectedOccurrenceAnnotIdRef.current = null
         setStyleEditTargetId(null)
         annotStyleBaselineRef.current = null
       }
@@ -1016,7 +1049,12 @@ export default function DrawingsPage() {
         annotationId: measurement.annotationId,
         mark: finalSaved.mark,
         pageNumber: measurement.pageNumber ?? 1,
-        pendingThickness: pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness,
+        pendingThickness: isPaste
+          ? (measurement.thickness
+            ?? measurement.rawAnnotation?.thickness
+            ?? measurement.rawAnnotation?.Thickness
+            ?? 2)
+          : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness),
         rawPointsJson: pendingMeasurementRef.current?.rawPointsJson ?? null,
       }
       lastCopyTargetRef.current = finalSaved.id
@@ -1112,6 +1150,8 @@ export default function DrawingsPage() {
     if (!opts.isPaste) {
       // New mark — toolbar thickness applies to this line, not a previously selected row.
       setSelectedAnnotId(null)
+      setSelectedViewerAnnotId(null)
+      selectedOccurrenceAnnotIdRef.current = null
       setStyleEditTargetId(null)
       annotStyleBaselineRef.current = null
       pendingMeasurementRef.current = {
@@ -1125,13 +1165,14 @@ export default function DrawingsPage() {
     }
 
     setLastMeasurement(measurement)
-    autoSave(measurement, opts).then((ok) => {
+    return autoSave(measurement, opts).then((ok) => {
       if (ok) {
         console.log('[BT-Lifecycle] handleMeasure — autoSave success, triggering label rehydrate')
         triggerPdfCommand('rehydrateMeasureLabels')
       } else {
         console.warn('[BT-Lifecycle] handleMeasure — autoSave did not complete')
       }
+      return ok
     })
   }, [autoSave, triggerPdfCommand])
 
@@ -1269,12 +1310,18 @@ export default function DrawingsPage() {
     setSelectedAnnotId(dbId)
     setStyleEditTargetId(dbId)
     annotStyleBaselineRef.current = null
-    if (!dbId) return
+    if (!dbId) {
+      setSelectedViewerAnnotId(null)
+      selectedOccurrenceAnnotIdRef.current = null
+      return
+    }
     lastCopyTargetRef.current = dbId
     const item = takeoffItems.find(t => t.id === dbId)
     syncToolbarFromTakeoffItem(item)
     const annot = annotationMapRef.current[dbId]
-    selectedOccurrenceAnnotIdRef.current = annot?.annotationId ?? null
+    const occurrenceId = annot?.annotationId == null ? null : String(annot.annotationId)
+    selectedOccurrenceAnnotIdRef.current = occurrenceId
+    setSelectedViewerAnnotId(occurrenceId)
     if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
   }, [triggerPdfCommand, takeoffItems, syncToolbarFromTakeoffItem])
 
@@ -1424,6 +1471,7 @@ export default function DrawingsPage() {
       return isValid(mapped) ? mapped.id : null
     }
     const candidates = [
+      selectedOccurrenceAnnotIdRef.current,
       selectedAnnotId,
       styleEditTargetId,
     ].filter(id => id != null)
@@ -1450,7 +1498,9 @@ export default function DrawingsPage() {
       const raw = JSON.parse(item.pointsJson)
       const selectedOccurrenceId = selectedOccurrenceAnnotIdRef.current
       const selectedOccurrence = selectedOccurrenceId
-        ? buildTakeoffOccurrencesFromItem(item).find(occ => occ.annotationName === selectedOccurrenceId)
+        ? buildTakeoffOccurrencesFromItem(item).find(
+          occ => String(occ.annotationName) === String(selectedOccurrenceId)
+        )
         : null
       const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
       const clipboard = buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
@@ -1463,18 +1513,19 @@ export default function DrawingsPage() {
   }, [resolveCopyTargetId, takeoffItems, pdfScale, setMeasurementClipboard, clearPasteAnchor])
 
   const handlePasteMeasurement = useCallback(() => {
-    if (!measurementClipboard) {
+    const clipboard = useAppStore.getState().measurementClipboard ?? measurementClipboard
+    if (!clipboard) {
       toast('Copy a line measurement first (Ctrl+C)')
       return
     }
     if (!selectedDrawing) return
     pasteStyleOverrideRef.current = {
-      color: measurementClipboard.color,
-      category: measurementClipboard.category,
-      material: measurementClipboard.material ?? measurementClipboard.mark ?? '',
+      color: clipboard.color,
+      category: clipboard.category,
+      material: clipboard.material ?? clipboard.mark ?? '',
     }
     clearPasteAnchor()
-    triggerPdfCommand({ type: 'pasteMeasurement', clipboard: measurementClipboard })
+    triggerPdfCommand({ type: 'pasteMeasurement', clipboard })
   }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor])
 
   const copyTargetId = resolveCopyTargetId()
@@ -1508,7 +1559,11 @@ export default function DrawingsPage() {
           console.warn('[BuildTakeoff] linked occurrence quantity delete update failed:', err)
         }
       }
-      if (selectedAnnotId === id) setSelectedAnnotId(null)
+      if (selectedAnnotId === id) {
+        setSelectedAnnotId(null)
+        setSelectedViewerAnnotId(null)
+        selectedOccurrenceAnnotIdRef.current = null
+      }
       if (pendingMeasurementRef.current?.dbId === id) pendingMeasurementRef.current = null
       if (annotationIds.length) {
         annotationIds.forEach(annotationId => persistedAnnotIdsRef.current.delete(annotationId))
@@ -1543,6 +1598,29 @@ export default function DrawingsPage() {
     setCtxMenu({ x: e.clientX, y: e.clientY })
   }, [])
 
+  const handleAnnotationSelect = useCallback((annotUuid, annotation = null) => {
+    const occurrenceId = annotation?.id ?? annotUuid ?? null
+    const dbId = annotation?.dbId ?? resolveMeasurementDbId(occurrenceId)
+    const viewerId = occurrenceId == null ? null : String(occurrenceId)
+    selectedOccurrenceAnnotIdRef.current = viewerId
+    setSelectedViewerAnnotId(viewerId)
+    setSelectedAnnotId(dbId ?? null)
+    setStyleEditTargetId(dbId)
+    if (dbId) lastCopyTargetRef.current = dbId
+    annotStyleBaselineRef.current = null
+    if (dbId) {
+      const item = takeoffItems.find(t => t.id === dbId)
+      syncToolbarFromTakeoffItem(item)
+    }
+  }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems])
+
+  const handleAnnotationContextMenu = useCallback((event, annotUuid, annotation = null) => {
+    event.preventDefault()
+    event.stopPropagation()
+    handleAnnotationSelect(annotUuid, annotation)
+    setCtxMenu({ x: event.clientX, y: event.clientY })
+  }, [handleAnnotationSelect])
+
   const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
 
   useEffect(() => {
@@ -1567,8 +1645,9 @@ export default function DrawingsPage() {
         triggerPdfCommand({ type: 'cancelPastePlacement' })
         resetDrawingInteraction()
         setSelectedAnnotId(null)
-        setStyleEditTargetId(null)
+        setSelectedViewerAnnotId(null)
         selectedOccurrenceAnnotIdRef.current = null
+        setStyleEditTargetId(null)
         annotStyleBaselineRef.current = null
         // The calibration modal still needs its completed reference measurement.
         if (!showCalModal) setLastMeasurement(null)
@@ -1593,12 +1672,13 @@ export default function DrawingsPage() {
       }
 
       if (!(hasMod && (key === 'c' || key === 'v'))) return
+      if (e.repeat) return
       const isC = key === 'c'
       if (isC) {
         e.preventDefault()
         e.stopPropagation()
         handleCopyMeasurement()
-      } else if (canPasteMeasurement) {
+      } else {
         e.preventDefault()
         e.stopPropagation()
         handlePasteMeasurement()
@@ -1606,7 +1686,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [canPasteMeasurement, handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction])
+  }, [handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2028,6 +2108,8 @@ export default function DrawingsPage() {
                     const norm = normalizeDrawing(d)
                     setSelectedDrawing(norm)
                     setSelectedAnnotId(null)
+                    setSelectedViewerAnnotId(null)
+                    selectedOccurrenceAnnotIdRef.current = null
                     annotationMapRef.current = {}
                     if (!norm.isCalibrated) {
                       setActiveTool('line')
@@ -2080,6 +2162,8 @@ export default function DrawingsPage() {
                   const norm = normalizeDrawing(d)
                   setSelectedDrawing(norm)
                   setSelectedAnnotId(null)
+                  setSelectedViewerAnnotId(null)
+                  selectedOccurrenceAnnotIdRef.current = null
                   annotationMapRef.current = {}
                   if (!norm.isCalibrated) {
                     setActiveTool('line')
@@ -2148,23 +2232,14 @@ export default function DrawingsPage() {
               activeTool={activeTool}
               onMeasure={handleMeasure}
               annotations={takeoffItems.filter(t => t.pointsJson)}
-              selectedAnnotationId={selectedAnnotId}
+              selectedAnnotationId={selectedViewerAnnotId}
               styleEditTargetId={styleEditTargetId}
-              onAnnotationSelect={(annotUuid) => {
-                const dbId = resolveMeasurementDbId(annotUuid)
-                selectedOccurrenceAnnotIdRef.current = annotUuid ?? null
-                setSelectedAnnotId(dbId ?? annotUuid ?? null)
-                setStyleEditTargetId(dbId)
-                if (dbId) lastCopyTargetRef.current = dbId
-                annotStyleBaselineRef.current = null
-                if (dbId) {
-                  const item = takeoffItems.find(t => t.id === dbId)
-                  syncToolbarFromTakeoffItem(item)
-                }
-              }}
+              onAnnotationSelect={handleAnnotationSelect}
+              onAnnotationContextMenu={handleAnnotationContextMenu}
               onClearSelection={() => {
                 selectedOccurrenceAnnotIdRef.current = null
                 setSelectedAnnotId(null)
+                setSelectedViewerAnnotId(null)
                 setStyleEditTargetId(null)
                 annotStyleBaselineRef.current = null
               }}

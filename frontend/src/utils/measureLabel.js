@@ -108,7 +108,10 @@ export function inferLabelSizeFromSfFontSize(sfSize, pdfScale = 1) {
 export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
   const thickness = raw.Thickness ?? raw.thickness ?? defaultLineThicknessForLabelSize(DEFAULT_MEASURE_LABEL_SIZE)
   const sfFont = raw.FontSize ?? raw.fontSize
-  const labelFontSize = inferLabelSizeFromSfFontSize(sfFont, pdfScale)
+  const explicitLabelSize = Number(raw.labelUserFontSize ?? raw.LabelUserFontSize)
+  const labelFontSize = Number.isFinite(explicitLabelSize) && explicitLabelSize > 0
+    ? explicitLabelSize
+    : inferLabelSizeFromSfFontSize(sfFont, pdfScale)
   const arrowStyle = inferArrowStyleFromAnnot(raw)
   const notes = item.notes ?? item.Notes ?? ''
   const msiMatch = String(notes).match(/\bmsi:(\d+)/i)
@@ -127,14 +130,29 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
       : null
     rootPoints = extractPointsFromRaw(rootOccurrence?.geometry ?? itemRaw ?? {})
   } catch (_) {}
-  const vectorPoints = rootPoints.length >= 2 ? rootPoints : sourcePoints
+  // Copy the occurrence the user selected. Root geometry is only a fallback
+  // for legacy records that do not contain occurrence-level points.
+  const vectorPoints = sourcePoints.length >= 2 ? sourcePoints : rootPoints
   const sourceVector = vectorPoints.length >= 2
     ? {
         dx: vectorPoints[vectorPoints.length - 1].x - vectorPoints[0].x,
         dy: vectorPoints[vectorPoints.length - 1].y - vectorPoints[0].y,
       }
     : null
+  const pixelLength = sourceVector
+    ? Math.hypot(sourceVector.dx, sourceVector.dy)
+    : null
   const customLinePagePoints = extractPageRatioPointsFromRaw(raw)
+  const vectorStart = vectorPoints[0] ?? null
+  const vectorEnd = vectorPoints[vectorPoints.length - 1] ?? null
+  const vectorBounds = vectorPoints.length >= 2
+    ? {
+        X: Math.min(vectorStart.x, vectorEnd.x),
+        Y: Math.min(vectorStart.y, vectorEnd.y),
+        Width: Math.abs(vectorEnd.x - vectorStart.x),
+        Height: Math.abs(vectorEnd.y - vectorStart.y),
+      }
+    : null
   const copyJson = JSON.parse(JSON.stringify({
     ...raw,
     annotationId: raw.AnnotName ?? raw.annotationId ?? raw.name,
@@ -142,7 +160,8 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     IT: raw.IT ?? raw.it ?? 'LineDimension',
     pageNumber: raw.pageNumber ?? raw.PageNumber ?? (parseInt(raw.page ?? '0', 10) + 1),
     page: raw.page ?? String((raw.pageNumber ?? raw.PageNumber ?? 1) - 1),
-    vertexPoints: sourcePoints,
+    vertexPoints: vectorPoints,
+    VertexPoints: vectorPoints.map(p => ({ X: p.x, Y: p.y })),
     labelPagePoints: customLinePagePoints,
     LabelPagePoints: customLinePagePoints.map(p => ({ X: p.x, Y: p.y })),
     customLinePagePoints,
@@ -150,8 +169,12 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     customPaste: raw.customPaste ?? raw.CustomPaste,
     renderMode: raw.renderMode ?? raw.RenderMode,
     customCoordMode: raw.customCoordMode ?? raw.CustomCoordMode,
-    start: raw.start ?? raw.Start,
-    end: raw.end ?? raw.End,
+    start: vectorStart ? `${vectorStart.x},${vectorStart.y}` : (raw.start ?? raw.Start),
+    Start: vectorStart ? `${vectorStart.x},${vectorStart.y}` : (raw.Start ?? raw.start),
+    end: vectorEnd ? `${vectorEnd.x},${vectorEnd.y}` : (raw.end ?? raw.End),
+    End: vectorEnd ? `${vectorEnd.x},${vectorEnd.y}` : (raw.End ?? raw.end),
+    Bounds: vectorBounds ?? raw.Bounds ?? raw.bounds,
+    bounds: vectorBounds ?? raw.bounds ?? raw.Bounds,
     strokeColor: raw.StrokeColor ?? raw.strokeColor,
     thickness,
     Calibrate: raw.Calibrate ?? raw.calibrate,
@@ -163,6 +186,8 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     leaderLength: raw.leaderLength ?? raw.LeaderLength,
     leaderLineExtension: raw.leaderLineExtension ?? raw.LeaderLineExtension,
     fontSize: raw.fontSize ?? raw.FontSize,
+    labelUserFontSize: labelFontSize,
+    LabelUserFontSize: labelFontSize,
     labelSettings: raw.labelSettings ?? raw.LabelSettings,
   }))
   return {
@@ -172,7 +197,8 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     itemType: item.itemType || 'Line',
     mark: item.mark ?? '',
     material: item.material ?? item.mark ?? '',
-    color: item.color ?? raw.StrokeColor ?? raw.strokeColor ?? '#EF233C',
+    color: raw.StrokeColor ?? raw.strokeColor ?? item.color ?? '#EF233C',
+    opacity: raw.opacity ?? raw.Opacity ?? 1,
     category: item.category ?? 'General',
     memberType: item.memberType ?? item.category ?? '',
     memberScheduleId,
@@ -189,15 +215,16 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     length: item.length,
     unit: item.unit ?? 'Mm',
     pageNumber: copyJson.pageNumber,
-    startPoint: sourcePoints[0] ?? null,
-    endPoint: sourcePoints[sourcePoints.length - 1] ?? null,
-    sourcePoints,
+    startPoint: vectorPoints[0] ?? null,
+    endPoint: vectorPoints[vectorPoints.length - 1] ?? null,
+    sourcePoints: vectorPoints,
     sourceVector,
+    pixelLength,
     customLinePagePoints,
-    labelAnchor: sourcePoints.length >= 2
+    labelAnchor: vectorPoints.length >= 2
       ? {
-          x: (sourcePoints[0].x + sourcePoints[sourcePoints.length - 1].x) / 2,
-          y: (sourcePoints[0].y + sourcePoints[sourcePoints.length - 1].y) / 2,
+          x: (vectorPoints[0].x + vectorPoints[vectorPoints.length - 1].x) / 2,
+          y: (vectorPoints[0].y + vectorPoints[vectorPoints.length - 1].y) / 2,
         }
       : null,
     copyJson,

@@ -49,6 +49,7 @@ export default function PdfJsViewer({
   selectedAnnotationId,
   onMeasure,
   onAnnotationSelect,
+  onAnnotationContextMenu,
   onClearSelection,
   onMeasurementGeometryChange,
   measureReleaseRef,
@@ -60,6 +61,7 @@ export default function PdfJsViewer({
   const panRef = useRef(null)
   const initialFitAppliedRef = useRef(false)
   const zoomAnchorRef = useRef(null)
+  const previousToolRef = useRef(null)
 
   const {
     activeTool,
@@ -82,6 +84,16 @@ export default function PdfJsViewer({
   const [hiddenAnnotationIds, setHiddenAnnotationIds] = useState(() => new Set())
   const [optimisticGeometry, setOptimisticGeometry] = useState({})
   const [pendingAnnotations, setPendingAnnotations] = useState([])
+
+  useEffect(() => {
+    if (previousToolRef.current == null) {
+      previousToolRef.current = activeTool
+      return
+    }
+    if (previousToolRef.current === activeTool) return
+    previousToolRef.current = activeTool
+    setPasteClipboard(null)
+  }, [activeTool])
 
   const updateMetric = useCallback((pageNumber, metric) => {
     setPageMetrics((current) => {
@@ -254,8 +266,9 @@ export default function PdfJsViewer({
     return [...saved, ...pendingAnnotations.filter(annotation => !hiddenAnnotationIds.has(annotation.id))]
   }, [annotations, hiddenAnnotationIds, optimisticGeometry, pageMetrics, pendingAnnotations])
 
-  const handleMeasure = useCallback((measurement, options) => {
+  const handleMeasure = useCallback(async (measurement, options) => {
     const raw = measurement?.rawAnnotation
+    let pendingId = null
     if (raw) {
       const previewItem = {
         id: measurement.annotationId,
@@ -267,9 +280,24 @@ export default function PdfJsViewer({
         pointsJson: raw,
       }
       const normalized = normalizeAnnotations([previewItem], pageMetrics)
-      if (normalized[0]) setPendingAnnotations(current => [...current.filter(a => a.id !== normalized[0].id), normalized[0]])
+      if (normalized[0]) {
+        pendingId = normalized[0].id
+        setPendingAnnotations(current => [...current.filter(a => a.id !== normalized[0].id), normalized[0]])
+      }
     }
-    onMeasure?.(measurement, options)
+
+    try {
+      const result = await onMeasure?.(measurement, options)
+      if (result === false && pendingId) {
+        setPendingAnnotations(current => current.filter(annotation => annotation.id !== pendingId))
+      }
+      return result
+    } catch (error) {
+      if (pendingId) {
+        setPendingAnnotations(current => current.filter(annotation => annotation.id !== pendingId))
+      }
+      throw error
+    }
   }, [onMeasure, pageMetrics])
 
   const handleGeometryChange = useCallback((payload) => {
@@ -364,7 +392,14 @@ export default function PdfJsViewer({
     >
       {loading && <div className="pdfjs-document-status">Preparing drawing...</div>}
       {error && <div className="pdfjs-document-error">{error}</div>}
-      {pasteClipboard && <div className="pdfjs-paste-hint">Move preview, then click to place. Esc cancels.</div>}
+      {pasteClipboard && (
+        <div className="pdfjs-paste-hint">
+          <span>Move preview and click to place copies. Esc or Done finishes.</span>
+          <button type="button" className="pdfjs-paste-done" onClick={() => setPasteClipboard(null)}>
+            Done
+          </button>
+        </div>
+      )}
       {pdfDocument && (
         <div className="pdfjs-page-stack" style={{ gap: PAGE_GAP }}>
           {pages.map((pageNumber) => (
@@ -382,9 +417,9 @@ export default function PdfJsViewer({
               annotations={normalizedAnnotations.filter(annotation => annotation.pageNumber === pageNumber)}
               selectedAnnotationId={selectedAnnotationId}
               pasteClipboard={pasteClipboard}
-              onPasteComplete={() => setPasteClipboard(null)}
               onMeasure={handleMeasure}
               onSelect={onAnnotationSelect}
+              onContextMenu={onAnnotationContextMenu}
               onClearSelection={onClearSelection}
               onGeometryChange={handleGeometryChange}
             />

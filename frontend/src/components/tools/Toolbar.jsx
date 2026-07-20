@@ -207,21 +207,6 @@ export default function Toolbar({
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        if (canCopy && onCopyMeasurement) {
-          e.preventDefault()
-          onCopyMeasurement()
-        }
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        if (canPaste && onPasteMeasurement) {
-          e.preventDefault()
-          onPasteMeasurement()
-        }
-        return
-      }
-
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const all = [...NAV_TOOLS, ...MEASURE_TOOLS]
       const tool = all.find(t => t.shortcut && t.shortcut === e.key.toUpperCase())
@@ -232,7 +217,7 @@ export default function Toolbar({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setActiveTool, setPdfScale, triggerPdfCommand, canCopy, canPaste, onCopyMeasurement, onPasteMeasurement, onPickMeasureTool])
+  }, [setActiveTool, setPdfScale, triggerPdfCommand, onPickMeasureTool])
 
   // ── Auto-color from category ───────────────────────────────────────────
   const handleCategoryChange = (cat) => {

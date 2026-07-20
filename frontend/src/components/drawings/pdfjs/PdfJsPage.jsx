@@ -58,9 +58,9 @@ function PdfJsPage({
   annotations,
   selectedAnnotationId,
   pasteClipboard,
-  onPasteComplete,
   onMeasure,
   onSelect,
+  onContextMenu,
   onClearSelection,
   onGeometryChange,
 }) {
@@ -200,9 +200,9 @@ function PdfJsPage({
         annotations={annotations}
         selectedAnnotationId={selectedAnnotationId}
         pasteClipboard={pasteClipboard}
-        onPasteComplete={onPasteComplete}
         onMeasure={onMeasure}
         onSelect={onSelect}
+        onAnnotationContextMenu={onContextMenu}
         onClearSelection={onClearSelection}
         onGeometryChange={onGeometryChange}
       />

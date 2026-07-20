@@ -100,7 +100,7 @@ function MeasurementLabel({ annotation, viewerScale }) {
   )
 }
 
-function AnnotationShape({ annotation, selected, onPointerDown, onSelect, viewerScale }) {
+function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onContextMenu, viewerScale }) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
     fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
@@ -118,7 +118,11 @@ function AnnotationShape({ annotation, selected, onPointerDown, onSelect, viewer
 
   const closed = annotation.type === 'area'
   return (
-    <g onPointerDown={event => onPointerDown(event, annotation)} onClick={event => { event.stopPropagation(); onSelect(annotation.id) }}>
+    <g
+      onPointerDown={event => onPointerDown?.(event, annotation)}
+      onClick={event => { event.stopPropagation(); onSelect?.(annotation.id, annotation) }}
+      onContextMenu={event => onContextMenu?.(event, annotation)}
+    >
       <polyline points={points} {...common} fill={closed ? common.fill : 'none'} />
       <polyline points={points} fill="none" stroke="transparent" strokeWidth={Math.max(12, annotation.thickness * 5)} />
       {selected && annotation.points.map((p, index) => (
@@ -137,15 +141,16 @@ function PdfSvgOverlay({
   annotations,
   selectedAnnotationId,
   pasteClipboard,
-  onPasteComplete,
   onMeasure,
   onSelect,
+  onAnnotationContextMenu,
   onClearSelection,
   onGeometryChange,
 }) {
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const draftStartRef = useRef(null)
+  const pasteInFlightRef = useRef(false)
   const [draftStart, setDraftStart] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [dragged, setDragged] = useState(null)
@@ -177,6 +182,21 @@ function PdfSvgOverlay({
     ? translateRawLine(sourceRaw, cursor, pageNumber, pageSize)
     : null
   const previewPoints = previewRaw?.vertexPoints ?? []
+  const previewAnnotation = previewPoints.length >= 2
+    ? {
+        id: 'paste-preview',
+        type: 'line',
+        points: previewPoints,
+        mark: String(pasteClipboard?.mark ?? ''),
+        value: Number(pasteClipboard?.length),
+        unit: String(pasteClipboard?.unit ?? activeUnit).toLowerCase(),
+        color: pasteClipboard?.color ?? previewRaw?.strokeColor ?? '#EF233C',
+        thickness: Number(pasteClipboard?.thickness ?? previewRaw?.thickness ?? 2),
+        opacity: Number(previewRaw?.opacity ?? pasteClipboard?.opacity ?? 1),
+        lineStyle: pasteClipboard?.lineStyle ?? previewRaw?.lineStyle ?? 'solid',
+        labelFontSize: Number(pasteClipboard?.labelFontSize ?? previewRaw?.fontSize ?? 12),
+      }
+    : null
 
   const finalizeLine = useCallback((end, startOverride = null) => {
     const start = startOverride ?? draftStart
@@ -226,33 +246,52 @@ function PdfSvgOverlay({
     // occurrences. Escape/refresh owns the explicit return to Select mode.
   }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, onMeasure, pageNumber, pageSize, selectedDrawing])
 
-  const placePaste = useCallback((target) => {
-    if (!sourceRaw) return
+  const placePaste = useCallback(async (target) => {
+    if (!sourceRaw || pasteInFlightRef.current) return
     const rawAnnotation = translateRawLine(sourceRaw, target, pageNumber, pageSize)
     if (!rawAnnotation) return
-    const points = rawAnnotation.vertexPoints
-    onMeasure?.({
-      annotationId: rawAnnotation.annotationId,
-      occurrenceId: rawAnnotation.annotationId,
-      linkedItemId: pasteClipboard.linkedItemId ?? pasteClipboard.sourceItemId,
-      sourceItemId: pasteClipboard.sourceItemId,
-      pageNumber,
-      measureType: 'Line',
-      pixelLength: Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y),
-      length: pasteClipboard.length,
-      unit: pasteClipboard.unit ?? activeUnit,
-      memberMark: pasteClipboard.mark,
-      drawingMark: pasteClipboard.mark,
-      memberType: pasteClipboard.memberType,
-      memberScheduleId: pasteClipboard.memberScheduleId,
-      material: pasteClipboard.material,
-      category: pasteClipboard.category,
-      description: pasteClipboard.description,
-      notes: pasteClipboard.notes,
-      rawAnnotation,
-    }, { isPaste: true })
-    onPasteComplete?.()
-  }, [activeUnit, onMeasure, onPasteComplete, pageNumber, pageSize, pasteClipboard, sourceRaw])
+    const copiedPixelLength = Number(pasteClipboard.pixelLength)
+    const vectorPixelLength = Math.hypot(
+      Number(pasteClipboard.sourceVector?.dx) || 0,
+      Number(pasteClipboard.sourceVector?.dy) || 0,
+    )
+    const pixelLength = Number.isFinite(copiedPixelLength) && copiedPixelLength > 0
+      ? copiedPixelLength
+      : vectorPixelLength
+
+    pasteInFlightRef.current = true
+    try {
+      await onMeasure?.({
+        annotationId: rawAnnotation.annotationId,
+        occurrenceId: rawAnnotation.annotationId,
+        linkedItemId: pasteClipboard.linkedItemId ?? pasteClipboard.sourceItemId,
+        sourceItemId: pasteClipboard.sourceItemId,
+        pageNumber,
+        measureType: 'Line',
+        pixelLength,
+        length: pasteClipboard.length,
+        unit: pasteClipboard.unit ?? activeUnit,
+        memberMark: pasteClipboard.mark,
+        drawingMark: pasteClipboard.mark,
+        memberType: pasteClipboard.memberType,
+        memberScheduleId: pasteClipboard.memberScheduleId,
+        material: pasteClipboard.material,
+        category: pasteClipboard.category,
+        description: pasteClipboard.description,
+        notes: pasteClipboard.notes,
+        color: pasteClipboard.color,
+        thickness: pasteClipboard.thickness,
+        opacity: pasteClipboard.opacity,
+        lineStyle: pasteClipboard.lineStyle,
+        arrowStyle: pasteClipboard.arrowStyle,
+        linearLineMode: pasteClipboard.linearLineMode,
+        labelFontSize: pasteClipboard.labelFontSize,
+        rawAnnotation,
+      }, { isPaste: true })
+    } finally {
+      pasteInFlightRef.current = false
+    }
+  }, [activeUnit, onMeasure, pageNumber, pageSize, pasteClipboard, sourceRaw])
 
   const handleClick = useCallback((event) => {
     if (!svgRef.current) return
@@ -296,11 +335,17 @@ function PdfSvgOverlay({
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (activeTool !== 'select' || event.button !== 0) return
     event.stopPropagation()
-    onSelect?.(annotation.id)
+    onSelect?.(annotation.id, annotation)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
     dragRef.current = { pointerId: event.pointerId, origin, annotation }
   }, [activeTool, onSelect, pageSize])
+
+  const handleShapeContextMenu = useCallback((event, annotation) => {
+    event.preventDefault()
+    event.stopPropagation()
+    onAnnotationContextMenu?.(event, annotation.id, annotation)
+  }, [onAnnotationContextMenu])
 
   const endDrag = useCallback((event) => {
     const drag = dragRef.current
@@ -330,13 +375,6 @@ function PdfSvgOverlay({
   }, [endDrag])
 
   const cancelPointer = useCallback((event) => {
-    if (drawRef.current?.pointerId === event.pointerId) {
-      svgRef.current?.releasePointerCapture?.(event.pointerId)
-      drawRef.current = null
-      setDraftStart(null)
-      setCursor(null)
-      return
-    }
     endDrag(event)
   }, [endDrag])
 
@@ -352,28 +390,37 @@ function PdfSvgOverlay({
       onPointerMove={handleMove}
       onPointerUp={endPointer}
       onPointerCancel={cancelPointer}
-      onPointerLeave={() => { if (!dragRef.current && !drawRef.current && !draftStart) setCursor(null) }}
+      onPointerLeave={() => { if (!dragRef.current && !draftStartRef.current) setCursor(null) }}
     >
-      {pageAnnotations.map(annotation => (
-        <AnnotationShape
-          key={annotation.id}
-          annotation={annotation}
-          viewerScale={viewerScale}
-          selected={selectedAnnotationId === annotation.id || selectedAnnotationId === annotation.dbId}
-          onPointerDown={handleShapePointerDown}
-          onSelect={onSelect}
-        />
-      ))}
+      <g pointerEvents={pasteClipboard ? 'none' : 'auto'}>
+        {pageAnnotations.map(annotation => (
+          <AnnotationShape
+            key={annotation.id}
+            annotation={annotation}
+            viewerScale={viewerScale}
+            selected={selectedAnnotationId != null && [annotation.id, annotation.dbId].some(
+              id => id != null && String(id) === String(selectedAnnotationId)
+            )}
+            onPointerDown={handleShapePointerDown}
+            onSelect={onSelect}
+            onContextMenu={handleShapeContextMenu}
+          />
+        ))}
+      </g>
       {draftStart && cursor && (
         <line x1={draftStart.x} y1={draftStart.y} x2={cursor.x} y2={cursor.y}
           stroke={measureColor} strokeWidth={lineThickness} strokeDasharray={dashArray(lineStyle)}
           strokeLinecap="round" pointerEvents="none" />
       )}
-      {previewPoints.length >= 2 && (
+      {previewAnnotation && (
         <g opacity=".58" pointerEvents="none">
-          <line x1={previewPoints[0].x} y1={previewPoints[0].y}
-            x2={previewPoints[previewPoints.length - 1].x} y2={previewPoints[previewPoints.length - 1].y}
-            stroke={pasteClipboard.color ?? '#EF233C'} strokeWidth={pasteClipboard.thickness ?? 2} />
+          <AnnotationShape
+            annotation={previewAnnotation}
+            viewerScale={viewerScale}
+            selected={false}
+            onPointerDown={() => {}}
+            onSelect={() => {}}
+          />
         </g>
       )}
     </svg>
