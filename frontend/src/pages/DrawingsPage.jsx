@@ -679,6 +679,7 @@ export default function DrawingsPage() {
     let memberMark = isPaste ? (payloadMemberMark || linkedMemberMark) : (linkedMemberMark || payloadMemberMark)
     if (!drw?.id) {
       console.warn('[BT-Lifecycle] autoSave ABORTED — no drawing id in store')
+      toast.error('Measurement was not saved — no drawing selected')
       return false
     }
 
@@ -716,7 +717,12 @@ export default function DrawingsPage() {
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
     if (annotKey && savingAnnotIdsRef.current.has(annotKey)) {
+      // Previously silent (console.warn only) — a save that hits this guard
+      // vanishes with zero visible feedback: no grid row, no toast, nothing.
+      // Surface it so a stuck/duplicate save is at least visibly reported
+      // instead of looking like the draw was silently dropped.
       console.warn('[BT-Lifecycle] autoSave skipped — duplicate in flight:', annotKey)
+      toast.error('Measurement was not saved — please try drawing it again')
       return false
     }
     if (annotKey) savingAnnotIdsRef.current.add(annotKey)
@@ -1260,7 +1266,11 @@ export default function DrawingsPage() {
       setActiveTool('line')
 
       if (savedFirst) {
-        toast.success('Scale saved — your first measurement was added', { duration: 3500, icon: '✅' })
+        const savedMark = measureToSave?.memberMark || measureToSave?.drawingMark
+        toast.success(
+          savedMark ? `Scale saved — ${savedMark} measurement added` : 'Scale saved — your first measurement was added',
+          { duration: 3500, icon: '✅' },
+        )
       } else if (measureToSave && !savedFirst) {
         toast.error('Scale saved but measurement could not be added — draw the line again')
       } else {

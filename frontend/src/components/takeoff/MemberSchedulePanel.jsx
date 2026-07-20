@@ -40,7 +40,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
     updateTakeoffItem,
     selectedMemberScheduleItem, setSelectedMemberScheduleItem, lastMeasureMember,
-    setActiveTool, triggerPdfCommand,
+    setActiveTool, triggerPdfCommand, activeTool,
   } = useAppStore()
 
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
@@ -137,10 +137,21 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
   const handleSelectMember = useCallback((item) => {
     if (!item?.mark) return
+    // Picking a member while Calibrate is active no longer force-switches the
+    // tool to Linear (that used to silently drop the user out of Calibrate
+    // mode). Instead it stays in Calibrate and links this member to the next
+    // reference line drawn — one line then sets the new scale AND saves as
+    // this member's measurement (finalizeLine/handleMeasure carry the member
+    // through the calibration-save path).
+    if (activeTool === 'calibrate') {
+      setSelectedMemberScheduleItem(item)
+      toast(`${item.mark} linked — draw the calibration line now`, { duration: 2600, icon: '📐' })
+      return
+    }
     setSelectedMemberScheduleItem(item)
     armLinearMeasureMode()
     toast.success(`${item.mark} selected — draw on the plan`, { duration: 2200, icon: '📐' })
-  }, [setSelectedMemberScheduleItem, armLinearMeasureMode])
+  }, [activeTool, setSelectedMemberScheduleItem, armLinearMeasureMode])
 
   /** Called when user picks a new color from the color input. Shows apply-all dialog. */
   const handleColorChange = useCallback((item, newColor) => {

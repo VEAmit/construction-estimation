@@ -124,10 +124,14 @@ export const useAppStore = create(
       // regardless of which tool is active.
       spaceHeld: false,
       setSpaceHeld: (held) => set({ spaceHeld: held }),
-      // Switching to Calibrate always clears the selected member — a calibration
-      // reference line is never a member measurement (finalizeLine already
-      // excludes it from the schedule-linked branch), so leaving a member
-      // "Selected" in the UI while drawing the calibration line is misleading.
+      // Entering Calibrate still starts with a clean slate — clear any member
+      // left selected from an earlier Linear session so a stale selection
+      // can't silently attach to a calibration line the user never meant to
+      // link. But MemberSchedulePanel's handleSelectMember can DELIBERATELY
+      // set a member while already in Calibrate mode (it calls
+      // setSelectedMemberScheduleItem directly, not setActiveTool, so it
+      // isn't cleared here) — that's how one line can both set the new scale
+      // AND save as that member's measurement.
       setActiveTool:     (tool)  => set({
         activeTool: tool,
         ...(tool === 'calibrate' ? { selectedMemberScheduleItem: null, lastMeasureMember: null } : {}),

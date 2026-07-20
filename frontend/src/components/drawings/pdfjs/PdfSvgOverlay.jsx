@@ -222,7 +222,12 @@ function PdfSvgOverlay({
     // even when React has not yet committed the overlay's next render.
     const liveState = useAppStore.getState()
     const manuallySelectedMember = liveState.selectedMemberScheduleItem
-    const schedule = activeTool === 'line' ? manuallySelectedMember : null
+    // Calibrate now included: selecting a member before/during Calibrate mode
+    // links it to the reference line, so the same draw both sets the new
+    // scale and saves as that member's measurement (handleMeasure's
+    // calibrate branch already spreads the full measurement — including
+    // whatever member fields are here — into pendingCalibMeasureRef).
+    const schedule = ['line', 'calibrate'].includes(activeTool) ? manuallySelectedMember : null
     const annotationColor = schedule?.color ?? schedule?.Color ?? measureColor
     const id = crypto.randomUUID()
     const rawAnnotation = createRawLine({
