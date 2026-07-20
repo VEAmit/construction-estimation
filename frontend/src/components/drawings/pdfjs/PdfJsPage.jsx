@@ -72,6 +72,7 @@ function PdfJsPage({
   const pageRef = useRef(null)
   const renderedOnceRef = useRef(false)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1 || forceRender)
+  const [isIntersecting, setIsIntersecting] = useState(false)
   const [renderedOnce, setRenderedOnce] = useState(false)
   const [renderError, setRenderError] = useState(null)
 
@@ -88,6 +89,7 @@ function PdfJsPage({
     if (!host || !root) return undefined
     const observer = new IntersectionObserver(([entry]) => {
       onVisibility?.(pageNumber, entry.intersectionRatio)
+      setIsIntersecting(entry.isIntersecting)
       if (entry.isIntersecting) setShouldRender(true)
     }, {
       root,
@@ -100,6 +102,19 @@ function PdfJsPage({
 
   useEffect(() => {
     if (!pdfDocument || !shouldRender) return undefined
+    // shouldRender is a one-way ratchet (stays true forever once a page has
+    // ever been near the current page or on-screen) so its own render output
+    // stays mounted for instant scroll-back. But re-running the actual pdfium
+    // rasterize on every scale change for EVERY page that ratchet has ever
+    // touched means zooming after scrolling through a long document fires a
+    // simultaneous full-document re-render burst — the "stuck" jank during
+    // zoom. Gate the expensive re-render itself on still being near the
+    // current page or actually on-screen; a page that's neither just keeps
+    // showing its last bitmap (CSS-stretched by the wrapper's new width/height)
+    // until it's scrolled back into range, at which point this effect re-runs
+    // (forceRender/isIntersecting are dependencies below) and rasterizes fresh
+    // at whatever scale is current then.
+    if (!forceRender && !isIntersecting) return undefined
     let cancelled = false
     let stagingCanvas = null
 
@@ -179,7 +194,7 @@ function PdfJsPage({
       textLayerTaskRef.current?.cancel?.()
       stagingCanvas = null
     }
-  }, [documentKey, onMetric, pageNumber, pdfDocument, scale, shouldRender])
+  }, [documentKey, onMetric, pageNumber, pdfDocument, scale, shouldRender, forceRender, isIntersecting])
 
   useEffect(() => () => {
     renderTaskRef.current?.cancel?.()

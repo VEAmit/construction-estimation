@@ -2111,10 +2111,6 @@ export default function DrawingsPage() {
                     setSelectedViewerAnnotId(null)
                     selectedOccurrenceAnnotIdRef.current = null
                     annotationMapRef.current = {}
-                    if (!norm.isCalibrated) {
-                      setActiveTool('line')
-                      setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
-                    }
                     setSidebarOpen(false)
                   }}
                   onUploaded={handleDrawingUploaded}
@@ -2165,10 +2161,6 @@ export default function DrawingsPage() {
                   setSelectedViewerAnnotId(null)
                   selectedOccurrenceAnnotIdRef.current = null
                   annotationMapRef.current = {}
-                  if (!norm.isCalibrated) {
-                    setActiveTool('line')
-                    setTimeout(() => triggerPdfCommand('ensureMeasureMode'), 800)
-                  }
                 }}
                 onUploaded={handleDrawingUploaded}
                 onDeleted={handleDrawingDeleted}

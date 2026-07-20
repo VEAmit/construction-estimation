@@ -206,8 +206,16 @@ function PdfSvgOverlay({
     setDraftStart(null)
     setCursor(null)
     if (!Number.isFinite(pixelLength) || pixelLength < 0.25) return
+    // computeRealLengthFromDrawing returns null when the drawing isn't
+    // calibrated yet (expected — that's exactly what Calibrate mode, or a
+    // Linear line drawn before any scale exists, is for). Do NOT bail out
+    // here: onMeasure must still fire so DrawingsPage's handleMeasure can
+    // detect the missing scale and open the calibration modal, which saves
+    // this same line once a real length is known (Bluebeam-style: the first
+    // drawn line becomes the calibration reference). Bailing here silently
+    // discarded every line drawn before calibration — no draw, no popup.
     const length = computeRealLengthFromDrawing(pixelLength, selectedDrawing, activeUnit)
-    if (!Number.isFinite(length) || length <= 0) return
+    const resolvedLength = Number.isFinite(length) && length > 0 ? length : null
     // Read the store at finalization time so a schedule-row click always wins,
     // even when React has not yet committed the overlay's next render.
     const liveState = useAppStore.getState()
@@ -232,7 +240,7 @@ function PdfSvgOverlay({
       pageNumber,
       measureType: 'Line',
       pixelLength,
-      length,
+      length: resolvedLength,
       unit: activeUnit,
       memberMark: schedule?.mark ?? schedule?.Mark ?? '',
       drawingMark: schedule?.mark ?? schedule?.Mark ?? '',

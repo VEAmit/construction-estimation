@@ -10,6 +10,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.m
 
 const RANGE_CHUNK_SIZE = 1024 * 1024
 const PAGE_GAP = 12
+// Tools where left-drag on empty canvas should pan instead of requiring the
+// dedicated Pan tool. 'line'/'calibrate' (and any future draw tool) keep
+// left-click reserved for drawing, so they're excluded and still pan via
+// middle-click only. Clicks that land ON an annotation shape never reach this
+// handler in the first place — AnnotationShape's own pointerdown already
+// calls stopPropagation() before this bubbles up — so enabling this for
+// 'select' can't hijack the existing click-to-select/drag-to-move behavior.
+const PAN_TOOLS = new Set(['select', 'pan'])
 
 function clampScale(value) {
   return Math.min(5, Math.max(0.2, Number(value) || 1))
@@ -61,6 +69,7 @@ export default function PdfJsViewer({
   const panRef = useRef(null)
   const initialFitAppliedRef = useRef(false)
   const zoomAnchorRef = useRef(null)
+  const visibilityCommitRef = useRef(null)
   const previousToolRef = useRef(null)
 
   const {
@@ -246,16 +255,31 @@ export default function PdfJsViewer({
   const handleVisibility = useCallback((pageNumber, ratio) => {
     visibilityRef.current.set(pageNumber, ratio)
     if (programmaticPageRef.current != null) return
-    let visiblePage = null
-    let visibleRatio = 0
-    visibilityRef.current.forEach((candidateRatio, candidatePage) => {
-      if (candidateRatio > visibleRatio) {
-        visiblePage = candidatePage
-        visibleRatio = candidateRatio
-      }
-    })
-    if (visiblePage != null && visiblePage !== useAppStore.getState().pdfPage) setPdfPage(visiblePage)
+    // Fast-scrolling a long document fires an IntersectionObserver tick per
+    // page per threshold crossing — many per second. Committing pdfPage
+    // synchronously on every tick recomputes forceRender for every page on
+    // every tick, thrashing PdfJsPage's render effect (start-then-immediately
+    // -cancel pdfium jobs) well beyond what's needed to know which page the
+    // user settled on — this is the main contributor to "scrolling fast
+    // feels stuck." Coalesce into one commit shortly after ticks stop.
+    if (visibilityCommitRef.current) clearTimeout(visibilityCommitRef.current)
+    visibilityCommitRef.current = setTimeout(() => {
+      visibilityCommitRef.current = null
+      let visiblePage = null
+      let visibleRatio = 0
+      visibilityRef.current.forEach((candidateRatio, candidatePage) => {
+        if (candidateRatio > visibleRatio) {
+          visiblePage = candidatePage
+          visibleRatio = candidateRatio
+        }
+      })
+      if (visiblePage != null && visiblePage !== useAppStore.getState().pdfPage) setPdfPage(visiblePage)
+    }, 120)
   }, [setPdfPage])
+
+  useEffect(() => () => {
+    if (visibilityCommitRef.current) clearTimeout(visibilityCommitRef.current)
+  }, [])
 
   const normalizedAnnotations = useMemo(() => {
     const saved = normalizeAnnotations(annotations, pageMetrics)
@@ -321,7 +345,7 @@ export default function PdfJsViewer({
     : [], [pdfDocument])
 
   const handlePointerDown = useCallback((event) => {
-    const canPan = activeTool === 'pan' ? event.button === 0 : event.button === 1
+    const canPan = PAN_TOOLS.has(activeTool) ? event.button === 0 : event.button === 1
     if (!canPan) return
     const container = containerRef.current
     if (!container) return

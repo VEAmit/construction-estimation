@@ -793,3 +793,21 @@ Error Number:258,State:0,Class:20
 2026-07-20 19:40:21.230 +05:30 [INF] HTTP GET /api/drawings/210 responded 200 in 7.9478 ms
 2026-07-20 19:40:21.285 +05:30 [INF] HTTP GET /api/memberschedules/drawing/210/summary responded 200 in 49.6627 ms
 2026-07-20 19:40:21.285 +05:30 [INF] HTTP GET /api/memberschedules/drawing/210 responded 200 in 62.1733 ms
+2026-07-20 20:00:51.545 +05:30 [INF] Database migrated successfully
+2026-07-20 20:00:53.029 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-20 20:01:02.030 +05:30 [INF] HTTP GET /api/projects responded 200 in 2496.0995 ms
+2026-07-20 20:01:02.168 +05:30 [INF] HTTP GET /api/projects responded 200 in 122.8686 ms
+2026-07-20 20:09:31.729 +05:30 [INF] HTTP GET /api/projects responded 200 in 42.7964 ms
+2026-07-20 20:09:31.777 +05:30 [INF] HTTP GET /api/projects responded 200 in 19.6425 ms
+2026-07-20 20:09:39.259 +05:30 [INF] HTTP POST /api/projects responded 200 in 623.0398 ms
+2026-07-20 20:09:46.797 +05:30 [INF] HTTP GET /api/drawings/project/52 responded 200 in 214.0603 ms
+2026-07-20 20:09:46.901 +05:30 [INF] HTTP GET /api/drawings/project/52 responded 200 in 28.3925 ms
+2026-07-20 20:10:05.303 +05:30 [INF] Drawing S101_61 uploaded for project 52
+2026-07-20 20:10:05.369 +05:30 [INF] HTTP POST /api/drawings/upload/52 responded 200 in 469.4048 ms
+2026-07-20 20:10:05.601 +05:30 [INF] HTTP GET /api/drawings/project/52 responded 200 in 35.3188 ms
+2026-07-20 20:10:05.625 +05:30 [INF] HTTP GET /api/drawings/211 responded 200 in 84.1088 ms
+2026-07-20 20:10:05.701 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/211 responded 200 in 134.3202 ms
+2026-07-20 20:10:05.708 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/211/summary responded 200 in 116.9256 ms
+2026-07-20 20:10:05.722 +05:30 [INF] HTTP GET /api/memberschedules/drawing/211 responded 200 in 130.2012 ms
+2026-07-20 20:10:05.727 +05:30 [INF] HTTP GET /api/memberschedules/drawing/211/summary responded 200 in 129.5078 ms
+2026-07-20 20:10:05.983 +05:30 [INF] HTTP GET /api/drawings/211/file responded 200 in 51.0096 ms
