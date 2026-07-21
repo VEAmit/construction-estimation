@@ -90,6 +90,19 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    // Unanchored fallback — multi-column drawing sheets (e.g. a PAD FOOTINGS legend sitting
+    // beside a DRAWING SCHEDULE and DESIGN CRITERIA block) reconstruct lines purely by Y-band,
+    // so an unrelated column header at the same row height (e.g. "LEGEND") can land in front of
+    // the real mark ("LEGEND PF2 - 3500 x 3500 x 600 DEEP..."), pushing it off the start of the
+    // line and silently defeating the anchored patterns above for that one row while neighbouring
+    // rows with no such overlap parse fine. Only tried once already confirmed inside a recognized
+    // member-list block (same allowLoose gate as DrawingListLoosePattern), so it can't pick up
+    // stray "XX9 -" look-alikes from ordinary prose outside a real list section.
+    private static readonly Regex DrawingListAnywherePattern = new(
+        @"\b(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:•]\s*(.+)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
     private static readonly string[] ColorPalette = {
         "#3B82F6", "#22C55E", "#F97316", "#A855F7",
         "#06B6D4", "#EAB308", "#EC4899", "#EF4444",
@@ -1123,11 +1136,26 @@ public class ExtractionService
 
             if (inList && (IsStopLine(line) || IsDrawingListHeader(line)))
             {
+                // A stop token like "LEGEND" can land glued onto a genuine member row when
+                // unrelated columns on the same sheet (e.g. a legend box beside a pad-footings
+                // list) share the same row height and get merged by Y-band ("LEGEND PF2 - 3500 x
+                // 3500 x 600 DEEP..."). Salvage that row before closing the section, or the mark
+                // silently vanishes at the exact line that should only end the list afterward.
                 if (IsStopLine(line))
+                {
+                    var salvaged = TryParseDrawingListLine(line, allowLoose: true);
+                    if (salvaged != null)
+                    {
+                        _logger.LogInformation("[Extract] Salvaged '{Mark}' ({Size}) from stop-line row '{Line}'",
+                            salvaged.Mark, salvaged.MemberSize, line);
+                        results.Add(salvaged);
+                    }
                     _logger.LogInformation("[Extract] Section '{Section}' ended at stop line: '{Line}'", currentSection, line);
+                }
                 inList = false;
                 pendingMark = null;
                 if (IsDrawingListHeader(line)) { inList = true; currentSection = line; }
+                continue;
             }
 
             ExtractedMemberDto? member = null;
@@ -1197,12 +1225,26 @@ public class ExtractionService
     {
         var upper = line.Trim().ToUpperInvariant();
         var compact = upper.Replace(" ", "");
-        return DrawingListSections.Any(s =>
+        if (DrawingListSections.Any(s =>
         {
             var section = s.ToUpperInvariant();
             var sectionCompact = section.Replace(" ", "");
             return upper == section || upper.StartsWith(section + " ", StringComparison.Ordinal)
                 || compact == sectionCompact || compact.StartsWith(sectionCompact, StringComparison.Ordinal);
+        }))
+            return true;
+
+        // Same multi-column Y-band merging that glues an unrelated column's text onto a
+        // member row (see DrawingListAnywherePattern) can just as easily glue it onto the
+        // section header itself — "ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP..." — which
+        // defeats the StartsWith checks above and silently skips the entire section. Recognize
+        // the header when it appears right after a sentence/column boundary (". ", ": ", "- ")
+        // near the start of the line, rather than requiring it to BE the start of the line.
+        return DrawingListSections.Any(s =>
+        {
+            var section = s.ToUpperInvariant();
+            var match = Regex.Match(upper, @"(?:^|[.:\-]\s+)" + Regex.Escape(section) + @"\b");
+            return match.Success && match.Index <= 40;
         });
     }
 
@@ -1211,6 +1253,8 @@ public class ExtractionService
         var listMatch = DrawingListLinePattern.Match(line);
         if (!listMatch.Success && allowLoose)
             listMatch = DrawingListLoosePattern.Match(line);
+        if (!listMatch.Success && allowLoose)
+            listMatch = DrawingListAnywherePattern.Match(line);
         if (!listMatch.Success) return null;
 
         var mark = listMatch.Groups[1].Value.ToUpperInvariant();
