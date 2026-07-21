@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import PdfSvgOverlay from './PdfSvgOverlay'
+import { attachDetectedLabel, mergePdfTextItems } from './detectPdfLabel'
 
 const MAX_OUTPUT_SCALE = 2
 const MAX_CACHE_ENTRIES = 18
@@ -71,6 +72,8 @@ function PdfJsPage({
   const textLayerTaskRef = useRef(null)
   const pageRef = useRef(null)
   const renderedOnceRef = useRef(false)
+  const pageTextItemsRef = useRef([])
+  const textItemsFetchedForRef = useRef(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1 || forceRender)
   const [isIntersecting, setIsIntersecting] = useState(false)
   const [renderedOnce, setRenderedOnce] = useState(false)
@@ -143,6 +146,28 @@ function PdfJsPage({
       const baseViewport = page.getViewport({ scale: 1 })
       onMetric?.(pageNumber, { width: baseViewport.width, height: baseViewport.height, rotation: baseViewport.rotation })
       const viewport = page.getViewport({ scale })
+
+      const textItemsKey = `${documentKey}|${pageNumber}`
+      if (textItemsFetchedForRef.current !== textItemsKey) {
+        page.getTextContent().then(({ items }) => {
+          if (cancelled) return
+          const rawItems = items
+            .filter(item => typeof item.str === 'string' && item.transform)
+            .map(item => {
+              const [x, y] = baseViewport.convertToViewportPoint(item.transform[4], item.transform[5])
+              const charWidth = Math.hypot(item.transform[0], item.transform[1]) || 4
+              return { str: item.str, x, y, charWidth }
+            })
+          pageTextItemsRef.current = mergePdfTextItems(rawItems)
+          // Only mark this page "done" once extraction actually lands — if the
+          // effect re-runs (e.g. the initial auto-fit scale change right after
+          // mount) and cancels this in-flight call first, it must be retried,
+          // not permanently skipped.
+          textItemsFetchedForRef.current = textItemsKey
+        }).catch(error => {
+          console.warn(`[PDF.js] Text extraction for label detection failed on page ${pageNumber}`, error)
+        })
+      }
       const outputScale = Math.min(window.devicePixelRatio || 1, MAX_OUTPUT_SCALE)
 
       stagingCanvas = document.createElement('canvas')
@@ -202,6 +227,10 @@ function PdfJsPage({
     pageRef.current?.cleanup?.()
   }, [])
 
+  const handleMeasure = useCallback((measurement) => (
+    onMeasure?.(attachDetectedLabel(measurement, pageTextItemsRef.current))
+  ), [onMeasure])
+
   return (
     <section ref={hostRef} className="pdfjs-page-shell" data-page-number={pageNumber}
       style={{ width, height }} aria-label={`PDF page ${pageNumber}`}>
@@ -215,7 +244,7 @@ function PdfJsPage({
         annotations={annotations}
         selectedAnnotationId={selectedAnnotationId}
         pasteClipboard={pasteClipboard}
-        onMeasure={onMeasure}
+        onMeasure={handleMeasure}
         onSelect={onSelect}
         onAnnotationContextMenu={onContextMenu}
         onClearSelection={onClearSelection}

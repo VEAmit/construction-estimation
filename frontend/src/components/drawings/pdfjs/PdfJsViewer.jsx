@@ -344,7 +344,7 @@ export default function PdfJsViewer({
       const previewItem = {
         id: measurement.annotationId,
         itemType: measurement.measureType,
-        mark: measurement.memberMark ?? measurement.drawingMark ?? '',
+        mark: measurement.memberMark || measurement.drawingMark || '',
         length: measurement.length,
         unit: measurement.unit,
         color: raw.strokeColor ?? raw.StrokeColor,

@@ -857,7 +857,7 @@ export default function DrawingsPage() {
       ? (payloadMemberType || linkedMember?.memberType?.trim() || '')
       : (linkedMember?.memberType?.trim() ?? '')
     const saveCategoryFinal = memberType || saveCategory
-    const saveMaterial = saveMaterialOverride ?? measurement.material ?? memberMark
+    const saveMaterial = saveMaterialOverride || measurement.material || memberMark
     const msiId = isPaste
       ? (measurement.memberScheduleId ?? linkedMember?.id)
       : (linkedMember?.id ?? measurement.memberScheduleId)
@@ -1117,7 +1117,7 @@ export default function DrawingsPage() {
       pendingMeasurementRef.current = {
         annotationId: measurement.annotationId,
         dbId: null,
-        mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+        mark: measurement.memberMark || measurement.drawingMark || null,
         pageNumber: measurement.pageNumber ?? 1,
         pendingThickness: useAppStore.getState().lineThickness,
         rawPointsJson: measurement.rawAnnotation ?? null,
@@ -1140,7 +1140,7 @@ export default function DrawingsPage() {
         pendingMeasurementRef.current = {
           annotationId: measurement.annotationId,
           dbId: null,
-          mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+          mark: measurement.memberMark || measurement.drawingMark || null,
           pageNumber: measurement.pageNumber ?? 1,
           pendingThickness: useAppStore.getState().lineThickness,
           rawPointsJson: measurement.rawAnnotation ?? null,
@@ -1163,7 +1163,7 @@ export default function DrawingsPage() {
       pendingMeasurementRef.current = {
         annotationId: measurement.annotationId,
         dbId: null,
-        mark: measurement.memberMark ?? measurement.drawingMark ?? null,
+        mark: measurement.memberMark || measurement.drawingMark || null,
         pageNumber: measurement.pageNumber ?? 1,
         pendingThickness: useAppStore.getState().lineThickness,
         rawPointsJson: measurement.rawAnnotation ?? null,
@@ -1195,7 +1195,7 @@ export default function DrawingsPage() {
     pendingMeasurementRef.current = {
       annotationId: lastMeasurement.annotationId,
       dbId: null,
-      mark: lastMeasurement.memberMark ?? lastMeasurement.drawingMark ?? null,
+      mark: lastMeasurement.memberMark || lastMeasurement.drawingMark || null,
       pageNumber: lastMeasurement.pageNumber ?? 1,
       pendingThickness: useAppStore.getState().lineThickness,
       rawPointsJson: lastMeasurement.rawAnnotation ?? null,
