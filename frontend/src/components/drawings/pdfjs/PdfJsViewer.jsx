@@ -219,18 +219,25 @@ export default function PdfJsViewer({
   }, [drawingUrl, setPdfPage, setPdfTotalPages, updateMetric])
 
   const firstMetric = pageMetrics[1]
+  // Fit must use whichever page is actually on screen, not always page 1 —
+  // a multi-sheet set commonly mixes a portrait cover/index page with wide
+  // landscape detail sheets, and fitting a landscape page's width using the
+  // cover page's (narrower) dimensions leaves large empty margins on both
+  // sides exactly like this. Falls back to page 1's metrics only until the
+  // current page's own metrics have loaded.
+  const currentPageMetric = pageMetrics[pdfPage] ?? firstMetric
 
   const fitWidth = useCallback(() => {
-    if (!firstMetric || !containerSize.width) return
-    setPdfScale(clampScale(Math.max(1, containerSize.width - 32) / firstMetric.width))
-  }, [containerSize.width, firstMetric, setPdfScale])
+    if (!currentPageMetric || !containerSize.width) return
+    setPdfScale(clampScale(Math.max(1, containerSize.width - 32) / currentPageMetric.width))
+  }, [containerSize.width, currentPageMetric, setPdfScale])
 
   const fitPage = useCallback(() => {
-    if (!firstMetric || !containerSize.width || !containerSize.height) return
-    const widthScale = Math.max(1, containerSize.width - 32) / firstMetric.width
-    const heightScale = Math.max(1, containerSize.height - 24) / firstMetric.height
+    if (!currentPageMetric || !containerSize.width || !containerSize.height) return
+    const widthScale = Math.max(1, containerSize.width - 32) / currentPageMetric.width
+    const heightScale = Math.max(1, containerSize.height - 24) / currentPageMetric.height
     setPdfScale(clampScale(Math.min(widthScale, heightScale)))
-  }, [containerSize, firstMetric, setPdfScale])
+  }, [containerSize, currentPageMetric, setPdfScale])
 
   useEffect(() => {
     if (!firstMetric || !containerSize.width || initialFitAppliedRef.current) return

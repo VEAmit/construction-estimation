@@ -22,9 +22,14 @@ function labelVisualScale(viewerScale) {
   if (!Number.isFinite(zoom) || zoom <= 0) return 1
   if (zoom <= 1) return zoom
 
-  // Match the compact label behavior used by the previous viewer: labels
-  // shrink with the drawing below 100%, but grow only gently at high zoom.
-  return Math.min(1.25, 1 + (zoom - 1) * 0.15)
+  // Labels shrink proportionally with the drawing below 100% zoom, and grow
+  // above it — capped well short of 1:1 with zoom so they don't balloon to
+  // oversized at high zoom, but noticeably more responsive than before
+  // (previously capped at 1.25x / 0.15 rate, which barely moved across a
+  // realistic zoom range — e.g. only ~9% bigger at 159% zoom — so dense
+  // clusters of short, closely-spaced measurements stayed overlapped even
+  // after zooming in a lot).
+  return Math.min(1.6, 1 + (zoom - 1) * 0.25)
 }
 
 function labelGeometry(annotation, viewerScale) {
@@ -43,7 +48,10 @@ function labelGeometry(annotation, viewerScale) {
   // Convert the desired screen-space size back to page units to avoid applying
   // the PDF zoom twice (the cause of oversized labels at 200%+ zoom).
   const fontSize = (baseFontSize * visualScale) / pageScale
-  const gap = (baseFontSize * 0.7 * visualScale + Number(annotation.thickness || 1)) / pageScale
+  // Tightened from 0.7x to 0.3x — with several parallel lines close together
+  // (e.g. a row of purlins), a wide gap made it hard to tell which label
+  // belonged to which line. Still enough clearance to not sit on the line.
+  const gap = (baseFontSize * 0.3 * visualScale + Number(annotation.thickness || 1)) / pageScale
   const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
   let x = midpoint.x + nx * gap
   let y = midpoint.y + ny * gap
