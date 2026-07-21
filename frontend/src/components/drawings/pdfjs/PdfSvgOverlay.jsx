@@ -81,7 +81,12 @@ function MeasurementLabel({ annotation, viewerScale }) {
   const label = labelGeometry(annotation, viewerScale)
   if (!label || (!label.mark && !label.value)) return null
   return (
-    <g className="pdfjs-measure-label" pointerEvents="none">
+    <g className="pdfjs-measure-label">
+      {/* The label is the most visually obvious, easiest thing to click on a
+          measurement — it must be selectable (and draggable) exactly like the
+          line itself. It sits inside AnnotationShape's <g>, which already
+          carries the onPointerDown/onClick/onContextMenu handlers, so making
+          this hit-testable is enough; the events bubble up naturally. */}
       <rect
         x={label.x - label.width / 2}
         y={label.y - label.height}
@@ -160,6 +165,15 @@ function PdfSvgOverlay({
   const draftStartRef = useRef(null)
   const lineDragRef = useRef(null)
   const pasteInFlightRef = useRef(false)
+  // A shape's pointerdown calls setPointerCapture on the SVG root (needed so
+  // dragging keeps tracking even if the pointer leaves the shape). That has
+  // the side effect of re-targeting the click event that follows to the SVG
+  // root itself, completely bypassing the shape's own onClick/stopPropagation
+  // — so a plain click-to-select on any annotation was immediately undone by
+  // handleClick's "clicked empty space, deselect" branch right after. This
+  // flag lets handleClick recognize "a shape just claimed this interaction"
+  // and skip clearing selection for that one click only.
+  const shapeInteractedRef = useRef(false)
   const [draftStart, setDraftStart] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [dragged, setDragged] = useState(null)
@@ -324,6 +338,10 @@ function PdfSvgOverlay({
       placePaste(point)
       return
     }
+    if (shapeInteractedRef.current) {
+      shapeInteractedRef.current = false
+      return
+    }
     if (activeTool === 'select') onClearSelection?.()
   }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste])
 
@@ -375,6 +393,7 @@ function PdfSvgOverlay({
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (spaceHeld || activeTool !== 'select' || event.button !== 0) return
     event.stopPropagation()
+    shapeInteractedRef.current = true
     onSelect?.(annotation.id, annotation)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)

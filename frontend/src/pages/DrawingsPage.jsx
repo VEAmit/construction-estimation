@@ -1516,11 +1516,19 @@ export default function DrawingsPage() {
       const clipboard = buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
       setMeasurementClipboard(clipboard)
       clearPasteAnchor()
+      // Paste is a "stamp" mode that stays armed across multiple placements
+      // until Escape/Done or a tool switch — it does NOT clear itself just
+      // because a fresh Copy happened. Without this, copying a different line
+      // right after finishing several pastes of the previous one leaves the
+      // canvas still silently armed with the OLD clipboard until the user
+      // explicitly clicks Paste again, so the next click either does nothing
+      // new or drops another copy of the wrong item.
+      triggerPdfCommand({ type: 'cancelPastePlacement' })
       if (item.id) lastCopyTargetRef.current = item.id
     } catch {
       toast.error('Could not copy measurement')
     }
-  }, [resolveCopyTargetId, takeoffItems, pdfScale, setMeasurementClipboard, clearPasteAnchor])
+  }, [resolveCopyTargetId, takeoffItems, pdfScale, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
 
   const handlePasteMeasurement = useCallback(() => {
     const clipboard = useAppStore.getState().measurementClipboard ?? measurementClipboard
@@ -1610,7 +1618,14 @@ export default function DrawingsPage() {
 
   const handleAnnotationSelect = useCallback((annotUuid, annotation = null) => {
     const occurrenceId = annotation?.id ?? annotUuid ?? null
-    const dbId = annotation?.dbId ?? resolveMeasurementDbId(occurrenceId)
+    // A still-pending (not yet reconciled) optimistic annotation carries its
+    // client-generated UUID in `dbId` too (see normalizeAnnotations, shared
+    // between real and preview items) — clicking it while that window is
+    // still open would otherwise poison selection with a non-numeric id that
+    // can never match a real takeoffItems row, silently breaking Copy for
+    // that click until something else resets selection.
+    const rawDbId = annotation?.dbId
+    const dbId = Number.isFinite(Number(rawDbId)) ? Number(rawDbId) : resolveMeasurementDbId(occurrenceId)
     const viewerId = occurrenceId == null ? null : String(occurrenceId)
     selectedOccurrenceAnnotIdRef.current = viewerId
     setSelectedViewerAnnotId(viewerId)

@@ -334,7 +334,18 @@ export default function PdfJsViewer({
       .map(annotation => optimisticGeometry[annotation.id]
         ? { ...annotation, points: optimisticGeometry[annotation.id].points, raw: optimisticGeometry[annotation.id].raw }
         : annotation)
-    return [...saved, ...pendingAnnotations.filter(annotation => !hiddenAnnotationIds.has(annotation.id))]
+    // The pending-annotation cleanup effect below only prunes stale entries once
+    // its own state update has committed — for at least one render in between,
+    // a just-saved measurement exists in both `saved` (from the store) and
+    // `pendingAnnotations` (not yet cleaned up) with the identical id, which
+    // React renders as duplicate keys ("children ... duplicated and/or
+    // omitted"). Filter that overlap out here too, so the list is never
+    // duplicated regardless of which render the cleanup effect lands on.
+    const savedIds = new Set(saved.map(annotation => annotation.id))
+    const pending = pendingAnnotations.filter(
+      annotation => !hiddenAnnotationIds.has(annotation.id) && !savedIds.has(annotation.id),
+    )
+    return [...saved, ...pending]
   }, [annotations, hiddenAnnotationIds, optimisticGeometry, pageMetrics, pendingAnnotations])
 
   const handleMeasure = useCallback(async (measurement, options) => {
