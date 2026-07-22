@@ -1771,3 +1771,6 @@ Error Number:-2,State:0,Class:11
 2026-07-22 12:42:01.369 +05:30 [INF] Database migrated successfully
 2026-07-22 12:42:01.544 +05:30 [INF] BuildTakeoff Pro API starting
 2026-07-22 12:42:12.575 +05:30 [INF] HTTP GET /swagger/v1/swagger.json responded 200 in 149.9025 ms
+2026-07-22 14:11:36.606 +05:30 [INF] Database migrated successfully
+2026-07-22 14:11:36.924 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-22 14:11:45.111 +05:30 [INF] HTTP GET /swagger/v1/swagger.json responded 200 in 238.3245 ms

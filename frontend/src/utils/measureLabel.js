@@ -1,4 +1,6 @@
 // User-facing label sizes (pt) — Bluebeam-style measurement label presets.
+// These are quick-picks; any value in [MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE]
+// is valid too (see the numeric input next to these buttons in the toolbar).
 export const MEASURE_LABEL_PRESETS = [
   { value: 10, label: 'S', title: 'Small (10pt)' },
   { value: 14, label: 'M', title: 'Medium (14pt)' },
@@ -6,26 +8,58 @@ export const MEASURE_LABEL_PRESETS = [
   { value: 24, label: 'XL', title: 'Extra Large (24pt)' },
 ]
 
-export const DEFAULT_MEASURE_LABEL_SIZE = 14
+// Reduced from 14 (the old "M" preset, and the previous default) — 14pt
+// crowded dense drawings; starting at "S" keeps new labels legible without
+// dominating small-scale detail. Users can still bump it up per drawing.
+export const DEFAULT_MEASURE_LABEL_SIZE = 10
 
-/** Visual scale tied to each label-size preset (line weight + label gap). */
-const LINE_LABEL_VISUAL_SCALE = {
-  10: { defaultThickness: 1, syncLeaderHeight: 6, leaderLineExtension: 0, labelGap: 10 },
-  14: { defaultThickness: 1.5, syncLeaderHeight: 8, leaderLineExtension: 0, labelGap: 14 },
-  18: { defaultThickness: 2, syncLeaderHeight: 10, leaderLineExtension: 0, labelGap: 18 },
-  24: { defaultThickness: 3, syncLeaderHeight: 12, leaderLineExtension: 0, labelGap: 24 },
+export const MIN_MEASURE_LABEL_SIZE = 6
+export const MAX_MEASURE_LABEL_SIZE = 32
+
+/**
+ * Visual scale (line weight / leader height / label gap) as a function of the
+ * chosen label point size. Anchored at the preset points and linearly
+ * interpolated/extrapolated in between so a custom in-between or out-of-range
+ * value (from the numeric input) still scales sensibly instead of snapping to
+ * whichever preset happens to be in the lookup table.
+ */
+const LABEL_SCALE_ANCHORS = [
+  { pt: 10, thickness: 1, syncLeaderHeight: 6, labelGap: 10 },
+  { pt: 14, thickness: 1.5, syncLeaderHeight: 8, labelGap: 14 },
+  { pt: 18, thickness: 2, syncLeaderHeight: 10, labelGap: 18 },
+  { pt: 24, thickness: 3, syncLeaderHeight: 12, labelGap: 24 },
+]
+
+function interpolateLabelScale(userPt, key) {
+  const pt = Number(userPt)
+  const anchors = LABEL_SCALE_ANCHORS
+  if (!Number.isFinite(pt)) return anchors[1][key]
+  if (pt <= anchors[0].pt) return anchors[0][key]
+  const last = anchors[anchors.length - 1]
+  if (pt >= last.pt) {
+    const prev = anchors[anchors.length - 2]
+    const slope = (last[key] - prev[key]) / (last.pt - prev.pt)
+    return last[key] + slope * (pt - last.pt)
+  }
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const a = anchors[i]
+    const b = anchors[i + 1]
+    if (pt >= a.pt && pt <= b.pt) {
+      const t = (pt - a.pt) / (b.pt - a.pt)
+      return a[key] + t * (b[key] - a[key])
+    }
+  }
+  return anchors[1][key]
 }
 
 /** PDF-space gap between the measurement line and the label (scales with zoom). */
 export function computeLinearLabelGap(userPt, pdfScale = 1) {
-  const preset = LINE_LABEL_VISUAL_SCALE[userPt] ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE]
   const scale = Math.max(pdfScale, 0.25)
-  return (preset.labelGap ?? 14) / scale
+  return interpolateLabelScale(userPt, 'labelGap') / scale
 }
 
 export function defaultLineThicknessForLabelSize(userPt) {
-  return LINE_LABEL_VISUAL_SCALE[userPt]?.defaultThickness
-    ?? LINE_LABEL_VISUAL_SCALE[DEFAULT_MEASURE_LABEL_SIZE].defaultThickness
+  return interpolateLabelScale(userPt, 'thickness')
 }
 
 export function resolveLinearThickness(userPt, thicknessOverride) {
@@ -98,10 +132,11 @@ export function inferLabelSizeFromSfFontSize(sfSize, pdfScale = 1) {
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_MEASURE_LABEL_SIZE
   const scale = Math.max(pdfScale, 0.25)
   const userApprox = (n * scale) / 2.35
-  return MEASURE_LABEL_PRESETS.reduce(
-    (best, p) => (Math.abs(p.value - userApprox) < Math.abs(best - userApprox) ? p.value : best),
-    DEFAULT_MEASURE_LABEL_SIZE,
-  )
+  // Legacy records only ever stored one of the 4 presets, but this is also
+  // used as a general "reconstruct the point size" fallback, so round to the
+  // nearest whole point rather than snapping back to one of the 4 presets —
+  // that way a genuinely custom saved size round-trips at its own value.
+  return Math.round(Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, userApprox)))
 }
 
 /** Build clipboard payload from a saved takeoff row + parsed pointsJson. */

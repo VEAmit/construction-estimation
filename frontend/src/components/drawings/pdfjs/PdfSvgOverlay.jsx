@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../../store/useAppStore'
 import { computeRealLengthFromDrawing } from '../../../utils/measureCalibration'
 import { createRawLine, translateRawLine } from './pdfGeometryAdapter'
+import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE } from '../../../utils/measureLabel'
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -42,7 +43,9 @@ function labelGeometry(annotation, viewerScale) {
   const nx = -dy / length
   const ny = dx / length
   const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
-  const baseFontSize = Math.min(Math.max(Number(annotation.labelFontSize) || 12, 9), 16)
+  const baseFontSize = Math.min(Math.max(
+    Number(annotation.labelFontSize) || DEFAULT_MEASURE_LABEL_SIZE,
+    MIN_MEASURE_LABEL_SIZE), MAX_MEASURE_LABEL_SIZE)
   const visualScale = labelVisualScale(pageScale)
   // SVG coordinates are PDF-page units and are scaled by the page element.
   // Convert the desired screen-space size back to page units to avoid applying

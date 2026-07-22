@@ -2,7 +2,10 @@ import { useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useBreakpoint } from '../../utils/useBreakpoint'
 import { CATEGORY_COLORS } from '../../utils/calculations'
-import { MEASURE_LABEL_PRESETS, defaultLineThicknessForLabelSize } from '../../utils/measureLabel'
+import {
+  MEASURE_LABEL_PRESETS, defaultLineThicknessForLabelSize,
+  MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE,
+} from '../../utils/measureLabel'
 
 // ── Measure tools ────────────────────────────────────────────────────────
 const MEASURE_TOOLS = [
@@ -438,6 +441,56 @@ export default function Toolbar({
             <option value={1.5}>Fast</option>
             <option value={2}>Fastest</option>
           </select>
+
+          {/* Label size — global control (not tied to the active tool), so it's always
+              available: pick a size before drawing, or select any existing measurement
+              on the canvas/grid (in any tool, including Select) and change its size. */}
+          <Sep />
+          {!compact && (
+            <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
+          )}
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            {MEASURE_LABEL_PRESETS.map(p => (
+              <button key={p.value} onClick={() => {
+                setMeasureLabelFontSize(p.value)
+                if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(p.value))
+              }} title={p.title}
+                style={{
+                  height: '22px', minWidth: '30px', padding: '0 7px',
+                  borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
+                  border: `1px solid ${measureLabelFontSize === p.value ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                  background: measureLabelFontSize === p.value ? 'rgba(239,35,60,.15)' : 'transparent',
+                  color: measureLabelFontSize === p.value ? '#EF233C' : '#475569',
+                  cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            min={MIN_MEASURE_LABEL_SIZE}
+            max={MAX_MEASURE_LABEL_SIZE}
+            step={1}
+            value={measureLabelFontSize}
+            title="Custom label size (pt) — applies to the selected measurement, or the next one you draw"
+            onChange={(e) => {
+              const raw = Number(e.target.value)
+              if (!Number.isFinite(raw)) return
+              const clamped = Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, raw))
+              setMeasureLabelFontSize(clamped)
+              if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(clamped))
+            }}
+            style={{
+              width: '38px', height: '22px', padding: '0 4px',
+              borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+              border: '1px solid rgba(255,255,255,.08)', background: 'transparent',
+              color: '#475569', flexShrink: 0,
+            }}
+          />
+          {!compact && (
+            <span style={{ fontSize: '9px', color: '#334155', flexShrink: 0 }}>pt</span>
+          )}
         </div>
       </div>
 
@@ -586,35 +639,6 @@ export default function Toolbar({
                         </button>
                       ))}
                     </div>
-                  </>
-                )}
-
-                {/* Label size — hidden while measurement labels are disabled */}
-                {false && isMeasure && !isCount && (
-                  <>
-                    <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      {MEASURE_LABEL_PRESETS.map(p => (
-                        <button key={p.value} onClick={() => {
-                          setMeasureLabelFontSize(p.value)
-                          if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(p.value))
-                        }} title={p.title}
-                          style={{
-                            height: '22px', minWidth: '30px', padding: '0 7px',
-                            borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
-                            border: `1px solid ${measureLabelFontSize === p.value ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
-                            background: measureLabelFontSize === p.value ? 'rgba(239,35,60,.15)' : 'transparent',
-                            color: measureLabelFontSize === p.value ? '#EF233C' : '#475569',
-                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
-                          }}>
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                    <span style={{ fontSize: '9px', color: '#334155', flexShrink: 0 }}>
-                      {measureLabelFontSize}pt
-                    </span>
                   </>
                 )}
 

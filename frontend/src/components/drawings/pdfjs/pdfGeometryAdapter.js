@@ -1,3 +1,5 @@
+import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE } from '../../../utils/measureLabel'
+
 function parseJson(value) {
   if (!value) return null
   if (typeof value === 'object') return value
@@ -97,9 +99,9 @@ export function normalizeAnnotations(items, pageMetrics) {
         lineStyle: raw.lineStyle ?? raw.LineStyle ?? 'solid',
         // Older Syncfusion records stored zoom-compensated renderer font sizes.
         // Prefer the viewer-neutral size and cap legacy values to a sane PDF size.
-        labelFontSize: Math.min(18, Math.max(8, number(
+        labelFontSize: Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, number(
           raw.labelUserFontSize ?? raw.LabelUserFontSize ?? raw.fontSize ?? raw.FontSize,
-          12,
+          DEFAULT_MEASURE_LABEL_SIZE,
         ))),
       })
     })
@@ -153,7 +155,7 @@ export function createRawLine({ id, pageNumber, points, style = {}, sourceRaw = 
     opacity: style.opacity ?? sourceRaw?.opacity ?? sourceRaw?.Opacity ?? 1,
     Opacity: style.opacity ?? sourceRaw?.Opacity ?? sourceRaw?.opacity ?? 1,
     lineStyle: style.lineStyle ?? sourceRaw?.lineStyle ?? 'solid',
-    labelUserFontSize: style.labelFontSize ?? sourceRaw?.labelUserFontSize ?? 12,
+    labelUserFontSize: style.labelFontSize ?? sourceRaw?.labelUserFontSize ?? DEFAULT_MEASURE_LABEL_SIZE,
   }
 }
 

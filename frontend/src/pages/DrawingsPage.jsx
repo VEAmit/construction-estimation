@@ -217,6 +217,7 @@ export default function DrawingsPage() {
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
+    measureLabelFontSize, setMeasureLabelFontSize,
     measurementClipboard, setMeasurementClipboard, clearPasteAnchor,
     pdfScale,
     removeTakeoffItem,
@@ -246,6 +247,17 @@ export default function DrawingsPage() {
     }
   }, [])
 
+  const readLabelSizeFromPointsJson = useCallback((pointsJson) => {
+    if (!pointsJson) return null
+    try {
+      const d = JSON.parse(pointsJson)
+      const s = d.labelUserFontSize ?? d.LabelUserFontSize
+      return s != null && Number.isFinite(Number(s)) && Number(s) > 0 ? Number(s) : null
+    } catch {
+      return null
+    }
+  }, [])
+
   const syncToolbarFromTakeoffItem = useCallback((item) => {
     if (!item) return
     // Prefer stored item color; fall back to MSI palette color for that mark
@@ -262,7 +274,13 @@ export default function DrawingsPage() {
     }
     const t = readThicknessFromPointsJson(item.pointsJson)
     if (t != null) setLineThickness(t)
-  }, [readThicknessFromPointsJson, setMeasureColor, setLineThickness])
+    // Reflect this item's own current label size in the toolbar so the S/M/L/XL
+    // buttons and the custom pt input show what's actually on the drawing —
+    // otherwise the control kept showing whatever was last used elsewhere,
+    // and changing it appeared to do nothing to the label you just selected.
+    const labelSize = readLabelSizeFromPointsJson(item.pointsJson)
+    if (labelSize != null) setMeasureLabelFontSize(labelSize)
+  }, [readThicknessFromPointsJson, readLabelSizeFromPointsJson, setMeasureColor, setLineThickness, setMeasureLabelFontSize])
 
   const drawings = Array.isArray(storeDrawings) ? storeDrawings : []
   const activeDrawing = normalizeDrawing(selectedDrawing)
@@ -388,7 +406,10 @@ export default function DrawingsPage() {
       annotStyleBaselineRef.current = null
       return
     }
-    const current = { color: measureColor, thickness: lineThickness, lineStyle, arrowStyle }
+    const current = {
+      color: measureColor, thickness: lineThickness, lineStyle, arrowStyle,
+      labelFontSize: measureLabelFontSize,
+    }
 
     if (annotStyleBaselineRef.current === null) {
       // First render after annotation selection — snapshot the baseline, no DB write
@@ -401,19 +422,34 @@ export default function DrawingsPage() {
       prev.color !== current.color ||
       prev.lineStyle !== current.lineStyle ||
       prev.arrowStyle !== current.arrowStyle
+    const labelSizeChanged = prev.labelFontSize !== current.labelFontSize
 
-    if (!styleChanged) return
+    if (!styleChanged && !labelSizeChanged) return
     annotStyleBaselineRef.current = current
 
     const item = takeoffItems.find(t => t.id === selectedAnnotId)
     if (!item) return
 
-    const optimistic = { ...item, color: measureColor, category: measureCategory }
+    // Label size lives in the annotation's own raw geometry (pointsJson), not
+    // a top-level item field — the pdf.js renderer reads it from there.
+    let pointsJson = item.pointsJson
+    if (labelSizeChanged && item.pointsJson) {
+      try {
+        const raw = JSON.parse(item.pointsJson)
+        pointsJson = JSON.stringify({
+          ...raw,
+          labelUserFontSize: current.labelFontSize,
+          LabelUserFontSize: current.labelFontSize,
+        })
+      } catch (_) {}
+    }
+
+    const optimistic = { ...item, color: measureColor, category: measureCategory, pointsJson }
     updateTakeoffItem(optimistic)
     takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})
-  }, [measureColor, measureCategory, lineStyle, arrowStyle, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
