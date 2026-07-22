@@ -5,7 +5,43 @@ import { attachDetectedLabel, mergePdfTextItems } from './detectPdfLabel'
 
 const MAX_OUTPUT_SCALE = 2
 const MAX_CACHE_ENTRIES = 18
+const MAX_CONCURRENT_RASTERIZE = 2
+const SUPPORTS_OFFSCREEN_CANVAS = typeof OffscreenCanvas !== 'undefined'
 const bitmapCache = new Map()
+
+// The viewer now only ever mounts pages near the viewport (see the
+// virtualization in PdfJsViewer), so this queue is a second, cheaper safety
+// net: even a handful of pages settling into view at once (fast scroll,
+// then a pause) would otherwise all call the expensive pdfium rasterize
+// simultaneously, and every one of them gets slower for it — the actual
+// mechanism behind "the whole system freezes." Capping concurrency means
+// the rest wait their turn in FIFO order instead of contending for the same
+// CPU/GPU budget at once; each individual render still completes quickly.
+let activeRasterizeCount = 0
+const rasterizeQueue = []
+
+function runRasterizeSlot(task) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      activeRasterizeCount += 1
+      task().then(resolve, reject).finally(() => {
+        activeRasterizeCount -= 1
+        const next = rasterizeQueue.shift()
+        if (next) next()
+      })
+    }
+    if (activeRasterizeCount < MAX_CONCURRENT_RASTERIZE) run()
+    else rasterizeQueue.push(run)
+  })
+}
+
+function createStagingCanvas(width, height) {
+  if (SUPPORTS_OFFSCREEN_CANVAS) return new OffscreenCanvas(width, height)
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas
+}
 
 export function clearDocumentBitmaps(documentKey) {
   for (const key of bitmapCache.keys()) {
@@ -170,18 +206,21 @@ function PdfJsPage({
       }
       const outputScale = Math.min(window.devicePixelRatio || 1, MAX_OUTPUT_SCALE)
 
-      stagingCanvas = document.createElement('canvas')
-      stagingCanvas.width = Math.max(1, Math.floor(viewport.width * outputScale))
-      stagingCanvas.height = Math.max(1, Math.floor(viewport.height * outputScale))
+      const stagingWidth = Math.max(1, Math.floor(viewport.width * outputScale))
+      const stagingHeight = Math.max(1, Math.floor(viewport.height * outputScale))
+      stagingCanvas = createStagingCanvas(stagingWidth, stagingHeight)
       const stagingContext = stagingCanvas.getContext('2d', { alpha: false })
-      const renderTask = page.render({
-        canvasContext: stagingContext,
-        viewport,
-        transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
-        background: '#ffffff',
+      await runRasterizeSlot(async () => {
+        if (cancelled) return
+        const renderTask = page.render({
+          canvasContext: stagingContext,
+          viewport,
+          transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+          background: '#ffffff',
+        })
+        renderTaskRef.current = renderTask
+        await renderTask.promise
       })
-      renderTaskRef.current = renderTask
-      await renderTask.promise
       if (cancelled) return
 
       const canvas = canvasRef.current

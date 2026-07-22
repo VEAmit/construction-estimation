@@ -10,6 +10,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.m
 
 const RANGE_CHUNK_SIZE = 1024 * 1024
 const PAGE_GAP = 12
+const FALLBACK_PAGE_WIDTH = 612
+const FALLBACK_PAGE_HEIGHT = 792
+// How far beyond the visible viewport a page is still kept mounted (and thus
+// rendering/pre-rendering), so scrolling into it feels instant rather than
+// starting from a blank page. Scales with viewport size on large monitors,
+// floored so it's still meaningful on small ones.
+const OVERSCAN_MULTIPLIER = 1.5
+const MIN_OVERSCAN_PX = 1500
 // Tools where left-drag on empty canvas should pan instead of requiring the
 // dedicated Pan tool. 'line'/'calibrate' (and any future draw tool) keep
 // left-click reserved for drawing, so they're excluded and still pan via
@@ -402,6 +410,79 @@ export default function PdfJsViewer({
     ? Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
     : [], [pdfDocument])
 
+  // Cumulative layout (top offset + size) for every page at the current
+  // scale — used only to decide which pages are near the viewport. Actual
+  // on-screen positioning is still left to the flex column below; a page
+  // that isn't mounted is replaced by a plainly-sized spacer of the same
+  // height, so scroll position/height never jumps as pages mount/unmount.
+  const pageLayout = useMemo(() => {
+    const clampedScale = clampScale(pdfScale)
+    let top = 0
+    const entries = []
+    for (const pageNumber of pages) {
+      const metric = pageMetrics[pageNumber] ?? firstMetric
+      const width = Math.max(1, (metric?.width ?? FALLBACK_PAGE_WIDTH) * clampedScale)
+      const height = Math.max(1, (metric?.height ?? FALLBACK_PAGE_HEIGHT) * clampedScale)
+      entries.push({ pageNumber, top, width, height })
+      top += height + PAGE_GAP
+    }
+    return entries
+  }, [pages, pageMetrics, firstMetric, pdfScale])
+
+  // Virtualization: a document can run 40+ pages, and mounting every one of
+  // them permanently (as before) means 40+ live components each with their
+  // own canvas + IntersectionObserver. Fast scrolling then sweeps dozens of
+  // them through the render-trigger margin within the same burst, all
+  // competing for the main thread/GPU at once — that contention, not any
+  // single page's cost, is what froze the whole app. Only pages within this
+  // window actually mount; everything else is a lightweight spacer div that
+  // costs nothing until scrolled near.
+  const [scrollWindow, setScrollWindow] = useState({ top: 0, height: 0 })
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return undefined
+    let rafId = null
+    const measure = () => {
+      rafId = null
+      setScrollWindow({ top: container.scrollTop, height: container.clientHeight })
+    }
+    const onScroll = () => {
+      if (rafId != null) return
+      rafId = requestAnimationFrame(measure)
+    }
+    measure()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      container.removeEventListener('scroll', onScroll)
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [])
+
+  // Container resize (e.g. side panel opening) can't fire a scroll event but
+  // still changes what's visible — piggyback on the size this viewer already
+  // tracks to keep the window's height current.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    setScrollWindow(prev => ({ ...prev, height: container.clientHeight }))
+  }, [containerSize.width, containerSize.height])
+
+  const mountedPageSet = useMemo(() => {
+    const overscan = Math.max(MIN_OVERSCAN_PX, scrollWindow.height * OVERSCAN_MULTIPLIER)
+    const from = scrollWindow.top - overscan
+    const to = scrollWindow.top + scrollWindow.height + overscan
+    const set = new Set()
+    for (const entry of pageLayout) {
+      if (entry.top + entry.height >= from && entry.top <= to) set.add(entry.pageNumber)
+    }
+    // Keep the first page mounted regardless — it's the fit/metrics anchor
+    // and the near-zero-cost fallback while the window above is still empty
+    // (e.g. the very first layout pass before any scroll event has fired).
+    if (pages.length) set.add(pages[0])
+    return set
+  }, [pageLayout, scrollWindow, pages])
+
   const handlePointerDown = useCallback((event) => {
     // Held-Space always pans, regardless of tool — see spaceHeld's store comment.
     const canPan = spaceHeld
@@ -486,27 +567,37 @@ export default function PdfJsViewer({
       )}
       {pdfDocument && (
         <div className="pdfjs-page-stack" style={{ gap: PAGE_GAP }}>
-          {pages.map((pageNumber) => (
-            <PdfJsPage
-              key={pageNumber}
-              pdfDocument={pdfDocument}
-              documentKey={drawingUrl}
-              pageNumber={pageNumber}
-              scale={clampScale(pdfScale)}
-              root={containerRef.current}
-              initialSize={pageMetrics[pageNumber] ?? firstMetric}
-              onMetric={updateMetric}
-              onVisibility={handleVisibility}
-              forceRender={Math.abs(pageNumber - pdfPage) <= 2}
-              annotations={normalizedAnnotations.filter(annotation => annotation.pageNumber === pageNumber)}
-              selectedAnnotationId={selectedAnnotationId}
-              pasteClipboard={pasteClipboard}
-              onMeasure={handleMeasure}
-              onSelect={onAnnotationSelect}
-              onContextMenu={onAnnotationContextMenu}
-              onClearSelection={onClearSelection}
-              onGeometryChange={handleGeometryChange}
-            />
+          {pageLayout.map(({ pageNumber, width, height }) => (
+            mountedPageSet.has(pageNumber) ? (
+              <PdfJsPage
+                key={pageNumber}
+                pdfDocument={pdfDocument}
+                documentKey={drawingUrl}
+                pageNumber={pageNumber}
+                scale={clampScale(pdfScale)}
+                root={containerRef.current}
+                initialSize={pageMetrics[pageNumber] ?? firstMetric}
+                onMetric={updateMetric}
+                onVisibility={handleVisibility}
+                forceRender={Math.abs(pageNumber - pdfPage) <= 2}
+                annotations={normalizedAnnotations.filter(annotation => annotation.pageNumber === pageNumber)}
+                selectedAnnotationId={selectedAnnotationId}
+                pasteClipboard={pasteClipboard}
+                onMeasure={handleMeasure}
+                onSelect={onAnnotationSelect}
+                onContextMenu={onAnnotationContextMenu}
+                onClearSelection={onClearSelection}
+                onGeometryChange={handleGeometryChange}
+              />
+            ) : (
+              <div
+                key={pageNumber}
+                data-page-number={pageNumber}
+                className="pdfjs-page-spacer"
+                style={{ width, height }}
+                aria-label={`PDF page ${pageNumber}`}
+              />
+            )
           ))}
         </div>
       )}

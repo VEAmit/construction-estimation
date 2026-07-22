@@ -38,6 +38,15 @@
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
 }
 
+/* Stands in for a page outside the virtualization window — same size as the
+   real page so scroll position/height never jumps, styled to look like a
+   page rather than a gap in the rare case a very fast fling outruns it. */
+.pdfjs-page-spacer {
+  flex: 0 0 auto;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+}
+
 .pdfjs-page-canvas,
 .pdfjs-text-layer,
 .pdfjs-annotation-layer,

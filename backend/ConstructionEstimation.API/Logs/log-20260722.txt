@@ -1,0 +1,185 @@
+2026-07-22 07:47:16.158 +05:30 [INF] Database migrated successfully
+2026-07-22 07:47:16.794 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-22 08:26:04.648 +05:30 [INF] HTTP GET /api/projects responded 401 in 795.1029 ms
+2026-07-22 08:26:04.714 +05:30 [INF] HTTP GET /api/projects responded 401 in 15.2459 ms
+2026-07-22 08:26:09.907 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 2747.6121 ms
+2026-07-22 08:26:10.809 +05:30 [INF] HTTP GET /api/projects responded 200 in 782.7068 ms
+2026-07-22 08:26:10.846 +05:30 [INF] HTTP GET /api/projects responded 200 in 33.2381 ms
+2026-07-22 08:26:14.362 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 527.3829 ms
+2026-07-22 08:26:17.426 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 10.2619 ms
+2026-07-22 08:26:17.789 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 55.6254 ms
+2026-07-22 08:26:17.808 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 74.9027 ms
+2026-07-22 08:26:17.859 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 130.4595 ms
+2026-07-22 08:26:18.053 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 280.9380 ms
+2026-07-22 08:26:18.192 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 457.2621 ms
+2026-07-22 08:26:19.075 +05:30 [INF] HTTP GET /api/drawings/254/file responded 304 in 98.2658 ms
+2026-07-22 09:15:19.110 +05:30 [INF] Drawing ROCS301P5-S301 Roof Layout Plan and Details 0 (1) uploaded for project 62
+2026-07-22 09:15:19.146 +05:30 [INF] HTTP POST /api/drawings/upload/62 responded 200 in 3914.4162 ms
+2026-07-22 09:15:20.039 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 586.3885 ms
+2026-07-22 09:15:20.081 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 626.8094 ms
+2026-07-22 09:15:20.085 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 631.6514 ms
+2026-07-22 09:15:20.086 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 631.2600 ms
+2026-07-22 09:15:20.102 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 648.1119 ms
+2026-07-22 09:15:20.111 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 654.2483 ms
+2026-07-22 09:15:20.230 +05:30 [INF] HTTP GET /api/drawings/255/file responded 200 in 126.6575 ms
+2026-07-22 09:15:45.721 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 104.0390 ms
+2026-07-22 09:15:45.721 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 103.8717 ms
+2026-07-22 09:15:45.724 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 105.8659 ms
+2026-07-22 09:15:45.726 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 8.6214 ms
+2026-07-22 09:15:45.730 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 111.7790 ms
+2026-07-22 09:15:55.999 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 8.1963 ms
+2026-07-22 09:15:55.999 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 9.8479 ms
+2026-07-22 09:15:56.004 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 12.3390 ms
+2026-07-22 09:15:56.017 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 33.6801 ms
+2026-07-22 09:15:56.138 +05:30 [INF] HTTP GET /api/drawings/255/file responded 304 in 3.0246 ms
+2026-07-22 09:15:56.143 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 151.0610 ms
+2026-07-22 09:16:17.753 +05:30 [INF] Drawing S102_61 uploaded for project 62
+2026-07-22 09:16:17.753 +05:30 [INF] HTTP POST /api/drawings/upload/62 responded 200 in 222.0562 ms
+2026-07-22 09:16:17.898 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256 responded 200 in 12.2956 ms
+2026-07-22 09:16:17.899 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256/summary responded 200 in 11.4882 ms
+2026-07-22 09:16:17.913 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256 responded 200 in 19.5561 ms
+2026-07-22 09:16:17.916 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 32.3200 ms
+2026-07-22 09:16:17.932 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256/summary responded 200 in 36.3556 ms
+2026-07-22 09:16:17.951 +05:30 [INF] HTTP GET /api/drawings/256 responded 200 in 69.0003 ms
+2026-07-22 09:16:18.127 +05:30 [INF] HTTP GET /api/drawings/256/file responded 200 in 34.3430 ms
+2026-07-22 09:16:18.190 +05:30 [INF] HTTP GET /api/drawings/256/file responded 304 in 3.5977 ms
+2026-07-22 09:16:18.197 +05:30 [INF] HTTP GET /api/drawings/256/file responded 304 in 1.9832 ms
+2026-07-22 09:17:09.425 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 3.9828 ms
+2026-07-22 09:17:09.425 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 6.2996 ms
+2026-07-22 09:17:09.425 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 4.5670 ms
+2026-07-22 09:17:09.426 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 6.5191 ms
+2026-07-22 09:17:09.433 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 14.5606 ms
+2026-07-22 09:17:09.878 +05:30 [INF] HTTP GET /api/drawings/255/file responded 304 in 2.3922 ms
+2026-07-22 09:21:15.896 +05:30 [INF] HTTP GET /api/drawings/256/file responded 304 in 257.6048 ms
+2026-07-22 09:21:15.938 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256/summary responded 200 in 394.8713 ms
+2026-07-22 09:21:15.946 +05:30 [INF] HTTP GET /api/drawings/256 responded 200 in 405.6614 ms
+2026-07-22 09:21:15.946 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256 responded 200 in 403.1044 ms
+2026-07-22 09:21:15.972 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256 responded 200 in 425.8278 ms
+2026-07-22 09:21:15.972 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256/summary responded 200 in 427.6684 ms
+2026-07-22 09:21:35.395 +05:30 [INF] [Extract] Parsed 'L2' (S1) from section 'global'
+2026-07-22 09:21:35.427 +05:30 [INF] [Extract] Parsed 'L2' (S2 W) from section 'global'
+2026-07-22 09:21:35.484 +05:30 [INF] [Extract] Parsed 'L2' (S1 D) from section 'global'
+2026-07-22 09:21:35.511 +05:30 [INF] [Extract] Parsed '2T1' (BC) from section 'global'
+2026-07-22 09:21:35.570 +05:30 [INF] [Extract] Parsed 'N12' (300 BARS TOP EACH WAY (ALIGNED WITH BOTTOM CHORD) from section 'global'
+2026-07-22 09:21:35.570 +05:30 [INF] [Extract] Parsed 'N12' (300 BARS BOTTOM ALONG CONDEK FOR ENDSPANS.) from section 'global'
+2026-07-22 09:21:35.577 +05:30 [INF] [Extract] Parsed '2T1' (350WC258) from section 'global'
+2026-07-22 09:21:35.666 +05:30 [INF] [Extract] Parsed 'DRAWN' (J.Mac) from section 'global'
+2026-07-22 09:21:35.785 +05:30 [INF] Drawing 256: extraction method=Text, lines=305, members=23
+2026-07-22 09:21:35.788 +05:30 [INF] Extracted 23 members from drawing 256
+2026-07-22 09:21:35.795 +05:30 [INF] HTTP POST /api/extraction/drawing/256 responded 200 in 15261.8220 ms
+2026-07-22 09:25:52.191 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 3.0143 ms
+2026-07-22 09:25:52.191 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 3.3918 ms
+2026-07-22 09:25:52.192 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 3.3451 ms
+2026-07-22 09:25:52.193 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 5.2222 ms
+2026-07-22 09:25:52.196 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 9.6235 ms
+2026-07-22 09:25:52.410 +05:30 [INF] HTTP GET /api/drawings/255/file responded 304 in 2.7172 ms
+2026-07-22 09:26:04.623 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 19.0665 ms
+2026-07-22 09:26:04.623 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 17.6347 ms
+2026-07-22 09:26:04.624 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 16.6477 ms
+2026-07-22 09:26:04.633 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 26.7635 ms
+2026-07-22 09:26:04.643 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 43.8691 ms
+2026-07-22 09:26:09.047 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 14.5882 ms
+2026-07-22 09:26:09.048 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 10.1245 ms
+2026-07-22 09:26:09.053 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 13.9792 ms
+2026-07-22 09:26:09.053 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 12.2591 ms
+2026-07-22 09:26:09.067 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 35.3225 ms
+2026-07-22 10:06:21.523 +05:30 [INF] Database migrated successfully
+2026-07-22 10:06:22.325 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-22 10:08:29.854 +05:30 [INF] HTTP GET /api/projects responded 200 in 2549.9824 ms
+2026-07-22 10:08:29.949 +05:30 [INF] HTTP GET /api/projects responded 200 in 110.6192 ms
+2026-07-22 10:08:33.824 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 654.7882 ms
+2026-07-22 10:08:35.630 +05:30 [INF] HTTP GET /api/drawings/project/62 responded 200 in 9.5485 ms
+2026-07-22 10:08:35.760 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256/summary responded 200 in 90.2382 ms
+2026-07-22 10:08:35.847 +05:30 [INF] HTTP GET /api/drawings/256 responded 200 in 186.2210 ms
+2026-07-22 10:08:35.875 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256 responded 200 in 210.1229 ms
+2026-07-22 10:08:35.974 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256 responded 200 in 304.0863 ms
+2026-07-22 10:08:35.976 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256/summary responded 200 in 299.5536 ms
+2026-07-22 10:08:36.821 +05:30 [INF] HTTP GET /api/drawings/256/file responded 304 in 48.0266 ms
+2026-07-22 10:08:56.386 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 39.9230 ms
+2026-07-22 10:08:56.401 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 26.0445 ms
+2026-07-22 10:08:56.401 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 49.2923 ms
+2026-07-22 10:08:56.401 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 52.5474 ms
+2026-07-22 10:08:56.412 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 35.6131 ms
+2026-07-22 10:08:56.463 +05:30 [INF] HTTP GET /api/drawings/255/file responded 304 in 10.5990 ms
+2026-07-22 10:09:00.353 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 16.2321 ms
+2026-07-22 10:09:00.379 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 57.2764 ms
+2026-07-22 10:09:00.407 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 80.4692 ms
+2026-07-22 10:09:00.410 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 36.9752 ms
+2026-07-22 10:09:00.411 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 71.7275 ms
+2026-07-22 10:09:00.411 +05:30 [INF] HTTP GET /api/drawings/254/file responded 304 in 31.2387 ms
+2026-07-22 10:09:04.537 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/253/summary responded 200 in 37.2004 ms
+2026-07-22 10:09:04.537 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/253 responded 200 in 40.2434 ms
+2026-07-22 10:09:04.541 +05:30 [INF] HTTP GET /api/drawings/253 responded 200 in 52.5243 ms
+2026-07-22 10:09:04.542 +05:30 [INF] HTTP GET /api/memberschedules/drawing/253 responded 200 in 40.1619 ms
+2026-07-22 10:09:04.542 +05:30 [INF] HTTP GET /api/memberschedules/drawing/253/summary responded 200 in 39.1302 ms
+2026-07-22 10:09:04.566 +05:30 [INF] HTTP GET /api/drawings/253/file responded 304 in 19.3756 ms
+2026-07-22 10:09:07.239 +05:30 [INF] HTTP GET /api/memberschedules/drawing/252 responded 200 in 9.4405 ms
+2026-07-22 10:09:07.241 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/252/summary responded 200 in 12.1950 ms
+2026-07-22 10:09:07.258 +05:30 [INF] HTTP GET /api/memberschedules/drawing/252/summary responded 200 in 11.9790 ms
+2026-07-22 10:09:07.260 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/252 responded 200 in 31.9821 ms
+2026-07-22 10:09:07.285 +05:30 [INF] HTTP GET /api/drawings/252 responded 200 in 58.5040 ms
+2026-07-22 10:09:07.343 +05:30 [INF] HTTP GET /api/drawings/252/file responded 304 in 2.4115 ms
+2026-07-22 10:09:08.216 +05:30 [INF] HTTP GET /api/memberschedules/drawing/251 responded 200 in 6.1161 ms
+2026-07-22 10:09:08.216 +05:30 [INF] HTTP GET /api/memberschedules/drawing/251/summary responded 200 in 4.6074 ms
+2026-07-22 10:09:08.218 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/251 responded 200 in 16.6836 ms
+2026-07-22 10:09:08.218 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/251/summary responded 200 in 7.2876 ms
+2026-07-22 10:09:08.226 +05:30 [INF] HTTP GET /api/drawings/251/file responded 304 in 13.8089 ms
+2026-07-22 10:09:08.229 +05:30 [INF] HTTP GET /api/drawings/251 responded 200 in 28.0411 ms
+2026-07-22 10:09:09.088 +05:30 [INF] HTTP GET /api/memberschedules/drawing/252/summary responded 200 in 12.6137 ms
+2026-07-22 10:09:09.105 +05:30 [INF] HTTP GET /api/memberschedules/drawing/252 responded 200 in 30.4681 ms
+2026-07-22 10:09:09.106 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/252/summary responded 200 in 32.3536 ms
+2026-07-22 10:09:09.139 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/252 responded 200 in 66.9946 ms
+2026-07-22 10:09:09.139 +05:30 [INF] HTTP GET /api/drawings/252 responded 200 in 70.0694 ms
+2026-07-22 10:09:09.644 +05:30 [INF] HTTP GET /api/drawings/253 responded 200 in 61.4804 ms
+2026-07-22 10:09:09.663 +05:30 [INF] HTTP GET /api/memberschedules/drawing/253 responded 200 in 18.5179 ms
+2026-07-22 10:09:09.663 +05:30 [INF] HTTP GET /api/memberschedules/drawing/253/summary responded 200 in 17.2259 ms
+2026-07-22 10:09:09.664 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/253 responded 200 in 37.2252 ms
+2026-07-22 10:09:09.666 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/253/summary responded 200 in 34.3473 ms
+2026-07-22 10:09:10.271 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 46.8310 ms
+2026-07-22 10:09:10.271 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 45.4119 ms
+2026-07-22 10:09:10.271 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 63.6798 ms
+2026-07-22 10:09:10.272 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 44.8802 ms
+2026-07-22 10:09:10.272 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 44.2677 ms
+2026-07-22 10:09:17.022 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 27.2257 ms
+2026-07-22 10:09:17.024 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 15.3393 ms
+2026-07-22 10:09:17.031 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 24.0255 ms
+2026-07-22 10:09:17.032 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 20.8956 ms
+2026-07-22 10:09:17.033 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 18.8540 ms
+2026-07-22 10:11:35.738 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254 responded 200 in 12.2809 ms
+2026-07-22 10:11:35.739 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254 responded 200 in 14.6417 ms
+2026-07-22 10:11:35.743 +05:30 [INF] HTTP GET /api/memberschedules/drawing/254/summary responded 200 in 16.5260 ms
+2026-07-22 10:11:35.747 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/254/summary responded 200 in 8.3431 ms
+2026-07-22 10:11:35.748 +05:30 [INF] HTTP GET /api/drawings/254 responded 200 in 27.3824 ms
+2026-07-22 10:32:07.733 +05:30 [INF] HTTP GET /api/drawings/255/file responded 304 in 1724.4528 ms
+2026-07-22 10:32:07.743 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 1833.4690 ms
+2026-07-22 10:32:07.757 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 1846.2459 ms
+2026-07-22 10:32:07.775 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 1863.8986 ms
+2026-07-22 10:32:07.775 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 1867.4042 ms
+2026-07-22 10:32:07.775 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 1861.4567 ms
+2026-07-22 10:32:41.477 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256 responded 200 in 11.1807 ms
+2026-07-22 10:32:41.478 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256/summary responded 200 in 11.7454 ms
+2026-07-22 10:32:41.482 +05:30 [INF] HTTP GET /api/drawings/256 responded 200 in 18.2925 ms
+2026-07-22 10:32:41.482 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256/summary responded 200 in 17.6082 ms
+2026-07-22 10:32:41.532 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256 responded 200 in 45.7875 ms
+2026-07-22 10:32:41.571 +05:30 [INF] HTTP GET /api/drawings/256/file responded 304 in 2.1307 ms
+2026-07-22 10:32:43.466 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 34.9279 ms
+2026-07-22 10:32:43.472 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 46.7579 ms
+2026-07-22 10:32:43.506 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 71.3782 ms
+2026-07-22 10:32:43.540 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 131.4753 ms
+2026-07-22 10:32:43.542 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 134.4958 ms
+2026-07-22 10:33:39.326 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256/summary responded 200 in 21.7476 ms
+2026-07-22 10:33:39.326 +05:30 [INF] HTTP GET /api/drawings/256 responded 200 in 27.2077 ms
+2026-07-22 10:33:39.326 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256/summary responded 200 in 20.5522 ms
+2026-07-22 10:33:39.355 +05:30 [INF] HTTP GET /api/memberschedules/drawing/256 responded 200 in 50.2355 ms
+2026-07-22 10:33:39.362 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/256 responded 200 in 34.8841 ms
+2026-07-22 10:33:40.159 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255 responded 200 in 65.8729 ms
+2026-07-22 10:33:40.159 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255/summary responded 200 in 64.8517 ms
+2026-07-22 10:33:40.159 +05:30 [INF] HTTP GET /api/drawings/255 responded 200 in 70.0654 ms
+2026-07-22 10:33:40.177 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/255/summary responded 200 in 85.3818 ms
+2026-07-22 10:33:40.178 +05:30 [INF] HTTP GET /api/memberschedules/drawing/255 responded 200 in 83.8945 ms
+2026-07-22 10:34:15.681 +05:30 [INF] Drawing 255: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-22 10:35:12.156 +05:30 [INF] Schedule OCR page 1: selected candidate score=53, lines=57
+2026-07-22 10:35:16.726 +05:30 [INF] Extraction: 32 valid, 6 filtered. Skipped marks: 102CHS4.0(0.90), 48CHS3.2(0.90), 89SHS5.0(0.90), 200UB18(0.90), 150PFC(0.90), 125X75RHS(0.90)
+2026-07-22 10:35:16.763 +05:30 [INF] Drawing 255: extraction method=Text+ScheduleOCR, lines=73, members=32
+2026-07-22 10:35:17.183 +05:30 [INF] Extracted 32 members from drawing 255
+2026-07-22 10:35:19.802 +05:30 [INF] HTTP POST /api/extraction/drawing/255 responded 200 in 71440.1570 ms
