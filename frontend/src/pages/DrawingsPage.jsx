@@ -878,6 +878,17 @@ export default function DrawingsPage() {
             ?? 2)
         raw.thickness = Number(thick) > 0 ? Number(thick) : 2
         raw.Thickness = raw.thickness
+        // Keep the rendered stroke color in sync with the resolved save color.
+        // The line is drawn with the toolbar's default color before a member is
+        // known (e.g. auto-detected from PDF text only after the draw finishes),
+        // but the renderer prefers this embedded color over the item's own
+        // `color` field — without this, a measurement auto-linked to a member
+        // schedule entry would save the right color yet keep rendering the
+        // wrong (default) one. Paste keeps its own copied color unchanged.
+        if (!isPaste) {
+          raw.strokeColor = saveColor
+          raw.StrokeColor = saveColor
+        }
         if (pendingMeasurementRef.current) {
           pendingMeasurementRef.current.rawPointsJson = raw
         }
