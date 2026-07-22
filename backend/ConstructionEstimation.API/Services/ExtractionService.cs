@@ -23,6 +23,15 @@ public class ExtractionService
     // dropped (e.g. "1FB1" being read back as just "FB1").
     private const string MarkPrefix = @"\d{0,2}";
 
+    // Optional dot/dash compound suffix for schedule sub-element marks, e.g. a truss schedule's
+    // "2T1.EV" (end vertical), "2T1-BC" (bottom chord), "2T1.TC" (top chord) — one member ("2T1")
+    // with several sub-parts, printed as a single mark with no space around the separator. Purely
+    // additive: only appended where it can't be confused with the "mark - description" separator
+    // convention used elsewhere (that separator is always preceded by whitespace; a compound
+    // suffix never is), so a plain mark like "SC2" or "1FB1" still matches identically with or
+    // without this group present.
+    private const string CompoundMarkSuffix = @"(?:[.\-][A-Z]{1,4}\d{0,3}[A-Z]?)?";
+
     // Weight suffix optional → matches "310 UB 40.4" AND "200 PFC"
     private static readonly Regex SteelSectionPattern = new(
         @"\b(\d{2,4})\s*(UB|UC|PFC|TFC|CHS|RHS|SHS|EA|UA|RSJ|WB|WC|TFB|BFB|HRS)\s*(\d{1,3}(?:\.\d+)?)?\b",
@@ -1091,7 +1100,7 @@ public class ExtractionService
     {
         if (string.IsNullOrWhiteSpace(r.Mark) || string.IsNullOrWhiteSpace(r.MemberSize))
             return false;
-        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?$", RegexOptions.IgnoreCase))
+        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + "$", RegexOptions.IgnoreCase))
             return false;
         // Auto-guess marks M1/M2 — not used on structural drawings
         if (Regex.IsMatch(r.Mark, @"^M\d+$", RegexOptions.IgnoreCase))
@@ -1447,7 +1456,7 @@ public class ExtractionService
             }
 
             // Standalone mark token — description may be on the next line.
-            var solo = Regex.Match(line, "^(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?)$", RegexOptions.IgnoreCase);
+            var solo = Regex.Match(line, "^(" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?" + CompoundMarkSuffix + @")$", RegexOptions.IgnoreCase);
             if (solo.Success)
             {
                 pendingMark = solo.Groups[1].Value.ToUpperInvariant();
@@ -1699,6 +1708,24 @@ public class ExtractionService
     /// </summary>
     private static string? ExtractPdfMark(string line, Match sectionMatch)
     {
+        // Compound sub-element marks in schedule tables — "2T1.EV 400WC270 STEEL END VERTICAL",
+        // "2T1-BC 400WC270 STEEL BOTTOM CHORD". Checked first, against just the isolated
+        // mark-column text (everything before the already-confirmed size/section match), so a
+        // compound mark at the very start of a row can never be misread by `leading` below as
+        // "mark - description" (truncating "2T1-BC" to "2T1"). Anchored at the END ($) only, not
+        // the start, so it can skip past leading junk from multi-column row reconstruction (e.g.
+        // "9 2T1.D", "2 F.R.L AS REQUIRED BY THE BUILDING SURVEYOR. 2T1.EV") the same way the
+        // plain-mark fallback further below already does — the compound suffix is purely additive,
+        // so a plain mark like "SC2" or "1FB1" here resolves identically either way.
+        if (sectionMatch.Index > 0)
+        {
+            var beforeCompound = line[..sectionMatch.Index].Trim();
+            var compoundMark = Regex.Match(beforeCompound,
+                "(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @")\s*[-–—]?\s*$",
+                RegexOptions.IgnoreCase);
+            if (compoundMark.Success) return compoundMark.Groups[1].Value.ToUpperInvariant();
+        }
+
         // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113" / "1FB1 - 410UB53.7"
         var leading = Regex.Match(line.Trim(),
             "^(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—:]\s*",
@@ -1718,17 +1745,9 @@ public class ExtractionService
 
         if (sectionMatch.Index > 0)
         {
+            // Already covered by the compound-mark check above (same pattern, minus the compound
+            // suffix, which is a strict superset) — kept only for the token-split fallback below.
             var before = line[..sectionMatch.Index].Trim();
-            // Anchored at the END ($) only, not the start — this is deliberately allowed to
-            // begin matching partway into `before` (e.g. skip leading junk like a stray "|").
-            // MarkPrefix is folded into the capture itself (not left for the engine to skip
-            // over) so a level-prefixed mark like "1FB1" is captured whole instead of the
-            // match starting one character later at "FB1", silently losing the leading digit.
-            var dashMark = Regex.Match(before,
-                "(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*[-–—]?\s*$",
-                RegexOptions.IgnoreCase);
-            if (dashMark.Success) return dashMark.Groups[1].Value.ToUpperInvariant();
-
             var tokens = before.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length > 0)
             {
