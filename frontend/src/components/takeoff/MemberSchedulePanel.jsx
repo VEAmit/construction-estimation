@@ -34,7 +34,7 @@ async function patchTakeoffItemColor(item, color) {
   })
 }
 
-export default function MemberSchedulePanel({ drawing, onExport }) {
+export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasurement }) {
   const {
     memberScheduleItems, addMemberScheduleItem,
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
@@ -45,14 +45,17 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
 
-  const linkedMeasurements = activeMeasureMember
-    ? takeoffItems.filter((t) => {
+  const findLinkedMeasurements = useCallback((member) => {
+    if (!member) return []
+    return takeoffItems.filter((t) => {
       if ((t.itemType || 'Line') !== 'Line') return false
-      const mark = String(activeMeasureMember.mark ?? '').trim()
+      const mark = String(member.mark ?? '').trim()
       if (mark && String(t.material ?? '').trim() === mark) return true
-      return parseMemberScheduleNoteId(t.notes) === activeMeasureMember.id
+      return parseMemberScheduleNoteId(t.notes) === member.id
     })
-    : []
+  }, [takeoffItems])
+
+  const linkedMeasurements = findLinkedMeasurements(activeMeasureMember)
 
   const [editId, setEditId] = useState(null)
   const [editBuf, setEditBuf] = useState({})
@@ -137,6 +140,12 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
 
   const handleSelectMember = useCallback((item) => {
     if (!item?.mark) return
+    // If this member already has a measurement drawn, select it the same way
+    // clicking its grid row or its label on the PDF does — highlighting it in
+    // both places — in addition to arming the member for the next new draw.
+    const linked = findLinkedMeasurements(item)
+    if (linked.length > 0) onSelectMeasurement?.(linked[0].id)
+
     // Picking a member while Calibrate is active no longer force-switches the
     // tool to Linear (that used to silently drop the user out of Calibrate
     // mode). Instead it stays in Calibrate and links this member to the next
@@ -151,7 +160,7 @@ export default function MemberSchedulePanel({ drawing, onExport }) {
     setSelectedMemberScheduleItem(item)
     armLinearMeasureMode()
     toast.success(`${item.mark} selected — draw on the plan`, { duration: 2200, icon: '📐' })
-  }, [activeTool, setSelectedMemberScheduleItem, armLinearMeasureMode])
+  }, [activeTool, setSelectedMemberScheduleItem, armLinearMeasureMode, findLinkedMeasurements, onSelectMeasurement])
 
   /** Called when user picks a new color from the color input. Shows apply-all dialog. */
   const handleColorChange = useCallback((item, newColor) => {

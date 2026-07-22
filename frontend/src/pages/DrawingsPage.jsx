@@ -33,6 +33,7 @@ import {
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
 import { buildLinearMeasurementClipboard, isValidLinearMeasurementForCopy } from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
+import { getMeasurementMemberMark } from '../utils/memberMeasureLink'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 import { Files, TableProperties } from 'lucide-react'
@@ -214,6 +215,7 @@ export default function DrawingsPage() {
     takeoffItems, addTakeoffItem, setTakeoffItems, updateTakeoffItem,
     setSummary, activeTool, setActiveTool, setActiveUnit, activeUnit, updateDrawingCalibration,
     memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary, updateMemberScheduleItem,
+    setSelectedMemberScheduleItem,
     triggerPdfCommand,
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
@@ -280,7 +282,19 @@ export default function DrawingsPage() {
     // and changing it appeared to do nothing to the label you just selected.
     const labelSize = readLabelSizeFromPointsJson(item.pointsJson)
     if (labelSize != null) setMeasureLabelFontSize(labelSize)
-  }, [readThicknessFromPointsJson, readLabelSizeFromPointsJson, setMeasureColor, setLineThickness, setMeasureLabelFontSize])
+
+    // Reciprocal of Member Schedule → grid/PDF selection: selecting a measurement
+    // (grid row or PDF label) now also highlights its member in the schedule panel.
+    const mark = getMeasurementMemberMark(item, useAppStore.getState().memberScheduleItems).trim().toLowerCase()
+    if (mark) {
+      const member = useAppStore.getState().memberScheduleItems
+        .find(m => (m.mark || '').trim().toLowerCase() === mark)
+      if (member) setSelectedMemberScheduleItem(member)
+    }
+  }, [
+    readThicknessFromPointsJson, readLabelSizeFromPointsJson,
+    setMeasureColor, setLineThickness, setMeasureLabelFontSize, setSelectedMemberScheduleItem,
+  ])
 
   const drawings = Array.isArray(storeDrawings) ? storeDrawings : []
   const activeDrawing = normalizeDrawing(selectedDrawing)
@@ -2184,7 +2198,7 @@ export default function DrawingsPage() {
                   onDeleted={handleDrawingDeleted}
                 />
               ) : (
-                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} />
+                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} />
               )}
             </div>
           </div>
@@ -2233,7 +2247,7 @@ export default function DrawingsPage() {
                 onDeleted={handleDrawingDeleted}
               />
             ) : (
-              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} />
+              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} />
             )}
           </SideDock>
         )}
