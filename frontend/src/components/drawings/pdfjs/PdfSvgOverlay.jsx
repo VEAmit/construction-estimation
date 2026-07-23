@@ -4,6 +4,12 @@ import { computeRealLengthFromDrawing } from '../../../utils/measureCalibration'
 import { createRawLine, translateRawLine } from './pdfGeometryAdapter'
 import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE } from '../../../utils/measureLabel'
 
+// Minimum on-screen distance (CSS px) between a Linear/Calibrate line's two
+// points for it to count as an intentional line rather than an accidental
+// click/double-click. See finalizeLine, where this is converted to PDF page
+// units via the current zoom.
+const MIN_LINE_SCREEN_PIXELS = 6
+
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
   return {
@@ -332,7 +338,16 @@ function PdfSvgOverlay({
     draftStartRef.current = null
     setDraftStart(null)
     setCursor(null)
-    if (!Number.isFinite(pixelLength) || pixelLength < 0.25) return
+    // Guard against accidental clicks (e.g. a mis-click or double-click while
+    // just positioning the cursor) turning into a stray near-zero-length
+    // measurement. `pixelLength` is in PDF page units, which shrink/grow with
+    // zoom, so convert a fixed on-screen tolerance (CSS px) into page units
+    // via viewerScale rather than using a flat threshold — otherwise the same
+    // real screen-space jitter would incorrectly pass at low zoom and reject
+    // legitimate short lines at high zoom.
+    const zoom = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+    const minPixelLength = MIN_LINE_SCREEN_PIXELS / zoom
+    if (!Number.isFinite(pixelLength) || pixelLength < minPixelLength) return
     // computeRealLengthFromDrawing returns null when the drawing isn't
     // calibrated yet (expected — that's exactly what Calibrate mode, or a
     // Linear line drawn before any scale exists, is for). Do NOT bail out
@@ -384,7 +399,7 @@ function PdfSvgOverlay({
     })
     // Keep Linear and the selected schedule member armed for repeated
     // occurrences. Escape/refresh owns the explicit return to Select mode.
-  }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, onMeasure, pageNumber, pageSize, selectedDrawing])
+  }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, onMeasure, pageNumber, pageSize, selectedDrawing, viewerScale])
 
   const placePaste = useCallback(async (target) => {
     if (!sourceRaw || pasteInFlightRef.current) return
