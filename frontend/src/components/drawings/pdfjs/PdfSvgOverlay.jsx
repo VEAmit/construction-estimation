@@ -118,8 +118,9 @@ function applyLabelWheelResize(annotation, event, onLabelSizeChange) {
   })
 }
 
-function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect }) {
+function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected }) {
   const groupRef = useRef(null)
+  const showMeasurementLabels = useAppStore(s => s.showMeasurementLabels)
   const label = labelGeometry(annotation, viewerScale)
 
   // Hover a label + scroll to resize it in place, even before it's selected —
@@ -149,7 +150,12 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
     return () => el.removeEventListener('wheel', handleWheel)
   }, [annotation, onLabelSizeChange, selected, onSelect])
 
+  // Global show/hide toggle: with nothing selected, it hides every label. Once
+  // a measurement is selected, the toggle narrows to just that one label (so
+  // the user can declutter the single label they're working on) — every other
+  // label keeps showing regardless of the toggle.
   if (!label || (!label.mark && !label.value)) return null
+  if (!showMeasurementLabels && (anySelected ? selected : true)) return null
 
   return (
     <g ref={groupRef} className="pdfjs-measure-label" transform={`rotate(${label.angle} ${label.x} ${label.y})`}
@@ -185,7 +191,7 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
   )
 }
 
-function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange }) {
+function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange }) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
     fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
@@ -215,7 +221,7 @@ function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onCont
           fill="#fff" stroke={annotation.color} strokeWidth="1" pointerEvents="none" />
       ))}
       <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
-        selected={selected} onSelect={onSelect} />
+        selected={selected} anySelected={anySelected} onSelect={onSelect} />
     </g>
   )
 }
@@ -606,6 +612,7 @@ function PdfSvgOverlay({
             selected={selectedAnnotationId != null && [annotation.id, annotation.dbId].some(
               id => id != null && String(id) === String(selectedAnnotationId)
             )}
+            anySelected={selectedAnnotationId != null}
             onPointerDown={handleShapePointerDown}
             onSelect={onSelect}
             onContextMenu={handleShapeContextMenu}

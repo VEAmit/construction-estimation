@@ -111,6 +111,12 @@ export const useAppStore = create(
       linearLineMode:  'simple',  // 'simple' | 'arrow' — Bluebeam-style plain vs arrow line
       fontSize:        14,        // font size (pt) for the Text annotation tool
       measureLabelFontSize: DEFAULT_MEASURE_LABEL_SIZE, // label size for line/area/perimeter (pt)
+      // Global show/hide for measurement labels on the PDF (Bluebeam-style
+      // declutter toggle) — never touches the underlying measurements or the
+      // grid, purely a rendering preference. The currently selected
+      // measurement's label stays visible even while hidden, so the user can
+      // still see what they're editing.
+      showMeasurementLabels: true,
       countSession:    0,         // running count of markers in current session
       pdfScale: 1.2,
       pdfPage: 1,
@@ -146,6 +152,8 @@ export const useAppStore = create(
       setLinearLineMode: (m)     => set({ linearLineMode: m }),
       setFontSize:       (s)     => set({ fontSize: s }),
       setMeasureLabelFontSize: (s) => set({ measureLabelFontSize: s }),
+      setShowMeasurementLabels: (v) => set({ showMeasurementLabels: v }),
+      toggleShowMeasurementLabels: () => set((s) => ({ showMeasurementLabels: !s.showMeasurementLabels })),
       setCountSession:   (n)     => set({ countSession: n }),
       setPdfScale: (scaleFn) =>
         set((s) => ({ pdfScale: typeof scaleFn === 'function' ? scaleFn(s.pdfScale) : scaleFn })),
@@ -182,6 +190,7 @@ export const useAppStore = create(
         userRole: s.userRole,
         activeUnit: s.activeUnit,
         measureLabelFontSize: s.measureLabelFontSize,
+        showMeasurementLabels: s.showMeasurementLabels,
         selectedProject: s.selectedProject,
         wheelZoomSensitivity: s.wheelZoomSensitivity,
       }),

@@ -84,20 +84,6 @@ const MARKUP_TOOLS = [
       <circle cx="12" cy="12" r="9"/>
     </svg>,
   },
-  {
-    id: 'polygon', label: 'Shape', color: '#60a5fa',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polygon points="12 3 20 8 20 16 12 21 4 16 4 8"/>
-    </svg>,
-  },
-  {
-    id: 'text', label: 'Text', color: '#60a5fa',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="4 7 4 4 20 4 20 7"/>
-      <line x1="9" y1="20" x2="15" y2="20"/>
-      <line x1="12" y1="4" x2="12" y2="20"/>
-    </svg>,
-  },
 ]
 
 const COLORS = [
@@ -168,6 +154,7 @@ export default function Toolbar({
     linearLineMode,  setLinearLineMode,
     fontSize,        setFontSize,
     measureLabelFontSize, setMeasureLabelFontSize,
+    showMeasurementLabels, toggleShowMeasurementLabels,
     countSession,
     selectedMemberScheduleItem, lastMeasureMember,
   } = useAppStore()
@@ -287,6 +274,89 @@ export default function Toolbar({
             <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
               compact={compact} onClick={() => setActiveTool(tool.id)} />
           ))}
+
+          <Sep />
+
+          {/* Label size — global control (not tied to the active tool), so it's always
+              available: pick a size before drawing, or select any existing measurement
+              on the canvas/grid (in any tool, including Select) and change its size.
+              Kept early in the row (right after the tool groups) so it stays visible
+              instead of getting pushed off the right edge of this scrollable row. */}
+          {!compact && (
+            <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
+          )}
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            {MEASURE_LABEL_PRESETS.map(p => (
+              <button key={p.value} onClick={() => {
+                setMeasureLabelFontSize(p.value)
+                if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(p.value))
+              }} title={p.title}
+                style={{
+                  height: '22px', minWidth: '30px', padding: '0 7px',
+                  borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
+                  border: `1px solid ${measureLabelFontSize === p.value ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
+                  background: measureLabelFontSize === p.value ? 'rgba(239,35,60,.15)' : 'transparent',
+                  color: measureLabelFontSize === p.value ? '#EF233C' : '#475569',
+                  cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            min={MIN_MEASURE_LABEL_SIZE}
+            max={MAX_MEASURE_LABEL_SIZE}
+            step={1}
+            value={measureLabelFontSize}
+            title="Custom label size (pt) — applies to the selected measurement, or the next one you draw"
+            onChange={(e) => {
+              const raw = Number(e.target.value)
+              if (!Number.isFinite(raw)) return
+              const clamped = Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, raw))
+              setMeasureLabelFontSize(clamped)
+              if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(clamped))
+            }}
+            style={{
+              width: '38px', height: '22px', padding: '0 4px',
+              borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+              border: '1px solid rgba(255,255,255,.08)', background: 'transparent',
+              color: '#475569', flexShrink: 0,
+            }}
+          />
+          {!compact && (
+            <span style={{ fontSize: '9px', color: '#334155', flexShrink: 0 }}>pt</span>
+          )}
+
+          {/* Global label show/hide — declutters the drawing without touching any
+              measurement data or the grid. The measurement currently being worked
+              on (selected, or hovered to wheel-resize) still shows its own label
+              even while the rest are hidden — see MeasurementLabel. */}
+          <button
+            type="button"
+            onClick={toggleShowMeasurementLabels}
+            title={showMeasurementLabels ? 'Hide all measurement labels' : 'Show all measurement labels'}
+            style={{
+              ...zBtn,
+              display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px',
+              fontSize: '11px', touchAction: 'manipulation',
+              color: showMeasurementLabels ? '#94a3b8' : '#EF233C',
+              borderColor: showMeasurementLabels ? 'rgba(255,255,255,.1)' : 'rgba(239,35,60,.4)',
+              background: showMeasurementLabels ? 'transparent' : 'rgba(239,35,60,.1)',
+            }}>
+            {showMeasurementLabels ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            )}
+            {!compact && (showMeasurementLabels ? 'Labels' : 'Labels hidden')}
+          </button>
 
           <Sep />
 
@@ -441,56 +511,6 @@ export default function Toolbar({
             <option value={1.5}>Fast</option>
             <option value={2}>Fastest</option>
           </select>
-
-          {/* Label size — global control (not tied to the active tool), so it's always
-              available: pick a size before drawing, or select any existing measurement
-              on the canvas/grid (in any tool, including Select) and change its size. */}
-          <Sep />
-          {!compact && (
-            <span style={{ fontSize: '10px', color: '#334155' }}>Label:</span>
-          )}
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            {MEASURE_LABEL_PRESETS.map(p => (
-              <button key={p.value} onClick={() => {
-                setMeasureLabelFontSize(p.value)
-                if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(p.value))
-              }} title={p.title}
-                style={{
-                  height: '22px', minWidth: '30px', padding: '0 7px',
-                  borderRadius: '4px', fontSize: '10px', fontWeight: measureLabelFontSize === p.value ? 800 : 600,
-                  border: `1px solid ${measureLabelFontSize === p.value ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
-                  background: measureLabelFontSize === p.value ? 'rgba(239,35,60,.15)' : 'transparent',
-                  color: measureLabelFontSize === p.value ? '#EF233C' : '#475569',
-                  cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
-                }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <input
-            type="number"
-            min={MIN_MEASURE_LABEL_SIZE}
-            max={MAX_MEASURE_LABEL_SIZE}
-            step={1}
-            value={measureLabelFontSize}
-            title="Custom label size (pt) — applies to the selected measurement, or the next one you draw"
-            onChange={(e) => {
-              const raw = Number(e.target.value)
-              if (!Number.isFinite(raw)) return
-              const clamped = Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, raw))
-              setMeasureLabelFontSize(clamped)
-              if (activeTool === 'line') setLineThickness(defaultLineThicknessForLabelSize(clamped))
-            }}
-            style={{
-              width: '38px', height: '22px', padding: '0 4px',
-              borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-              border: '1px solid rgba(255,255,255,.08)', background: 'transparent',
-              color: '#475569', flexShrink: 0,
-            }}
-          />
-          {!compact && (
-            <span style={{ fontSize: '9px', color: '#334155', flexShrink: 0 }}>pt</span>
-          )}
         </div>
       </div>
 
