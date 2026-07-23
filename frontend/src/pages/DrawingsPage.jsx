@@ -321,6 +321,7 @@ export default function DrawingsPage() {
   const [selectedViewerAnnotId, setSelectedViewerAnnotId] = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
   const [ctxMenu, setCtxMenu] = useState(null) // { x, y } | null — right-click context menu
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
 
   // Mobile panel drawer state
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
@@ -1442,6 +1443,10 @@ export default function DrawingsPage() {
   }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem])
 
   const handleRowSelect = useCallback((dbId) => {
+    // See handleAnnotationSelect — selecting a different measurement (here,
+    // via the grid/member-schedule row instead of the canvas) must end any
+    // in-progress paste session the same way.
+    triggerPdfCommand({ type: 'cancelPastePlacement' })
     setSelectedAnnotId(dbId)
     setStyleEditTargetId(dbId)
     annotStyleBaselineRef.current = null
@@ -1668,8 +1673,14 @@ export default function DrawingsPage() {
       material: clipboard.material ?? clipboard.mark ?? '',
     }
     clearPasteAnchor()
+    // A right-click context menu left open from earlier (or opened right on
+    // top of the drawing area while this new placement session starts) would
+    // otherwise float over the canvas at a fixed position and silently
+    // swallow the very clicks meant to place a copy — close it so the fresh
+    // placement session isn't immediately blocked by a stale menu.
+    closeCtxMenu()
     triggerPdfCommand({ type: 'pasteMeasurement', clipboard })
-  }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor])
+  }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor, closeCtxMenu])
 
   const copyTargetId = resolveCopyTargetId()
   const canCopyMeasurement = !!copyTargetId
@@ -1742,6 +1753,12 @@ export default function DrawingsPage() {
   }, [])
 
   const handleAnnotationSelect = useCallback((annotUuid, annotation = null) => {
+    // Selecting a different measurement ends any in-progress paste "stamp"
+    // session (same mechanism handleCopyMeasurement uses for a fresh Copy) —
+    // otherwise the moving preview/ghost and "Move preview..." banner stay
+    // armed in the background, silently tied to whatever was copied before,
+    // even though the user's focus has clearly moved to a different item.
+    triggerPdfCommand({ type: 'cancelPastePlacement' })
     const occurrenceId = annotation?.id ?? annotUuid ?? null
     // A still-pending (not yet reconciled) optimistic annotation carries its
     // client-generated UUID in `dbId` too (see normalizeAnnotations, shared
@@ -1762,7 +1779,7 @@ export default function DrawingsPage() {
       const item = takeoffItems.find(t => t.id === dbId)
       syncToolbarFromTakeoffItem(item)
     }
-  }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems])
+  }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
 
   const handleAnnotationContextMenu = useCallback((event, annotUuid, annotation = null) => {
     event.preventDefault()
@@ -1770,8 +1787,6 @@ export default function DrawingsPage() {
     handleAnnotationSelect(annotUuid, annotation)
     setCtxMenu({ x: event.clientX, y: event.clientY })
   }, [handleAnnotationSelect])
-
-  const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -2430,7 +2445,7 @@ export default function DrawingsPage() {
                   boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                   overflow: 'hidden',
                 }}
-                onClick={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); closeCtxMenu() }}
               >
                 {canCopyMeasurement && (
                   <button

@@ -260,6 +260,13 @@ export default function PdfJsViewer({
     if (type === 'fitPage') fitPage()
     else if (type === 'fitWidth') fitWidth()
     else if (type === 'selectAnnotation') {
+      // Selecting a row jumps to its page AND ends any in-progress paste
+      // session in one command — handleRowSelect fires this and
+      // cancelPastePlacement in the same tick, and since both go through the
+      // same synchronous pdfCommand slot, only the later one would otherwise
+      // survive to be seen by this effect. Folding the reset in here means it
+      // always takes effect regardless of call order.
+      setPasteClipboard(null)
       const pageNumber = Number(pdfCommand.pageNumber)
       if (Number.isFinite(pageNumber) && pageNumber > 0) setPdfPage(pageNumber)
     }
@@ -497,6 +504,15 @@ export default function PdfJsViewer({
   }, [pageLayout, scrollWindow, pages])
 
   const handlePointerDown = useCallback((event) => {
+    // A paste "stamp" session in progress means every left-click on the
+    // canvas is meant to place a copy — never arm panning here in that case.
+    // Without this guard, a plain left-click in Select tool (PAN_TOOLS
+    // includes 'select') always fell through to setPointerCapture on this
+    // container below, which retargets the pointerup/click that follows to
+    // this div instead of wherever the pointer visually is — so the SVG
+    // overlay's own onClick (the one that actually places the paste) never
+    // received the click at all, and paste silently did nothing.
+    if (pasteClipboard) return
     // Held-Space always pans, regardless of tool — see spaceHeld's store comment.
     const canPan = spaceHeld
       || (PAN_TOOLS.has(activeTool) ? event.button === 0 : event.button === 1)
@@ -512,7 +528,7 @@ export default function PdfJsViewer({
       left: container.scrollLeft,
       top: container.scrollTop,
     }
-  }, [activeTool, spaceHeld])
+  }, [activeTool, spaceHeld, pasteClipboard])
 
   const handlePointerMove = useCallback((event) => {
     const pan = panRef.current

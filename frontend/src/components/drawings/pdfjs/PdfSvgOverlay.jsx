@@ -124,7 +124,7 @@ function applyLabelWheelResize(annotation, event, onLabelSizeChange) {
   })
 }
 
-function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected }) {
+function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected, forceVisible }) {
   const groupRef = useRef(null)
   const showMeasurementLabels = useAppStore(s => s.showMeasurementLabels)
   const label = labelGeometry(annotation, viewerScale)
@@ -159,9 +159,11 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
   // Global show/hide toggle: with nothing selected, it hides every label. Once
   // a measurement is selected, the toggle narrows to just that one label (so
   // the user can declutter the single label they're working on) — every other
-  // label keeps showing regardless of the toggle.
+  // label keeps showing regardless of the toggle. The paste preview
+  // (forceVisible) always ignores this — the user is actively positioning it,
+  // so it must stay visible even with labels hidden and nothing selected.
   if (!label || (!label.mark && !label.value)) return null
-  if (!showMeasurementLabels && (anySelected ? selected : true)) return null
+  if (!forceVisible && !showMeasurementLabels && (anySelected ? selected : true)) return null
 
   return (
     <g ref={groupRef} className="pdfjs-measure-label" transform={`rotate(${label.angle} ${label.x} ${label.y})`}
@@ -197,7 +199,7 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
   )
 }
 
-function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange }) {
+function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange, forceLabelVisible }) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
     fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
@@ -227,7 +229,7 @@ function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onS
           fill="#fff" stroke={annotation.color} strokeWidth="1" pointerEvents="none" />
       ))}
       <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
-        selected={selected} anySelected={anySelected} onSelect={onSelect} />
+        selected={selected} anySelected={anySelected} onSelect={onSelect} forceVisible={forceLabelVisible} />
     </g>
   )
 }
@@ -281,6 +283,18 @@ function PdfSvgOverlay({
     setDraftStart(null)
     setCursor(null)
   }, [activeTool, pageNumber])
+
+  // Every paste session (a fresh copy → Paste) gets a brand-new clipboard
+  // object, and ending one (Esc/Done/cancel) sets it back to null — either
+  // transition means any previously tracked mouse position is stale and must
+  // not be reused. Without this, the very first render of a *new* paste
+  // session's moving preview would jump to wherever the mouse last was
+  // tracked (e.g. exactly where the last copy was placed), rendering a ghost
+  // directly on top of that already-placed occurrence until the user moves
+  // the mouse again.
+  useEffect(() => {
+    setCursor(null)
+  }, [pasteClipboard])
 
   const pageAnnotations = useMemo(() => annotations.map(annotation => {
     if (dragged?.id !== annotation.id) return annotation
@@ -648,6 +662,7 @@ function PdfSvgOverlay({
             selected={false}
             onPointerDown={() => {}}
             onSelect={() => {}}
+            forceLabelVisible
           />
         </g>
       )}
