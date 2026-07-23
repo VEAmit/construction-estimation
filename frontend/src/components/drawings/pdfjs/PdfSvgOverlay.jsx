@@ -89,11 +89,71 @@ function labelGeometry(annotation, viewerScale) {
   }
 }
 
-function MeasurementLabel({ annotation, viewerScale }) {
+// Shared by both ways to wheel-resize a label's font size: hovering the
+// label itself (MeasurementLabel, below) and scrolling anywhere on the page
+// once something is already selected (PdfSvgOverlay's own listener further
+// down). One whole point per tick keeps it predictable even on an aggressive
+// trackpad fling — a magnitude-scaled step could jump 10+pt in one swipe.
+// Scroll up = bigger (matches the usual "up/forward = zoom in" convention).
+// Caller is expected to have already checked !event.ctrlKey (ctrl+wheel is
+// reserved for page zoom) before calling this.
+function applyLabelWheelResize(annotation, event, onLabelSizeChange) {
+  event.preventDefault()
+  event.stopPropagation()
+  const current = Math.min(Math.max(
+    Number(annotation.labelFontSize) || DEFAULT_MEASURE_LABEL_SIZE,
+    MIN_MEASURE_LABEL_SIZE), MAX_MEASURE_LABEL_SIZE)
+  const direction = event.deltaY < 0 ? 1 : event.deltaY > 0 ? -1 : 0
+  if (!direction) return
+  const next = Math.min(MAX_MEASURE_LABEL_SIZE, Math.max(MIN_MEASURE_LABEL_SIZE, current + direction))
+  if (next === current) return
+  // Keep the S/M/L/XL toolbar buttons and the custom pt input in sync live,
+  // same as picking a preset or selecting this measurement would.
+  useAppStore.getState().setMeasureLabelFontSize(next)
+  onLabelSizeChange?.({
+    annotationId: annotation.id,
+    dbId: annotation.dbId,
+    pageNumber: annotation.pageNumber,
+    size: next,
+  })
+}
+
+function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect }) {
+  const groupRef = useRef(null)
   const label = labelGeometry(annotation, viewerScale)
+
+  // Hover a label + scroll to resize it in place, even before it's selected —
+  // this is just the quick-access path; once selected, PdfSvgOverlay's own
+  // page-wide listener takes over so scrolling doesn't have to stay precisely
+  // over the (small) label. React's onWheel is registered passive at the
+  // root, so preventDefault() inside it can't actually stop the page from
+  // also scrolling/zooming underneath (the same reason the PDF's own
+  // ctrl+wheel zoom is wired as a native listener in PdfJsViewer instead of a
+  // JSX onWheel prop) — mirror that fix here with a native, non-passive
+  // listener via ref.
+  useEffect(() => {
+    const el = groupRef.current
+    if (!el) return undefined
+    const handleWheel = (event) => {
+      if (event.ctrlKey) return // ctrl+wheel is reserved for page zoom
+      // Select this measurement (same as clicking it) on the first tick of a
+      // scroll gesture — without this, the toolbar's S/M/L/XL buttons and pt
+      // input have nothing to act on until the user separately clicks the
+      // label first, so scrolling and then clicking a preset look like they
+      // "don't work together": the wheel resizes it, but a follow-up preset
+      // click silently no-ops because nothing was ever formally selected.
+      if (!selected) onSelect?.(annotation.id, annotation)
+      applyLabelWheelResize(annotation, event, onLabelSizeChange)
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [annotation, onLabelSizeChange, selected, onSelect])
+
   if (!label || (!label.mark && !label.value)) return null
+
   return (
-    <g className="pdfjs-measure-label" transform={`rotate(${label.angle} ${label.x} ${label.y})`}>
+    <g ref={groupRef} className="pdfjs-measure-label" transform={`rotate(${label.angle} ${label.x} ${label.y})`}
+      style={{ cursor: 'ns-resize' }}>
       {/* The label is the most visually obvious, easiest thing to click on a
           measurement — it must be selectable (and draggable) exactly like the
           line itself. It sits inside AnnotationShape's <g>, which already
@@ -125,7 +185,7 @@ function MeasurementLabel({ annotation, viewerScale }) {
   )
 }
 
-function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onContextMenu, viewerScale }) {
+function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange }) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
     fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
@@ -154,7 +214,8 @@ function AnnotationShape({ annotation, selected, onPointerDown, onSelect, onCont
         <rect key={index} x={p.x - 3} y={p.y - 3} width={6} height={6}
           fill="#fff" stroke={annotation.color} strokeWidth="1" pointerEvents="none" />
       ))}
-      <MeasurementLabel annotation={annotation} viewerScale={viewerScale} />
+      <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
+        selected={selected} onSelect={onSelect} />
     </g>
   )
 }
@@ -171,6 +232,7 @@ function PdfSvgOverlay({
   onAnnotationContextMenu,
   onClearSelection,
   onGeometryChange,
+  onLabelSizeChange,
 }) {
   const svgRef = useRef(null)
   const dragRef = useRef(null)
@@ -212,6 +274,29 @@ function PdfSvgOverlay({
     if (dragged?.id !== annotation.id) return annotation
     return { ...annotation, points: dragged.points }
   }), [annotations, dragged])
+
+  // Once a measurement is selected (by click, or the first tick of hovering
+  // its own label), scrolling ANYWHERE on this page resizes its label instead
+  // of scrolling the page — the label itself is a small target to keep
+  // hitting precisely, so this makes "select once, then scroll freely" the
+  // primary way to resize. Escape clears the selection (DrawingsPage), and
+  // since this effect depends on selectedAnnotationId, that alone removes
+  // this listener again and restores normal wheel scroll/zoom — no separate
+  // handling needed here for that.
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || selectedAnnotationId == null) return undefined
+    const selected = pageAnnotations.find(a => [a.id, a.dbId].some(
+      id => id != null && String(id) === String(selectedAnnotationId)
+    ))
+    if (!selected) return undefined
+    const handleWheel = (event) => {
+      if (event.ctrlKey) return // ctrl+wheel is reserved for page zoom
+      applyLabelWheelResize(selected, event, onLabelSizeChange)
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false })
+    return () => svg.removeEventListener('wheel', handleWheel)
+  }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber])
 
   const sourceRaw = pasteClipboard?.copyJson ?? pasteClipboard?.raw ?? null
   const previewRaw = cursor && sourceRaw
@@ -351,11 +436,23 @@ function PdfSvgOverlay({
       return
     }
     if (shapeInteractedRef.current) {
+      // A shape's own pointerdown already selected it and captured the
+      // pointer (needed for dragging in Select tool), which retargets this
+      // click event to the SVG root instead of the shape itself — stop it
+      // here so it doesn't keep bubbling past this point to an ancestor's
+      // own click-to-deselect handler (PdfJsViewer's, for the Pan-tool case
+      // where this SVG is pointer-events:none) and undo the selection that
+      // was just made.
+      event.stopPropagation()
       shapeInteractedRef.current = false
       return
     }
-    if (activeTool === 'select') onClearSelection?.()
-  }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste])
+    // Deselect on any empty-space click, not just in Select tool — otherwise
+    // a measurement stays selected (and wheel keeps resizing it, see
+    // MeasurementLabel/PdfSvgOverlay's wheel handling) even after clicking
+    // elsewhere on the drawing while in Linear/Area/etc.
+    onClearSelection?.()
+  }, [onClearSelection, pageSize, pasteClipboard, placePaste])
 
   const handlePointerDown = useCallback((event) => {
     // Held-Space always means "pan", even over Line/Calibrate — bail without
@@ -403,14 +500,35 @@ function PdfSvgOverlay({
   }, [pageSize])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
-    if (spaceHeld || activeTool !== 'select' || event.button !== 0) return
+    if (spaceHeld || event.button !== 0) return
+    if (activeTool !== 'select') {
+      // Not in Select mode (e.g. Linear) — don't drag/select like the 'select'
+      // branch below, but still stop this pointerdown from bubbling to the
+      // SVG root's own handlePointerDown. That handler treats any bubbled
+      // pointerdown as "start a new draft line from here" and captures the
+      // pointer on the SVG root — which retargets the click that follows
+      // away from this shape's own onClick (so it never selects), straight
+      // through to the SVG root's handleClick instead.
+      event.stopPropagation()
+      // Clear first, then the click that follows (this pointerdown doesn't
+      // capture the pointer, so it isn't retargeted) re-selects via this same
+      // shape's own onClick if it's genuinely this shape the user clicked —
+      // net result: still selected, no visible flicker. But if the label grew
+      // from a resize and now happens to cover a spot the user perceives as
+      // "elsewhere," or the click actually lands on a different measurement's
+      // line (hit-area is much wider than the visible stroke in a dense
+      // drawing), clearing first is what makes that correctly end up
+      // deselected/switched instead of silently staying stuck on the old one.
+      onClearSelection?.()
+      return
+    }
     event.stopPropagation()
     shapeInteractedRef.current = true
     onSelect?.(annotation.id, annotation)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
     dragRef.current = { pointerId: event.pointerId, origin, annotation }
-  }, [activeTool, onSelect, pageSize, spaceHeld])
+  }, [activeTool, onSelect, onClearSelection, pageSize, spaceHeld])
 
   const handleShapeContextMenu = useCallback((event, annotation) => {
     event.preventDefault()
@@ -491,6 +609,7 @@ function PdfSvgOverlay({
             onPointerDown={handleShapePointerDown}
             onSelect={onSelect}
             onContextMenu={handleShapeContextMenu}
+            onLabelSizeChange={onLabelSizeChange}
           />
         ))}
       </g>

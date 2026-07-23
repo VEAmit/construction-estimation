@@ -350,6 +350,7 @@ export default function DrawingsPage() {
   const persistedAnnotIdsRef = useRef(new Set())
   const savingAnnotIdsRef = useRef(new Set())
   const geometrySaveTimersRef = useRef(new Map())
+  const labelSizeSaveTimersRef = useRef(new Map())
   const measureReleaseRef = useRef(null)
   // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
   const pendingMeasurementRef = useRef(null)
@@ -379,6 +380,53 @@ export default function DrawingsPage() {
       .some(id => String(id) === annotationKey))
     return item?.id ?? null
   }, [])
+
+  // Shared by both ways to resize a label's font size: hovering it and
+  // scrolling (PdfSvgOverlay, fires one payload per wheel tick), and clicking
+  // a S/M/L/XL preset or typing a pt value in the toolbar while it's selected
+  // (see the style-sync effect below). Routing both through the same
+  // per-item debounce timer means whichever one changes the size LAST always
+  // wins — without this they raced: a wheel tick's pending save could fire
+  // after a toolbar click and silently overwrite it, or vice versa, making
+  // it look like clicking S/M/L/XL "did nothing" right after using the wheel.
+  const handleMeasurementLabelSizeChange = useCallback((payload) => {
+    const annotId = payload?.annotationId
+    const dbId = payload?.dbId ?? resolveMeasurementDbId(annotId)
+    const size = Number(payload?.size)
+    if (dbId == null || !Number.isFinite(size)) return
+
+    // Instant feedback (store-level, so the grid/right panel update live too,
+    // not just the canvas) — only the network save below is debounced.
+    const currentItem = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+    if (!currentItem?.pointsJson) return
+    try {
+      const raw = JSON.parse(currentItem.pointsJson)
+      const existing = raw.labelUserFontSize ?? raw.LabelUserFontSize
+      if (existing == null || Number(existing) !== size) {
+        const pointsJson = JSON.stringify({ ...raw, labelUserFontSize: size, LabelUserFontSize: size })
+        updateTakeoffItem({ ...currentItem, pointsJson })
+      }
+    } catch (_) { return }
+
+    const existingTimer = labelSizeSaveTimersRef.current.get(dbId)
+    if (existingTimer) clearTimeout(existingTimer)
+
+    const timer = setTimeout(async () => {
+      labelSizeSaveTimersRef.current.delete(dbId)
+      // Re-read at save time — picks up whatever the latest call (from either
+      // source) optimistically wrote, not this particular call's own value.
+      const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+      if (!item?.pointsJson) return
+      try {
+        const saved = await takeoffService.update(item)
+        updateTakeoffItem(saved)
+      } catch (err) {
+        console.warn('[BuildTakeoff] measurement label size update failed:', err)
+      }
+    }, 400)
+
+    labelSizeSaveTimersRef.current.set(dbId, timer)
+  }, [resolveMeasurementDbId, updateTakeoffItem])
 
   const parseLinkedItemId = useCallback((notes) => {
     const match = String(notes ?? '').match(/\blinkedItem:(\d+)/i)
@@ -441,29 +489,43 @@ export default function DrawingsPage() {
     if (!styleChanged && !labelSizeChanged) return
     annotStyleBaselineRef.current = current
 
-    const item = takeoffItems.find(t => t.id === selectedAnnotId)
+    // Label size shares the same debounced pipeline as hover+scroll resize —
+    // see handleMeasurementLabelSizeChange for why (avoids the two racing).
+    if (labelSizeChanged) {
+      handleMeasurementLabelSizeChange({ dbId: selectedAnnotId, size: current.labelFontSize })
+    }
+    if (!styleChanged) return
+
+    // Re-read live (not the `takeoffItems` this render closed over) in case
+    // the label-size call just above already updated this same item's
+    // pointsJson — using a stale snapshot here would silently revert it.
+    const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === selectedAnnotId)
     if (!item) return
 
-    // Label size lives in the annotation's own raw geometry (pointsJson), not
-    // a top-level item field — the pdf.js renderer reads it from there.
-    let pointsJson = item.pointsJson
-    if (labelSizeChanged && item.pointsJson) {
-      try {
-        const raw = JSON.parse(item.pointsJson)
-        pointsJson = JSON.stringify({
-          ...raw,
-          labelUserFontSize: current.labelFontSize,
-          LabelUserFontSize: current.labelFontSize,
-        })
-      } catch (_) {}
-    }
-
-    const optimistic = { ...item, color: measureColor, category: measureCategory, pointsJson }
+    const optimistic = { ...item, color: measureColor, category: measureCategory }
     updateTakeoffItem(optimistic)
     takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})
-  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId, handleMeasurementLabelSizeChange, updateTakeoffItem])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Zooming in/out auto-deselects the current measurement — otherwise it stays
+  // selected (and wheel keeps resizing its label, see PdfSvgOverlay) even
+  // after the user has moved on to just looking around the drawing at a
+  // different zoom level. Skips the very first render so loading a drawing
+  // (which sets an initial fit-to-width scale) doesn't clear a selection that
+  // was restored/made before the scale settled.
+  const prevPdfScaleRef = useRef(pdfScale)
+  useEffect(() => {
+    if (prevPdfScaleRef.current === pdfScale) return
+    prevPdfScaleRef.current = pdfScale
+    if (!selectedAnnotId && !selectedViewerAnnotId) return
+    selectedOccurrenceAnnotIdRef.current = null
+    setSelectedAnnotId(null)
+    setSelectedViewerAnnotId(null)
+    setStyleEditTargetId(null)
+    annotStyleBaselineRef.current = null
+  }, [pdfScale, selectedAnnotId, selectedViewerAnnotId])
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -693,6 +755,8 @@ export default function DrawingsPage() {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
     geometrySaveTimersRef.current.forEach(t => clearTimeout(t))
     geometrySaveTimersRef.current.clear()
+    labelSizeSaveTimersRef.current.forEach(t => clearTimeout(t))
+    labelSizeSaveTimersRef.current.clear()
   }, [])
 
   const pickMeasureTool = useCallback((toolId) => {
@@ -2326,9 +2390,17 @@ export default function DrawingsPage() {
                 setSelectedViewerAnnotId(null)
                 setStyleEditTargetId(null)
                 annotStyleBaselineRef.current = null
+                // Selecting a measurement mirrors it into selectedMemberScheduleItem
+                // (see syncToolbarFromTakeoffItem) so the Member Schedule panel and
+                // the right panel's "Selected: X" banner highlight along with it —
+                // but nothing was clearing that back out on deselect, so both kept
+                // showing the old mark's name/highlight even after the grid and
+                // canvas selection had genuinely cleared.
+                useAppStore.getState().clearSelectedMemberScheduleItem?.()
               }}
               onMeasurementThicknessChange={handleMeasurementThicknessChange}
               onMeasurementGeometryChange={handleMeasurementGeometryChange}
+              onMeasurementLabelSizeChange={handleMeasurementLabelSizeChange}
               resolveMeasurementDbId={resolveMeasurementDbId}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}

@@ -100,6 +100,7 @@ function PdfJsPage({
   onContextMenu,
   onClearSelection,
   onGeometryChange,
+  onLabelSizeChange,
 }) {
   const hostRef = useRef(null)
   const canvasRef = useRef(null)
@@ -288,6 +289,7 @@ function PdfJsPage({
         onAnnotationContextMenu={onContextMenu}
         onClearSelection={onClearSelection}
         onGeometryChange={onGeometryChange}
+        onLabelSizeChange={onLabelSizeChange}
       />
       {!renderedOnce && !renderError && <div className="pdfjs-page-placeholder" aria-hidden="true" />}
       {renderError && <div className="pdfjs-page-error">{renderError}</div>}

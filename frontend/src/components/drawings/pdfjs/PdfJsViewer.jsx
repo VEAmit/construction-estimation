@@ -68,6 +68,7 @@ export default function PdfJsViewer({
   onAnnotationContextMenu,
   onClearSelection,
   onMeasurementGeometryChange,
+  onMeasurementLabelSizeChange,
   measureReleaseRef,
 }) {
   const containerRef = useRef(null)
@@ -406,6 +407,18 @@ export default function PdfJsViewer({
     onMeasurementGeometryChange?.(payload)
   }, [onMeasurementGeometryChange, pageMetrics])
 
+  const handleLabelSizeChange = useCallback((payload) => {
+    // DrawingsPage's handleMeasurementLabelSizeChange already applies this
+    // optimistically to the store itself (not just a debounced save), so the
+    // normal annotations → normalizedAnnotations pipeline picks it up on the
+    // very next render — no separate local override needed here. That
+    // matters because a toolbar S/M/L/XL click (a completely different code
+    // path — it doesn't go through this component at all) also changes the
+    // store directly; a local-only override here would never see that change
+    // and would keep masking it with a stale wheel-set value indefinitely.
+    onMeasurementLabelSizeChange?.(payload)
+  }, [onMeasurementLabelSizeChange])
+
   const pages = useMemo(() => pdfDocument
     ? Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
     : [], [pdfDocument])
@@ -548,6 +561,18 @@ export default function PdfJsViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={endPan}
       onPointerCancel={endPan}
+      onClick={() => {
+        // Safety net for Pan tool specifically: the page SVG is deliberately
+        // pointer-events:none there (so panning isn't blocked by hit-testing
+        // shapes), so no click ever reaches PdfSvgOverlay's own handleClick
+        // at all in that mode — nothing was clearing selection on a plain
+        // click while panning. In every other tool this just double-fires
+        // alongside the SVG's own handleClick's onClearSelection (harmless,
+        // idempotent). A genuine shape click still selects correctly: any
+        // element actually clicked (a shape's own <g>) calls stopPropagation
+        // before a click event ever reaches this far up, in every tool.
+        onClearSelection?.()
+      }}
       onKeyDown={event => {
         if (event.key !== 'Escape') return
         if (pasteClipboard) setPasteClipboard(null)
@@ -588,6 +613,7 @@ export default function PdfJsViewer({
                 onContextMenu={onAnnotationContextMenu}
                 onClearSelection={onClearSelection}
                 onGeometryChange={handleGeometryChange}
+                onLabelSizeChange={handleLabelSizeChange}
               />
             ) : (
               <div
