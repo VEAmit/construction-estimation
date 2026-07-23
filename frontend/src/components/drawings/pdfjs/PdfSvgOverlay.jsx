@@ -67,11 +67,20 @@ function labelGeometry(annotation, viewerScale) {
     ? `${annotation.value.toFixed(2)} ${annotation.unit}`
     : ''
   const widest = Math.max(mark.length, value.length, 3)
+  // Align the label with the line's own direction (horizontal line → horizontal
+  // label, vertical line → vertical label, angled line → angled label) instead
+  // of always staying horizontal — normalized to the [-90, 90] range so the
+  // text is never rendered upside-down/mirrored regardless of which end of
+  // the line is "start" vs "end".
+  let angle = Math.atan2(dy, dx) * (180 / Math.PI)
+  if (angle > 90) angle -= 180
+  else if (angle < -90) angle += 180
   return {
     x,
     y,
     mark,
     value,
+    angle,
     width: widest * fontSize * 0.62 + fontSize,
     height: value ? fontSize * 2.45 : fontSize * 1.5,
     fontSize,
@@ -84,7 +93,7 @@ function MeasurementLabel({ annotation, viewerScale }) {
   const label = labelGeometry(annotation, viewerScale)
   if (!label || (!label.mark && !label.value)) return null
   return (
-    <g className="pdfjs-measure-label">
+    <g className="pdfjs-measure-label" transform={`rotate(${label.angle} ${label.x} ${label.y})`}>
       {/* The label is the most visually obvious, easiest thing to click on a
           measurement — it must be selectable (and draggable) exactly like the
           line itself. It sits inside AnnotationShape's <g>, which already
