@@ -63,6 +63,7 @@ export default function PdfJsViewer({
   drawingUrl,
   annotations = [],
   selectedAnnotationId,
+  selectedAnnotationIds,
   onMeasure,
   onAnnotationSelect,
   onAnnotationContextMenu,
@@ -623,6 +624,7 @@ export default function PdfJsViewer({
                 forceRender={Math.abs(pageNumber - pdfPage) <= 2}
                 annotations={normalizedAnnotations.filter(annotation => annotation.pageNumber === pageNumber)}
                 selectedAnnotationId={selectedAnnotationId}
+                selectedAnnotationIds={selectedAnnotationIds}
                 pasteClipboard={pasteClipboard}
                 onMeasure={handleMeasure}
                 onSelect={onAnnotationSelect}

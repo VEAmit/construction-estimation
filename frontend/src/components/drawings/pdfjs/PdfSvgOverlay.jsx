@@ -219,7 +219,7 @@ function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onS
   return (
     <g
       onPointerDown={event => onPointerDown?.(event, annotation)}
-      onClick={event => { event.stopPropagation(); onSelect?.(annotation.id, annotation) }}
+      onClick={event => { event.stopPropagation(); onSelect?.(annotation.id, annotation, event) }}
       onContextMenu={event => onContextMenu?.(event, annotation)}
     >
       <polyline points={points} {...common} fill={closed ? common.fill : 'none'} />
@@ -240,6 +240,7 @@ function PdfSvgOverlay({
   viewerScale,
   annotations,
   selectedAnnotationId,
+  selectedAnnotationIds,
   pasteClipboard,
   onMeasure,
   onSelect,
@@ -324,26 +325,48 @@ function PdfSvgOverlay({
     return () => svg.removeEventListener('wheel', handleWheel)
   }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber])
 
-  const sourceRaw = pasteClipboard?.copyJson ?? pasteClipboard?.raw ?? null
-  const previewRaw = cursor && sourceRaw
-    ? translateRawLine(sourceRaw, cursor, pageNumber, pageSize)
-    : null
-  const previewPoints = previewRaw?.vertexPoints ?? []
-  const previewAnnotation = previewPoints.length >= 2
-    ? {
-        id: 'paste-preview',
+  // pasteClipboard.items is always an array (even a single copy is a
+  // 1-length array) — the anchor is whichever item was copied first, and
+  // every other item's fixed offset from it (captured at copy time, via
+  // each item's own label midpoint) is what lets a multi-item paste move as
+  // one rigid group to wherever the user clicks, while preserving each
+  // item's position relative to the others. For a single-item clipboard,
+  // every offset is (0,0) — identical to today's single-preview behavior.
+  const anchorItem = pasteClipboard?.items?.[0] ?? null
+  const itemOffsets = useMemo(() => {
+    if (!pasteClipboard?.items?.length) return []
+    const anchorMid = anchorItem?.labelAnchor ?? { x: 0, y: 0 }
+    return pasteClipboard.items.map(item => ({
+      item,
+      dx: (item.labelAnchor?.x ?? 0) - anchorMid.x,
+      dy: (item.labelAnchor?.y ?? 0) - anchorMid.y,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pasteClipboard])
+
+  const previewAnnotations = useMemo(() => {
+    if (!cursor || !itemOffsets.length) return []
+    return itemOffsets.map(({ item, dx, dy }) => {
+      const raw = item.copyJson ?? item.raw
+      if (!raw) return null
+      const translated = translateRawLine(raw, { x: cursor.x + dx, y: cursor.y + dy }, pageNumber, pageSize)
+      const points = translated?.vertexPoints ?? []
+      if (points.length < 2) return null
+      return {
+        id: `paste-preview-${item.sourceItemId ?? item.mark ?? Math.random()}`,
         type: 'line',
-        points: previewPoints,
-        mark: String(pasteClipboard?.mark ?? ''),
-        value: Number(pasteClipboard?.length),
-        unit: String(pasteClipboard?.unit ?? activeUnit).toLowerCase(),
-        color: pasteClipboard?.color ?? previewRaw?.strokeColor ?? '#EF233C',
-        thickness: Number(pasteClipboard?.thickness ?? previewRaw?.thickness ?? 2),
-        opacity: Number(previewRaw?.opacity ?? pasteClipboard?.opacity ?? 1),
-        lineStyle: pasteClipboard?.lineStyle ?? previewRaw?.lineStyle ?? 'solid',
-        labelFontSize: Number(pasteClipboard?.labelFontSize ?? previewRaw?.fontSize ?? 12),
+        points,
+        mark: String(item.mark ?? ''),
+        value: Number(item.length),
+        unit: String(item.unit ?? activeUnit).toLowerCase(),
+        color: item.color ?? translated?.strokeColor ?? '#EF233C',
+        thickness: Number(item.thickness ?? translated?.thickness ?? 2),
+        opacity: Number(translated?.opacity ?? item.opacity ?? 1),
+        lineStyle: item.lineStyle ?? translated?.lineStyle ?? 'solid',
+        labelFontSize: Number(item.labelFontSize ?? translated?.fontSize ?? 12),
       }
-    : null
+    }).filter(Boolean)
+  }, [cursor, itemOffsets, pageNumber, pageSize, activeUnit])
 
   const finalizeLine = useCallback((end, startOverride = null) => {
     const start = startOverride ?? draftStart
@@ -416,51 +439,62 @@ function PdfSvgOverlay({
   }, [activeTool, activeUnit, draftStart, lineStyle, lineThickness, measureCategory, measureColor, measureLabelFontSize, onMeasure, pageNumber, pageSize, selectedDrawing, viewerScale])
 
   const placePaste = useCallback(async (target) => {
-    if (!sourceRaw || pasteInFlightRef.current) return
-    const rawAnnotation = translateRawLine(sourceRaw, target, pageNumber, pageSize)
-    if (!rawAnnotation) return
-    const copiedPixelLength = Number(pasteClipboard.pixelLength)
-    const vectorPixelLength = Math.hypot(
-      Number(pasteClipboard.sourceVector?.dx) || 0,
-      Number(pasteClipboard.sourceVector?.dy) || 0,
-    )
-    const pixelLength = Number.isFinite(copiedPixelLength) && copiedPixelLength > 0
-      ? copiedPixelLength
-      : vectorPixelLength
-
+    if (!itemOffsets.length || pasteInFlightRef.current) return
     pasteInFlightRef.current = true
     try {
-      await onMeasure?.({
-        annotationId: rawAnnotation.annotationId,
-        occurrenceId: rawAnnotation.annotationId,
-        linkedItemId: pasteClipboard.linkedItemId ?? pasteClipboard.sourceItemId,
-        sourceItemId: pasteClipboard.sourceItemId,
-        pageNumber,
-        measureType: 'Line',
-        pixelLength,
-        length: pasteClipboard.length,
-        unit: pasteClipboard.unit ?? activeUnit,
-        memberMark: pasteClipboard.mark,
-        drawingMark: pasteClipboard.mark,
-        memberType: pasteClipboard.memberType,
-        memberScheduleId: pasteClipboard.memberScheduleId,
-        material: pasteClipboard.material,
-        category: pasteClipboard.category,
-        description: pasteClipboard.description,
-        notes: pasteClipboard.notes,
-        color: pasteClipboard.color,
-        thickness: pasteClipboard.thickness,
-        opacity: pasteClipboard.opacity,
-        lineStyle: pasteClipboard.lineStyle,
-        arrowStyle: pasteClipboard.arrowStyle,
-        linearLineMode: pasteClipboard.linearLineMode,
-        labelFontSize: pasteClipboard.labelFontSize,
-        rawAnnotation,
-      }, { isPaste: true })
+      // Sequential, not Promise.all: DrawingsPage's handleMeasure re-reads
+      // live takeoffItems to recompute a linked member's occurrence count
+      // for each pasted item. Concurrent calls would all see the same
+      // stale snapshot (none seeing any sibling's just-added row yet), so
+      // the final quantity would be wrong instead of cumulative. Awaiting
+      // each item in turn guarantees the next one sees the prior one's
+      // already-committed row.
+      for (const { item, dx, dy } of itemOffsets) {
+        const raw = item.copyJson ?? item.raw
+        if (!raw) continue
+        const rawAnnotation = translateRawLine(raw, { x: target.x + dx, y: target.y + dy }, pageNumber, pageSize)
+        if (!rawAnnotation) continue
+        const copiedPixelLength = Number(item.pixelLength)
+        const vectorPixelLength = Math.hypot(
+          Number(item.sourceVector?.dx) || 0,
+          Number(item.sourceVector?.dy) || 0,
+        )
+        const pixelLength = Number.isFinite(copiedPixelLength) && copiedPixelLength > 0
+          ? copiedPixelLength
+          : vectorPixelLength
+
+        await onMeasure?.({
+          annotationId: rawAnnotation.annotationId,
+          occurrenceId: rawAnnotation.annotationId,
+          linkedItemId: item.linkedItemId ?? item.sourceItemId,
+          sourceItemId: item.sourceItemId,
+          pageNumber,
+          measureType: 'Line',
+          pixelLength,
+          length: item.length,
+          unit: item.unit ?? activeUnit,
+          memberMark: item.mark,
+          drawingMark: item.mark,
+          memberType: item.memberType,
+          memberScheduleId: item.memberScheduleId,
+          material: item.material,
+          category: item.category,
+          description: item.description,
+          notes: item.notes,
+          color: item.color,
+          thickness: item.thickness,
+          opacity: item.opacity,
+          lineStyle: item.lineStyle,
+          arrowStyle: item.arrowStyle,
+          linearLineMode: item.linearLineMode,
+          labelFontSize: item.labelFontSize,
+          rawAnnotation,
+        }, { isPaste: true })
+      }
     } finally {
       pasteInFlightRef.current = false
     }
-  }, [activeUnit, onMeasure, pageNumber, pageSize, pasteClipboard, sourceRaw])
+  }, [activeUnit, onMeasure, pageNumber, pageSize, itemOffsets])
 
   const handleClick = useCallback((event) => {
     if (!svgRef.current) return
@@ -482,6 +516,10 @@ function PdfSvgOverlay({
       shapeInteractedRef.current = false
       return
     }
+    // A ctrl/shift-click that lands on empty space (not a shape) is a
+    // deliberate no-op — it shouldn't clear an existing multi-selection just
+    // because the modifier-click missed every shape.
+    if (event.ctrlKey || event.metaKey || event.shiftKey) return
     // Deselect on any empty-space click, not just in Select tool — otherwise
     // a measurement stays selected (and wheel keeps resizing it, see
     // MeasurementLabel/PdfSvgOverlay's wheel handling) even after clicking
@@ -559,7 +597,26 @@ function PdfSvgOverlay({
     }
     event.stopPropagation()
     shapeInteractedRef.current = true
-    onSelect?.(annotation.id, annotation)
+
+    if (event.ctrlKey || event.metaKey || event.shiftKey) {
+      // Ctrl/Shift+click toggles this shape's membership in the selection —
+      // a deliberate, standalone action, not the start of a drag. Still
+      // capture the pointer (same as the plain-click path below) purely so
+      // the click that follows gets retargeted to the SVG root instead of
+      // reaching this shape's own onClick a second time — without it, both
+      // this pointerdown AND the shape's onClick would call onSelect for the
+      // same ctrl-held gesture, toggling the id on and then immediately back
+      // off. dragRef is deliberately left unset so no drag actually starts.
+      onSelect?.(annotation.id, annotation, event)
+      svgRef.current?.setPointerCapture?.(event.pointerId)
+      return
+    }
+
+    // Unchanged existing behavior: plain click always eagerly selects just
+    // this one shape (collapsing any existing multi-selection) and starts a
+    // normal single-shape drag — multi-select does not change how dragging
+    // works.
+    onSelect?.(annotation.id, annotation, event)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
     dragRef.current = { pointerId: event.pointerId, origin, annotation }
@@ -638,10 +695,15 @@ function PdfSvgOverlay({
             key={annotation.id}
             annotation={annotation}
             viewerScale={viewerScale}
-            selected={selectedAnnotationId != null && [annotation.id, annotation.dbId].some(
-              id => id != null && String(id) === String(selectedAnnotationId)
-            )}
-            anySelected={selectedAnnotationId != null}
+            selected={
+              (selectedAnnotationIds && [annotation.id, annotation.dbId].some(
+                id => id != null && selectedAnnotationIds.has(String(id))
+              ))
+              || (selectedAnnotationId != null && [annotation.id, annotation.dbId].some(
+                id => id != null && String(id) === String(selectedAnnotationId)
+              ))
+            }
+            anySelected={(selectedAnnotationIds && selectedAnnotationIds.size > 0) || selectedAnnotationId != null}
             onPointerDown={handleShapePointerDown}
             onSelect={onSelect}
             onContextMenu={handleShapeContextMenu}
@@ -654,10 +716,10 @@ function PdfSvgOverlay({
           stroke={measureColor} strokeWidth={lineThickness} strokeDasharray={dashArray(lineStyle)}
           strokeLinecap="round" pointerEvents="none" />
       )}
-      {previewAnnotation && (
-        <g opacity=".58" pointerEvents="none">
+      {previewAnnotations.map(preview => (
+        <g key={preview.id} opacity=".58" pointerEvents="none">
           <AnnotationShape
-            annotation={previewAnnotation}
+            annotation={preview}
             viewerScale={viewerScale}
             selected={false}
             onPointerDown={() => {}}
@@ -665,7 +727,7 @@ function PdfSvgOverlay({
             forceLabelVisible
           />
         </g>
-      )}
+      ))}
     </svg>
   )
 }

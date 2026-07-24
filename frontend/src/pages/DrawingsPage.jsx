@@ -323,6 +323,32 @@ export default function DrawingsPage() {
   const [ctxMenu, setCtxMenu] = useState(null) // { x, y } | null — right-click context menu
   const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
 
+  // ── Bluebeam-style multi-select (for group copy/paste) ────────────────
+  // Parallel to selectedAnnotId/selectedViewerAnnotId above, NOT a
+  // replacement: every plain (non ctrl/shift) selection change keeps
+  // writing those scalars exactly as before, and additionally collapses
+  // these two Sets to match (solo member, or empty). Whenever a Set's size
+  // is <=1, selectedAnnotId is always its sole member (or null) — so every
+  // existing single-target consumer (resolveCopyTargetId, the style-persist
+  // effect, wheel-resize, delete) keeps working unchanged; only the
+  // copy/paste path branches on `.size > 1`.
+  const [selectedAnnotIds, setSelectedAnnotIds] = useState(() => new Set())
+  const [selectedViewerAnnotIds, setSelectedViewerAnnotIds] = useState(() => new Set())
+  const selectedAnnotIdsRef = useRef(new Set())
+  const selectedViewerAnnotIdsRef = useRef(new Set())
+
+  const clearAllSelection = useCallback(() => {
+    selectedOccurrenceAnnotIdRef.current = null
+    setSelectedAnnotId(null)
+    setSelectedViewerAnnotId(null)
+    setStyleEditTargetId(null)
+    annotStyleBaselineRef.current = null
+    selectedAnnotIdsRef.current = new Set()
+    selectedViewerAnnotIdsRef.current = new Set()
+    setSelectedAnnotIds(new Set())
+    setSelectedViewerAnnotIds(new Set())
+  }, [])
+
   // Mobile panel drawer state
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [rightOpen,    setRightOpen]    = useState(false)
@@ -520,13 +546,9 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (prevPdfScaleRef.current === pdfScale) return
     prevPdfScaleRef.current = pdfScale
-    if (!selectedAnnotId && !selectedViewerAnnotId) return
-    selectedOccurrenceAnnotIdRef.current = null
-    setSelectedAnnotId(null)
-    setSelectedViewerAnnotId(null)
-    setStyleEditTargetId(null)
-    annotStyleBaselineRef.current = null
-  }, [pdfScale, selectedAnnotId, selectedViewerAnnotId])
+    if (!selectedAnnotId && !selectedViewerAnnotId && selectedAnnotIds.size === 0) return
+    clearAllSelection()
+  }, [pdfScale, selectedAnnotId, selectedViewerAnnotId, selectedAnnotIds, clearAllSelection])
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -1442,27 +1464,77 @@ export default function DrawingsPage() {
     }
   }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem])
 
-  const handleRowSelect = useCallback((dbId) => {
+  const handleRowSelect = useCallback((dbId, event = null) => {
     // See handleAnnotationSelect — selecting a different measurement (here,
     // via the grid/member-schedule row instead of the canvas) must end any
     // in-progress paste session the same way.
     triggerPdfCommand({ type: 'cancelPastePlacement' })
-    setSelectedAnnotId(dbId)
-    setStyleEditTargetId(dbId)
-    annotStyleBaselineRef.current = null
-    if (!dbId) {
-      setSelectedViewerAnnotId(null)
-      selectedOccurrenceAnnotIdRef.current = null
+    const additive = !!(event && (event.ctrlKey || event.metaKey || event.shiftKey))
+
+    if (!additive) {
+      // Unchanged existing (solo-select) behavior, plus collapsing the
+      // multi-select Sets to match.
+      setSelectedAnnotId(dbId)
+      setStyleEditTargetId(dbId)
+      annotStyleBaselineRef.current = null
+      if (!dbId) {
+        setSelectedViewerAnnotId(null)
+        selectedOccurrenceAnnotIdRef.current = null
+        selectedAnnotIdsRef.current = new Set()
+        selectedViewerAnnotIdsRef.current = new Set()
+        setSelectedAnnotIds(new Set())
+        setSelectedViewerAnnotIds(new Set())
+        return
+      }
+      lastCopyTargetRef.current = dbId
+      const item = takeoffItems.find(t => t.id === dbId)
+      syncToolbarFromTakeoffItem(item)
+      const annot = annotationMapRef.current[dbId]
+      const occurrenceId = annot?.annotationId == null ? null : String(annot.annotationId)
+      selectedOccurrenceAnnotIdRef.current = occurrenceId
+      setSelectedViewerAnnotId(occurrenceId)
+      if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
+      const soloIds = new Set([dbId])
+      const soloViewerIds = occurrenceId ? new Set([occurrenceId]) : new Set()
+      selectedAnnotIdsRef.current = soloIds
+      selectedViewerAnnotIdsRef.current = soloViewerIds
+      setSelectedAnnotIds(soloIds)
+      setSelectedViewerAnnotIds(soloViewerIds)
       return
     }
-    lastCopyTargetRef.current = dbId
-    const item = takeoffItems.find(t => t.id === dbId)
-    syncToolbarFromTakeoffItem(item)
-    const annot = annotationMapRef.current[dbId]
+
+    // Ctrl/Shift+click: toggle this row's membership in the multi-selection
+    // without touching the rest of it. Deliberately does NOT trigger
+    // 'selectAnnotation' (no page-jump) — jumping the sheet on every
+    // shift-click while building a selection would be disorienting.
+    const nextIds = new Set(selectedAnnotIdsRef.current)
+    const removed = dbId != null && nextIds.has(dbId)
+    if (dbId != null) { if (removed) nextIds.delete(dbId); else nextIds.add(dbId) }
+    selectedAnnotIdsRef.current = nextIds
+    setSelectedAnnotIds(nextIds)
+
+    const annot = dbId != null ? annotationMapRef.current[dbId] : null
     const occurrenceId = annot?.annotationId == null ? null : String(annot.annotationId)
-    selectedOccurrenceAnnotIdRef.current = occurrenceId
-    setSelectedViewerAnnotId(occurrenceId)
-    if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
+    const nextViewerIds = new Set(selectedViewerAnnotIdsRef.current)
+    if (occurrenceId) { if (nextViewerIds.has(occurrenceId)) nextViewerIds.delete(occurrenceId); else nextViewerIds.add(occurrenceId) }
+    selectedViewerAnnotIdsRef.current = nextViewerIds
+    setSelectedViewerAnnotIds(nextViewerIds)
+
+    const primaryDbId = removed ? ([...nextIds].pop() ?? null) : dbId
+    setSelectedAnnotId(primaryDbId)
+    setStyleEditTargetId(primaryDbId)
+    annotStyleBaselineRef.current = null
+    if (primaryDbId != null) {
+      lastCopyTargetRef.current = primaryDbId
+      syncToolbarFromTakeoffItem(takeoffItems.find(t => t.id === primaryDbId))
+      const primaryAnnot = annotationMapRef.current[primaryDbId]
+      const primaryOccurrenceId = primaryAnnot?.annotationId == null ? null : String(primaryAnnot.annotationId)
+      selectedOccurrenceAnnotIdRef.current = primaryOccurrenceId
+      setSelectedViewerAnnotId(primaryOccurrenceId)
+    } else {
+      selectedOccurrenceAnnotIdRef.current = null
+      setSelectedViewerAnnotId(null)
+    }
   }, [triggerPdfCommand, takeoffItems, syncToolbarFromTakeoffItem])
 
   const handleMeasurementThicknessChange = useCallback((itemId, thickness, annotId = null) => {
@@ -1622,55 +1694,70 @@ export default function DrawingsPage() {
     return null
   }, [selectedAnnotId, styleEditTargetId, takeoffItems, resolveMeasurementDbId])
 
-  const handleCopyMeasurement = useCallback(() => {
-    const targetId = resolveCopyTargetId()
-    let item = targetId ? takeoffItems.find(t => t.id === targetId) : null
-
-    if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') {
-      toast.error('Draw or select a linear measurement to copy')
-      return
-    }
-    if (!isValidLinearMeasurementForCopy(item)) {
-      toast.error('Line is too short to copy — select a longer measurement or delete tiny/degenerate lines')
-      return
-    }
+  // Builds one clipboard entry for a single takeoff item — extracted so both
+  // the solo-select and multi-select paths call the exact same, unchanged
+  // per-item logic (today's single-copy behavior IS this function called
+  // once, with idsToUse === [resolveCopyTargetId()]).
+  const buildClipboardItemFor = useCallback((targetId) => {
+    const item = takeoffItems.find(t => t.id === targetId)
+    if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') return null
+    if (!isValidLinearMeasurementForCopy(item)) return null
     try {
       const raw = JSON.parse(item.pointsJson)
-      const selectedOccurrenceId = selectedOccurrenceAnnotIdRef.current
+      // Prefer this specific item's own occurrence id (relevant when copying
+      // several items at once, each potentially selected via a different
+      // occurrence) — fall back to the shared "current" occurrence ref for
+      // the solo-select case, exactly as before.
+      const ownOccurrenceId = annotationMapRef.current[targetId]?.annotationId
+      const selectedOccurrenceId = ownOccurrenceId ?? selectedOccurrenceAnnotIdRef.current
       const selectedOccurrence = selectedOccurrenceId
         ? buildTakeoffOccurrencesFromItem(item).find(
           occ => String(occ.annotationName) === String(selectedOccurrenceId)
         )
         : null
       const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
-      const clipboard = buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
-      setMeasurementClipboard(clipboard)
-      clearPasteAnchor()
-      // Paste is a "stamp" mode that stays armed across multiple placements
-      // until Escape/Done or a tool switch — it does NOT clear itself just
-      // because a fresh Copy happened. Without this, copying a different line
-      // right after finishing several pastes of the previous one leaves the
-      // canvas still silently armed with the OLD clipboard until the user
-      // explicitly clicks Paste again, so the next click either does nothing
-      // new or drops another copy of the wrong item.
-      triggerPdfCommand({ type: 'cancelPastePlacement' })
-      if (item.id) lastCopyTargetRef.current = item.id
+      return buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
     } catch {
-      toast.error('Could not copy measurement')
+      return null
     }
-  }, [resolveCopyTargetId, takeoffItems, pdfScale, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
+  }, [takeoffItems, pdfScale])
+
+  const handleCopyMeasurement = useCallback(() => {
+    const idsToUse = selectedAnnotIds.size > 1 ? [...selectedAnnotIds] : [resolveCopyTargetId()].filter(id => id != null)
+    const items = idsToUse.map(buildClipboardItemFor).filter(Boolean)
+
+    if (!items.length) {
+      toast.error(idsToUse.length > 1 ? 'No copyable linear measurements in selection' : 'Draw or select a linear measurement to copy')
+      return
+    }
+    setMeasurementClipboard({ items })
+    clearPasteAnchor()
+    // Paste is a "stamp" mode that stays armed across multiple placements
+    // until Escape/Done or a tool switch — it does NOT clear itself just
+    // because a fresh Copy happened. Without this, copying a different line
+    // right after finishing several pastes of the previous one leaves the
+    // canvas still silently armed with the OLD clipboard until the user
+    // explicitly clicks Paste again, so the next click either does nothing
+    // new or drops another copy of the wrong item.
+    triggerPdfCommand({ type: 'cancelPastePlacement' })
+    if (idsToUse[0] != null) lastCopyTargetRef.current = idsToUse[0]
+    if (items.length > 1) toast.success(`${items.length} measurements copied`)
+  }, [selectedAnnotIds, resolveCopyTargetId, buildClipboardItemFor, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
 
   const handlePasteMeasurement = useCallback(() => {
     const clipboard = useAppStore.getState().measurementClipboard ?? measurementClipboard
-    if (!clipboard) {
-      toast('Copy a line measurement first (Ctrl+C)')
+    if (!clipboard?.items?.length) {
+      toast('Copy a measurement first (Ctrl+C)')
       return
     }
     if (!selectedDrawing) return
+    // Toolbar-sync nicety only — the anchor (first-copied) item's style;
+    // each pasted item still carries and preserves its own full style.
+    const anchor = clipboard.items[0]
     pasteStyleOverrideRef.current = {
-      color: clipboard.color,
-      category: clipboard.category,
-      material: clipboard.material ?? clipboard.mark ?? '',
+      color: anchor.color,
+      category: anchor.category,
+      material: anchor.material ?? anchor.mark ?? '',
     }
     clearPasteAnchor()
     // A right-click context menu left open from earlier (or opened right on
@@ -1683,8 +1770,8 @@ export default function DrawingsPage() {
   }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor, closeCtxMenu])
 
   const copyTargetId = resolveCopyTargetId()
-  const canCopyMeasurement = !!copyTargetId
-  const canPasteMeasurement = !!measurementClipboard && (measurementClipboard.itemType || 'Line') === 'Line'
+  const canCopyMeasurement = selectedAnnotIds.size > 1 ? true : !!copyTargetId
+  const canPasteMeasurement = !!measurementClipboard?.items?.length && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
 
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
@@ -1717,6 +1804,22 @@ export default function DrawingsPage() {
         setSelectedAnnotId(null)
         setSelectedViewerAnnotId(null)
         selectedOccurrenceAnnotIdRef.current = null
+      }
+      // Purge this id from the multi-selection too, if present — otherwise a
+      // deleted row's id could linger selected (e.g. still counted toward a
+      // group copy) even though its row/shape no longer exists.
+      if (selectedAnnotIdsRef.current.has(id)) {
+        const nextIds = new Set(selectedAnnotIdsRef.current)
+        nextIds.delete(id)
+        selectedAnnotIdsRef.current = nextIds
+        setSelectedAnnotIds(nextIds)
+        const occurrenceId = annot?.annotationId == null ? null : String(annot.annotationId)
+        if (occurrenceId && selectedViewerAnnotIdsRef.current.has(occurrenceId)) {
+          const nextViewerIds = new Set(selectedViewerAnnotIdsRef.current)
+          nextViewerIds.delete(occurrenceId)
+          selectedViewerAnnotIdsRef.current = nextViewerIds
+          setSelectedViewerAnnotIds(nextViewerIds)
+        }
       }
       if (pendingMeasurementRef.current?.dbId === id) pendingMeasurementRef.current = null
       if (annotationIds.length) {
@@ -1752,7 +1855,7 @@ export default function DrawingsPage() {
     setCtxMenu({ x: e.clientX, y: e.clientY })
   }, [])
 
-  const handleAnnotationSelect = useCallback((annotUuid, annotation = null) => {
+  const handleAnnotationSelect = useCallback((annotUuid, annotation = null, event = null) => {
     // Selecting a different measurement ends any in-progress paste "stamp"
     // session (same mechanism handleCopyMeasurement uses for a fresh Copy) —
     // otherwise the moving preview/ghost and "Move preview..." banner stay
@@ -1769,24 +1872,70 @@ export default function DrawingsPage() {
     const rawDbId = annotation?.dbId
     const dbId = Number.isFinite(Number(rawDbId)) ? Number(rawDbId) : resolveMeasurementDbId(occurrenceId)
     const viewerId = occurrenceId == null ? null : String(occurrenceId)
-    selectedOccurrenceAnnotIdRef.current = viewerId
-    setSelectedViewerAnnotId(viewerId)
-    setSelectedAnnotId(dbId ?? null)
-    setStyleEditTargetId(dbId)
-    if (dbId) lastCopyTargetRef.current = dbId
+    const additive = !!(event && (event.ctrlKey || event.metaKey || event.shiftKey))
+
+    if (!additive) {
+      // Unchanged existing (solo-select) behavior, plus collapsing the
+      // multi-select Sets to match.
+      selectedOccurrenceAnnotIdRef.current = viewerId
+      setSelectedViewerAnnotId(viewerId)
+      setSelectedAnnotId(dbId ?? null)
+      setStyleEditTargetId(dbId)
+      if (dbId) lastCopyTargetRef.current = dbId
+      annotStyleBaselineRef.current = null
+      if (dbId) {
+        const item = takeoffItems.find(t => t.id === dbId)
+        syncToolbarFromTakeoffItem(item)
+      }
+      const soloIds = dbId ? new Set([dbId]) : new Set()
+      const soloViewerIds = viewerId ? new Set([viewerId]) : new Set()
+      selectedAnnotIdsRef.current = soloIds
+      selectedViewerAnnotIdsRef.current = soloViewerIds
+      setSelectedAnnotIds(soloIds)
+      setSelectedViewerAnnotIds(soloViewerIds)
+      return
+    }
+
+    // Ctrl/Shift+click: toggle this shape's membership in the
+    // multi-selection, leaving the rest of the current selection untouched.
+    const nextIds = new Set(selectedAnnotIdsRef.current)
+    let removed = false
+    if (dbId != null) { if (nextIds.has(dbId)) { nextIds.delete(dbId); removed = true } else nextIds.add(dbId) }
+    const nextViewerIds = new Set(selectedViewerAnnotIdsRef.current)
+    if (viewerId) { if (nextViewerIds.has(viewerId)) nextViewerIds.delete(viewerId); else nextViewerIds.add(viewerId) }
+    selectedAnnotIdsRef.current = nextIds
+    selectedViewerAnnotIdsRef.current = nextViewerIds
+    setSelectedAnnotIds(nextIds)
+    setSelectedViewerAnnotIds(nextViewerIds)
+
+    // Keep the scalar "primary" pointed at whichever item this click just
+    // affected — this is what keeps resolveCopyTargetId/the style-persist
+    // effect/context-menu Delete meaningful mid-multi-select.
+    const primaryDbId = removed ? ([...nextIds].pop() ?? null) : dbId
+    const primaryViewerId = removed ? ([...nextViewerIds].pop() ?? null) : viewerId
+    selectedOccurrenceAnnotIdRef.current = primaryViewerId
+    setSelectedViewerAnnotId(primaryViewerId)
+    setSelectedAnnotId(primaryDbId)
+    setStyleEditTargetId(primaryDbId)
     annotStyleBaselineRef.current = null
-    if (dbId) {
-      const item = takeoffItems.find(t => t.id === dbId)
-      syncToolbarFromTakeoffItem(item)
+    if (primaryDbId) {
+      lastCopyTargetRef.current = primaryDbId
+      syncToolbarFromTakeoffItem(takeoffItems.find(t => t.id === primaryDbId))
     }
   }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
 
   const handleAnnotationContextMenu = useCallback((event, annotUuid, annotation = null) => {
     event.preventDefault()
     event.stopPropagation()
-    handleAnnotationSelect(annotUuid, annotation)
+    // Right-clicking a shape that's already part of an active 2+ selection
+    // must not collapse the group to just this one shape — a group
+    // right-click menu should still act on (and Copy) the whole selection.
+    const rawDbId = annotation?.dbId
+    const dbId = Number.isFinite(Number(rawDbId)) ? Number(rawDbId) : resolveMeasurementDbId(annotation?.id ?? annotUuid ?? null)
+    const isMultiMember = selectedAnnotIdsRef.current.size > 1 && dbId != null && selectedAnnotIdsRef.current.has(dbId)
+    if (!isMultiMember) handleAnnotationSelect(annotUuid, annotation)
     setCtxMenu({ x: event.clientX, y: event.clientY })
-  }, [handleAnnotationSelect])
+  }, [handleAnnotationSelect, resolveMeasurementDbId])
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -1809,11 +1958,7 @@ export default function DrawingsPage() {
         clearPasteAnchor()
         triggerPdfCommand({ type: 'cancelPastePlacement' })
         resetDrawingInteraction()
-        setSelectedAnnotId(null)
-        setSelectedViewerAnnotId(null)
-        selectedOccurrenceAnnotIdRef.current = null
-        setStyleEditTargetId(null)
-        annotStyleBaselineRef.current = null
+        clearAllSelection()
         // The calibration modal still needs its completed reference measurement.
         if (!showCalModal) setLastMeasurement(null)
         return
@@ -1851,7 +1996,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction])
+  }, [handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2278,9 +2423,7 @@ export default function DrawingsPage() {
                   onSelect={(d) => {
                     const norm = normalizeDrawing(d)
                     setSelectedDrawing(norm)
-                    setSelectedAnnotId(null)
-                    setSelectedViewerAnnotId(null)
-                    selectedOccurrenceAnnotIdRef.current = null
+                    clearAllSelection()
                     annotationMapRef.current = {}
                     setSidebarOpen(false)
                   }}
@@ -2328,9 +2471,7 @@ export default function DrawingsPage() {
                 onSelect={(d) => {
                   const norm = normalizeDrawing(d)
                   setSelectedDrawing(norm)
-                  setSelectedAnnotId(null)
-                  setSelectedViewerAnnotId(null)
-                  selectedOccurrenceAnnotIdRef.current = null
+                  clearAllSelection()
                   annotationMapRef.current = {}
                 }}
                 onUploaded={handleDrawingUploaded}
@@ -2396,15 +2537,12 @@ export default function DrawingsPage() {
               onMeasure={handleMeasure}
               annotations={takeoffItems.filter(t => t.pointsJson)}
               selectedAnnotationId={selectedViewerAnnotId}
+              selectedAnnotationIds={selectedViewerAnnotIds}
               styleEditTargetId={styleEditTargetId}
               onAnnotationSelect={handleAnnotationSelect}
               onAnnotationContextMenu={handleAnnotationContextMenu}
               onClearSelection={() => {
-                selectedOccurrenceAnnotIdRef.current = null
-                setSelectedAnnotId(null)
-                setSelectedViewerAnnotId(null)
-                setStyleEditTargetId(null)
-                annotStyleBaselineRef.current = null
+                clearAllSelection()
                 // Selecting a measurement mirrors it into selectedMemberScheduleItem
                 // (see syncToolbarFromTakeoffItem) so the Member Schedule panel and
                 // the right panel's "Selected: X" banner highlight along with it —
@@ -2447,6 +2585,11 @@ export default function DrawingsPage() {
                 }}
                 onClick={e => { e.stopPropagation(); closeCtxMenu() }}
               >
+                {selectedAnnotIds.size > 1 && (
+                  <div style={{ padding: '7px 16px', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
+                    {selectedAnnotIds.size} selected
+                  </div>
+                )}
                 {canCopyMeasurement && (
                   <button
                     onClick={() => { handleCopyMeasurement(); closeCtxMenu() }}
@@ -2454,7 +2597,7 @@ export default function DrawingsPage() {
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   >
-                    Copy Measurement
+                    {selectedAnnotIds.size > 1 ? `Copy ${selectedAnnotIds.size} Measurements` : 'Copy Measurement'}
                   </button>
                 )}
                 {canPasteMeasurement && (
@@ -2464,7 +2607,7 @@ export default function DrawingsPage() {
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   >
-                    Paste Measurement
+                    {measurementClipboard?.items?.length > 1 ? `Paste ${measurementClipboard.items.length} Measurements` : 'Paste Measurement'}
                   </button>
                 )}
                 {!canCopyMeasurement && !canPasteMeasurement && (
@@ -2513,6 +2656,7 @@ export default function DrawingsPage() {
             <MeasurementTable
               drawing={activeDrawing}
               selectedId={selectedAnnotId}
+              selectedIds={selectedAnnotIds}
               onRowSelect={handleRowSelect}
               onDelete={handleRowDelete}
               onAddClick={() => { setPendingMeas(null); setShowAddModal(true) }}

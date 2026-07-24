@@ -94,6 +94,7 @@ function PdfJsPage({
   forceRender,
   annotations,
   selectedAnnotationId,
+  selectedAnnotationIds,
   pasteClipboard,
   onMeasure,
   onSelect,
@@ -267,8 +268,8 @@ function PdfJsPage({
     pageRef.current?.cleanup?.()
   }, [])
 
-  const handleMeasure = useCallback((measurement) => (
-    onMeasure?.(attachDetectedLabel(measurement, pageTextItemsRef.current))
+  const handleMeasure = useCallback((measurement, opts) => (
+    onMeasure?.(attachDetectedLabel(measurement, pageTextItemsRef.current), opts)
   ), [onMeasure])
 
   return (
@@ -283,6 +284,7 @@ function PdfJsPage({
         viewerScale={scale}
         annotations={annotations}
         selectedAnnotationId={selectedAnnotationId}
+        selectedAnnotationIds={selectedAnnotationIds}
         pasteClipboard={pasteClipboard}
         onMeasure={handleMeasure}
         onSelect={onSelect}

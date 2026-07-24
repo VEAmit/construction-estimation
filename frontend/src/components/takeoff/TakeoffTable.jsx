@@ -55,7 +55,7 @@ function fmtTime(iso) {
     ' ' + d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function MeasurementTable({ drawing, onAddClick, selectedId, onRowSelect, onDelete }) {
+export default function MeasurementTable({ drawing, onAddClick, selectedId, selectedIds, onRowSelect, onDelete }) {
   const { takeoffItems, memberScheduleItems, selectedProject, updateTakeoffItem, removeTakeoffItem } = useAppStore()
   const [page,    setPage]    = useState(1)
   const [editId,  setEditId]  = useState(null)
@@ -297,7 +297,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
             <tbody>
               {pageItems.map((item, idx) => {
                 const isEditing  = editId === item.id
-                const isSelected = item.id === selectedId
+                const isSelected = selectedIds ? selectedIds.has(item.id) : item.id === selectedId
                 const row        = isEditing ? editBuf : item
                 const rowNum     = (page - 1) * PAGE_SIZE + idx + 1
                 const hasAnnot   = !!item.pointsJson
@@ -306,7 +306,18 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, onRo
                 return (
                   <tr
                     key={item.id}
-                    onClick={() => !isEditing && onRowSelect?.(isSelected ? null : item.id)}
+                    onClick={(event) => {
+                      if (isEditing) return
+                      const additive = event.ctrlKey || event.metaKey || event.shiftKey
+                      if (additive) { onRowSelect?.(item.id, event); return }
+                      // Plain click: today's exact toggle-off-if-sole-selection
+                      // behavior, generalized so a plain click on a row that's
+                      // part of an existing multi-selection collapses to
+                      // selecting just this row (matches Bluebeam: a plain
+                      // click always resolves to single-select).
+                      const soleSelection = selectedIds ? (selectedIds.size === 1 && selectedIds.has(item.id)) : isSelected
+                      onRowSelect?.(soleSelection ? null : item.id, event)
+                    }}
                     style={{
                       borderBottom: '1px solid rgba(255,255,255,.04)',
                       cursor: isEditing ? 'default' : 'pointer',
