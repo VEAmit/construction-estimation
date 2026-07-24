@@ -114,17 +114,6 @@ const LINE_STYLES = [
   { id: 'dotted', label: '···', title: 'Dotted line' },
 ]
 
-const ARROW_STYLES = [
-  { id: 'end',   label: '→',  title: 'End arrow' },
-  { id: 'start', label: '←',  title: 'Start arrow' },
-  { id: 'both',  label: '↔',  title: 'Both arrows' },
-]
-
-const LINE_MEASURE_MODES = [
-  { id: 'simple', label: 'Simple', title: 'Simple Line — plain measurement line (no arrowheads)' },
-  { id: 'arrow',  label: 'Arrow',  title: 'Arrow Line — measurement line with arrowheads' },
-]
-
 const ALL_MEASURE_IDS = MEASURE_TOOLS.map(t => t.id)
 const ALL_MARKUP_IDS  = MARKUP_TOOLS.map(t => t.id)
 const STYLE_LABEL_COLOR = '#EF233C'
@@ -150,8 +139,6 @@ export default function Toolbar({
     lineThickness,   setLineThickness,
     fillOpacity,     setFillOpacity,
     lineStyle,       setLineStyle,
-    arrowStyle,      setArrowStyle,
-    linearLineMode,  setLinearLineMode,
     fontSize,        setFontSize,
     measureLabelFontSize, setMeasureLabelFontSize,
     showMeasurementLabels, toggleShowMeasurementLabels,
@@ -171,17 +158,6 @@ export default function Toolbar({
   const isCount   = activeTool === 'count'
   const isLine    = activeTool === 'line' || activeTool === 'perimeter' || activeTool === 'calibrate'
   const showStyleBar = isMeasure || isMarkup
-
-  const handleLineModeChange = (mode) => {
-    setLinearLineMode(mode)
-    if (mode === 'simple') setArrowStyle('none')
-    else if (arrowStyle === 'none') setArrowStyle('both')
-  }
-
-  const handleArrowStyleChange = (id) => {
-    setLinearLineMode('arrow')
-    setArrowStyle(id)
-  }
 
   const pickTool = (toolId) => {
     if (onPickMeasureTool && ALL_MEASURE_IDS.includes(toolId)) {
@@ -264,15 +240,6 @@ export default function Toolbar({
                   : ''
               }
               onClick={() => pickTool(tool.id)} />
-          ))}
-
-          <Sep />
-
-          {/* ── Markup group ── */}
-          <GroupLabel label="Markup" />
-          {MARKUP_TOOLS.map(tool => (
-            <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
-              compact={compact} onClick={() => setActiveTool(tool.id)} />
           ))}
 
           <Sep />
@@ -712,52 +679,6 @@ export default function Toolbar({
                             letterSpacing: ls.id === 'dotted' ? '0.1em' : 'normal',
                           }}>
                           {ls.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Line mode — Simple vs Arrow (Linear tool only) */}
-                {activeTool === 'line' && (
-                  <>
-                    <StyleSep />
-                    <span style={{ fontSize: '10px', color: '#334155' }}>Line:</span>
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      {LINE_MEASURE_MODES.map(lm => (
-                        <button key={lm.id} onClick={() => handleLineModeChange(lm.id)} title={lm.title}
-                          style={{
-                            height: '22px', padding: '0 8px',
-                            borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                            border: `1px solid ${linearLineMode === lm.id ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
-                            background: linearLineMode === lm.id ? 'rgba(239,35,60,.15)' : 'transparent',
-                            color: linearLineMode === lm.id ? '#EF233C' : '#475569',
-                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
-                          }}>
-                          {lm.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Arrow style — only when Arrow Line mode is active */}
-                {(activeTool === 'arrow' || (activeTool === 'line' && linearLineMode === 'arrow')) && (
-                  <>
-                    <StyleSep />
-                    <span style={{ fontSize: '10px', color: STYLE_LABEL_COLOR, fontWeight: 700 }}>Arrows:</span>
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      {ARROW_STYLES.map(as => (
-                        <button key={as.id} onClick={() => handleArrowStyleChange(as.id)} title={as.title}
-                          style={{
-                            height: '22px', padding: '0 8px',
-                            borderRadius: '4px', fontSize: '13px', fontWeight: 600,
-                            border: `1px solid ${arrowStyle === as.id ? 'rgba(239,35,60,.5)' : 'rgba(255,255,255,.08)'}`,
-                            background: arrowStyle === as.id ? 'rgba(239,35,60,.15)' : 'transparent',
-                            color: arrowStyle === as.id ? '#EF233C' : '#475569',
-                            cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0,
-                          }}>
-                          {as.label}
                         </button>
                       ))}
                     </div>
