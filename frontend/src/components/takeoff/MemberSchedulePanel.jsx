@@ -34,7 +34,7 @@ async function patchTakeoffItemColor(item, color) {
   })
 }
 
-export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasurement }) {
+export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasurement, selectedAnnotIds, onAssignMemberToSelection }) {
   const {
     memberScheduleItems, addMemberScheduleItem,
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
@@ -140,6 +140,24 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
 
   const handleSelectMember = useCallback((item) => {
     if (!item?.mark) return
+
+    // Quick reassignment: with one or more measurements already selected
+    // (on the PDF or in the grid), clicking a member here means "reassign
+    // the selection to this member" instead of the usual "arm this member
+    // for the next new draw" — a fast way to fix a wrongly-assigned member
+    // without redrawing. Works identically for a single selected item or
+    // several at once.
+    if (selectedAnnotIds && selectedAnnotIds.size > 0) {
+      onAssignMemberToSelection?.(item, [...selectedAnnotIds])
+      toast.success(
+        selectedAnnotIds.size > 1
+          ? `${selectedAnnotIds.size} measurements reassigned to ${item.mark}`
+          : `Measurement reassigned to ${item.mark}`,
+        { duration: 2200, icon: '🔁' },
+      )
+      return
+    }
+
     // If this member already has a measurement drawn, select it the same way
     // clicking its grid row or its label on the PDF does — highlighting it in
     // both places — in addition to arming the member for the next new draw.
@@ -160,7 +178,7 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
     setSelectedMemberScheduleItem(item)
     armLinearMeasureMode()
     toast.success(`${item.mark} selected — draw on the plan`, { duration: 2200, icon: '📐' })
-  }, [activeTool, setSelectedMemberScheduleItem, armLinearMeasureMode, findLinkedMeasurements, onSelectMeasurement])
+  }, [activeTool, setSelectedMemberScheduleItem, armLinearMeasureMode, findLinkedMeasurements, onSelectMeasurement, selectedAnnotIds, onAssignMemberToSelection])
 
   /** Called when user picks a new color from the color input. Shows apply-all dialog. */
   const handleColorChange = useCallback((item, newColor) => {

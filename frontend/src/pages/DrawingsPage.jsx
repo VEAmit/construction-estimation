@@ -1773,6 +1773,75 @@ export default function DrawingsPage() {
   const canCopyMeasurement = selectedAnnotIds.size > 1 ? true : !!copyTargetId
   const canPasteMeasurement = !!measurementClipboard?.items?.length && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
 
+  // The canvas renderer prefers a color embedded *inside* pointsJson's
+  // geometry over the takeoff item's own flat `color` column (see the
+  // matching strokeColor/StrokeColor comment in autoSave, and the occurrence
+  // merge in handleMeasurementGeometryChange below) — a color change that
+  // only patches the flat column updates the grid (which reads `color`
+  // directly) but leaves the PDF still showing the old color. Handles both
+  // a flat single-geometry item and a multi-occurrence one (quantity > 1),
+  // recoloring every occurrence so the whole measurement updates together.
+  const embedColorInPointsJson = (pointsJsonString, color) => {
+    if (!pointsJsonString) return pointsJsonString
+    try {
+      const raw = JSON.parse(pointsJsonString)
+      if (Array.isArray(raw.occurrences) && raw.occurrences.length) {
+        return JSON.stringify({
+          ...raw,
+          // The root object carries its own (redundant, but read by some
+          // paths) strokeColor/StrokeColor alongside the per-occurrence
+          // ones — keep both in sync so nothing is left stale.
+          strokeColor: color,
+          StrokeColor: color,
+          occurrences: raw.occurrences.map(occ => {
+            const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+            if (!geometry || typeof geometry !== 'object') return occ
+            return { ...occ, geometry: { ...geometry, strokeColor: color, StrokeColor: color } }
+          }),
+        })
+      }
+      return JSON.stringify({ ...raw, strokeColor: color, StrokeColor: color })
+    } catch {
+      return pointsJsonString
+    }
+  }
+
+  // Quick member reassignment: instantly re-tags every selected measurement
+  // (one, via a plain click, or several via ctrl/shift-click) with the
+  // clicked member's mark/material/category/color — a fast fix for a
+  // wrongly-assigned member without redrawing. Triggered from
+  // MemberSchedulePanel's handleSelectMember when a selection is active.
+  // Mirrors the existing optimistic-update + fire-and-forget PUT pattern
+  // MemberSchedulePanel's own applyColorToMember already uses for its
+  // batch-by-mark recolor.
+  const handleAssignMemberToSelection = useCallback(async (member, ids) => {
+    const rows = ids
+      .map(id => (useAppStore.getState().takeoffItems ?? []).find(t => t.id === id))
+      .filter(Boolean)
+    if (!rows.length) return
+    await Promise.allSettled(rows.map(async row => {
+      const newColor = member.color || row.color
+      const optimistic = {
+        ...row,
+        material: member.mark,
+        mark: member.mark,
+        category: member.memberType || row.category,
+        color: newColor,
+        pointsJson: embedColorInPointsJson(row.pointsJson, newColor),
+      }
+      updateTakeoffItem(optimistic)
+      try {
+        const saved = await takeoffService.update(optimistic)
+        updateTakeoffItem(saved)
+      } catch {
+        // Roll back this row's optimistic change on failure so the grid/PDF
+        // don't keep showing a reassignment that was never actually saved.
+        updateTakeoffItem(row)
+        toast.error(`Could not reassign ${row.mark || 'measurement'}`)
+      }
+    }))
+  }, [updateTakeoffItem])
+
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
     const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
@@ -2431,7 +2500,7 @@ export default function DrawingsPage() {
                   onDeleted={handleDrawingDeleted}
                 />
               ) : (
-                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} />
+                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} />
               )}
             </div>
           </div>
@@ -2478,7 +2547,7 @@ export default function DrawingsPage() {
                 onDeleted={handleDrawingDeleted}
               />
             ) : (
-              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} />
+              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} />
             )}
           </SideDock>
         )}
