@@ -38,8 +38,11 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    // First two dimensions allow an optional decimal/1-digit form too — covers CHS callouts
+    // given as "diameter.d x thickness.d" (e.g. "273.1x6.4 CHS") and thin equal angles like
+    // "100x8 EA"/"75x6 EA", neither of which the plain 2-3-digit-integer form below matched.
     private static readonly Regex HollowSectionPattern = new(
-        @"\b(\d{2,3})\s*[xX×]\s*(\d{2,3})(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
+        @"\b(\d{2,3}(?:\.\d+)?)\s*[xX×]\s*(\d{1,3}(?:\.\d+)?)(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -66,6 +69,19 @@ public class ExtractionService
     // Rod bracing — "16# ROD", "12mm ROD WITH TURNBUCKLE"
     private static readonly Regex RodBracingPattern = new(
         @"\b\d{1,3}\s*(?:#|mm)\s*ROD\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Full set of known structural mark prefixes used on schedule tables — kept in sync with
+    // IsLikelyScheduleMark's alternation (which only knows about isolated, already-tokenized
+    // marks). Used by ScoreScheduleOcrLines to recognize genuinely good OCR'd schedule content
+    // (e.g. "RB1", "WS1", "ST1" — roof-beam/wall-stiffener/stub-column marks) as a positive
+    // signal when picking the best of several candidate crop regions; without the full prefix
+    // list, schedules using less-common prefixes (anything beyond C/HB/WB/DF/PF/SF/RW) always
+    // scored nowhere near real rows in other candidates, so a garbled crop of unrelated legend
+    // text could out-score the crop that actually contains the real table.
+    private static readonly Regex ScheduleMarkPrefixPattern = new(
+        @"\b(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FAB|FB|RBR|RB|RA|WS|PB|ST|R|P|S|C|B|W)\d{1,3}[A-Z]?\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -127,9 +143,9 @@ public class ExtractionService
     };
 
     private static readonly string[] ScheduleHeaders = {
-        "member schedule", "steel schedule", "section schedule",
+        "member schedule", "steel schedule", "steelwork schedule", "section schedule",
         "beam schedule", "column schedule", "purlin schedule",
-        "member mark", "section size", "unit weight",
+        "member mark", "section size", "unit weight", "mark size",
         "item member section", "member section type", "section type description",
     };
 
@@ -482,6 +498,8 @@ public class ExtractionService
             Rect(0.735, 0.025, 0.995, 0.350, width, height),
             Rect(0.770, 0.035, 0.995, 0.425, width, height),
             Rect(0.700, 0.020, 0.995, 0.380, width, height),
+            Rect(0.550, 0.020, 0.995, 0.400, width, height),
+            Rect(0.480, 0.015, 0.995, 0.450, width, height),
         ];
     }
 
@@ -503,7 +521,7 @@ public class ExtractionService
 
         using var pngData = scaled.Encode(SKEncodedImageFormat.Png, 100);
         using var pix = Pix.LoadFromMemory(pngData.ToArray());
-        using var tessPage = engine.Process(pix, PageSegMode.SingleBlock);
+        using var tessPage = engine.Process(pix, PageSegMode.Auto);
 
         return (tessPage.GetText() ?? string.Empty)
             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
@@ -873,8 +891,13 @@ public class ExtractionService
             var upper = line.ToUpperInvariant();
             if (upper.Contains("ITEM") && upper.Contains("MEMBER")) score += 8;
             if (upper.Contains("SECTION") && upper.Contains("TYPE")) score += 8;
-            if (upper.Contains("DESCRIPTION")) score += 4;
-            if (Regex.IsMatch(upper, @"\b(C|HB|WB|DF|PF|SF|RW)\s*\d{1,3}[A-Z]?\b")) score += 3;
+            // Alternate schedule header format seen on many drawings — "MARK / SIZE / COMMENTS"
+            // columns instead of "ITEM / MEMBER / SECTION / TYPE / DESCRIPTION" — and the plain
+            // "MEMBER SCHEDULE" table title itself, both strong signals this crop is the real table.
+            if (upper.Contains("MEMBER") && upper.Contains("SCHEDULE")) score += 8;
+            if (upper.Contains("MARK") && (upper.Contains("SIZE") || upper.Contains("SECTION"))) score += 8;
+            if (upper.Contains("DESCRIPTION") || upper.Contains("COMMENTS")) score += 4;
+            if (ScheduleMarkPrefixPattern.IsMatch(upper)) score += 3;
             if (Regex.IsMatch(upper, @"^\s*\d+\s+[A-Z]{1,4}\s*\d{1,3}[A-Z]?\b")) score += 2;
         }
         return score;
@@ -925,48 +948,78 @@ public class ExtractionService
     }
 
     /// <summary>
-    /// Finds the MEMBER SCHEDULE header in the page word list by bounding-box coordinates,
-    /// then reconstructs lines from only the words within that schedule region.
-    /// This prevents schedule rows from being mixed with main-drawing plan text that shares
-    /// the same Y-band on large A1/A2/A3 engineering drawings.
+    /// Finds every "&lt;word&gt; SCHEDULE" header in the page word list by bounding-box coordinates
+    /// (e.g. "MEMBER SCHEDULE", "STEELWORK SCHEDULE"), then reconstructs lines from only the
+    /// words within each schedule region. This prevents schedule rows from being mixed with
+    /// main-drawing plan text that shares the same Y-band on large A1/A2/A3 engineering
+    /// drawings — critical on drawings whose plan view itself is covered in short member-mark
+    /// callouts (e.g. "a", "br", "au") that would otherwise pollute every reconstructed line at
+    /// the same height as the schedule, anywhere across the full page width.
     /// </summary>
     private static List<string> ExtractScheduleRegionLines(List<Word> pageWords)
     {
         if (pageWords.Count == 0) return [];
 
-        // Find "MEMBER SCHEDULE" header — two adjacent words on the same visual line.
-        double headerBottom = -1, tableLeft = -1;
         var schedWords = pageWords
             .Where(w => w.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
+        // Some drawings place two (or more) schedule tables side by side on the same sheet —
+        // e.g. two "MEMBER SCHEDULE" boxes, or a "STEELWORK SCHEDULE" split into two mark
+        // columns. Collecting every region found here (instead of stopping at the first) is
+        // what lets the second/third table's rows survive at all instead of only ever coming
+        // through the unfiltered, cross-polluted full-page reconstruction pass.
+        var regions = new List<(double HeaderBottom, double TableLeft)>();
         foreach (var sw in schedWords)
         {
-            var memberWord = pageWords.FirstOrDefault(w =>
-                w.Text.Equals("MEMBER", StringComparison.OrdinalIgnoreCase) &&
-                Math.Abs(w.BoundingBox.Bottom - sw.BoundingBox.Bottom) < 10 &&
-                w.BoundingBox.Right <= sw.BoundingBox.Left + 5);
+            // The title word is whatever sits immediately to the left of "SCHEDULE" on the same
+            // line — "MEMBER", "STEELWORK", "STEEL", "COLUMN", "BEAM", "PURLIN", etc. Requiring
+            // one specific word (previously only "MEMBER") missed every other title wording
+            // real drawings use; picking the closest word within a small gap keeps this from
+            // ever picking up unrelated text that merely shares the same Y-band further away.
+            var titleWord = pageWords
+                .Where(w =>
+                    !w.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase) &&
+                    Math.Abs(w.BoundingBox.Bottom - sw.BoundingBox.Bottom) < 10 &&
+                    w.BoundingBox.Right <= sw.BoundingBox.Left + 5 &&
+                    sw.BoundingBox.Left - w.BoundingBox.Right < 40)
+                .OrderByDescending(w => w.BoundingBox.Right)
+                .FirstOrDefault();
 
-            if (memberWord != null)
-            {
-                headerBottom = sw.BoundingBox.Bottom;
-                tableLeft = Math.Min(memberWord.BoundingBox.Left, sw.BoundingBox.Left);
-                break;
-            }
+            if (titleWord != null)
+                regions.Add((sw.BoundingBox.Bottom, Math.Min(titleWord.BoundingBox.Left, sw.BoundingBox.Left)));
         }
 
-        if (headerBottom < 0) return [];
+        if (regions.Count == 0) return [];
 
-        // Extract words in the region below the header and within the schedule table width.
-        // PDF Y-axis increases upward, so "below" = smaller Y value.
-        var tableWords = pageWords.Where(w =>
-            w.BoundingBox.Bottom < headerBottom &&
-            w.BoundingBox.Bottom > headerBottom - 700 &&
-            w.BoundingBox.Left >= tableLeft - 30 &&
-            w.BoundingBox.Left <= tableLeft + 700)
-            .ToList();
+        // Extract words in the region below each header and within that table's width.
+        // PDF Y-axis increases upward, so "below" = smaller Y value. Regions are sorted
+        // left-to-right and each one's right edge is clipped to just before the next region's
+        // left edge (when closer than the default 700pt width) — otherwise two schedule tables
+        // sitting side by side (a common layout) would each independently sweep in the other's
+        // columns via their own generously-wide window, re-creating the exact same "two tables'
+        // rows glued onto one line" problem this region isolation exists to prevent.
+        var ordered = regions.OrderBy(r => r.TableLeft).ToList();
+        var lines = new List<string>();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var (headerBottom, tableLeft) = ordered[i];
+            var rightBound = tableLeft + 700;
+            if (i + 1 < ordered.Count)
+                rightBound = Math.Min(rightBound, ordered[i + 1].TableLeft - 20);
 
-        return tableWords.Count > 0 ? ReconstructLines(tableWords) : [];
+            var tableWords = pageWords.Where(w =>
+                w.BoundingBox.Bottom < headerBottom &&
+                w.BoundingBox.Bottom > headerBottom - 700 &&
+                w.BoundingBox.Left >= tableLeft - 30 &&
+                w.BoundingBox.Left <= rightBound)
+                .ToList();
+
+            if (tableWords.Count > 0)
+                lines.AddRange(ReconstructLines(tableWords));
+        }
+
+        return lines;
     }
 
     /// <summary>
@@ -1724,6 +1777,20 @@ public class ExtractionService
                 "(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @")\s*[-–—]?\s*$",
                 RegexOptions.IgnoreCase);
             if (compoundMark.Success) return compoundMark.Groups[1].Value.ToUpperInvariant();
+        }
+
+        // Dot-leader schedule format — "bj ..... 300 PFC", "ao ..... 273.1x6.4 CHS" (steelwork
+        // schedules using a row of leader dots instead of a dash/whitespace between mark and
+        // size). The run of 2+ dots is a distinctive, virtually zero-collision signal — no other
+        // supported format ever produces one — so it's safe to check unconditionally rather than
+        // only inside an already-recognized list block.
+        if (sectionMatch.Index > 0)
+        {
+            var beforeDots = line[..sectionMatch.Index].TrimEnd();
+            var dotMark = Regex.Match(beforeDots,
+                @"(?:^|\s)(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*\.{2,}\s*$",
+                RegexOptions.IgnoreCase);
+            if (dotMark.Success) return dotMark.Groups[1].Value.ToUpperInvariant();
         }
 
         // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113" / "1FB1 - 410UB53.7"
