@@ -31,7 +31,11 @@ import {
   resolveUncalibratedMeasureLength,
 } from '../utils/measureCalibration'
 import { calibrationSnapshot, traceCalibration, traceMeasurementDebug, mergeCalibrationState } from '../utils/calibrationTrace'
-import { buildLinearMeasurementClipboard, isValidLinearMeasurementForCopy } from '../utils/measureLabel'
+import {
+  buildLinearMeasurementClipboard,
+  DEFAULT_MEASURE_LABEL_SIZE,
+  isValidLinearMeasurementForCopy,
+} from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark } from '../utils/memberMeasureLink'
 import ExtractionModal from '../components/extraction/ExtractionModal'
@@ -249,18 +253,34 @@ export default function DrawingsPage() {
     }
   }, [])
 
-  const readLabelSizeFromPointsJson = useCallback((pointsJson) => {
+  const readLabelSizeFromPointsJson = useCallback((pointsJson, annotationId = null) => {
     if (!pointsJson) return null
     try {
       const d = JSON.parse(pointsJson)
-      const s = d.labelUserFontSize ?? d.LabelUserFontSize
-      return s != null && Number.isFinite(Number(s)) && Number(s) > 0 ? Number(s) : null
+      const selectedOccurrence = annotationId != null && Array.isArray(d.occurrences)
+        ? d.occurrences.find(occ => {
+            const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+            const occurrenceAnnotationId = occ?.annotationName ?? getRawAnnotationId(geometry)
+            return occurrenceAnnotationId != null
+              && String(occurrenceAnnotationId) === String(annotationId)
+          })
+        : null
+      const source = selectedOccurrence?.geometry
+        ?? selectedOccurrence?.rawAnnotation
+        ?? selectedOccurrence
+        ?? d
+      const s = source.labelUserFontSize ?? source.LabelUserFontSize
+      if (s != null && Number.isFinite(Number(s)) && Number(s) > 0) return Number(s)
+      // The PDF renderer uses the shared default when an older occurrence has
+      // no explicit size. Reflect that same value in the toolbar instead of
+      // leaving whichever unrelated measurement size happened to be selected.
+      return selectedOccurrence ? DEFAULT_MEASURE_LABEL_SIZE : null
     } catch {
       return null
     }
   }, [])
 
-  const syncToolbarFromTakeoffItem = useCallback((item) => {
+  const syncToolbarFromTakeoffItem = useCallback((item, annotationId = null) => {
     if (!item) return
     // Prefer stored item color; fall back to MSI palette color for that mark
     const HEX_RE = /^#[0-9A-Fa-f]{6}$/
@@ -280,7 +300,7 @@ export default function DrawingsPage() {
     // buttons and the custom pt input show what's actually on the drawing —
     // otherwise the control kept showing whatever was last used elsewhere,
     // and changing it appeared to do nothing to the label you just selected.
-    const labelSize = readLabelSizeFromPointsJson(item.pointsJson)
+    const labelSize = readLabelSizeFromPointsJson(item.pointsJson, annotationId)
     if (labelSize != null) setMeasureLabelFontSize(labelSize)
 
     // Reciprocal of Member Schedule → grid/PDF selection: selecting a measurement
@@ -428,9 +448,37 @@ export default function DrawingsPage() {
     if (!currentItem?.pointsJson) return
     try {
       const raw = JSON.parse(currentItem.pointsJson)
-      const existing = raw.labelUserFontSize ?? raw.LabelUserFontSize
-      if (existing == null || Number(existing) !== size) {
-        const pointsJson = JSON.stringify({ ...raw, labelUserFontSize: size, LabelUserFontSize: size })
+      const applyLabelSize = geometry => ({
+        ...geometry,
+        labelUserFontSize: size,
+        LabelUserFontSize: size,
+      })
+      let nextRaw = raw
+
+      // Older pasted measurements may still live as separate occurrence
+      // geometries inside one takeoff row. Update only the occurrence whose
+      // annotation UUID was selected; independent/new pasted rows continue
+      // through the ordinary flat-geometry branch below.
+      if (annotId != null && Array.isArray(raw.occurrences) && raw.occurrences.length) {
+        let matched = false
+        const occurrences = raw.occurrences.map(occ => {
+          const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+          const occurrenceAnnotationId = occ?.annotationName ?? getRawAnnotationId(geometry)
+          if (occurrenceAnnotationId == null
+              || String(occurrenceAnnotationId) !== String(annotId)) return occ
+          matched = true
+          if (occ?.geometry) return { ...occ, geometry: applyLabelSize(occ.geometry) }
+          if (occ?.rawAnnotation) return { ...occ, rawAnnotation: applyLabelSize(occ.rawAnnotation) }
+          return applyLabelSize(occ)
+        })
+        if (matched) nextRaw = { ...raw, occurrences }
+        else nextRaw = applyLabelSize(raw)
+      } else {
+        nextRaw = applyLabelSize(raw)
+      }
+
+      const pointsJson = JSON.stringify(nextRaw)
+      if (pointsJson !== currentItem.pointsJson) {
         updateTakeoffItem({ ...currentItem, pointsJson })
       }
     } catch (_) { return }
@@ -519,7 +567,11 @@ export default function DrawingsPage() {
     // Label size shares the same debounced pipeline as hover+scroll resize —
     // see handleMeasurementLabelSizeChange for why (avoids the two racing).
     if (labelSizeChanged) {
-      handleMeasurementLabelSizeChange({ dbId: selectedAnnotId, size: current.labelFontSize })
+      handleMeasurementLabelSizeChange({
+        annotationId: selectedOccurrenceAnnotIdRef.current,
+        dbId: selectedAnnotId,
+        size: current.labelFontSize,
+      })
     }
     if (!styleChanged) return
 
@@ -1019,98 +1071,12 @@ export default function DrawingsPage() {
 
     try {
       const pointsJson = buildPointsJson()
-      if (isPaste && linkedRootItemId != null && pointsJson) {
-        const rootId = Number(linkedRootItemId)
-        const rootItem = (useAppStore.getState().takeoffItems ?? [])
-          .find(t => Number(t.id) === rootId)
-        const newGeometry = readTakeoffPointsJson(pointsJson)
-        const annotationName = getRawAnnotationId(newGeometry) ?? measurement.annotationId
-        if (rootItem && newGeometry && annotationName) {
-          const existingOccurrences = buildTakeoffOccurrencesFromItem(rootItem)
-          const occurrenceId = measurement.occurrenceId ?? newGeometry.OccurrenceId ?? newGeometry.occurrenceId ?? annotationName
-          const cleanNewGeometry = stripOccurrenceContainer({
-            ...newGeometry,
-            annotationId: annotationName,
-            AnnotName: annotationName,
-            name: annotationName,
-            ItemId: rootId,
-            itemId: rootId,
-            OccurrenceId: occurrenceId,
-            occurrenceId,
-            CustomData: {
-              ...(newGeometry.CustomData ?? {}),
-              ItemId: rootId,
-              OccurrenceId: occurrenceId,
-            },
-            customData: {
-              ...(newGeometry.customData ?? {}),
-              itemId: rootId,
-              occurrenceId,
-            },
-          })
-          const nextOccurrences = existingOccurrences.some(occ => occ.annotationName === annotationName)
-            ? existingOccurrences
-            : [
-                ...existingOccurrences,
-                {
-                  occurrenceId,
-                  itemId: rootId,
-                  pageNumber: measurement.pageNumber ?? cleanNewGeometry.pageNumber ?? cleanNewGeometry.PageNumber ?? 1,
-                  annotationName,
-                  position: null,
-                  rotation: cleanNewGeometry.RotateAngle ?? cleanNewGeometry.rotateAngle ?? 0,
-                  createdAt: new Date().toISOString(),
-                  isRoot: false,
-                  geometry: cleanNewGeometry,
-                },
-              ]
-          const rootRaw = readTakeoffPointsJson(rootItem.pointsJson) ?? {}
-          const rootGeometry = stripOccurrenceContainer(rootRaw)
-          const occurrencePointsJson = JSON.stringify({
-            ...rootGeometry,
-            occurrenceModelVersion: 1,
-            itemId: rootId,
-            ItemId: rootId,
-            occurrences: nextOccurrences,
-          })
-          const optimisticRoot = {
-            ...rootItem,
-            quantity: Math.max(1, nextOccurrences.length),
-            pointsJson: occurrencePointsJson,
-          }
-          updateTakeoffItem(optimisticRoot)
-          const savedRoot = await takeoffService.update(optimisticRoot)
-          updateTakeoffItem(savedRoot)
-          annotationMapRef.current[rootId] = {
-            annotationId: extractTakeoffAnnotationIds(savedRoot.pointsJson)[0] ?? annotationName,
-            annotationIds: extractTakeoffAnnotationIds(savedRoot.pointsJson),
-            pageNumber: measurement.pageNumber ?? 1,
-          }
-          persistedAnnotIdsRef.current.add(annotationName)
-          setShowBottom(true)
-          setSelectedAnnotId(savedRoot.id)
-          setSelectedViewerAnnotId(String(annotationName))
-          selectedOccurrenceAnnotIdRef.current = String(annotationName)
-          setStyleEditTargetId(null)
-          annotStyleBaselineRef.current = null
-          pendingMeasurementRef.current = {
-            dbId: savedRoot.id,
-            annotationId: annotationName,
-            mark: savedRoot.mark,
-            pageNumber: measurement.pageNumber ?? 1,
-            pendingThickness: isPaste
-              ? (measurement.thickness ?? cleanNewGeometry.thickness ?? cleanNewGeometry.Thickness ?? 2)
-              : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness),
-            rawPointsJson: cleanNewGeometry,
-          }
-          lastCopyTargetRef.current = savedRoot.id
-          takeoffService.getSummary(drw.id)
-            .then(sum => { setSummaryLocal(sum); setSummary(sum) })
-            .catch(() => {})
-          toast.success(`${savedRoot.mark || saveMaterial || 'Measurement'} occurrence added`, { duration: 2200 })
-          return true
-        }
-      }
+      // A pasted measurement must be persisted as its own takeoff row. The
+      // clipboard still carries linkedRootItemId for source quantity tracking,
+      // but geometry is never appended to the source row's shared occurrences
+      // array. Consequently every pasted shape has both a unique annotation
+      // UUID (assigned by translateRawLine) and a unique database id, so later
+      // move/style/member/label/delete operations resolve to this item alone.
       const saved = await takeoffService.create({
         drawingId:   drw.id,
         itemType,
@@ -1488,9 +1454,9 @@ export default function DrawingsPage() {
       }
       lastCopyTargetRef.current = dbId
       const item = takeoffItems.find(t => t.id === dbId)
-      syncToolbarFromTakeoffItem(item)
       const annot = annotationMapRef.current[dbId]
       const occurrenceId = annot?.annotationId == null ? null : String(annot.annotationId)
+      syncToolbarFromTakeoffItem(item, occurrenceId)
       selectedOccurrenceAnnotIdRef.current = occurrenceId
       setSelectedViewerAnnotId(occurrenceId)
       if (annot?.annotationId) triggerPdfCommand({ type: 'selectAnnotation', ...annot })
@@ -1526,9 +1492,12 @@ export default function DrawingsPage() {
     annotStyleBaselineRef.current = null
     if (primaryDbId != null) {
       lastCopyTargetRef.current = primaryDbId
-      syncToolbarFromTakeoffItem(takeoffItems.find(t => t.id === primaryDbId))
       const primaryAnnot = annotationMapRef.current[primaryDbId]
       const primaryOccurrenceId = primaryAnnot?.annotationId == null ? null : String(primaryAnnot.annotationId)
+      syncToolbarFromTakeoffItem(
+        takeoffItems.find(t => t.id === primaryDbId),
+        primaryOccurrenceId,
+      )
       selectedOccurrenceAnnotIdRef.current = primaryOccurrenceId
       setSelectedViewerAnnotId(primaryOccurrenceId)
     } else {
@@ -1954,7 +1923,7 @@ export default function DrawingsPage() {
       annotStyleBaselineRef.current = null
       if (dbId) {
         const item = takeoffItems.find(t => t.id === dbId)
-        syncToolbarFromTakeoffItem(item)
+        syncToolbarFromTakeoffItem(item, viewerId)
       }
       const soloIds = dbId ? new Set([dbId]) : new Set()
       const soloViewerIds = viewerId ? new Set([viewerId]) : new Set()
@@ -1989,7 +1958,10 @@ export default function DrawingsPage() {
     annotStyleBaselineRef.current = null
     if (primaryDbId) {
       lastCopyTargetRef.current = primaryDbId
-      syncToolbarFromTakeoffItem(takeoffItems.find(t => t.id === primaryDbId))
+      syncToolbarFromTakeoffItem(
+        takeoffItems.find(t => t.id === primaryDbId),
+        primaryViewerId,
+      )
     }
   }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
 
