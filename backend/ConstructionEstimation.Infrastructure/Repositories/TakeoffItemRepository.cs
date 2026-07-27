@@ -24,4 +24,17 @@ public class TakeoffItemRepository : BaseRepository<TakeoffItem>, ITakeoffItemRe
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<TakeoffItem?> RestoreAsync(int id)
+    {
+        var item = await _dbSet
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (item == null) return null;
+
+        item.IsDeleted = false;
+        await _context.SaveChangesAsync();
+        return item;
+    }
 }

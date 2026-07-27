@@ -154,8 +154,16 @@ export function createRawLine({ id, pageNumber, points, style = {}, sourceRaw = 
     Thickness: style.thickness ?? sourceRaw?.Thickness ?? sourceRaw?.thickness ?? 2,
     opacity: style.opacity ?? sourceRaw?.opacity ?? sourceRaw?.Opacity ?? 1,
     Opacity: style.opacity ?? sourceRaw?.Opacity ?? sourceRaw?.opacity ?? 1,
-    lineStyle: style.lineStyle ?? sourceRaw?.lineStyle ?? 'solid',
-    labelUserFontSize: style.labelFontSize ?? sourceRaw?.labelUserFontSize ?? DEFAULT_MEASURE_LABEL_SIZE,
+    lineStyle: style.lineStyle ?? sourceRaw?.lineStyle ?? sourceRaw?.LineStyle ?? 'solid',
+    LineStyle: style.lineStyle ?? sourceRaw?.LineStyle ?? sourceRaw?.lineStyle ?? 'solid',
+    labelUserFontSize: style.labelFontSize
+      ?? sourceRaw?.labelUserFontSize
+      ?? sourceRaw?.LabelUserFontSize
+      ?? DEFAULT_MEASURE_LABEL_SIZE,
+    LabelUserFontSize: style.labelFontSize
+      ?? sourceRaw?.LabelUserFontSize
+      ?? sourceRaw?.labelUserFontSize
+      ?? DEFAULT_MEASURE_LABEL_SIZE,
   }
 }
 

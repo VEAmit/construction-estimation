@@ -7,7 +7,14 @@ import toast from 'react-hot-toast'
 const MEMBER_TYPES = ['Beam', 'Column', 'Brace', 'Purlin', 'Rafter', 'Plate', 'Other']
 const UNIT_OPTIONS = ['Mm', 'Cm', 'Meter', 'Feet', 'Inch']
 
-export default function AddMeasurementModal({ drawing, measurement, onAdded, onClose }) {
+export default function AddMeasurementModal({
+  drawing,
+  measurement,
+  onAdded,
+  onClose,
+  onBeforeAdd,
+  onAddFailed,
+}) {
   const { addTakeoffItem, activeUnit, takeoffItems } = useAppStore()
   const unit = drawing?.calibrationUnit ?? activeUnit
 
@@ -26,6 +33,7 @@ export default function AddMeasurementModal({ drawing, measurement, onAdded, onC
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!drawing) { toast.error('No drawing selected'); return }
+    const historyToken = onBeforeAdd?.()
     setSaving(true)
     try {
       const payload = {
@@ -49,6 +57,7 @@ export default function AddMeasurementModal({ drawing, measurement, onAdded, onC
       onAdded(saved)
       onClose()
     } catch {
+      onAddFailed?.(historyToken)
       toast.error('Failed to save measurement')
     } finally {
       setSaving(false)

@@ -278,6 +278,16 @@ export default function PdfJsViewer({
       setHiddenAnnotationIds(current => new Set([...current, ...ids]))
       onClearSelection?.()
     }
+    else if (type === 'historyRestored') {
+      // The store now contains the authoritative, server-restored snapshot.
+      // Clear viewer-only tombstones and optimistic geometry so restored
+      // deletions reappear and reverted moves/resizes render immediately.
+      setHiddenAnnotationIds(new Set())
+      setOptimisticGeometry({})
+      setPendingAnnotations([])
+      setPasteClipboard(null)
+      onClearSelection?.()
+    }
     clearPdfCommand()
   }, [clearPdfCommand, fitPage, fitWidth, onClearSelection, pdfCommand, setPdfPage])
 

@@ -209,6 +209,55 @@ function extractTakeoffAnnotationIds(pointsJson) {
   return id ? [id] : []
 }
 
+function cloneHistoryValue(value) {
+  if (value == null) return value
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    return value
+  }
+}
+
+function buildTakeoffAnnotationIndex(items) {
+  const map = {}
+  const persistedIds = new Set()
+  ;(items ?? []).forEach(item => {
+    if (!item?.pointsJson) return
+    const annotationIds = extractTakeoffAnnotationIds(item.pointsJson)
+    annotationIds.forEach(id => persistedIds.add(id))
+    const annotId = annotationIds[0]
+    if (!annotId) return
+    const stored = readTakeoffPointsJson(item.pointsJson) ?? {}
+    const firstGeometry = buildTakeoffOccurrencesFromItem(item)[0]?.geometry ?? stored
+    const page0 = stored.page != null
+      ? parseInt(stored.page, 10)
+      : (firstGeometry.pageIndex ?? firstGeometry.page ?? 0)
+    map[item.id] = {
+      annotationId: annotId,
+      annotationIds,
+      pageNumber: (Number.isFinite(page0) ? page0 : 0) + 1,
+    }
+  })
+  return { map, persistedIds }
+}
+
+const TAKEOFF_HISTORY_FIELDS = [
+  'mark', 'description', 'itemType', 'length', 'area', 'quantity', 'unit',
+  'material', 'unitWeight', 'totalWeight', 'notes', 'pointsJson', 'color',
+  'category', 'scaleRatioAtCreation', 'calibrationUnitAtCreation', 'drawingId',
+]
+
+function takeoffItemsMatch(left, right) {
+  return TAKEOFF_HISTORY_FIELDS.every(field => {
+    const a = left?.[field] ?? null
+    const b = right?.[field] ?? null
+    if (a == null || b == null) return a == null && b == null
+    return typeof a === 'number' || typeof b === 'number'
+      ? Number(a) === Number(b)
+      : String(a ?? '') === String(b ?? '')
+  })
+}
+
 export default function DrawingsPage() {
   const navigate = useNavigate()
   const { isMobile, isTablet } = useBreakpoint()
@@ -397,6 +446,7 @@ export default function DrawingsPage() {
   const persistedAnnotIdsRef = useRef(new Set())
   const savingAnnotIdsRef = useRef(new Set())
   const geometrySaveTimersRef = useRef(new Map())
+  const geometrySaveRevisionRef = useRef(new Map())
   const labelSizeSaveTimersRef = useRef(new Map())
   const measureReleaseRef = useRef(null)
   // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
@@ -404,6 +454,56 @@ export default function DrawingsPage() {
   const clearedMarkRef = useRef(null)
   const pendingCalibMeasureRef = useRef(null)
   const calibrateOnlyRef = useRef(false)
+  const undoStackRef = useRef([])
+  const redoStackRef = useRef([])
+  const historyBusyRef = useRef(false)
+  const [undoDepth, setUndoDepth] = useState(0)
+  const [redoDepth, setRedoDepth] = useState(0)
+
+  const captureHistorySnapshot = useCallback(() => {
+    const state = useAppStore.getState()
+    return {
+      drawingId: state.selectedDrawing?.id ?? null,
+      drawing: cloneHistoryValue(normalizeDrawing(state.selectedDrawing)),
+      items: cloneHistoryValue(state.takeoffItems ?? []),
+      clipboard: cloneHistoryValue(state.measurementClipboard ?? null),
+    }
+  }, [])
+
+  const recordUndoSnapshot = useCallback((label, { groupKey = null } = {}) => {
+    if (historyBusyRef.current) return null
+    const drawingId = useAppStore.getState().selectedDrawing?.id
+    if (!drawingId) return null
+    const top = undoStackRef.current[undoStackRef.current.length - 1]
+    if (groupKey && top?.groupKey === groupKey) return null
+    const entry = {
+      ...captureHistorySnapshot(),
+      label,
+      groupKey,
+      token: `${Date.now()}-${Math.random()}`,
+    }
+    undoStackRef.current.push(entry)
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift()
+    redoStackRef.current = []
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(0)
+    return entry.token
+  }, [captureHistorySnapshot])
+
+  const discardUndoSnapshot = useCallback((token) => {
+    if (!token) return
+    const top = undoStackRef.current[undoStackRef.current.length - 1]
+    if (top?.token !== token) return
+    undoStackRef.current.pop()
+    setUndoDepth(undoStackRef.current.length)
+  }, [])
+
+  useEffect(() => {
+    undoStackRef.current = []
+    redoStackRef.current = []
+    setUndoDepth(0)
+    setRedoDepth(0)
+  }, [selectedDrawing?.id])
 
   const extractAnnotIdFromPointsJson = useCallback((pointsJson) => {
     return extractTakeoffAnnotationIds(pointsJson)[0] ?? null
@@ -446,6 +546,7 @@ export default function DrawingsPage() {
     // not just the canvas) — only the network save below is debounced.
     const currentItem = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
     if (!currentItem?.pointsJson) return
+    const existingTimer = labelSizeSaveTimersRef.current.get(dbId)
     try {
       const raw = JSON.parse(currentItem.pointsJson)
       const applyLabelSize = geometry => ({
@@ -479,11 +580,11 @@ export default function DrawingsPage() {
 
       const pointsJson = JSON.stringify(nextRaw)
       if (pointsJson !== currentItem.pointsJson) {
+        if (!existingTimer) recordUndoSnapshot('label resize')
         updateTakeoffItem({ ...currentItem, pointsJson })
       }
     } catch (_) { return }
 
-    const existingTimer = labelSizeSaveTimersRef.current.get(dbId)
     if (existingTimer) clearTimeout(existingTimer)
 
     const timer = setTimeout(async () => {
@@ -501,7 +602,7 @@ export default function DrawingsPage() {
     }, 400)
 
     labelSizeSaveTimersRef.current.set(dbId, timer)
-  }, [resolveMeasurementDbId, updateTakeoffItem])
+  }, [recordUndoSnapshot, resolveMeasurementDbId, updateTakeoffItem])
 
   const parseLinkedItemId = useCallback((notes) => {
     const match = String(notes ?? '').match(/\blinkedItem:(\d+)/i)
@@ -581,12 +682,13 @@ export default function DrawingsPage() {
     const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === selectedAnnotId)
     if (!item) return
 
+    if (!labelSizeChanged) recordUndoSnapshot('measurement style change')
     const optimistic = { ...item, color: measureColor, category: measureCategory }
     updateTakeoffItem(optimistic)
     takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})
-  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId, handleMeasurementLabelSizeChange, updateTakeoffItem])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId, handleMeasurementLabelSizeChange, recordUndoSnapshot, updateTakeoffItem])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zooming in/out auto-deselects the current measurement — otherwise it stays
   // selected (and wheel keeps resizing its label, see PdfSvgOverlay) even
@@ -764,31 +866,16 @@ export default function DrawingsPage() {
         setSummary(sum)
         setMemberScheduleItems(assignMemberColors(members))
         setMemberScheduleSummary(memberSum)
-        const map = {}
-        finalItems.forEach(item => {
-          if (!item.pointsJson) return
-          try {
-            const annotationIds = extractTakeoffAnnotationIds(item.pointsJson)
-            const annotId = annotationIds[0]
-            if (!annotId) return
-            const stored = readTakeoffPointsJson(item.pointsJson) ?? {}
-            const firstGeometry = buildTakeoffOccurrencesFromItem(item)[0]?.geometry ?? stored
-            const page0 = stored.page != null
-              ? parseInt(stored.page, 10)
-              : (firstGeometry.pageIndex ?? firstGeometry.page ?? 0)
-            map[item.id] = { annotationId: annotId, annotationIds, pageNumber: page0 + 1 }
-          } catch (_) {}
-        })
-        annotationMapRef.current = map
-        persistedAnnotIdsRef.current = new Set(
-          finalItems.flatMap(item => extractTakeoffAnnotationIds(item.pointsJson)).filter(Boolean)
-        )
+        const index = buildTakeoffAnnotationIndex(finalItems)
+        annotationMapRef.current = index.map
+        persistedAnnotIdsRef.current = index.persistedIds
       })
       .catch(() => toast.error('Failed to load drawing data'))
   }, [selectedDrawing?.id, updateTakeoffItem, triggerPdfCommand])
 
   const deletePendingMeasurement = useCallback(async (pending, { silent = false } = {}) => {
     if (!pending || persistedAnnotIdsRef.current.has(pending.annotationId)) return false
+    const undoToken = recordUndoSnapshot('clear measurement')
     try {
       await takeoffService.delete(pending.dbId)
       removeTakeoffItem(pending.dbId)
@@ -814,10 +901,11 @@ export default function DrawingsPage() {
       if (!silent) toast.success('Cleared measurement')
       return true
     } catch {
+      discardUndoSnapshot(undoToken)
       if (!silent) toast.error('Failed to clear measurement')
       return false
     }
-  }, [removeTakeoffItem, selectedAnnotId, selectedDrawing, selectedViewerAnnotId, setSummary, triggerPdfCommand])
+  }, [discardUndoSnapshot, recordUndoSnapshot, removeTakeoffItem, selectedAnnotId, selectedDrawing, selectedViewerAnnotId, setSummary, triggerPdfCommand])
 
   const scheduleAnnotationBlobSave = useCallback(() => {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
@@ -826,10 +914,152 @@ export default function DrawingsPage() {
     }, 1500)
   }, [triggerPdfCommand])
 
+  const restoreHistorySnapshot = useCallback(async (snapshot) => {
+    const drawingId = Number(snapshot?.drawingId)
+    const liveDrawingId = Number(useAppStore.getState().selectedDrawing?.id)
+    if (!drawingId || drawingId !== liveDrawingId) {
+      throw new Error('Undo history belongs to a different drawing')
+    }
+
+    if (blobSaveTimerRef.current) {
+      clearTimeout(blobSaveTimerRef.current)
+      blobSaveTimerRef.current = null
+    }
+    geometrySaveTimersRef.current.forEach(timer => clearTimeout(timer))
+    geometrySaveTimersRef.current.clear()
+    geometrySaveRevisionRef.current.clear()
+    labelSizeSaveTimersRef.current.forEach(timer => clearTimeout(timer))
+    labelSizeSaveTimersRef.current.clear()
+
+    const targetDrawing = normalizeDrawing(snapshot.drawing)
+    const currentDrawing = normalizeDrawing(useAppStore.getState().selectedDrawing)
+    let restoredDrawing = currentDrawing
+    const targetCalibrated = Boolean(targetDrawing?.isCalibrated && Number(targetDrawing?.scaleRatio) > 0)
+    const calibrationChanged = targetCalibrated !== Boolean(currentDrawing?.isCalibrated)
+      || Number(targetDrawing?.scaleRatio ?? 0) !== Number(currentDrawing?.scaleRatio ?? 0)
+      || String(targetDrawing?.calibrationUnit ?? '') !== String(currentDrawing?.calibrationUnit ?? '')
+
+    if (calibrationChanged) {
+      restoredDrawing = targetCalibrated
+        ? await drawingService.calibrate(drawingId, targetDrawing.scaleRatio, targetDrawing.calibrationUnit ?? 'Mm')
+        : await drawingService.resetCalibration(drawingId)
+    } else {
+      restoredDrawing = normalizeDrawing(await drawingService.getById(drawingId))
+    }
+
+    const currentItems = await takeoffService.getByDrawing(drawingId)
+    const targetItems = Array.isArray(snapshot.items) ? snapshot.items : []
+    const currentById = new Map(currentItems.map(item => [Number(item.id), item]))
+    const targetById = new Map(targetItems.map(item => [Number(item.id), item]))
+
+    for (const item of currentItems) {
+      if (!targetById.has(Number(item.id))) await takeoffService.delete(item.id)
+    }
+
+    for (const item of targetItems) {
+      if (currentById.has(Number(item.id))) {
+        if (!takeoffItemsMatch(currentById.get(Number(item.id)), item)) {
+          await takeoffService.update(item)
+        }
+      } else {
+        await takeoffService.restore(item)
+      }
+    }
+
+    const [restoredItems, restoredSummary] = await Promise.all([
+      takeoffService.getByDrawing(drawingId),
+      takeoffService.getSummary(drawingId),
+    ])
+    const normalizedDrawing = normalizeDrawing(restoredDrawing)
+    setSelectedDrawing(normalizedDrawing)
+    setDrawings(prev => {
+      const list = Array.isArray(prev) ? prev : []
+      return list.map(d => Number(d.id) === drawingId ? normalizedDrawing : normalizeDrawing(d))
+    })
+    if (normalizedDrawing?.calibrationUnit) setActiveUnit(normalizedDrawing.calibrationUnit)
+    setTakeoffItems(restoredItems)
+    setSummaryLocal(restoredSummary)
+    setSummary(restoredSummary)
+    setMeasurementClipboard(cloneHistoryValue(snapshot.clipboard ?? null))
+
+    const index = buildTakeoffAnnotationIndex(restoredItems)
+    annotationMapRef.current = index.map
+    persistedAnnotIdsRef.current = index.persistedIds
+    pendingMeasurementRef.current = null
+    clearAllSelection()
+    triggerPdfCommand({
+      type: 'historyRestored',
+      annotationIds: [...index.persistedIds],
+    })
+    setTimeout(() => triggerPdfCommand('rehydrateMeasureLabels'), 100)
+  }, [
+    clearAllSelection,
+    setActiveUnit,
+    setDrawings,
+    setMeasurementClipboard,
+    setSelectedDrawing,
+    setSummary,
+    setTakeoffItems,
+    triggerPdfCommand,
+  ])
+
+  const handleUndo = useCallback(async () => {
+    if (historyBusyRef.current || undoStackRef.current.length === 0) return
+    const target = undoStackRef.current.pop()
+    const redoEntry = {
+      ...captureHistorySnapshot(),
+      label: target.label,
+      groupKey: target.groupKey,
+      token: `${Date.now()}-${Math.random()}`,
+    }
+    historyBusyRef.current = true
+    setUndoDepth(undoStackRef.current.length)
+    try {
+      await restoreHistorySnapshot(target)
+      redoStackRef.current.push(redoEntry)
+      setRedoDepth(redoStackRef.current.length)
+      toast.success(`Undid ${target.label}`, { duration: 1800 })
+    } catch (error) {
+      undoStackRef.current.push(target)
+      setUndoDepth(undoStackRef.current.length)
+      console.error('[BuildTakeoff] undo failed:', error)
+      toast.error('Undo could not be completed — please try again')
+    } finally {
+      historyBusyRef.current = false
+    }
+  }, [captureHistorySnapshot, restoreHistorySnapshot])
+
+  const handleRedo = useCallback(async () => {
+    if (historyBusyRef.current || redoStackRef.current.length === 0) return
+    const target = redoStackRef.current.pop()
+    const undoEntry = {
+      ...captureHistorySnapshot(),
+      label: target.label,
+      groupKey: target.groupKey,
+      token: `${Date.now()}-${Math.random()}`,
+    }
+    historyBusyRef.current = true
+    setRedoDepth(redoStackRef.current.length)
+    try {
+      await restoreHistorySnapshot(target)
+      undoStackRef.current.push(undoEntry)
+      setUndoDepth(undoStackRef.current.length)
+      toast.success(`Redid ${target.label}`, { duration: 1800 })
+    } catch (error) {
+      redoStackRef.current.push(target)
+      setRedoDepth(redoStackRef.current.length)
+      console.error('[BuildTakeoff] redo failed:', error)
+      toast.error('Redo could not be completed — please try again')
+    } finally {
+      historyBusyRef.current = false
+    }
+  }, [captureHistorySnapshot, restoreHistorySnapshot])
+
   useEffect(() => () => {
     if (blobSaveTimerRef.current) clearTimeout(blobSaveTimerRef.current)
     geometrySaveTimersRef.current.forEach(t => clearTimeout(t))
     geometrySaveTimersRef.current.clear()
+    geometrySaveRevisionRef.current.clear()
     labelSizeSaveTimersRef.current.forEach(t => clearTimeout(t))
     labelSizeSaveTimersRef.current.clear()
   }, [])
@@ -849,7 +1079,10 @@ export default function DrawingsPage() {
     triggerPdfCommand('ensureMeasureMode')
   }, [setActiveTool, triggerPdfCommand])
 
-  const autoSave = useCallback(async (measurement, { calibratedDrawing, isPaste = false } = {}) => {
+  const autoSave = useCallback(async (
+    measurement,
+    { calibratedDrawing, isPaste = false, historyGroupId = null, skipUndo = false } = {},
+  ) => {
     console.log('[BT-Lifecycle] autoSave called — length:', measurement?.length, 'unit:', measurement?.unit, 'annotationId:', measurement?.annotationId)
     const {
       selectedDrawing: drw, takeoffItems: current, measureColor: color,
@@ -1069,6 +1302,12 @@ export default function DrawingsPage() {
       ? appendLinkedOccurrenceNotes(baseNotes, linkedRootItemId, measurement.occurrenceId)
       : baseNotes
 
+    const undoToken = skipUndo
+      ? null
+      : recordUndoSnapshot(
+          isPaste ? 'paste measurement' : 'create measurement',
+          { groupKey: historyGroupId ? `paste:${historyGroupId}` : null },
+        )
     try {
       const pointsJson = buildPointsJson()
       // A pasted measurement must be persisted as its own takeoff row. The
@@ -1195,6 +1434,7 @@ export default function DrawingsPage() {
       }
       return true
     } catch (err) {
+      discardUndoSnapshot(undoToken)
       console.error('[BuildTakeoff] autoSave failed:', err)
       if (measurement.annotationId) measureReleaseRef.current?.(measurement.annotationId)
       toast.error('Could not save measurement — try again')
@@ -1210,6 +1450,8 @@ export default function DrawingsPage() {
     updateTakeoffItem,
     appendLinkedOccurrenceNotes,
     countLinkedOccurrences,
+    discardUndoSnapshot,
+    recordUndoSnapshot,
   ])
 
   const handleMeasure = useCallback((measurement, opts = {}) => {
@@ -1330,6 +1572,7 @@ export default function DrawingsPage() {
     const scaleRatio = computeScaleRatio(realLength, unit, pxLen)
     if (!scaleRatio) { toast.error('Could not save scale — check the length you entered'); return }
 
+    recordUndoSnapshot('calibration')
     setCalSaving(true)
     try {
       await drawingService.calibrate(drawingId, scaleRatio, unit)
@@ -1360,7 +1603,7 @@ export default function DrawingsPage() {
       const measureToSave = pendingMeasure && !calibrateOnly ? pendingMeasure : null
       let savedFirst = false
       if (measureToSave) {
-        savedFirst = await autoSave(measureToSave, { calibratedDrawing: updated })
+        savedFirst = await autoSave(measureToSave, { calibratedDrawing: updated, skipUndo: true })
         if (savedFirst) triggerPdfCommand('rehydrateMeasureLabels')
       } else {
         if (lastMeasurement?.annotationId && calibrateOnly) {
@@ -1397,10 +1640,11 @@ export default function DrawingsPage() {
     } finally {
       setCalSaving(false)
     }
-  }, [lastMeasurement, selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem, autoSave])
+  }, [lastMeasurement, selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem, autoSave, recordUndoSnapshot])
 
   const handleQuickScale = useCallback(async (scaleRatio, unit) => {
     if (!selectedDrawing) return
+    recordUndoSnapshot('calibration')
     try {
       await drawingService.calibrate(selectedDrawing.id, scaleRatio, unit)
       const apiDrawing = await drawingService.getById(selectedDrawing.id)
@@ -1428,7 +1672,7 @@ export default function DrawingsPage() {
       const apiMessage = err?.response?.data?.message || err?.response?.data?.errors?.[0]
       toast.error(apiMessage || err?.message || 'Failed to apply quick scale')
     }
-  }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem])
+  }, [selectedDrawing, triggerPdfCommand, updateDrawingCalibration, setActiveUnit, updateTakeoffItem, recordUndoSnapshot])
 
   const handleRowSelect = useCallback((dbId, event = null) => {
     // See handleAnnotationSelect — selecting a different measurement (here,
@@ -1543,6 +1787,7 @@ export default function DrawingsPage() {
       if (existing != null && Number(existing) === Number(thickness)) return
       const pointsJson = JSON.stringify({ ...raw, thickness, Thickness: thickness })
       const optimistic = { ...item, pointsJson }
+      recordUndoSnapshot('measurement thickness change')
       updateTakeoffItem(optimistic)
       takeoffService.update(optimistic).then(saved => updateTakeoffItem(saved)).catch(() => {})
       if (pendingMeasurementRef.current) {
@@ -1558,7 +1803,7 @@ export default function DrawingsPage() {
         }
       }
     } catch (_) {}
-  }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson])
+  }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson, recordUndoSnapshot])
 
   const handleMeasurementGeometryChange = useCallback((payload) => {
     const annotId = payload?.annotationId
@@ -1567,77 +1812,110 @@ export default function DrawingsPage() {
 
     const existingTimer = geometrySaveTimersRef.current.get(dbId)
     if (existingTimer) clearTimeout(existingTimer)
+    const historyGroupKey = payload.interactionId ? `geometry:${payload.interactionId}` : null
+    if (historyGroupKey || !existingTimer) {
+      recordUndoSnapshot('move or resize measurement', { groupKey: historyGroupKey })
+    }
 
-    const timer = setTimeout(async () => {
-      geometrySaveTimersRef.current.delete(dbId)
-      const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
-      if (!item?.pointsJson) return
+    const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+    if (!item?.pointsJson) return
 
-      try {
-        const previousRaw = JSON.parse(item.pointsJson)
-        const movedRaw = JSON.parse(JSON.stringify(payload.rawAnnotation))
-        const stableAnnotId = annotId ?? previousRaw.annotationId ?? previousRaw.AnnotName ?? previousRaw.name
-        const mergeGeometry = (baseRaw) => ({
-          ...baseRaw,
-          ...movedRaw,
-          annotationId: stableAnnotId,
-          AnnotName: stableAnnotId,
-          name: stableAnnotId,
-          strokeColor: baseRaw.strokeColor ?? baseRaw.StrokeColor ?? movedRaw.strokeColor,
-          StrokeColor: baseRaw.StrokeColor ?? baseRaw.strokeColor ?? movedRaw.StrokeColor,
-          thickness: baseRaw.thickness ?? baseRaw.Thickness ?? movedRaw.thickness,
-          Thickness: baseRaw.Thickness ?? baseRaw.thickness ?? movedRaw.Thickness,
-        })
-        let mergedRaw
-        if (Array.isArray(previousRaw.occurrences) && previousRaw.occurrences.length) {
-          let updatedOccurrence = false
-          const nextOccurrences = previousRaw.occurrences.map(occ => {
-            const geometry = stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
-            const occurrenceAnnotId = occ?.annotationName ?? getRawAnnotationId(geometry)
-            if (occurrenceAnnotId !== stableAnnotId) return occ
-            updatedOccurrence = true
-            return {
-              ...occ,
-              annotationName: stableAnnotId,
-              pageNumber: payload.pageNumber ?? occ.pageNumber ?? geometry.pageNumber ?? 1,
-              rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occ.rotation ?? 0,
-              geometry: mergeGeometry(geometry),
-            }
-          })
-          mergedRaw = {
-            ...previousRaw,
-            occurrences: updatedOccurrence ? nextOccurrences : previousRaw.occurrences,
+    try {
+      const previousRaw = JSON.parse(item.pointsJson)
+      const movedRaw = JSON.parse(JSON.stringify(payload.rawAnnotation))
+      const stableAnnotId = annotId ?? previousRaw.annotationId ?? previousRaw.AnnotName ?? previousRaw.name
+      const mergeGeometry = (baseRaw) => ({
+        ...baseRaw,
+        ...movedRaw,
+        annotationId: stableAnnotId,
+        AnnotName: stableAnnotId,
+        name: stableAnnotId,
+        strokeColor: baseRaw.strokeColor ?? baseRaw.StrokeColor ?? movedRaw.strokeColor,
+        StrokeColor: baseRaw.StrokeColor ?? baseRaw.strokeColor ?? movedRaw.StrokeColor,
+        thickness: baseRaw.thickness ?? baseRaw.Thickness ?? movedRaw.thickness,
+        Thickness: baseRaw.Thickness ?? baseRaw.thickness ?? movedRaw.Thickness,
+      })
+      let mergedRaw
+      if (Array.isArray(previousRaw.occurrences) && previousRaw.occurrences.length) {
+        let updatedOccurrence = false
+        const nextOccurrences = previousRaw.occurrences.map(occ => {
+          const geometry = stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
+          const occurrenceAnnotId = occ?.annotationName ?? getRawAnnotationId(geometry)
+          if (String(occurrenceAnnotId) !== String(stableAnnotId)) return occ
+          updatedOccurrence = true
+          return {
+            ...occ,
+            annotationName: stableAnnotId,
+            pageNumber: payload.pageNumber ?? occ.pageNumber ?? geometry.pageNumber ?? 1,
+            rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occ.rotation ?? 0,
+            geometry: mergeGeometry(geometry),
           }
-        } else {
-          mergedRaw = mergeGeometry(previousRaw)
+        })
+        mergedRaw = {
+          ...previousRaw,
+          occurrences: updatedOccurrence ? nextOccurrences : previousRaw.occurrences,
         }
-        const unit = payload.unit ?? item.unit ?? activeUnit
-        const nextLength = Number.isFinite(Number(payload.length)) && Number(payload.length) > 0
-          ? Number(payload.length)
-          : item.length
-        const next = {
-          ...item,
-          unit,
-          length: nextLength,
-          description: formatLineMeasureDescription(payload.pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
-          pointsJson: JSON.stringify(mergedRaw),
-        }
-        updateTakeoffItem(next)
-        const saved = await takeoffService.update(next)
-        updateTakeoffItem(saved)
-        if (selectedDrawing?.id) {
-          takeoffService.getSummary(selectedDrawing.id)
-            .then(sum => { setSummaryLocal(sum); setSummary(sum) })
-            .catch(() => {})
-        }
-        scheduleAnnotationBlobSave()
-      } catch (err) {
-        console.warn('[BuildTakeoff] measurement geometry update failed:', err)
+      } else {
+        mergedRaw = mergeGeometry(previousRaw)
       }
-    }, 250)
 
-    geometrySaveTimersRef.current.set(dbId, timer)
-  }, [resolveMeasurementDbId, activeUnit, updateTakeoffItem, selectedDrawing, setSummary, scheduleAnnotationBlobSave])
+      const movedPoints = movedRaw.vertexPoints ?? movedRaw.VertexPoints ?? []
+      const firstPoint = movedPoints[0]
+      const lastPoint = movedPoints[movedPoints.length - 1]
+      const derivedPixelLength = firstPoint && lastPoint
+        ? Math.hypot(
+            Number(lastPoint.x ?? lastPoint.X) - Number(firstPoint.x ?? firstPoint.X),
+            Number(lastPoint.y ?? lastPoint.Y) - Number(firstPoint.y ?? firstPoint.Y),
+          )
+        : null
+      const pixelLength = Number.isFinite(Number(payload.pixelLength))
+        ? Number(payload.pixelLength)
+        : derivedPixelLength
+      const unit = payload.unit ?? item.unit ?? activeUnit
+      const nextLength = payload.length != null
+        && Number.isFinite(Number(payload.length))
+        && Number(payload.length) >= 0
+        ? Number(payload.length)
+        : item.length
+      const nextTotalWeight = item.unitWeight != null && nextLength != null
+        ? Number(item.unitWeight) * toMeters(nextLength, unit) * Number(item.quantity ?? 1)
+        : item.totalWeight
+      const next = {
+        ...item,
+        unit,
+        length: nextLength,
+        totalWeight: Number.isFinite(nextTotalWeight) ? nextTotalWeight : item.totalWeight,
+        description: formatLineMeasureDescription(pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
+        pointsJson: JSON.stringify(mergedRaw),
+      }
+
+      // Geometry, length, label, and the Measurements grid update together on
+      // every pointer move. Only the network write remains debounced.
+      updateTakeoffItem(next)
+      const revision = (geometrySaveRevisionRef.current.get(dbId) ?? 0) + 1
+      geometrySaveRevisionRef.current.set(dbId, revision)
+      const timer = setTimeout(async () => {
+        geometrySaveTimersRef.current.delete(dbId)
+        const latest = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+        if (!latest) return
+        try {
+          const saved = await takeoffService.update(latest)
+          if (geometrySaveRevisionRef.current.get(dbId) === revision) updateTakeoffItem(saved)
+          if (selectedDrawing?.id) {
+            takeoffService.getSummary(selectedDrawing.id)
+              .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+              .catch(() => {})
+          }
+          scheduleAnnotationBlobSave()
+        } catch (err) {
+          console.warn('[BuildTakeoff] measurement geometry update failed:', err)
+        }
+      }, 250)
+      geometrySaveTimersRef.current.set(dbId, timer)
+    } catch (err) {
+      console.warn('[BuildTakeoff] measurement geometry update failed:', err)
+    }
+  }, [resolveMeasurementDbId, activeUnit, updateTakeoffItem, selectedDrawing, setSummary, scheduleAnnotationBlobSave, recordUndoSnapshot])
 
   const resolveCopyTargetId = useCallback(() => {
     const isValid = (item) => item && isValidLinearMeasurementForCopy(item)
@@ -1699,6 +1977,7 @@ export default function DrawingsPage() {
       toast.error(idsToUse.length > 1 ? 'No copyable linear measurements in selection' : 'Draw or select a linear measurement to copy')
       return
     }
+    recordUndoSnapshot('copy measurement')
     setMeasurementClipboard({ items })
     clearPasteAnchor()
     // Paste is a "stamp" mode that stays armed across multiple placements
@@ -1711,7 +1990,7 @@ export default function DrawingsPage() {
     triggerPdfCommand({ type: 'cancelPastePlacement' })
     if (idsToUse[0] != null) lastCopyTargetRef.current = idsToUse[0]
     if (items.length > 1) toast.success(`${items.length} measurements copied`)
-  }, [selectedAnnotIds, resolveCopyTargetId, buildClipboardItemFor, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
+  }, [selectedAnnotIds, resolveCopyTargetId, buildClipboardItemFor, recordUndoSnapshot, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
 
   const handlePasteMeasurement = useCallback(() => {
     const clipboard = useAppStore.getState().measurementClipboard ?? measurementClipboard
@@ -1788,6 +2067,7 @@ export default function DrawingsPage() {
       .map(id => (useAppStore.getState().takeoffItems ?? []).find(t => t.id === id))
       .filter(Boolean)
     if (!rows.length) return
+    recordUndoSnapshot('member reassignment')
     await Promise.allSettled(rows.map(async row => {
       const newColor = member.color || row.color
       const optimistic = {
@@ -1809,7 +2089,7 @@ export default function DrawingsPage() {
         toast.error(`Could not reassign ${row.mark || 'measurement'}`)
       }
     }))
-  }, [updateTakeoffItem])
+  }, [recordUndoSnapshot, updateTakeoffItem])
 
   const handleRowDelete = useCallback(async (id) => {
     const annot = annotationMapRef.current[id]
@@ -1821,6 +2101,7 @@ export default function DrawingsPage() {
       ...extractTakeoffAnnotationIds(itemBeingDeleted?.pointsJson),
     ].filter(Boolean)))
     const linkedRootBeforeDelete = parseLinkedItemId(itemBeingDeleted?.notes)
+    const undoToken = recordUndoSnapshot('delete measurement')
     try {
       await takeoffService.delete(id)
       removeTakeoffItem(id)
@@ -1874,6 +2155,7 @@ export default function DrawingsPage() {
           .catch(() => {})
       }
     } catch {
+      discardUndoSnapshot(undoToken)
       toast.error('Failed to delete measurement')
       throw new Error('delete failed')
     }
@@ -1885,6 +2167,8 @@ export default function DrawingsPage() {
     setSummary,
     parseLinkedItemId,
     countLinkedOccurrences,
+    discardUndoSnapshot,
+    recordUndoSnapshot,
     updateTakeoffItem,
   ])
 
@@ -2018,7 +2302,8 @@ export default function DrawingsPage() {
       if (hasMod && (key === 'z' || key === 'y')) {
         e.preventDefault()
         e.stopPropagation()
-        triggerPdfCommand({ type: key === 'z' ? 'undo' : 'redo' })
+        if (key === 'y' || (key === 'z' && e.shiftKey)) handleRedo()
+        else handleUndo()
         return
       }
 
@@ -2037,7 +2322,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [handleCopyMeasurement, handlePasteMeasurement, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection])
+  }, [handleCopyMeasurement, handlePasteMeasurement, handleRedo, handleUndo, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2061,6 +2346,7 @@ export default function DrawingsPage() {
   // "Reset Scale" button when already calibrated — wipe DB calibration, return to calibrate mode
   const handleResetCalibration = useCallback(async () => {
     if (!selectedDrawing) return
+    const undoToken = recordUndoSnapshot('reset calibration')
     try {
       const refreshed = await drawingService.resetCalibration(selectedDrawing.id)
       setSelectedDrawing(refreshed)
@@ -2070,9 +2356,10 @@ export default function DrawingsPage() {
       triggerPdfCommand('ensureMeasureMode')
       toast('Scale reset — draw a reference line to re-calibrate', { duration: 4000, icon: '📐' })
     } catch {
+      discardUndoSnapshot(undoToken)
       toast.error('Failed to reset calibration')
     }
-  }, [selectedDrawing, triggerPdfCommand])
+  }, [discardUndoSnapshot, recordUndoSnapshot, selectedDrawing, triggerPdfCommand])
 
   const handleDrawingUploaded = async (drawing) => {
     const norm = normalizeDrawing(drawing)
@@ -2413,8 +2700,12 @@ export default function DrawingsPage() {
         onSaveCalib={handleSaveCalib}
         onCopyMeasurement={handleCopyMeasurement}
         onPasteMeasurement={handlePasteMeasurement}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         canCopy={canCopyMeasurement}
         canPaste={canPasteMeasurement}
+        canUndo={undoDepth > 0}
+        canRedo={redoDepth > 0}
       />
 
       {/* ── Main work area ──────────────────────────────────────── */}
@@ -2700,6 +2991,8 @@ export default function DrawingsPage() {
               selectedIds={selectedAnnotIds}
               onRowSelect={handleRowSelect}
               onDelete={handleRowDelete}
+              onBeforeUpdate={() => recordUndoSnapshot('edit measurement')}
+              onUpdateFailed={discardUndoSnapshot}
               onAddClick={() => { setPendingMeas(null); setShowAddModal(true) }}
             />
           </BottomDock>
@@ -2804,6 +3097,8 @@ export default function DrawingsPage() {
           drawing={selectedDrawing}
           measurement={pendingMeas}
           onAdded={handleItemAdded}
+          onBeforeAdd={() => recordUndoSnapshot('create measurement')}
+          onAddFailed={discardUndoSnapshot}
           onClose={() => { setShowAddModal(false); setPendingMeas(null) }}
         />
       )}

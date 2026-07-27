@@ -125,8 +125,12 @@ export default function Toolbar({
   onSaveCalib,
   onCopyMeasurement,
   onPasteMeasurement,
+  onUndo,
+  onRedo,
   canCopy = false,
   canPaste = false,
+  canUndo = false,
+  canRedo = false,
 }) {
   const {
     activeTool, setActiveTool,
@@ -372,7 +376,49 @@ export default function Toolbar({
             </button>
           ) : null}
 
-          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Undo last measurement (removes from PDF and grid)"
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo last action (Ctrl+Z)"
+            style={{
+              ...zBtn,
+              display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px',
+              touchAction: 'manipulation',
+              color: canUndo ? '#e2e8f0' : '#475569',
+              opacity: canUndo ? 1 : 0.55,
+              cursor: canUndo ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M9 14L4 9l5-5"/>
+              <path d="M4 9h9a7 7 0 0 1 7 7v2"/>
+            </svg>
+            {!compact && 'Undo'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo last action (Ctrl+Y)"
+            style={{
+              ...zBtn,
+              display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px',
+              touchAction: 'manipulation',
+              color: canRedo ? '#e2e8f0' : '#475569',
+              opacity: canRedo ? 1 : 0.55,
+              cursor: canRedo ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M15 14l5-5-5-5"/>
+              <path d="M20 9h-9a7 7 0 0 0-7 7v2"/>
+            </svg>
+            {!compact && 'Redo'}
+          </button>
+
+          <button onClick={() => triggerPdfCommand('clearAnnotations')} title="Clear the most recent unsaved measurement"
             style={{
               ...zBtn,
               display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '4px 8px',

@@ -199,7 +199,19 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
   )
 }
 
-function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onSelect, onContextMenu, viewerScale, onLabelSizeChange, forceLabelVisible }) {
+function AnnotationShape({
+  annotation,
+  selected,
+  anySelected,
+  onPointerDown,
+  onEndpointPointerDown,
+  endpointEditingEnabled,
+  onSelect,
+  onContextMenu,
+  viewerScale,
+  onLabelSizeChange,
+  forceLabelVisible,
+}) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
     fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
@@ -216,6 +228,13 @@ function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onS
   }
 
   const closed = annotation.type === 'area'
+  const editableEndpoints = endpointEditingEnabled
+    && selected
+    && annotation.type === 'line'
+    && annotation.points.length >= 2
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const handleRadius = 5 / pageScale
+  const handleStrokeWidth = 1.5 / pageScale
   return (
     <g
       onPointerDown={event => onPointerDown?.(event, annotation)}
@@ -224,10 +243,27 @@ function AnnotationShape({ annotation, selected, anySelected, onPointerDown, onS
     >
       <polyline points={points} {...common} fill={closed ? common.fill : 'none'} />
       <polyline points={points} fill="none" stroke="transparent" strokeWidth={Math.max(12, annotation.thickness * 5)} />
-      {selected && annotation.points.map((p, index) => (
+      {selected && !editableEndpoints && annotation.points.map((p, index) => (
         <rect key={index} x={p.x - 3} y={p.y - 3} width={6} height={6}
           fill="#fff" stroke={annotation.color} strokeWidth="1" pointerEvents="none" />
       ))}
+      {editableEndpoints && [0, annotation.points.length - 1].map((pointIndex, handleIndex) => {
+        const p = annotation.points[pointIndex]
+        return (
+          <circle
+            key={`${pointIndex}-${handleIndex}`}
+            cx={p.x}
+            cy={p.y}
+            r={handleRadius}
+            fill="#fff"
+            stroke={annotation.color}
+            strokeWidth={handleStrokeWidth}
+            pointerEvents="all"
+            style={{ cursor: 'crosshair' }}
+            onPointerDown={event => onEndpointPointerDown?.(event, annotation, pointIndex)}
+          />
+        )
+      })}
       <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
         selected={selected} anySelected={anySelected} onSelect={onSelect} forceVisible={forceLabelVisible} />
     </g>
@@ -252,7 +288,6 @@ function PdfSvgOverlay({
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const draftStartRef = useRef(null)
-  const lineDragRef = useRef(null)
   const pasteInFlightRef = useRef(false)
   // A shape's pointerdown calls setPointerCapture on the SVG root (needed so
   // dragging keeps tracking even if the pointer leaves the shape). That has
@@ -442,6 +477,7 @@ function PdfSvgOverlay({
     if (!itemOffsets.length || pasteInFlightRef.current) return
     pasteInFlightRef.current = true
     try {
+      const historyGroupId = crypto.randomUUID()
       // Sequential, not Promise.all: DrawingsPage's handleMeasure re-reads
       // live takeoffItems to recompute a linked member's occurrence count
       // for each pasted item. Concurrent calls would all see the same
@@ -489,7 +525,7 @@ function PdfSvgOverlay({
           linearLineMode: item.linearLineMode,
           labelFontSize: item.labelFontSize,
           rawAnnotation,
-        }, { isPaste: true })
+        }, { isPaste: true, historyGroupId })
       }
     } finally {
       pasteInFlightRef.current = false
@@ -546,31 +582,59 @@ function PdfSvgOverlay({
     draftStartRef.current = point
     setDraftStart(point)
     setCursor(point)
-    // Support a single click-drag-release gesture in addition to click-click:
-    // if the user drags before releasing, finalize on release instead of
-    // requiring a second separate click. A plain click (no drag) falls
-    // through unchanged to the existing "second click finalizes" behavior
-    // below, since lineDragRef.moved stays false and endPointer skips it.
-    svgRef.current.setPointerCapture?.(event.pointerId)
-    lineDragRef.current = { pointerId: event.pointerId, moved: false, downX: event.clientX, downY: event.clientY }
+    // Bluebeam-style placement is deliberately click-click only. Do not
+    // capture the pointer or complete on pointerup: after this first click the
+    // draft remains active while the user pans (Space/ middle mouse), zooms,
+    // scrolls, or otherwise navigates. The next left click above is the only
+    // action that finalizes the line through the existing finalizeLine path.
   }, [activeTool, finalizeLine, pageSize, pasteClipboard, spaceHeld])
+
+  const publishGeometryChange = useCallback((drag, points) => {
+    if (!drag || !Array.isArray(points) || points.length < 2) return
+    const rawAnnotation = createRawLine({
+      id: drag.annotation.id,
+      pageNumber,
+      points,
+      sourceRaw: drag.annotation.raw,
+      style: { pageSize },
+    })
+    const start = points[0]
+    const end = points[points.length - 1]
+    const pixelLength = Math.hypot(end.x - start.x, end.y - start.y)
+    const length = computeRealLengthFromDrawing(pixelLength, selectedDrawing, activeUnit)
+    onGeometryChange?.({
+      annotationId: drag.annotation.id,
+      dbId: drag.annotation.dbId,
+      pageNumber,
+      rawAnnotation,
+      pixelLength,
+      length: Number.isFinite(length) && length >= 0 ? length : null,
+      unit: activeUnit,
+      interactionId: drag.interactionId,
+      editMode: drag.mode,
+    })
+  }, [activeUnit, onGeometryChange, pageNumber, pageSize, selectedDrawing])
 
   const handleMove = useCallback((event) => {
     if (!svgRef.current) return
     const point = toPdfPoint(event, svgRef.current, pageSize)
     setCursor(point)
-    const lineDrag = lineDragRef.current
-    if (lineDrag && lineDrag.pointerId === event.pointerId && !lineDrag.moved) {
-      const dx = event.clientX - lineDrag.downX
-      const dy = event.clientY - lineDrag.downY
-      if (Math.hypot(dx, dy) > 4) lineDrag.moved = true
-    }
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
-    const dx = point.x - drag.origin.x
-    const dy = point.y - drag.origin.y
-    setDragged({ id: drag.annotation.id, points: drag.annotation.points.map(p => ({ x: p.x + dx, y: p.y + dy })) })
-  }, [pageSize])
+    let points
+    if (drag.mode === 'endpoint') {
+      points = drag.annotation.points.map((p, index) => (
+        index === drag.endpointIndex ? { x: point.x, y: point.y } : { ...p }
+      ))
+    } else {
+      const dx = point.x - drag.origin.x
+      const dy = point.y - drag.origin.y
+      points = drag.annotation.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
+    }
+    drag.latestPoints = points
+    setDragged({ id: drag.annotation.id, points })
+    publishGeometryChange(drag, points)
+  }, [pageSize, publishGeometryChange])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (spaceHeld || event.button !== 0) return
@@ -619,8 +683,32 @@ function PdfSvgOverlay({
     onSelect?.(annotation.id, annotation, event)
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
-    dragRef.current = { pointerId: event.pointerId, origin, annotation }
+    dragRef.current = {
+      pointerId: event.pointerId,
+      origin,
+      annotation,
+      mode: 'move',
+      interactionId: crypto.randomUUID(),
+    }
   }, [activeTool, onSelect, onClearSelection, pageSize, spaceHeld])
+
+  const handleEndpointPointerDown = useCallback((event, annotation, endpointIndex) => {
+    if (spaceHeld || activeTool !== 'select' || event.button !== 0 || !svgRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    shapeInteractedRef.current = true
+    onSelect?.(annotation.id, annotation, event)
+    svgRef.current.setPointerCapture?.(event.pointerId)
+    if (event.ctrlKey || event.metaKey || event.shiftKey) return
+    dragRef.current = {
+      pointerId: event.pointerId,
+      origin: toPdfPoint(event, svgRef.current, pageSize),
+      annotation,
+      mode: 'endpoint',
+      endpointIndex,
+      interactionId: crypto.randomUUID(),
+    }
+  }, [activeTool, onSelect, pageSize, spaceHeld])
 
   const handleShapeContextMenu = useCallback((event, annotation) => {
     event.preventDefault()
@@ -632,48 +720,10 @@ function PdfSvgOverlay({
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     svgRef.current?.releasePointerCapture?.(event.pointerId)
-    if (dragged?.points) {
-      const rawAnnotation = createRawLine({
-        id: drag.annotation.id,
-        pageNumber,
-        points: dragged.points,
-        sourceRaw: drag.annotation.raw,
-        style: { pageSize },
-      })
-      onGeometryChange?.({
-        annotationId: drag.annotation.id,
-        dbId: drag.annotation.dbId,
-        pageNumber,
-        rawAnnotation,
-      })
-    }
+    if (drag.latestPoints) publishGeometryChange(drag, drag.latestPoints)
     dragRef.current = null
     setDragged(null)
-  }, [dragged, onGeometryChange, pageNumber, pageSize])
-
-  const endPointer = useCallback((event) => {
-    const lineDrag = lineDragRef.current
-    if (lineDrag && lineDrag.pointerId === event.pointerId) {
-      svgRef.current?.releasePointerCapture?.(event.pointerId)
-      lineDragRef.current = null
-      if (lineDrag.moved && draftStartRef.current && svgRef.current) {
-        const point = toPdfPoint(event, svgRef.current, pageSize)
-        finalizeLine(point, draftStartRef.current)
-      }
-      return
-    }
-    endDrag(event)
-  }, [endDrag, finalizeLine, pageSize])
-
-  const cancelPointer = useCallback((event) => {
-    const lineDrag = lineDragRef.current
-    if (lineDrag && lineDrag.pointerId === event.pointerId) {
-      svgRef.current?.releasePointerCapture?.(event.pointerId)
-      lineDragRef.current = null
-      return
-    }
-    endDrag(event)
-  }, [endDrag])
+  }, [publishGeometryChange])
 
   const interactive = pasteClipboard || ['select', 'line', 'calibrate'].includes(activeTool)
   return (
@@ -685,8 +735,8 @@ function PdfSvgOverlay({
       onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handleMove}
-      onPointerUp={endPointer}
-      onPointerCancel={cancelPointer}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       onPointerLeave={() => { if (!dragRef.current && !draftStartRef.current) setCursor(null) }}
     >
       <g pointerEvents={pasteClipboard ? 'none' : 'auto'}>
@@ -695,6 +745,7 @@ function PdfSvgOverlay({
             key={annotation.id}
             annotation={annotation}
             viewerScale={viewerScale}
+            endpointEditingEnabled={activeTool === 'select'}
             selected={
               (selectedAnnotationIds && [annotation.id, annotation.dbId].some(
                 id => id != null && selectedAnnotationIds.has(String(id))
@@ -705,6 +756,7 @@ function PdfSvgOverlay({
             }
             anySelected={(selectedAnnotationIds && selectedAnnotationIds.size > 0) || selectedAnnotationId != null}
             onPointerDown={handleShapePointerDown}
+            onEndpointPointerDown={handleEndpointPointerDown}
             onSelect={onSelect}
             onContextMenu={handleShapeContextMenu}
             onLabelSizeChange={onLabelSizeChange}

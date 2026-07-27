@@ -63,7 +63,16 @@ function fmtTime(iso) {
     ' ' + d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function MeasurementTable({ drawing, onAddClick, selectedId, selectedIds, onRowSelect, onDelete }) {
+export default function MeasurementTable({
+  drawing,
+  onAddClick,
+  selectedId,
+  selectedIds,
+  onRowSelect,
+  onDelete,
+  onBeforeUpdate,
+  onUpdateFailed,
+}) {
   const { takeoffItems, memberScheduleItems, selectedProject, updateTakeoffItem, removeTakeoffItem } = useAppStore()
   const [page,    setPage]    = useState(1)
   const [editId,  setEditId]  = useState(null)
@@ -91,13 +100,17 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, sele
   const cancelEdit = () => { setEditId(null); setEditBuf({}) }
 
   const saveEdit = async () => {
+    const historyToken = onBeforeUpdate?.()
     setSaving(true)
     try {
       const updated = await takeoffService.update(editBuf)
       updateTakeoffItem(updated)
       toast.success('Measurement updated')
       cancelEdit()
-    } catch { toast.error('Failed to update') } finally { setSaving(false) }
+    } catch {
+      onUpdateFailed?.(historyToken)
+      toast.error('Failed to update')
+    } finally { setSaving(false) }
   }
 
   const handleDelete = async (id) => {

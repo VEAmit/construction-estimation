@@ -46,6 +46,11 @@ export const takeoffService = {
     await api.post(`/takeoffitems/${id}/delete`)
   },
 
+  async restore(item) {
+    const res = await api.post(`/takeoffitems/${item.id}/restore`, item)
+    return unwrapApiPayload(res)
+  },
+
   async getSummary(drawingId) {
     const res = await api.get(`/takeoffitems/drawing/${drawingId}/summary`)
     return unwrapApiPayload(res)

@@ -83,6 +83,26 @@ public class TakeoffItemsController : ControllerBase
         if (item == null)
             return NotFound(ApiResponse<TakeoffItemResponse>.Fail("Item not found"));
 
+        ApplyUpdate(item, request);
+        await _repo.UpdateAsync(item);
+        return Ok(ApiResponse<TakeoffItemResponse>.Ok(MapToResponse(item), "Item updated"));
+    }
+
+    [HttpPost("{id}/restore")]
+    public async Task<ActionResult<ApiResponse<TakeoffItemResponse>>> Restore(
+        int id, [FromBody] UpdateTakeoffItemRequest request)
+    {
+        var item = await _repo.RestoreAsync(id);
+        if (item == null)
+            return NotFound(ApiResponse<TakeoffItemResponse>.Fail("Item not found"));
+
+        ApplyUpdate(item, request);
+        await _repo.UpdateAsync(item);
+        return Ok(ApiResponse<TakeoffItemResponse>.Ok(MapToResponse(item), "Item restored"));
+    }
+
+    private static void ApplyUpdate(TakeoffItem item, UpdateTakeoffItemRequest request)
+    {
         var unit = Enum.TryParse<MeasurementUnit>(request.Unit, true, out var parsedUnit)
             ? parsedUnit : MeasurementUnit.Mm;
 
@@ -110,9 +130,6 @@ public class TakeoffItemsController : ControllerBase
         {
             item.TotalWeight = null;
         }
-
-        await _repo.UpdateAsync(item);
-        return Ok(ApiResponse<TakeoffItemResponse>.Ok(MapToResponse(item), "Item updated"));
     }
 
     [HttpDelete("{id}")]
