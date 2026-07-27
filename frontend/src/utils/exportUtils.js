@@ -3,6 +3,14 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { fmt, getUnitLabel } from './calculations'
 
+/** Returns a measurement's assigned member's section size (e.g. "250UB25.7"), same lookup used by the Measurements grid. */
+function getSectionSizeForItem(item, memberScheduleItems) {
+  const memberMark = (item.material || item.mark || '').trim().toLowerCase()
+  if (!memberMark) return ''
+  const msi = (memberScheduleItems ?? []).find(m => (m.mark || '').trim().toLowerCase() === memberMark)
+  return msi?.memberSize ?? ''
+}
+
 export function exportToExcel(measurements, memberScheduleItems, drawing, project) {
   const wb = XLSX.utils.book_new()
   const unit = drawing?.calibrationUnit ?? 'Mm'
@@ -26,19 +34,20 @@ export function exportToExcel(measurements, memberScheduleItems, drawing, projec
 
   // ── Sheet 1: Measurements ─────────────────────────────────────────────
   const measRows = (measurements ?? []).map((item, i) => ({
-    'No':          i + 1,
-    'Mark':        item.mark ?? '',
-    'Description': item.description ?? '',
+    'No':           i + 1,
+    'Mark':         item.mark ?? '',
+    'Section Size': getSectionSizeForItem(item, memberScheduleItems) || '',
+    'Description':  item.description ?? '',
     [`Length (${unitLabel})`]: item.length != null ? +item.length.toFixed(4) : '',
-    'Member Type': item.material ?? '',
-    'Qty':         item.quantity ?? 1,
-    'Unit':        getUnitLabel(item.unit ?? unit),
-    'Notes':       item.notes ?? '',
+    'Member Type':  item.material ?? '',
+    'Qty':          item.quantity ?? 1,
+    'Unit':         getUnitLabel(item.unit ?? unit),
+    'Notes':        item.notes ?? '',
   }))
 
   const ws1 = XLSX.utils.json_to_sheet(measRows)
   ws1['!cols'] = [
-    { wch: 5 }, { wch: 10 }, { wch: 36 }, { wch: 16 },
+    { wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 36 }, { wch: 16 },
     { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 24 },
   ]
   XLSX.utils.book_append_sheet(wb, ws1, 'Measurements')
@@ -104,6 +113,7 @@ export function exportToPdf(measurements, memberScheduleItems, drawing, project)
   const measBody = (measurements ?? []).map((item, i) => [
     i + 1,
     item.mark ?? '—',
+    getSectionSizeForItem(item, memberScheduleItems) || '—',
     item.description ?? '—',
     item.length != null ? fmt(item.length) : '—',
     item.material ?? '—',
@@ -114,15 +124,15 @@ export function exportToPdf(measurements, memberScheduleItems, drawing, project)
 
   autoTable(doc, {
     startY: 58,
-    head: [['No', 'Mark', 'Description', `Length (${unitLabel})`, 'Member Type', 'Qty', 'Unit', 'Notes']],
-    body: measBody.length ? measBody : [['—', '', 'No measurements recorded', '', '', '', '', '']],
+    head: [['No', 'Mark', 'Section Size', 'Description', `Length (${unitLabel})`, 'Member Type', 'Qty', 'Unit', 'Notes']],
+    body: measBody.length ? measBody : [['—', '', '', 'No measurements recorded', '', '', '', '', '']],
     styles: { fontSize: 8, cellPadding: 2 },
     headStyles: { fillColor: [29, 111, 219], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 246, 255] },
     columnStyles: {
       0: { cellWidth: 10 },
-      2: { cellWidth: 60 },
-      7: { cellWidth: 40 },
+      3: { cellWidth: 55 },
+      8: { cellWidth: 35 },
     },
   })
 

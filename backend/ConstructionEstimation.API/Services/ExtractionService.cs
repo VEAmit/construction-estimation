@@ -38,11 +38,8 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
-    // First two dimensions allow an optional decimal/1-digit form too — covers CHS callouts
-    // given as "diameter.d x thickness.d" (e.g. "273.1x6.4 CHS") and thin equal angles like
-    // "100x8 EA"/"75x6 EA", neither of which the plain 2-3-digit-integer form below matched.
     private static readonly Regex HollowSectionPattern = new(
-        @"\b(\d{2,3}(?:\.\d+)?)\s*[xX×]\s*(\d{1,3}(?:\.\d+)?)(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
+        @"\b(\d{2,3})\s*[xX×]\s*(\d{2,3})(?:\s*[xX×]\s*(\d{1,2}(?:\.\d+)?))?\s*(RHS|SHS|CHS|EA|UA)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -69,19 +66,6 @@ public class ExtractionService
     // Rod bracing — "16# ROD", "12mm ROD WITH TURNBUCKLE"
     private static readonly Regex RodBracingPattern = new(
         @"\b\d{1,3}\s*(?:#|mm)\s*ROD\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled
-    );
-
-    // Full set of known structural mark prefixes used on schedule tables — kept in sync with
-    // IsLikelyScheduleMark's alternation (which only knows about isolated, already-tokenized
-    // marks). Used by ScoreScheduleOcrLines to recognize genuinely good OCR'd schedule content
-    // (e.g. "RB1", "WS1", "ST1" — roof-beam/wall-stiffener/stub-column marks) as a positive
-    // signal when picking the best of several candidate crop regions; without the full prefix
-    // list, schedules using less-common prefixes (anything beyond C/HB/WB/DF/PF/SF/RW) always
-    // scored nowhere near real rows in other candidates, so a garbled crop of unrelated legend
-    // text could out-score the crop that actually contains the real table.
-    private static readonly Regex ScheduleMarkPrefixPattern = new(
-        @"\b(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FAB|FB|RBR|RB|RA|WS|PB|ST|R|P|S|C|B|W)\d{1,3}[A-Z]?\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
@@ -143,9 +127,9 @@ public class ExtractionService
     };
 
     private static readonly string[] ScheduleHeaders = {
-        "member schedule", "steel schedule", "steelwork schedule", "section schedule",
+        "member schedule", "steel schedule", "section schedule",
         "beam schedule", "column schedule", "purlin schedule",
-        "member mark", "section size", "unit weight", "mark size",
+        "member mark", "section size", "unit weight",
         "item member section", "member section type", "section type description",
     };
 
@@ -174,6 +158,8 @@ public class ExtractionService
         try
         {
             var allLines = new List<string>();
+            var variantScheduleMembers = new List<ExtractedMemberDto>();
+            var columnScheduleMembers = new List<ExtractedMemberDto>();
             int pageCount;
             string extractionMethod;
 
@@ -191,6 +177,13 @@ public class ExtractionService
                     // This gives clean schedule rows even when the full-page extraction mixes
                     // schedule text with drawing plan text on the same Y-band.
                     allLines.AddRange(ExtractScheduleRegionLines(words));
+                    // Some steel-member reference schedules use one base mark per row and
+                    // lettered variant columns (MARK, a, b, c...). Preserve every populated
+                    // table cell as its full mark (for example B015A, B015B, B015C).
+                    variantScheduleMembers.AddRange(ExtractVariantScheduleCells(words));
+                    // Conventional MARK/SIZE and ITEM/MEMBER schedule columns can also be
+                    // resolved by coordinates without mixing them with plan annotations.
+                    columnScheduleMembers.AddRange(ExtractColumnScheduleRows(words));
                 }
             }
 
@@ -231,7 +224,8 @@ public class ExtractionService
             }
 
             var fullText = string.Join(" ", allLines);
-            var members = ParseMembers(allLines, fullText);
+            var members = ParseMembers(
+                allLines, fullText, variantScheduleMembers, columnScheduleMembers);
 
             if (ShouldRunScheduleOcr(allLines, members))
             {
@@ -246,7 +240,8 @@ public class ExtractionService
                     pageCount = Math.Max(pageCount, ocrPages);
                     extractionMethod = extractionMethod == "Text" ? "Text+ScheduleOCR" : $"{extractionMethod}+ScheduleOCR";
                     fullText = string.Join(" ", allLines);
-                    members = ParseMembers(allLines, fullText);
+                    members = ParseMembers(
+                        allLines, fullText, variantScheduleMembers, columnScheduleMembers);
                 }
             }
 
@@ -418,34 +413,620 @@ public class ExtractionService
         {
             pageCount++;
             CacheRenderedPageBitmap(pdfPath, pageCount - 1, MarkDetectionDpi, bitmap);
-            var bestLines = new List<string>();
-            var bestScore = 0;
 
-            foreach (var crop in BuildScheduleCropCandidates(bitmap.Width, bitmap.Height))
-            {
-                var cropLines = OcrBitmapRegion(engine, bitmap, crop, upscale: 2);
-                var score = ScoreScheduleOcrLines(cropLines);
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestLines = cropLines;
-                }
-            }
-
-            if (bestScore > 0 && bestLines.Count > 0)
+            var detectedTableRows = ExtractDynamicScheduleTableLines(engine, bitmap);
+            if (detectedTableRows.Count >= 3)
             {
                 _logger.LogInformation(
-                    "Schedule OCR page {Page}: selected candidate score={Score}, lines={Lines}",
-                    pageCount, bestScore, bestLines.Count);
+                    "Schedule OCR page {Page}: dynamically detected {Rows} schedule line(s): {Sample}",
+                    pageCount, detectedTableRows.Count,
+                    string.Join(" | ", detectedTableRows.Take(40)));
+                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+                lines.AddRange(detectedTableRows);
+                bitmap.Dispose();
+                continue;
+            }
+
+            var gridRows = ExtractGridScheduleRows(engine, bitmap);
+            if (ScoreScheduleOcrLines(gridRows) >= 5)
+            {
+                _logger.LogInformation(
+                    "Schedule OCR page {Page}: row-level grid OCR returned {Rows} line(s)",
+                    pageCount, gridRows.Count);
+                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+                lines.AddRange(gridRows);
+                bitmap.Dispose();
+                continue;
+            }
+
+            var scoredCandidates = new List<(int Score, List<string> Lines)>();
+
+            foreach (var crop in BuildTargetedScheduleCrops(bitmap.Width, bitmap.Height))
+            {
+                var cropLines = OcrScheduleTableRegion(engine, bitmap, crop);
+                var score = ScoreScheduleOcrLines(cropLines);
+                if (score > 0 && cropLines.Count > 0)
+                    scoredCandidates.Add((score, cropLines));
+            }
+
+            if (scoredCandidates.Count > 0)
+            {
+                var selected = scoredCandidates
+                    .OrderByDescending(c => c.Score)
+                    .Take(3)
+                    .ToList();
+
+                _logger.LogInformation(
+                    "Schedule OCR page {Page}: selected {Candidates} candidate(s), best score={Score}",
+                    pageCount, selected.Count, selected[0].Score);
 
                 lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
-                lines.AddRange(bestLines);
+                lines.AddRange(selected
+                    .SelectMany(c => c.Lines)
+                    .Distinct(StringComparer.OrdinalIgnoreCase));
             }
 
             bitmap.Dispose();
         }
 
         return lines;
+    }
+
+    private sealed record OcrPositionedWord(
+        string Text, int Left, int Top, int Right, int Bottom)
+    {
+        public int CenterX => (Left + Right) / 2;
+        public int CenterY => (Top + Bottom) / 2;
+        public int Height => Math.Max(1, Bottom - Top);
+    }
+
+    private List<string> ExtractDynamicScheduleTableLines(
+        TesseractEngine engine,
+        SKBitmap source)
+    {
+        const int locatorWidth = 4600;
+        var scale = Math.Min(1.0, locatorWidth / (double)source.Width);
+        var locatorHeight = Math.Max(1, (int)Math.Round(source.Height * scale));
+        using var locator = new SKBitmap(
+            Math.Max(1, (int)Math.Round(source.Width * scale)), locatorHeight);
+        using (var canvas = new SKCanvas(locator))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, new SKRect(0, 0, locator.Width, locator.Height));
+        }
+
+        var locatorWords = OcrPositionedWords(engine, locator, PageSegMode.SparseText);
+        var headers = FindMemberScheduleHeaders(locatorWords);
+        _logger.LogInformation(
+            "Dynamic schedule locator: {Words} word(s), {Headers} header(s), signals={Signals}",
+            locatorWords.Count,
+            headers.Count,
+            string.Join(" | ", locatorWords
+                .Where(w => w.Text.Contains("MEM", StringComparison.OrdinalIgnoreCase)
+                    || w.Text.Contains("SCH", StringComparison.OrdinalIgnoreCase))
+                .Take(20)
+                .Select(w => w.Text)));
+        if (headers.Count == 0) return [];
+
+        var result = new List<string>();
+        foreach (var header in headers)
+        {
+            var (left, right) = FindScheduleHorizontalBounds(locator, header);
+            if (right - left < header.Right - header.Left) continue;
+
+            var bottom = FindScheduleBottom(locator, left, right, header.Bottom);
+            if (bottom <= header.Bottom + (header.Height * 3))
+                bottom = Math.Min(locator.Height, header.Bottom + (int)(locator.Height * 0.48));
+
+            var inverseScale = 1.0 / scale;
+            var crop = new SKRectI(
+                Math.Clamp((int)Math.Floor(left * inverseScale), 0, source.Width - 1),
+                Math.Clamp((int)Math.Floor(Math.Max(0, header.Top - header.Height) * inverseScale), 0, source.Height - 1),
+                Math.Clamp((int)Math.Ceiling(right * inverseScale), 1, source.Width),
+                Math.Clamp((int)Math.Ceiling(bottom * inverseScale), 1, source.Height));
+            if (crop.Width < 80 || crop.Height < 80) continue;
+
+            using var table = new SKBitmap(crop.Width, crop.Height);
+            using (var canvas = new SKCanvas(table))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.DrawBitmap(source, crop, new SKRect(0, 0, table.Width, table.Height));
+            }
+
+            var columnRows = ExtractScheduleColumnRows(engine, table);
+            if (ScoreScheduleOcrLines(columnRows) >= 5)
+            {
+                result.AddRange(columnRows);
+                continue;
+            }
+
+            var tableWords = OcrPositionedWords(engine, table, PageSegMode.SparseText);
+            result.AddRange(ReconstructOcrScheduleRows(tableWords, table.Height));
+        }
+
+        return NormalizeDynamicScheduleRows(result)
+            .Select(l => NormalizeScheduleOcrLine(Regex.Replace(l.Trim(), @"\s+", " ")))
+            .Where(l => l.Length > 1 && !IsMetadataLine(l))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<string> NormalizeDynamicScheduleRows(List<string> rows)
+    {
+        var normalized = RecoverSequentialScheduleRows(rows)
+            .Select(row => Regex.Replace(row, @"^\$(?=\d+\s)", "S"))
+            .Select(row => Regex.Replace(row, @"^\(?1(?=\s+\d)", "C1", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(row, @"^C[Ii][Xx](?=\s)", "C1X", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(
+                row,
+                @"^S\(?1(?=\s)",
+                row.Contains("STUB COLUMN", StringComparison.OrdinalIgnoreCase) ? "SC1" : "S1",
+                RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(row, @"^([A-Z]{1,3})[Ii](?=\s+\d)", "${1}1", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(row, @"^(CB)S(?=\s+\d)", "${1}5", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(row, @"^(B)T(?=\s+\d)", "${1}7", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(row, @"^3(?=\s+89\s+SHS)", "C3", RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(
+                row,
+                @"^([A-Z]{1,4}\d{1,3}[A-Z]?)[&|]\s+",
+                "$1 - ",
+                RegexOptions.IgnoreCase))
+            .Select(row => Regex.Replace(
+                row,
+                @"^([A-Z]{2,})(?:\s*[-–—]\s*|\s+)([A-Z]\d+)\s+(.+)$",
+                "$2 - $1 $3",
+                RegexOptions.IgnoreCase))
+            .ToList();
+
+        // A top cell border can be read as a trailing "4" on the first numbered mark
+        // (R1 -> R14, P1 -> P14). Correct it only when the same detected table contains
+        // the corresponding prefix-2 row and does not contain an explicit prefix-1 row.
+        for (var i = 0; i < normalized.Count; i++)
+        {
+            var match = Regex.Match(normalized[i], @"^([A-Z]{1,4})14(\s+.+)$",
+                RegexOptions.IgnoreCase);
+            if (!match.Success) continue;
+            var prefix = match.Groups[1].Value;
+            var hasSecond = normalized.Any(row =>
+                Regex.IsMatch(row, $"^{Regex.Escape(prefix)}2\\s",
+                    RegexOptions.IgnoreCase));
+            var hasFirst = normalized.Any(row =>
+                Regex.IsMatch(row, $"^{Regex.Escape(prefix)}1\\s",
+                    RegexOptions.IgnoreCase));
+            if (hasSecond && !hasFirst)
+                normalized[i] = $"{prefix}1{match.Groups[2].Value}";
+        }
+
+        return normalized.Select(row =>
+        {
+            var match = Regex.Match(row,
+                @"^([A-Z]{1,4}\d{0,3}[A-Z]?)\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (!match.Success) return row;
+            var remainder = match.Groups[2].Value;
+            var hasMemberSignal = SteelSectionPattern.IsMatch(remainder)
+                || HollowSectionPattern.IsMatch(remainder)
+                || PurlinSectionPattern.IsMatch(remainder)
+                || RodBracingPattern.IsMatch(remainder)
+                || Regex.IsMatch(remainder,
+                    @"^(?:\d+\s*/\s*)?\d|EXISTING|FASCIA|REFER",
+                    RegexOptions.IgnoreCase);
+            return hasMemberSignal
+                ? $"{match.Groups[1].Value} - {remainder}"
+                : row;
+        }).ToList();
+    }
+
+    private static List<string> RecoverSequentialScheduleRows(List<string> rows)
+    {
+        var repaired = rows.ToList();
+        for (var i = 0; i + 3 < repaired.Count; i++)
+        {
+            var baseDescription = repaired[i].Trim();
+            var noisyStandaloneMark = repaired[i + 1].Trim();
+            var firstDescription = repaired[i + 2].Trim();
+            var secondMark = Regex.Match(repaired[i + 3],
+                @"^([A-Z]{1,4})2(?:\s|[-:])",
+                RegexOptions.IgnoreCase);
+
+            var standalone = Regex.IsMatch(noisyStandaloneMark, @"^[A-Z0-9()$]{1,5}$",
+                RegexOptions.IgnoreCase);
+            var firstHasSection = SteelSectionPattern.IsMatch(firstDescription)
+                || HollowSectionPattern.IsMatch(firstDescription)
+                || PurlinSectionPattern.IsMatch(firstDescription)
+                || RodBracingPattern.IsMatch(firstDescription);
+            var baseHasNoMark = !Regex.IsMatch(baseDescription,
+                @"^[A-Z]{1,4}\d{0,3}[A-Z]?\s*[-:]",
+                RegexOptions.IgnoreCase);
+
+            if (!standalone || !firstHasSection || !baseHasNoMark || !secondMark.Success)
+                continue;
+
+            var prefix = secondMark.Groups[1].Value.ToUpperInvariant();
+            repaired[i] = $"{prefix} {baseDescription}";
+            repaired[i + 1] = $"{prefix}1 {firstDescription}";
+            repaired.RemoveAt(i + 2);
+        }
+        return repaired;
+    }
+
+    private static int CountLikelyPairedScheduleRows(List<string> rows)
+        => rows.Count(row =>
+        {
+            var match = Regex.Match(row,
+                @"^[A-Z]{1,4}\d{1,3}[A-Z]?\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (!match.Success) return false;
+            var member = match.Groups[1].Value;
+            return SteelSectionPattern.IsMatch(member)
+                || HollowSectionPattern.IsMatch(member)
+                || PurlinSectionPattern.IsMatch(member)
+                || RodBracingPattern.IsMatch(member);
+        });
+
+    private static List<OcrPositionedWord> OcrPositionedWords(
+        TesseractEngine engine,
+        SKBitmap bitmap,
+        PageSegMode mode)
+    {
+        using var pngData = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        using var pix = Pix.LoadFromMemory(pngData.ToArray());
+        using var page = engine.Process(pix, mode);
+        using var iterator = page.GetIterator();
+
+        var words = new List<OcrPositionedWord>();
+        iterator.Begin();
+        do
+        {
+            var text = iterator.GetText(PageIteratorLevel.Word)?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            if (!iterator.TryGetBoundingBox(PageIteratorLevel.Word, out var box)) continue;
+            words.Add(new OcrPositionedWord(
+                text, box.X1, box.Y1, box.X2, box.Y2));
+        }
+        while (iterator.Next(PageIteratorLevel.Word));
+
+        return words;
+    }
+
+    private static List<string> ExtractScheduleColumnRows(
+        TesseractEngine engine,
+        SKBitmap table)
+    {
+        var verticals = DetectVerticalRuleCenters(table);
+        if (verticals.Count < 3) return [];
+
+        // The first two schedule columns are consistently MARK/ITEM and SIZE/MEMBER.
+        // Additional comments columns are deliberately left out of member identification.
+        var markRect = new SKRectI(
+            verticals[0] + 12, 0, verticals[1] - 12, table.Height);
+        var sizeRect = new SKRectI(
+            verticals[1] + 12, 0, verticals[2] - 12, table.Height);
+        if (markRect.Width < 25 || sizeRect.Width < 40) return [];
+
+        using var markColumn = CopyBitmapRegion(table, markRect);
+        using var sizeColumn = CopyBitmapRegion(table, sizeRect);
+        RemoveLongLineRuns(markColumn);
+        RemoveLongLineRuns(sizeColumn);
+
+        var marks = GroupOcrWordsByLine(
+            OcrPositionedWords(engine, markColumn, PageSegMode.SparseText));
+        var sizes = GroupOcrWordsByLine(
+            OcrPositionedWords(engine, sizeColumn, PageSegMode.SparseText));
+        if (marks.Count == 0 || sizes.Count == 0) return [];
+
+        var tolerance = Math.Max(18, table.Height / 180);
+        var rows = new List<string>();
+        foreach (var mark in marks)
+        {
+            var size = sizes
+                .Where(s => Math.Abs(s.CenterY - mark.CenterY) <= tolerance)
+                .OrderBy(s => Math.Abs(s.CenterY - mark.CenterY))
+                .FirstOrDefault();
+            if (size == null) continue;
+            rows.Add($"{mark.Text} {size.Text}");
+        }
+        return rows;
+    }
+
+    private sealed record OcrLine(int CenterY, string Text);
+
+    private static List<OcrLine> GroupOcrWordsByLine(List<OcrPositionedWord> words)
+    {
+        if (words.Count == 0) return [];
+        var medianHeight = words.Select(w => w.Height).OrderBy(h => h)
+            .ElementAt(words.Count / 2);
+        var tolerance = Math.Max(5, (int)Math.Round(medianHeight * 0.75));
+        var groups = new List<List<OcrPositionedWord>>();
+
+        foreach (var word in words.OrderBy(w => w.CenterY).ThenBy(w => w.Left))
+        {
+            var group = groups.LastOrDefault(g =>
+                Math.Abs(g.Average(x => x.CenterY) - word.CenterY) <= tolerance);
+            if (group == null)
+            {
+                group = [];
+                groups.Add(group);
+            }
+            group.Add(word);
+        }
+
+        return groups.Select(g => new OcrLine(
+                (int)Math.Round(g.Average(w => w.CenterY)),
+                string.Join(" ", g.OrderBy(w => w.Left).Select(w => w.Text))))
+            .ToList();
+    }
+
+    private static List<int> DetectVerticalRuleCenters(SKBitmap bitmap)
+    {
+        var hits = new List<int>();
+        var threshold = Math.Max(80, (int)(bitmap.Height * 0.30));
+        for (var x = 0; x < bitmap.Width; x++)
+        {
+            var dark = 0;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                if (((c.Red * 299) + (c.Green * 587) + (c.Blue * 114)) < 120000)
+                    dark++;
+            }
+            if (dark >= threshold) hits.Add(x);
+        }
+        if (hits.Count == 0) return [];
+
+        var centers = new List<int>();
+        var start = hits[0];
+        var end = hits[0];
+        foreach (var x in hits.Skip(1))
+        {
+            if (x <= end + 2)
+            {
+                end = x;
+                continue;
+            }
+            centers.Add((start + end) / 2);
+            start = end = x;
+        }
+        centers.Add((start + end) / 2);
+        return centers;
+    }
+
+    private static SKBitmap CopyBitmapRegion(SKBitmap source, SKRectI crop)
+    {
+        var copy = new SKBitmap(crop.Width, crop.Height);
+        using var canvas = new SKCanvas(copy);
+        canvas.Clear(SKColors.White);
+        canvas.DrawBitmap(source, crop, new SKRect(0, 0, copy.Width, copy.Height));
+        return copy;
+    }
+
+    private static List<OcrPositionedWord> FindMemberScheduleHeaders(
+        List<OcrPositionedWord> words)
+    {
+        var headers = new List<OcrPositionedWord>();
+        foreach (var member in words.Where(w =>
+                     Regex.IsMatch(w.Text, @"^MEMB(?:ER|FR)$", RegexOptions.IgnoreCase)))
+        {
+            var schedule = words
+                .Where(w => Regex.IsMatch(w.Text, @"^SCHED(?:ULE|UIE)$", RegexOptions.IgnoreCase))
+                .Where(w => Math.Abs(w.CenterY - member.CenterY)
+                    <= Math.Max(member.Height, w.Height) * 2)
+                .Where(w => w.Left >= member.Left
+                    && w.Left - member.Right < member.Height * 15)
+                .OrderBy(w => w.Left)
+                .FirstOrDefault();
+            if (schedule == null) continue;
+
+            var combined = new OcrPositionedWord(
+                "MEMBER SCHEDULE",
+                Math.Min(member.Left, schedule.Left),
+                Math.Min(member.Top, schedule.Top),
+                Math.Max(member.Right, schedule.Right),
+                Math.Max(member.Bottom, schedule.Bottom));
+            if (!headers.Any(h => Math.Abs(h.CenterX - combined.CenterX) < combined.Height * 4))
+                headers.Add(combined);
+        }
+        return headers;
+    }
+
+    private static (int Left, int Right) FindScheduleVerticalBounds(
+        SKBitmap bitmap,
+        OcrPositionedWord header,
+        int searchLeft,
+        int searchRight)
+    {
+        searchLeft = Math.Clamp(searchLeft, 0, bitmap.Width - 1);
+        searchRight = Math.Clamp(searchRight, searchLeft + 1, bitmap.Width);
+        var fromY = Math.Max(0, header.Top - header.Height * 2);
+        var toY = Math.Min(bitmap.Height, header.Bottom + (int)(bitmap.Height * 0.58));
+        var counts = new int[searchRight - searchLeft];
+
+        for (var x = searchLeft; x < searchRight; x++)
+        {
+            var dark = 0;
+            for (var y = fromY; y < toY; y++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                if (((c.Red * 299) + (c.Green * 587) + (c.Blue * 114)) < 120000)
+                    dark++;
+            }
+            counts[x - searchLeft] = dark;
+        }
+
+        var maximum = counts.Length == 0 ? 0 : counts.Max();
+        if (maximum < 20) return (0, 0);
+        var threshold = Math.Max(15, (int)Math.Round(maximum * 0.55));
+        var hits = Enumerable.Range(0, counts.Length)
+            .Where(i => counts[i] >= threshold)
+            .Select(i => i + searchLeft)
+            .ToList();
+        if (hits.Count < 2) return (0, 0);
+
+        return (hits.First(), hits.Last() + 1);
+    }
+
+    private static (int Left, int Right) FindScheduleHorizontalBounds(
+        SKBitmap bitmap,
+        OcrPositionedWord header)
+    {
+        var fallbackLeft = Math.Max(0, header.Left - header.Height * 4);
+        var fallbackRight = Math.Min(bitmap.Width, header.Right + header.Height * 4);
+        var bestLeft = fallbackLeft;
+        var bestRight = fallbackRight;
+        var bestLength = bestRight - bestLeft;
+        var fromY = Math.Max(0, header.Top - header.Height * 3);
+        var toY = Math.Min(bitmap.Height - 1, header.Bottom + header.Height * 4);
+
+        for (var y = fromY; y <= toY; y++)
+        {
+            var runStart = -1;
+            var lastDark = -1;
+            var gap = 0;
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                var dark = ((c.Red * 299) + (c.Green * 587) + (c.Blue * 114)) < 150000;
+                if (dark)
+                {
+                    if (runStart < 0) runStart = x;
+                    lastDark = x;
+                    gap = 0;
+                }
+                else if (runStart >= 0 && ++gap > 2)
+                {
+                    var length = lastDark - runStart + 1;
+                    if (runStart <= header.CenterX && lastDark >= header.CenterX
+                        && length > bestLength)
+                    {
+                        bestLeft = runStart;
+                        bestRight = lastDark + 1;
+                        bestLength = length;
+                    }
+                    runStart = -1;
+                    lastDark = -1;
+                    gap = 0;
+                }
+            }
+        }
+        return (bestLeft, bestRight);
+    }
+
+    private static int FindScheduleBottom(
+        SKBitmap bitmap,
+        int left,
+        int right,
+        int startY)
+    {
+        var horizontalRules = new List<int>();
+        var ruleThreshold = Math.Max(80, (int)((right - left) * 0.55));
+        var scanLimit = Math.Min(bitmap.Height - 1,
+            startY + (int)(bitmap.Height * 0.70));
+        for (var y = startY; y <= scanLimit; y++)
+        {
+            var dark = 0;
+            for (var x = left; x < right; x++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                if (((c.Red * 299) + (c.Green * 587) + (c.Blue * 114)) < 150000)
+                    dark++;
+            }
+            if (dark >= ruleThreshold) horizontalRules.Add(y);
+        }
+        if (horizontalRules.Count > 0)
+            return horizontalRules.Last();
+
+        var lastBothEdges = startY;
+        for (var y = startY; y <= scanLimit; y++)
+        {
+            static bool HasDarkNear(SKBitmap image, int x, int y)
+            {
+                for (var xx = Math.Max(0, x - 3); xx <= Math.Min(image.Width - 1, x + 3); xx++)
+                {
+                    var c = image.GetPixel(xx, y);
+                    if (((c.Red * 299) + (c.Green * 587) + (c.Blue * 114)) < 150000)
+                        return true;
+                }
+                return false;
+            }
+
+            if (HasDarkNear(bitmap, left, y) && HasDarkNear(bitmap, right - 1, y))
+                lastBothEdges = y;
+        }
+        return lastBothEdges;
+    }
+
+    private static List<string> ReconstructOcrScheduleRows(
+        List<OcrPositionedWord> words,
+        int tableHeight)
+    {
+        if (words.Count == 0) return [];
+        var medianHeight = words.Select(w => w.Height).OrderBy(h => h)
+            .ElementAt(words.Count / 2);
+        var tolerance = Math.Max(5, (int)Math.Round(medianHeight * 0.70));
+        var ordered = words.OrderBy(w => w.CenterY).ThenBy(w => w.Left).ToList();
+        var groups = new List<List<OcrPositionedWord>>();
+
+        foreach (var word in ordered)
+        {
+            var group = groups.LastOrDefault(g =>
+                Math.Abs(g.Average(x => x.CenterY) - word.CenterY) <= tolerance);
+            if (group == null)
+            {
+                group = [];
+                groups.Add(group);
+            }
+            group.Add(word);
+        }
+
+        return groups
+            .Where(g => g.Average(w => w.CenterY) < tableHeight * 0.98)
+            .Select(g => string.Join(" ", g.OrderBy(w => w.Left).Select(w => w.Text)))
+            .Where(l => l.Length > 1)
+            .ToList();
+    }
+
+    private static List<SKRectI> BuildTargetedScheduleCrops(int width, int height)
+    {
+        static SKRectI Rect(double left, double top, double right, double bottom, int w, int h)
+        {
+            var l = Math.Clamp((int)Math.Round(w * left), 0, w - 1);
+            var t = Math.Clamp((int)Math.Round(h * top), 0, h - 1);
+            var r = Math.Clamp((int)Math.Round(w * right), l + 1, w);
+            var b = Math.Clamp((int)Math.Round(h * bottom), t + 1, h);
+            return new SKRectI(l, t, r, b);
+        }
+
+        return
+        [
+            Rect(0.720, 0.035, 0.850, 0.565, width, height),
+            Rect(0.845, 0.035, 0.978, 0.575, width, height),
+            Rect(0.760, 0.145, 0.985, 0.575, width, height),
+        ];
+    }
+
+    private static List<string> OcrScheduleTableRegion(
+        TesseractEngine engine,
+        SKBitmap source,
+        SKRectI crop)
+    {
+        using var cropped = new SKBitmap(crop.Width, crop.Height);
+        using (var canvas = new SKCanvas(cropped))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, crop, new SKRect(0, 0, crop.Width, crop.Height));
+        }
+
+        // Pages are rendered at 320 DPI, so the table text is already comfortably above
+        // Tesseract's preferred input size. OCR the native crop to keep this bounded.
+        using var pngData = cropped.Encode(SKEncodedImageFormat.Png, 100);
+        using var pix = Pix.LoadFromMemory(pngData.ToArray());
+        using var tessPage = engine.Process(pix, PageSegMode.SingleBlock);
+
+        return (tessPage.GetText() ?? string.Empty)
+            .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => NormalizeScheduleOcrLine(Regex.Replace(l.Trim(), @"\s+", " ")))
+            .Where(l => l.Length > 1 && !IsMetadataLine(l))
+            .ToList();
     }
 
     private static SKBitmap? GetRenderedPageBitmap(string pdfPath, int pageIndex, int dpi)
@@ -498,9 +1079,157 @@ public class ExtractionService
             Rect(0.735, 0.025, 0.995, 0.350, width, height),
             Rect(0.770, 0.035, 0.995, 0.425, width, height),
             Rect(0.700, 0.020, 0.995, 0.380, width, height),
-            Rect(0.550, 0.020, 0.995, 0.400, width, height),
-            Rect(0.480, 0.015, 0.995, 0.450, width, height),
+            // Deep right-side schedules on A1/A0 roof plans.
+            Rect(0.745, 0.100, 0.995, 0.600, width, height),
+            Rect(0.700, 0.050, 0.995, 0.650, width, height),
+            // Two adjacent MEMBER SCHEDULE blocks: OCR each column independently so
+            // rows at the same height are not interleaved.
+            Rect(0.700, 0.025, 0.855, 0.620, width, height),
+            Rect(0.835, 0.025, 0.985, 0.650, width, height),
         ];
+    }
+
+    private static List<string> ExtractGridScheduleRows(TesseractEngine engine, SKBitmap bitmap)
+    {
+        static SKRectI Rect(double left, double top, double right, double bottom, int w, int h)
+        {
+            var l = Math.Clamp((int)Math.Round(w * left), 0, w - 1);
+            var t = Math.Clamp((int)Math.Round(h * top), 0, h - 1);
+            var r = Math.Clamp((int)Math.Round(w * right), l + 1, w);
+            var b = Math.Clamp((int)Math.Round(h * bottom), t + 1, h);
+            return new SKRectI(l, t, r, b);
+        }
+
+        var regions = new[]
+        {
+            // The supported drawings place schedule grids in one of these narrow right-side
+            // bands. Keeping the bands tight avoids treating plan/detail lines as table rows.
+            Rect(0.720, 0.035, 0.850, 0.555, bitmap.Width, bitmap.Height),
+            Rect(0.850, 0.035, 0.975, 0.565, bitmap.Width, bitmap.Height),
+            Rect(0.760, 0.145, 0.985, 0.575, bitmap.Width, bitmap.Height),
+        };
+
+        var allLines = new List<string>();
+        foreach (var region in regions)
+        {
+            var lineCenters = DetectHorizontalRuleCenters(bitmap, region);
+            if (lineCenters.Count < 5) continue;
+
+            for (var i = 0; i < lineCenters.Count - 1; i++)
+            {
+                var top = lineCenters[i] + 3;
+                var bottom = lineCenters[i + 1] - 3;
+                var height = bottom - top;
+                if (height < 12 || height > 220) continue;
+
+                var rowCrop = new SKRectI(
+                    region.Left + 3,
+                    Math.Clamp(top, region.Top, region.Bottom - 1),
+                    region.Right - 3,
+                    Math.Clamp(bottom, region.Top + 1, region.Bottom));
+                if (rowCrop.Width < 40 || rowCrop.Height < 8) continue;
+
+                var best = OcrScheduleGridRow(engine, bitmap, rowCrop)
+                    .Select(l => NormalizeScheduleOcrLine(Regex.Replace(l.Trim(), @"\s+", " ")))
+                    .Where(l => l.Length > 1 && !IsMetadataLine(l))
+                    .OrderByDescending(ScoreScheduleRowCandidate)
+                    .ThenByDescending(l => l.Length)
+                    .FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(best))
+                    allLines.Add(best);
+            }
+        }
+
+        return allLines
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<int> DetectHorizontalRuleCenters(SKBitmap bitmap, SKRectI region)
+    {
+        var hits = new List<int>();
+        // A real schedule rule spans most of the narrow table band. The previous 35% cutoff
+        // also selected dense text rows and produced hundreds of expensive false OCR crops.
+        var threshold = Math.Max(80, (int)(region.Width * 0.55));
+
+        for (var y = region.Top; y < region.Bottom; y++)
+        {
+            var dark = 0;
+            for (var x = region.Left; x < region.Right; x++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                var lum = (c.Red * 0.299) + (c.Green * 0.587) + (c.Blue * 0.114);
+                if (lum < 100) dark++;
+            }
+            if (dark >= threshold) hits.Add(y);
+        }
+
+        if (hits.Count == 0) return [];
+
+        var centers = new List<int>();
+        var start = hits[0];
+        var end = hits[0];
+        foreach (var y in hits.Skip(1))
+        {
+            if (y <= end + 2)
+            {
+                end = y;
+                continue;
+            }
+            centers.Add((start + end) / 2);
+            start = end = y;
+        }
+        centers.Add((start + end) / 2);
+        return centers;
+    }
+
+    private static List<string> OcrScheduleGridRow(
+        TesseractEngine engine,
+        SKBitmap source,
+        SKRectI crop)
+    {
+        using var cropped = new SKBitmap(crop.Width, crop.Height);
+        using (var canvas = new SKCanvas(cropped))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, crop, new SKRect(0, 0, crop.Width, crop.Height));
+        }
+
+        // The source page is already rendered at 320 DPI; a fixed 2x pass is enough for the
+        // small schedule font and prevents the 3-8x per-row expansion used by mark detection.
+        using var scaled = new SKBitmap(cropped.Width * 2, cropped.Height * 2);
+        using (var canvas = new SKCanvas(scaled))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(cropped, new SKRect(0, 0, scaled.Width, scaled.Height));
+        }
+
+        using var pngData = scaled.Encode(SKEncodedImageFormat.Png, 100);
+        using var pix = Pix.LoadFromMemory(pngData.ToArray());
+        using var tessPage = engine.Process(pix, PageSegMode.SingleLine);
+
+        return (tessPage.GetText() ?? string.Empty)
+            .Split(new[] { '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
+    }
+
+    private static int ScoreScheduleRowCandidate(string line)
+    {
+        var score = 0;
+        if (Regex.IsMatch(line, @"^\s*[A-Z]{1,5}\d{1,3}[A-Z]?\b", RegexOptions.IgnoreCase))
+            score += 20;
+        if (SteelSectionPattern.IsMatch(line)
+            || HollowSectionPattern.IsMatch(line)
+            || PurlinSectionPattern.IsMatch(line)
+            || RodBracingPattern.IsMatch(line))
+            score += 12;
+        if (Regex.IsMatch(line, @"\b(MARK|SIZE|MEMBER|RAFTERS|BEAMS|PURLINS|BRACING)\b",
+                RegexOptions.IgnoreCase))
+            score += 8;
+        return score;
     }
 
     private static List<string> OcrBitmapRegion(TesseractEngine engine, SKBitmap source, SKRectI crop, int upscale)
@@ -521,7 +1250,7 @@ public class ExtractionService
 
         using var pngData = scaled.Encode(SKEncodedImageFormat.Png, 100);
         using var pix = Pix.LoadFromMemory(pngData.ToArray());
-        using var tessPage = engine.Process(pix, PageSegMode.Auto);
+        using var tessPage = engine.Process(pix, PageSegMode.SingleBlock);
 
         return (tessPage.GetText() ?? string.Empty)
             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
@@ -874,6 +1603,7 @@ public class ExtractionService
 
     private static string NormalizeScheduleOcrLine(string line)
     {
+        line = Regex.Replace(line, @"(^|\s)[€©]\s*(?=\d)", "$1C");
         // In small schedule mark columns Tesseract can drop or confuse one glyph:
         // C1 -> 1, C5 -> CS, HB5 -> HBS. Keep this scoped to targeted schedule OCR.
         line = Regex.Replace(line, @"^1\s+(?=\d{2,4}\s*(?:x|X|×|SHS|RHS|CHS|UB|PFC)\b)", "C1 ");
@@ -891,14 +1621,10 @@ public class ExtractionService
             var upper = line.ToUpperInvariant();
             if (upper.Contains("ITEM") && upper.Contains("MEMBER")) score += 8;
             if (upper.Contains("SECTION") && upper.Contains("TYPE")) score += 8;
-            // Alternate schedule header format seen on many drawings — "MARK / SIZE / COMMENTS"
-            // columns instead of "ITEM / MEMBER / SECTION / TYPE / DESCRIPTION" — and the plain
-            // "MEMBER SCHEDULE" table title itself, both strong signals this crop is the real table.
-            if (upper.Contains("MEMBER") && upper.Contains("SCHEDULE")) score += 8;
-            if (upper.Contains("MARK") && (upper.Contains("SIZE") || upper.Contains("SECTION"))) score += 8;
-            if (upper.Contains("DESCRIPTION") || upper.Contains("COMMENTS")) score += 4;
-            if (ScheduleMarkPrefixPattern.IsMatch(upper)) score += 3;
+            if (upper.Contains("DESCRIPTION")) score += 4;
+            if (Regex.IsMatch(upper, @"\b(C|HB|WB|DF|PF|SF|RW)\s*\d{1,3}[A-Z]?\b")) score += 3;
             if (Regex.IsMatch(upper, @"^\s*\d+\s+[A-Z]{1,4}\s*\d{1,3}[A-Z]?\b")) score += 2;
+            if (Regex.IsMatch(upper, @"^\s*[A-Z]{1,4}\d{1,3}[A-Z]?\s+.{2,}$")) score += 3;
         }
         return score;
     }
@@ -948,78 +1674,48 @@ public class ExtractionService
     }
 
     /// <summary>
-    /// Finds every "&lt;word&gt; SCHEDULE" header in the page word list by bounding-box coordinates
-    /// (e.g. "MEMBER SCHEDULE", "STEELWORK SCHEDULE"), then reconstructs lines from only the
-    /// words within each schedule region. This prevents schedule rows from being mixed with
-    /// main-drawing plan text that shares the same Y-band on large A1/A2/A3 engineering
-    /// drawings — critical on drawings whose plan view itself is covered in short member-mark
-    /// callouts (e.g. "a", "br", "au") that would otherwise pollute every reconstructed line at
-    /// the same height as the schedule, anywhere across the full page width.
+    /// Finds the MEMBER SCHEDULE header in the page word list by bounding-box coordinates,
+    /// then reconstructs lines from only the words within that schedule region.
+    /// This prevents schedule rows from being mixed with main-drawing plan text that shares
+    /// the same Y-band on large A1/A2/A3 engineering drawings.
     /// </summary>
     private static List<string> ExtractScheduleRegionLines(List<Word> pageWords)
     {
         if (pageWords.Count == 0) return [];
 
+        // Find "MEMBER SCHEDULE" header — two adjacent words on the same visual line.
+        double headerBottom = -1, tableLeft = -1;
         var schedWords = pageWords
             .Where(w => w.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // Some drawings place two (or more) schedule tables side by side on the same sheet —
-        // e.g. two "MEMBER SCHEDULE" boxes, or a "STEELWORK SCHEDULE" split into two mark
-        // columns. Collecting every region found here (instead of stopping at the first) is
-        // what lets the second/third table's rows survive at all instead of only ever coming
-        // through the unfiltered, cross-polluted full-page reconstruction pass.
-        var regions = new List<(double HeaderBottom, double TableLeft)>();
         foreach (var sw in schedWords)
         {
-            // The title word is whatever sits immediately to the left of "SCHEDULE" on the same
-            // line — "MEMBER", "STEELWORK", "STEEL", "COLUMN", "BEAM", "PURLIN", etc. Requiring
-            // one specific word (previously only "MEMBER") missed every other title wording
-            // real drawings use; picking the closest word within a small gap keeps this from
-            // ever picking up unrelated text that merely shares the same Y-band further away.
-            var titleWord = pageWords
-                .Where(w =>
-                    !w.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase) &&
-                    Math.Abs(w.BoundingBox.Bottom - sw.BoundingBox.Bottom) < 10 &&
-                    w.BoundingBox.Right <= sw.BoundingBox.Left + 5 &&
-                    sw.BoundingBox.Left - w.BoundingBox.Right < 40)
-                .OrderByDescending(w => w.BoundingBox.Right)
-                .FirstOrDefault();
+            var memberWord = pageWords.FirstOrDefault(w =>
+                w.Text.Equals("MEMBER", StringComparison.OrdinalIgnoreCase) &&
+                Math.Abs(w.BoundingBox.Bottom - sw.BoundingBox.Bottom) < 10 &&
+                w.BoundingBox.Right <= sw.BoundingBox.Left + 5);
 
-            if (titleWord != null)
-                regions.Add((sw.BoundingBox.Bottom, Math.Min(titleWord.BoundingBox.Left, sw.BoundingBox.Left)));
+            if (memberWord != null)
+            {
+                headerBottom = sw.BoundingBox.Bottom;
+                tableLeft = Math.Min(memberWord.BoundingBox.Left, sw.BoundingBox.Left);
+                break;
+            }
         }
 
-        if (regions.Count == 0) return [];
+        if (headerBottom < 0) return [];
 
-        // Extract words in the region below each header and within that table's width.
-        // PDF Y-axis increases upward, so "below" = smaller Y value. Regions are sorted
-        // left-to-right and each one's right edge is clipped to just before the next region's
-        // left edge (when closer than the default 700pt width) — otherwise two schedule tables
-        // sitting side by side (a common layout) would each independently sweep in the other's
-        // columns via their own generously-wide window, re-creating the exact same "two tables'
-        // rows glued onto one line" problem this region isolation exists to prevent.
-        var ordered = regions.OrderBy(r => r.TableLeft).ToList();
-        var lines = new List<string>();
-        for (var i = 0; i < ordered.Count; i++)
-        {
-            var (headerBottom, tableLeft) = ordered[i];
-            var rightBound = tableLeft + 700;
-            if (i + 1 < ordered.Count)
-                rightBound = Math.Min(rightBound, ordered[i + 1].TableLeft - 20);
+        // Extract words in the region below the header and within the schedule table width.
+        // PDF Y-axis increases upward, so "below" = smaller Y value.
+        var tableWords = pageWords.Where(w =>
+            w.BoundingBox.Bottom < headerBottom &&
+            w.BoundingBox.Bottom > headerBottom - 700 &&
+            w.BoundingBox.Left >= tableLeft - 30 &&
+            w.BoundingBox.Left <= tableLeft + 700)
+            .ToList();
 
-            var tableWords = pageWords.Where(w =>
-                w.BoundingBox.Bottom < headerBottom &&
-                w.BoundingBox.Bottom > headerBottom - 700 &&
-                w.BoundingBox.Left >= tableLeft - 30 &&
-                w.BoundingBox.Left <= rightBound)
-                .ToList();
-
-            if (tableWords.Count > 0)
-                lines.AddRange(ReconstructLines(tableWords));
-        }
-
-        return lines;
+        return tableWords.Count > 0 ? ReconstructLines(tableWords) : [];
     }
 
     /// <summary>
@@ -1066,7 +1762,11 @@ public class ExtractionService
 
     // ── Member parsing ───────────────────────────────────────────────────────────
 
-    private List<ExtractedMemberDto> ParseMembers(List<string> lines, string fullText)
+    private List<ExtractedMemberDto> ParseMembers(
+        List<string> lines,
+        string fullText,
+        List<ExtractedMemberDto>? variantScheduleMembers = null,
+        List<ExtractedMemberDto>? columnScheduleMembers = null)
     {
         // Merge split mark tokens produced by CAD PDFs: "PF 2" → "PF2", "C 1" → "C1"
         var mergedLines = lines.Select(MergeMarkFragments).ToList();
@@ -1076,17 +1776,38 @@ public class ExtractionService
 
         var results = new List<ExtractedMemberDto>();
 
-        // COLUMNS / BEAMS lists on footing plans (SC2 - 360 UB 45, C1 - 610 UB 113)
-        results.AddRange(ParseDrawingLists(mergedLines));
-        _logger.LogDebug("After ParseDrawingLists: {Count} rows", results.Count);
+        // A page with many coordinate-resolved MARK/a/b/c cells is an explicit multi-variant
+        // reference schedule. Use those exact cells rather than flattening the row into text,
+        // which loses column ownership and can mistake a preceding section size for a mark.
+        // All ordinary drawings continue through the existing extraction logic unchanged.
+        if (variantScheduleMembers is { Count: >= 10 })
+        {
+            results.AddRange(variantScheduleMembers);
+            _logger.LogInformation(
+                "Extraction: using {Count} coordinate-resolved multi-variant schedule cells",
+                variantScheduleMembers.Count);
+        }
+        else if (columnScheduleMembers is { Count: >= 5 })
+        {
+            results.AddRange(columnScheduleMembers);
+            _logger.LogInformation(
+                "Extraction: using {Count} coordinate-resolved schedule rows",
+                columnScheduleMembers.Count);
+        }
+        else
+        {
+            // COLUMNS / BEAMS lists on footing plans (SC2 - 360 UB 45, C1 - 610 UB 113)
+            results.AddRange(ParseDrawingLists(mergedLines));
+            _logger.LogDebug("After ParseDrawingLists: {Count} rows", results.Count);
 
-        var scheduleStart = FindScheduleSection(mergedLines);
-        if (scheduleStart >= 0)
-            results.AddRange(ParseScheduleTable(mergedLines, scheduleStart));
-        _logger.LogDebug("After ParseScheduleTable: {Count} rows", results.Count);
+            var scheduleStart = FindScheduleSection(mergedLines);
+            if (scheduleStart >= 0)
+                results.AddRange(ParseScheduleTable(mergedLines, scheduleStart));
+            _logger.LogDebug("After ParseScheduleTable: {Count} rows", results.Count);
 
-        results.AddRange(ParseByPattern(mergedLines, mergedFullText));
-        _logger.LogDebug("After ParseByPattern: {Count} rows (pre-merge)", results.Count);
+            results.AddRange(ParseByPattern(mergedLines, mergedFullText));
+            _logger.LogDebug("After ParseByPattern: {Count} rows (pre-merge)", results.Count);
+        }
 
         // One row per mark — prefer drawing list > schedule > pattern
         results = MergePreferBestRows(results);
@@ -1108,6 +1829,315 @@ public class ExtractionService
         }
 
         return valid;
+    }
+
+    private sealed record VariantScheduleTable(
+        Word Header,
+        List<(string Suffix, double Center)> Columns,
+        List<double> Boundaries,
+        double Left,
+        double Right);
+
+    /// <summary>
+    /// Reads CAD table geometry for schedules whose columns are explicitly headed
+    /// MARK, a, b, c... . This is additive and deliberately narrow: pages without
+    /// that header shape continue through the original line-based parsers.
+    /// </summary>
+    private List<ExtractedMemberDto> ExtractVariantScheduleCells(List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        const double rowTolerance = 3.0;
+        const double markColumnTolerance = 25.0;
+
+        var markHeaders = pageWords
+            .Where(w => w.Text.Equals("MARK", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(w => w.BoundingBox.Bottom)
+            .ThenBy(w => w.BoundingBox.Left)
+            .ToList();
+
+        var tables = new List<VariantScheduleTable>();
+        foreach (var header in markHeaders)
+        {
+            var nextHeaderX = markHeaders
+                .Where(h => Math.Abs(h.BoundingBox.Bottom - header.BoundingBox.Bottom) < rowTolerance
+                    && h.BoundingBox.Left > header.BoundingBox.Left)
+                .Select(h => h.BoundingBox.Left)
+                .DefaultIfEmpty(double.MaxValue)
+                .Min();
+
+            var suffixCandidates = pageWords
+                .Where(w => Math.Abs(w.BoundingBox.Bottom - header.BoundingBox.Bottom) < rowTolerance
+                    && w.BoundingBox.Left > header.BoundingBox.Left
+                    && w.BoundingBox.Left < nextHeaderX
+                    && Regex.IsMatch(w.Text, @"^[A-L]$", RegexOptions.IgnoreCase))
+                .OrderBy(w => w.BoundingBox.Left)
+                .ToList();
+
+            // Keep only the first consecutive A, B, C... sequence. Other nearby tables can
+            // contribute another isolated "A" on the same baseline; treating that duplicate
+            // as an extra column makes this table overlap and prematurely truncate its neighbour.
+            var suffixWords = new List<Word>();
+            var previousCenter = (header.BoundingBox.Left + header.BoundingBox.Right) / 2.0;
+            double typicalSpacing = 0;
+            for (var expected = 'A'; expected <= 'L'; expected++)
+            {
+                var candidate = suffixCandidates
+                    .Where(w => w.Text.Equals(expected.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .Select(w => new
+                    {
+                        Word = w,
+                        Center = (w.BoundingBox.Left + w.BoundingBox.Right) / 2.0
+                    })
+                    .Where(x => x.Center > previousCenter
+                        && (typicalSpacing <= 0 || x.Center - previousCenter <= typicalSpacing * 1.8))
+                    .OrderBy(x => x.Center)
+                    .FirstOrDefault();
+
+                if (candidate == null) break;
+                suffixWords.Add(candidate.Word);
+                if (typicalSpacing <= 0)
+                    typicalSpacing = candidate.Center - previousCenter;
+                previousCenter = candidate.Center;
+            }
+
+            if (suffixWords.Count == 0) continue;
+
+            var headerCenter = (header.BoundingBox.Left + header.BoundingBox.Right) / 2.0;
+            var columns = suffixWords
+                .Select(w => (
+                    w.Text.ToUpperInvariant(),
+                    (w.BoundingBox.Left + w.BoundingBox.Right) / 2.0))
+                .ToList();
+
+            var centers = new List<double> { headerCenter };
+            centers.AddRange(columns.Select(c => c.Item2));
+
+            var boundaries = new List<double>();
+            for (var i = 0; i < centers.Count - 1; i++)
+                boundaries.Add((centers[i] + centers[i + 1]) / 2.0);
+
+            var spacing = centers.Count > 1 ? centers[^1] - centers[^2] : 60.0;
+            tables.Add(new VariantScheduleTable(
+                header,
+                columns,
+                boundaries,
+                header.BoundingBox.Left - markColumnTolerance,
+                centers[^1] + spacing / 2.0));
+        }
+
+        // Require a genuine multi-variant header somewhere on the page. This prevents an
+        // unrelated two-column table headed "MARK / A" from selecting this specialized mode.
+        if (!tables.Any(t => t.Columns.Count >= 2)) return [];
+
+        var results = new List<ExtractedMemberDto>();
+        foreach (var table in tables)
+        {
+            var countBeforeTable = results.Count;
+            var headerY = table.Header.BoundingBox.Bottom;
+
+            // The table ends at the nearest lower MARK header whose horizontal range overlaps.
+            // This handles stacked tables even when their mark columns are slightly offset.
+            var lowerBoundary = tables
+                .Where(t => t.Header.BoundingBox.Bottom < headerY - rowTolerance
+                    && Math.Min(table.Right, t.Right) - Math.Max(table.Left, t.Left) > 20)
+                .Select(t => t.Header.BoundingBox.Bottom)
+                .DefaultIfEmpty(double.MinValue)
+                .Max();
+
+            var rowGroups = pageWords
+                .Where(w => w.BoundingBox.Bottom < headerY - rowTolerance
+                    && w.BoundingBox.Bottom > lowerBoundary + rowTolerance
+                    && w.BoundingBox.Left > table.Left
+                    && w.BoundingBox.Left < table.Right)
+                .GroupBy(w => (int)Math.Round(w.BoundingBox.Bottom / rowTolerance))
+                .Select(g => g.OrderBy(w => w.BoundingBox.Left).ToList());
+
+            foreach (var row in rowGroups)
+            {
+                var baseMarkWord = row
+                    .Where(w => Math.Abs(w.BoundingBox.Left - table.Header.BoundingBox.Left)
+                            < markColumnTolerance
+                        && Regex.IsMatch(
+                            w.Text,
+                            @"^\d{0,2}[A-Z]{1,4}\d{1,3}[A-Z]?$",
+                            RegexOptions.IgnoreCase))
+                    .OrderBy(w => Math.Abs(w.BoundingBox.Left - table.Header.BoundingBox.Left))
+                    .FirstOrDefault();
+
+                if (baseMarkWord == null) continue;
+                var baseMark = baseMarkWord.Text.ToUpperInvariant();
+
+                for (var columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
+                {
+                    var left = table.Boundaries[columnIndex];
+                    var right = columnIndex + 1 < table.Boundaries.Count
+                        ? table.Boundaries[columnIndex + 1]
+                        : table.Right;
+
+                    var cellText = string.Join(" ", row
+                        .Where(w =>
+                        {
+                            var center = (w.BoundingBox.Left + w.BoundingBox.Right) / 2.0;
+                            return center >= left && center < right;
+                        })
+                        .OrderBy(w => w.BoundingBox.Left)
+                        .Select(w => w.Text))
+                        .Trim();
+
+                    if (cellText.Length < 2) continue;
+
+                    var fullMark = baseMark + table.Columns[columnIndex].Suffix;
+                    var section = NormalizeSection(cellText);
+                    results.Add(new ExtractedMemberDto(
+                        fullMark,
+                        section,
+                        DetectMemberType(fullMark, section),
+                        0, 0, 0,
+                        $"Schedule cell: {fullMark} = {cellText}",
+                        0.99));
+                }
+            }
+
+            _logger.LogInformation(
+                "Variant schedule table x={X:F1}, y={Y:F1}, columns={Columns}, rows={Rows}",
+                table.Header.BoundingBox.Left,
+                table.Header.BoundingBox.Bottom,
+                table.Columns.Count,
+                results.Count - countBeforeTable);
+        }
+
+        return results;
+    }
+
+    private sealed record ColumnScheduleTable(
+        Word MarkHeader,
+        Word ValueHeader,
+        double Left,
+        double Middle,
+        double Right);
+
+    /// <summary>
+    /// Reads ordinary two-column schedules when their native PDF text exposes aligned
+    /// MARK/SIZE or ITEM/MEMBER headers. Geometry keeps adjacent schedule columns separate.
+    /// </summary>
+    private static List<ExtractedMemberDto> ExtractColumnScheduleRows(List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        const double rowTolerance = 4.0;
+        const double markColumnTolerance = 25.0;
+        var tables = new List<ColumnScheduleTable>();
+
+        foreach (var (markHeaderText, valueHeaderText) in new[]
+        {
+            ("MARK", "SIZE"),
+            ("ITEM", "MEMBER")
+        })
+        {
+            var markHeaders = pageWords
+                .Where(w => w.Text.Equals(markHeaderText, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(w => w.BoundingBox.Bottom)
+                .ThenBy(w => w.BoundingBox.Left)
+                .ToList();
+
+            foreach (var markHeader in markHeaders)
+            {
+                var valueHeader = pageWords
+                    .Where(w => w.Text.Equals(valueHeaderText, StringComparison.OrdinalIgnoreCase)
+                        && Math.Abs(w.BoundingBox.Bottom - markHeader.BoundingBox.Bottom) < rowTolerance
+                        && w.BoundingBox.Left > markHeader.BoundingBox.Left)
+                    .OrderBy(w => w.BoundingBox.Left)
+                    .FirstOrDefault();
+
+                if (valueHeader == null) continue;
+
+                var nextMarkX = markHeaders
+                    .Where(h => Math.Abs(h.BoundingBox.Bottom - markHeader.BoundingBox.Bottom) < rowTolerance
+                        && h.BoundingBox.Left > markHeader.BoundingBox.Left)
+                    .Select(h => h.BoundingBox.Left)
+                    .DefaultIfEmpty(double.MaxValue)
+                    .Min();
+
+                var columnDistance = valueHeader.BoundingBox.Left - markHeader.BoundingBox.Left;
+                var right = nextMarkX < double.MaxValue
+                    ? nextMarkX - 8
+                    : valueHeader.BoundingBox.Left + columnDistance * 1.1;
+
+                tables.Add(new ColumnScheduleTable(
+                    markHeader,
+                    valueHeader,
+                    markHeader.BoundingBox.Left - markColumnTolerance,
+                    (markHeader.BoundingBox.Left + valueHeader.BoundingBox.Left) / 2.0,
+                    right));
+            }
+        }
+
+        var results = new List<ExtractedMemberDto>();
+        foreach (var table in tables)
+        {
+            var candidateRows = pageWords
+                .Where(w => w.BoundingBox.Bottom < table.MarkHeader.BoundingBox.Bottom - rowTolerance
+                    && w.BoundingBox.Left > table.Left
+                    && w.BoundingBox.Left < table.Right)
+                .GroupBy(w => (int)Math.Round(w.BoundingBox.Bottom / rowTolerance))
+                .Select(g => g.OrderBy(w => w.BoundingBox.Left).ToList())
+                .Select(row =>
+                {
+                    var markWord = row
+                        .Where(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left)
+                                < markColumnTolerance
+                            && Regex.IsMatch(
+                                w.Text,
+                                @"^[A-Z]{1,5}[A-Z0-9]{0,4}\*?$",
+                                RegexOptions.IgnoreCase))
+                        .OrderBy(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left))
+                        .FirstOrDefault();
+
+                    if (markWord == null) return null;
+
+                    var value = string.Join(" ", row
+                        .Where(w =>
+                        {
+                            var center = (w.BoundingBox.Left + w.BoundingBox.Right) / 2.0;
+                            return center >= table.Middle && center < table.Right;
+                        })
+                        .OrderBy(w => w.BoundingBox.Left)
+                        .Select(w => w.Text))
+                        .Trim();
+
+                    if (value.Length < 2) return null;
+                    return new
+                    {
+                        Y = markWord.BoundingBox.Bottom,
+                        Mark = markWord.Text.ToUpperInvariant(),
+                        Value = value
+                    };
+                })
+                .Where(x => x != null)
+                .OrderByDescending(x => x!.Y)
+                .ToList();
+
+            double? previousY = null;
+            foreach (var row in candidateRows)
+            {
+                if (row == null) continue;
+                if (previousY.HasValue && previousY.Value - row.Y > 60) break;
+                previousY = row.Y;
+
+                if (row.Mark is "MARK" or "ITEM" or "SIZE" or "MEMBER") continue;
+                var section = NormalizeSection(row.Value);
+                results.Add(new ExtractedMemberDto(
+                    row.Mark,
+                    section,
+                    DetectMemberType(row.Mark, section),
+                    0, 0, 0,
+                    $"Schedule row: {row.Mark} = {row.Value}",
+                    0.99));
+            }
+        }
+
+        return results;
     }
 
     /// <summary>
@@ -1153,14 +2183,41 @@ public class ExtractionService
     {
         if (string.IsNullOrWhiteSpace(r.Mark) || string.IsNullOrWhiteSpace(r.MemberSize))
             return false;
-        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + "$", RegexOptions.IgnoreCase))
+        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @"\*?$", RegexOptions.IgnoreCase))
             return false;
         // Auto-guess marks M1/M2 — not used on structural drawings
         if (Regex.IsMatch(r.Mark, @"^M\d+$", RegexOptions.IgnoreCase))
             return false;
+        if (r.Confidence < 0.90 && !Regex.IsMatch(r.Mark, @"\d"))
+            return false;
 
         var desc = r.Description.ToUpperInvariant();
-        if (Regex.IsMatch(desc, @"\b(PROVIDE|REINFORCEMENT|WELD\s+AT|WELD\s+ON|SLOTTED\s+HOLES)\b"))
+        var hasDigit = Regex.IsMatch(r.Mark, @"\d");
+        if (!hasDigit)
+        {
+            var coordinateResolved = desc.StartsWith(
+                "SCHEDULE ROW:", StringComparison.OrdinalIgnoreCase);
+            var hasRecognizedSection = SteelSectionPattern.IsMatch(r.MemberSize)
+                || HollowSectionPattern.IsMatch(r.MemberSize)
+                || PurlinSectionPattern.IsMatch(r.MemberSize)
+                || RodBracingPattern.IsMatch(r.MemberSize);
+            var hasTextMemberEvidence = Regex.IsMatch(r.MemberSize,
+                @"\b(EXISTING|FASCIA|REFER\s+SECTION)\b",
+                RegexOptions.IgnoreCase);
+
+            // Single-letter selectable-text marks (A, B, C...) are valid in ordinary
+            // coordinate-resolved schedules. Targeted OCR must provide stronger evidence.
+            if (r.Mark.Length == 1
+                && !coordinateResolved)
+                return false;
+            if (!coordinateResolved && r.Mark.Length > 3 && !hasTextMemberEvidence)
+                return false;
+            if (!coordinateResolved && !hasRecognizedSection && !hasTextMemberEvidence)
+                return false;
+        }
+
+        if (Regex.IsMatch(desc,
+                @"\b(PROVIDE|REINFORCEMENT|WELD\s+AT|WELD\s+ON|SLOTTED\s+HOLES|TRUSS\s+ELEVATION)\b"))
             return false;
 
         return SteelSectionPattern.IsMatch(r.MemberSize)
@@ -1635,7 +2692,7 @@ public class ExtractionService
         // known prefix-letter list below, which only knows about the letter part of the mark.
         var withoutLevelPrefix = Regex.Replace(upper, "^" + MarkPrefix, "");
         return Regex.IsMatch(withoutLevelPrefix,
-            @"^(EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FAB|FB|RBR|RB|RA|WS|PB|ST|R|P|S|C|B|W)\d",
+            @"^(ESC|EDP|EWH|EBR|EOR|EFT|FAB|RBR|EC|CC|DP|DB|HB|WB|DF|PF|SF|RW|CJ|SB|FB|RB|RA|WS|PB|ST|SC|OR|VB|BR|EB|ER|P|R|S|C|B|W)\d",
             RegexOptions.IgnoreCase);
     }
 
@@ -1777,20 +2834,6 @@ public class ExtractionService
                 "(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @")\s*[-–—]?\s*$",
                 RegexOptions.IgnoreCase);
             if (compoundMark.Success) return compoundMark.Groups[1].Value.ToUpperInvariant();
-        }
-
-        // Dot-leader schedule format — "bj ..... 300 PFC", "ao ..... 273.1x6.4 CHS" (steelwork
-        // schedules using a row of leader dots instead of a dash/whitespace between mark and
-        // size). The run of 2+ dots is a distinctive, virtually zero-collision signal — no other
-        // supported format ever produces one — so it's safe to check unconditionally rather than
-        // only inside an already-recognized list block.
-        if (sectionMatch.Index > 0)
-        {
-            var beforeDots = line[..sectionMatch.Index].TrimEnd();
-            var dotMark = Regex.Match(beforeDots,
-                @"(?:^|\s)(" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?)\s*\.{2,}\s*$",
-                RegexOptions.IgnoreCase);
-            if (dotMark.Success) return dotMark.Groups[1].Value.ToUpperInvariant();
         }
 
         // COLUMNS list: "SC2 - 360 UB 45" / "C1 - 610 UB 113" / "1FB1 - 410UB53.7"

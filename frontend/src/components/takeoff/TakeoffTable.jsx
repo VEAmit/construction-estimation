@@ -20,6 +20,14 @@ function getEffectiveColor(item, memberScheduleItems) {
   return '#EF233C'
 }
 
+/** Returns the assigned member's section size (e.g. "250UB25.7") for a takeoff row, matched the same way as getEffectiveColor. */
+function getEffectiveSectionSize(item, memberScheduleItems) {
+  const memberMark = (item.material || item.mark || '').trim().toLowerCase()
+  if (!memberMark) return ''
+  const msi = memberScheduleItems.find(m => (m.mark || '').trim().toLowerCase() === memberMark)
+  return msi?.memberSize ?? ''
+}
+
 function getPageNum(item) {
   if (!item.pointsJson) return null
   try {
@@ -281,7 +289,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, sele
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Pg', 'Meas.', 'Mark', 'Member', 'Description', 'Member Type', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Qty', 'Time', ''].map((h, i) => (
+                {['', '#', 'Pg', 'Meas.', 'Mark', 'Member', 'Section Size', 'Description', 'Member Type', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Qty', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -370,6 +378,9 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, sele
                       {isEditing
                         ? <input value={row.material ?? ''} onChange={e => setEditBuf(b => ({ ...b, material: e.target.value }))} placeholder="PF7" style={{ ...ei, width: '56px' }} />
                         : getMeasurementMemberMark(item, memberScheduleItems) || '—'}
+                    </td>
+                    <td style={{ ...td, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                      {getEffectiveSectionSize(item, memberScheduleItems) || '—'}
                     </td>
                     <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {isEditing
@@ -463,7 +474,7 @@ export default function MeasurementTable({ drawing, onAddClick, selectedId, sele
             {filtered.length > 0 && (
               <tfoot>
                 <tr style={{ background: '#0D1526', borderTop: '1px solid rgba(239,35,60,.2)' }}>
-                  <td colSpan={7} />
+                  <td colSpan={8} />
                   <td style={{ ...td, fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>
                     {totalLength > 0 ? `∑ ${fmt(totalLength)} ${getUnitLabel(unit)}` : ''}
                     {hasAnyArea && totalArea > 0 ? ` / ${fmt(totalArea)} ${getAreaUnitLabel(unit)}` : ''}

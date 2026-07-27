@@ -1,0 +1,976 @@
+2026-07-27 07:47:03.215 +05:30 [INF] Database migrated successfully
+2026-07-27 07:47:03.974 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-27 08:44:36.592 +05:30 [INF] HTTP GET /api/projects responded 401 in 960.9334 ms
+2026-07-27 08:44:36.848 +05:30 [INF] HTTP GET /api/projects responded 401 in 87.2362 ms
+2026-07-27 09:13:19.740 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 3673.5277 ms
+2026-07-27 09:13:23.424 +05:30 [INF] HTTP GET /api/projects responded 200 in 1858.5201 ms
+2026-07-27 09:13:23.476 +05:30 [INF] HTTP GET /api/projects responded 200 in 25.4091 ms
+2026-07-27 09:13:34.942 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 1313.1666 ms
+2026-07-27 09:13:38.183 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 12.5498 ms
+2026-07-27 09:13:38.572 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276 responded 200 in 25.4383 ms
+2026-07-27 09:13:38.668 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276/summary responded 200 in 116.3055 ms
+2026-07-27 09:13:38.766 +05:30 [INF] HTTP GET /api/drawings/276 responded 200 in 213.1792 ms
+2026-07-27 09:13:38.974 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 430.9278 ms
+2026-07-27 09:13:39.024 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 480.0082 ms
+2026-07-27 09:13:39.598 +05:30 [INF] HTTP GET /api/drawings/276/file responded 304 in 101.2633 ms
+2026-07-27 09:13:41.126 +05:30 [INF] HTTP GET /api/drawings/270 responded 200 in 44.5115 ms
+2026-07-27 09:13:41.218 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 124.7819 ms
+2026-07-27 09:13:41.219 +05:30 [INF] HTTP GET /api/drawings/270/file responded 304 in 5.8643 ms
+2026-07-27 09:13:41.510 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 423.8103 ms
+2026-07-27 09:13:41.846 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 742.1033 ms
+2026-07-27 09:13:41.893 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270 responded 200 in 808.7637 ms
+2026-07-27 09:13:48.515 +05:30 [INF] Drawing 270: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-27 09:15:29.421 +05:30 [INF] Schedule OCR page 1: selected candidate score=59, lines=41
+2026-07-27 09:15:31.503 +05:30 [INF] [Extract] Entered section: 'RAFTERS'
+2026-07-27 09:15:31.503 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS'
+2026-07-27 09:15:32.081 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '410 UB59.7'
+2026-07-27 09:15:32.162 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 09:15:32.164 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 09:15:32.690 +05:30 [INF] [Extract] Parsed 'R200' (PFC) from section 'ROOF BEAMS'
+2026-07-27 09:15:32.741 +05:30 [INF] [Extract] Entered section: 'FASCIA BEAM'
+2026-07-27 09:15:32.771 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'FASCIA BEAM'
+2026-07-27 09:15:32.802 +05:30 [INF] [Extract] Entered section: 'PURLINS'
+2026-07-27 09:15:32.804 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'BOUNDARY'
+2026-07-27 09:15:32.848 +05:30 [INF] [Extract] Parsed 'RB1' (RB2) from section 'PURLINS'
+2026-07-27 09:15:32.852 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20019 @ 1200 CTS2 ROWS OF BRIDGING'
+2026-07-27 09:15:33.274 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20015 @ 1200 CTS1 ROW OF BRIDGING'
+2026-07-27 09:15:33.275 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C10010 @ 1200 CTS'
+2026-07-27 09:15:33.275 +05:30 [INF] [Extract] Entered section: 'WALL STIFFENERS'
+2026-07-27 09:15:33.301 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'WALL STIFFENERS'
+2026-07-27 09:15:33.301 +05:30 [INF] [Extract] Entered section: 'RAKING ANGLES'
+2026-07-27 09:15:33.320 +05:30 [INF] [Extract] Parsed 'RA1' (715X75X8.0EA) from section 'RAKING ANGLES'
+2026-07-27 09:15:33.320 +05:30 [INF] [Extract] Entered section: 'STRUTS'
+2026-07-27 09:15:33.331 +05:30 [INF] [Extract] Parsed 'S1' (114.3X4.5CHS) from section 'STRUTS'
+2026-07-27 09:15:33.375 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'STRUTS'
+2026-07-27 09:15:33.375 +05:30 [INF] [Extract] Entered section: 'ROOF BRACING'
+2026-07-27 09:15:33.377 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'ROOF BRACING'
+2026-07-27 09:15:33.380 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'PRIOR TO COMMENCING FABRICATION THE'
+2026-07-27 09:15:33.382 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'STEEL SUPPLIER MUST PROVIDE DETAILS'
+2026-07-27 09:15:33.385 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE OF THE TURNBUCKLES DEMON) from section 'ROOF BRACING'
+2026-07-27 09:15:33.386 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'THAT THEIR CAPACITY IS EQUAL TO or'
+2026-07-27 09:15:33.388 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': '| ee, A ce el el te, es el ee ee ee es ee ee ee es ee ee oo es ee ee ee a oe'
+2026-07-27 09:15:34.899 +05:30 [INF] Extraction: 11 valid, 5 filtered. Skipped marks: 410UB59.7(0.70), 200PFC(0.70), C20019(0.70), C20015(0.70), C10010(0.70)
+2026-07-27 09:15:34.900 +05:30 [INF] Drawing 270: extraction method=Text+ScheduleOCR, lines=52, members=11
+2026-07-27 09:15:35.321 +05:30 [INF] Extracted 11 members from drawing 270
+2026-07-27 09:15:38.622 +05:30 [INF] HTTP POST /api/extraction/drawing/270 responded 200 in 112040.5942 ms
+2026-07-27 09:56:35.316 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 2583.4836 ms
+2026-07-27 09:56:35.344 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 22.5578 ms
+2026-07-27 09:56:35.655 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276/summary responded 200 in 185.7192 ms
+2026-07-27 09:56:35.655 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276 responded 200 in 188.4028 ms
+2026-07-27 09:56:35.655 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 184.4087 ms
+2026-07-27 09:56:35.655 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 184.4006 ms
+2026-07-27 09:56:35.733 +05:30 [INF] HTTP GET /api/drawings/276 responded 200 in 262.2317 ms
+2026-07-27 09:56:39.450 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 47.2836 ms
+2026-07-27 09:56:39.463 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 56.4717 ms
+2026-07-27 09:56:39.464 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270 responded 200 in 62.7481 ms
+2026-07-27 09:56:39.469 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 53.3241 ms
+2026-07-27 09:56:39.492 +05:30 [INF] HTTP GET /api/drawings/270 responded 200 in 94.3638 ms
+2026-07-27 09:56:42.827 +05:30 [INF] Drawing 270: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-27 09:57:37.708 +05:30 [INF] Schedule OCR page 1: selected candidate score=59, lines=41
+2026-07-27 09:57:37.833 +05:30 [INF] [Extract] Entered section: 'RAFTERS'
+2026-07-27 09:57:37.834 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS'
+2026-07-27 09:57:37.842 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '410 UB59.7'
+2026-07-27 09:57:37.844 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 09:57:37.851 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 09:57:37.852 +05:30 [INF] [Extract] Parsed 'R200' (PFC) from section 'ROOF BEAMS'
+2026-07-27 09:57:37.853 +05:30 [INF] [Extract] Entered section: 'FASCIA BEAM'
+2026-07-27 09:57:37.859 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'FASCIA BEAM'
+2026-07-27 09:57:37.859 +05:30 [INF] [Extract] Entered section: 'PURLINS'
+2026-07-27 09:57:37.864 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'BOUNDARY'
+2026-07-27 09:57:37.874 +05:30 [INF] [Extract] Parsed 'RB1' (RB2) from section 'PURLINS'
+2026-07-27 09:57:37.922 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20019 @ 1200 CTS2 ROWS OF BRIDGING'
+2026-07-27 09:57:37.927 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20015 @ 1200 CTS1 ROW OF BRIDGING'
+2026-07-27 09:57:37.934 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C10010 @ 1200 CTS'
+2026-07-27 09:57:37.935 +05:30 [INF] [Extract] Entered section: 'WALL STIFFENERS'
+2026-07-27 09:57:37.942 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'WALL STIFFENERS'
+2026-07-27 09:57:37.944 +05:30 [INF] [Extract] Entered section: 'RAKING ANGLES'
+2026-07-27 09:57:37.954 +05:30 [INF] [Extract] Parsed 'RA1' (715X75X8.0EA) from section 'RAKING ANGLES'
+2026-07-27 09:57:37.955 +05:30 [INF] [Extract] Entered section: 'STRUTS'
+2026-07-27 09:57:37.958 +05:30 [INF] [Extract] Parsed 'S1' (114.3X4.5CHS) from section 'STRUTS'
+2026-07-27 09:57:37.958 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'STRUTS'
+2026-07-27 09:57:37.958 +05:30 [INF] [Extract] Entered section: 'ROOF BRACING'
+2026-07-27 09:57:37.960 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'ROOF BRACING'
+2026-07-27 09:57:37.986 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'PRIOR TO COMMENCING FABRICATION THE'
+2026-07-27 09:57:37.989 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'STEEL SUPPLIER MUST PROVIDE DETAILS'
+2026-07-27 09:57:37.990 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE OF THE TURNBUCKLES DEMON) from section 'ROOF BRACING'
+2026-07-27 09:57:37.991 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'THAT THEIR CAPACITY IS EQUAL TO or'
+2026-07-27 09:57:37.992 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': '| ee, A ce el el te, es el ee ee ee es ee ee ee es ee ee oo es ee ee ee a oe'
+2026-07-27 09:57:38.014 +05:30 [INF] Extraction: 11 valid, 5 filtered. Skipped marks: 410UB59.7(0.70), 200PFC(0.70), C20019(0.70), C20015(0.70), C10010(0.70)
+2026-07-27 09:57:38.014 +05:30 [INF] Drawing 270: extraction method=Text+ScheduleOCR, lines=52, members=11
+2026-07-27 09:57:38.015 +05:30 [INF] Extracted 11 members from drawing 270
+2026-07-27 09:57:38.016 +05:30 [INF] HTTP POST /api/extraction/drawing/270 responded 200 in 55695.6003 ms
+2026-07-27 11:49:04.466 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 7802.6119 ms
+2026-07-27 11:49:04.763 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 250.9530 ms
+2026-07-27 11:49:04.955 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276/summary responded 200 in 97.8765 ms
+2026-07-27 11:49:04.955 +05:30 [INF] HTTP GET /api/drawings/276 responded 200 in 98.1812 ms
+2026-07-27 11:49:04.955 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276 responded 200 in 41.3797 ms
+2026-07-27 11:49:05.151 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 293.5704 ms
+2026-07-27 11:49:05.153 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 271.2936 ms
+2026-07-27 11:49:07.204 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 55.3210 ms
+2026-07-27 11:49:07.206 +05:30 [INF] HTTP GET /api/drawings/270 responded 200 in 165.0553 ms
+2026-07-27 11:49:07.210 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 121.9247 ms
+2026-07-27 11:49:07.214 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 123.7629 ms
+2026-07-27 11:49:07.234 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270 responded 200 in 147.4629 ms
+2026-07-27 11:49:11.296 +05:30 [INF] Drawing 270: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-27 11:50:05.892 +05:30 [INF] Schedule OCR page 1: selected candidate score=59, lines=41
+2026-07-27 11:50:05.970 +05:30 [INF] [Extract] Entered section: 'RAFTERS'
+2026-07-27 11:50:05.970 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS'
+2026-07-27 11:50:05.970 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '410 UB59.7'
+2026-07-27 11:50:05.971 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 11:50:05.971 +05:30 [INF] [Extract] UNPARSED in 'ROOF BEAMS': '200 PFC'
+2026-07-27 11:50:05.971 +05:30 [INF] [Extract] Parsed 'R200' (PFC) from section 'ROOF BEAMS'
+2026-07-27 11:50:05.971 +05:30 [INF] [Extract] Entered section: 'FASCIA BEAM'
+2026-07-27 11:50:05.972 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'FASCIA BEAM'
+2026-07-27 11:50:05.972 +05:30 [INF] [Extract] Entered section: 'PURLINS'
+2026-07-27 11:50:05.972 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'BOUNDARY'
+2026-07-27 11:50:05.973 +05:30 [INF] [Extract] Parsed 'RB1' (RB2) from section 'PURLINS'
+2026-07-27 11:50:05.988 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20019 @ 1200 CTS2 ROWS OF BRIDGING'
+2026-07-27 11:50:05.988 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C20015 @ 1200 CTS1 ROW OF BRIDGING'
+2026-07-27 11:50:06.011 +05:30 [INF] [Extract] UNPARSED in 'PURLINS': 'C10010 @ 1200 CTS'
+2026-07-27 11:50:06.011 +05:30 [INF] [Extract] Entered section: 'WALL STIFFENERS'
+2026-07-27 11:50:06.012 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'WALL STIFFENERS'
+2026-07-27 11:50:06.012 +05:30 [INF] [Extract] Entered section: 'RAKING ANGLES'
+2026-07-27 11:50:06.041 +05:30 [INF] [Extract] Parsed 'RA1' (715X75X8.0EA) from section 'RAKING ANGLES'
+2026-07-27 11:50:06.042 +05:30 [INF] [Extract] Entered section: 'STRUTS'
+2026-07-27 11:50:06.046 +05:30 [INF] [Extract] Parsed 'S1' (114.3X4.5CHS) from section 'STRUTS'
+2026-07-27 11:50:06.046 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'STRUTS'
+2026-07-27 11:50:06.047 +05:30 [INF] [Extract] Entered section: 'ROOF BRACING'
+2026-07-27 11:50:06.047 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'ROOF BRACING'
+2026-07-27 11:50:06.053 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'PRIOR TO COMMENCING FABRICATION THE'
+2026-07-27 11:50:06.054 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'STEEL SUPPLIER MUST PROVIDE DETAILS'
+2026-07-27 11:50:06.055 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE OF THE TURNBUCKLES DEMON) from section 'ROOF BRACING'
+2026-07-27 11:50:06.074 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': 'THAT THEIR CAPACITY IS EQUAL TO or'
+2026-07-27 11:50:06.075 +05:30 [INF] [Extract] UNPARSED in 'ROOF BRACING': '| ee, A ce el el te, es el ee ee ee es ee ee ee es ee ee oo es ee ee ee a oe'
+2026-07-27 11:50:06.120 +05:30 [INF] Extraction: 11 valid, 5 filtered. Skipped marks: 410UB59.7(0.70), 200PFC(0.70), C20019(0.70), C20015(0.70), C10010(0.70)
+2026-07-27 11:50:06.120 +05:30 [INF] Drawing 270: extraction method=Text+ScheduleOCR, lines=52, members=11
+2026-07-27 11:50:06.120 +05:30 [INF] Extracted 11 members from drawing 270
+2026-07-27 11:50:06.152 +05:30 [INF] HTTP POST /api/extraction/drawing/270 responded 200 in 55958.4190 ms
+2026-07-27 11:52:51.395 +05:30 [INF] Database migrated successfully
+2026-07-27 11:52:51.725 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-27 11:57:26.646 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 4042.6843 ms
+2026-07-27 11:57:26.732 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 86.7883 ms
+2026-07-27 11:57:26.882 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276 responded 200 in 58.2509 ms
+2026-07-27 11:57:26.910 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276/summary responded 200 in 84.1672 ms
+2026-07-27 11:57:26.924 +05:30 [INF] HTTP GET /api/drawings/276 responded 200 in 86.4664 ms
+2026-07-27 11:57:27.095 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 256.8716 ms
+2026-07-27 11:57:27.114 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 270.6369 ms
+2026-07-27 11:57:30.424 +05:30 [INF] HTTP GET /api/drawings/270 responded 200 in 46.8091 ms
+2026-07-27 11:57:30.426 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 34.6385 ms
+2026-07-27 11:57:30.436 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270 responded 200 in 49.5253 ms
+2026-07-27 11:57:30.532 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 139.6189 ms
+2026-07-27 11:57:30.536 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 143.4233 ms
+2026-07-27 11:57:48.482 +05:30 [INF] Drawing 270: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-27 11:58:05.821 +05:30 [INF] Dynamic schedule locator: 991 word(s), 1 header(s), signals=MEMBER | SCHEDULE
+2026-07-27 11:58:08.738 +05:30 [INF] Schedule OCR page 1: dynamically detected 24 schedule line(s): MARK SIZE | R1 - 310 UB 40.4 | R2 - 250 UB 25.7 | R3 - 200 PFC | R4 - 200 PFC | R5 - 250 PFC | R6 - 250 PFC | RB1 - 410 UB 59.7 | RB2 - 200 PFC | RB3 - 200 PFC | RB4 - 200 PFC | FAB1 - FASCIA PURLIN TO BUILDERS DETAILS | P1 - C20019 @ 1200 CTS | P2 C20015 @ 1200 CTS | P3 - C10010 @ 1200 CTS | WS1 - 180 PFC | RA1 - 75x75x8.0 EA | S1 - 114.3x4.5 CHS | S2 - 200 PFC | rbr1 - 75x75x6.0 EA | rbr2 - 16% ROD WITH TURNBUCKLE | rbr3 - 35x1.2mm METAL STRAP BRACE | PR1 - C15019 GIRTS @ 600 CTS | ST1 - 89x89x6.0 SHS
+2026-07-27 11:58:08.801 +05:30 [INF] [Extract] Parsed 'R1' (310UB40.4) from section 'global'
+2026-07-27 11:58:08.802 +05:30 [INF] [Extract] Parsed 'R2' (250UB25.7) from section 'global'
+2026-07-27 11:58:08.803 +05:30 [INF] [Extract] Parsed 'R3' (200PFC) from section 'global'
+2026-07-27 11:58:08.803 +05:30 [INF] [Extract] Parsed 'R4' (200PFC) from section 'global'
+2026-07-27 11:58:08.804 +05:30 [INF] [Extract] Parsed 'R5' (250PFC) from section 'global'
+2026-07-27 11:58:08.805 +05:30 [INF] [Extract] Parsed 'R6' (250PFC) from section 'global'
+2026-07-27 11:58:08.805 +05:30 [INF] [Extract] Parsed 'RB1' (410UB59.7) from section 'global'
+2026-07-27 11:58:08.806 +05:30 [INF] [Extract] Parsed 'RB2' (200PFC) from section 'global'
+2026-07-27 11:58:08.806 +05:30 [INF] [Extract] Parsed 'RB3' (200PFC) from section 'global'
+2026-07-27 11:58:08.807 +05:30 [INF] [Extract] Parsed 'RB4' (200PFC) from section 'global'
+2026-07-27 11:58:08.807 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'global'
+2026-07-27 11:58:08.808 +05:30 [INF] [Extract] Parsed 'P1' (C20019) from section 'global'
+2026-07-27 11:58:08.809 +05:30 [INF] [Extract] Parsed 'P3' (C10010) from section 'global'
+2026-07-27 11:58:08.810 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'global'
+2026-07-27 11:58:08.810 +05:30 [INF] [Extract] Parsed 'RA1' (75X75X8.0EA) from section 'global'
+2026-07-27 11:58:08.811 +05:30 [INF] [Extract] Parsed 'S1' (114.3x4.5 CHS) from section 'global'
+2026-07-27 11:58:08.811 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'global'
+2026-07-27 11:58:08.812 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'global'
+2026-07-27 11:58:08.812 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE) from section 'global'
+2026-07-27 11:58:08.813 +05:30 [INF] [Extract] Parsed 'RBR3' (35x1.2mm METAL STRAP BRACE) from section 'global'
+2026-07-27 11:58:08.815 +05:30 [INF] [Extract] Parsed 'PR1' (C15019) from section 'global'
+2026-07-27 11:58:08.819 +05:30 [INF] [Extract] Parsed 'ST1' (89X89X6.0SHS) from section 'global'
+2026-07-27 11:58:08.895 +05:30 [INF] Drawing 270: extraction method=Text+ScheduleOCR, lines=35, members=23
+2026-07-27 11:58:08.897 +05:30 [INF] Extracted 23 members from drawing 270
+2026-07-27 11:58:08.910 +05:30 [INF] HTTP POST /api/extraction/drawing/270 responded 200 in 21642.5176 ms
+2026-07-27 11:58:48.237 +05:30 [INF] Drawing 33380-ST-000-02_G-STEEL MEMBER SCHEDULE uploaded for project 69
+2026-07-27 11:58:48.262 +05:30 [INF] HTTP POST /api/drawings/upload/69 responded 200 in 1282.2662 ms
+2026-07-27 11:58:48.366 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/277 responded 200 in 4.8992 ms
+2026-07-27 11:58:48.374 +05:30 [INF] HTTP GET /api/drawings/277 responded 200 in 15.4094 ms
+2026-07-27 11:58:48.390 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/277/summary responded 200 in 1.9880 ms
+2026-07-27 11:58:48.421 +05:30 [INF] HTTP GET /api/memberschedules/drawing/277 responded 200 in 32.9920 ms
+2026-07-27 11:58:48.426 +05:30 [INF] HTTP GET /api/memberschedules/drawing/277/summary responded 200 in 37.4239 ms
+2026-07-27 11:58:48.457 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 68.8473 ms
+2026-07-27 11:58:48.625 +05:30 [INF] HTTP GET /api/drawings/277/file responded 200 in 97.5689 ms
+2026-07-27 11:58:57.521 +05:30 [INF] Variant schedule table x=198.2, y=2274.8, columns=12, rows=51
+2026-07-27 11:58:57.545 +05:30 [INF] Variant schedule table x=1221.6, y=2274.8, columns=7, rows=31
+2026-07-27 11:58:57.553 +05:30 [INF] Variant schedule table x=1269.6, y=2140.9, columns=11, rows=131
+2026-07-27 11:58:57.557 +05:30 [INF] Variant schedule table x=198.2, y=2046.6, columns=12, rows=46
+2026-07-27 11:58:57.560 +05:30 [INF] Variant schedule table x=198.2, y=1844.7, columns=12, rows=19
+2026-07-27 11:58:57.565 +05:30 [INF] Variant schedule table x=1283.3, y=1804.2, columns=4, rows=62
+2026-07-27 11:58:57.579 +05:30 [INF] Variant schedule table x=1640.2, y=1804.2, columns=1, rows=32
+2026-07-27 11:58:57.583 +05:30 [INF] Variant schedule table x=1881.6, y=1804.2, columns=1, rows=5
+2026-07-27 11:58:57.586 +05:30 [INF] Variant schedule table x=198.2, y=1737.0, columns=12, rows=102
+2026-07-27 11:58:57.587 +05:30 [INF] Variant schedule table x=1895.3, y=1710.1, columns=1, rows=11
+2026-07-27 11:58:57.590 +05:30 [INF] Variant schedule table x=198.2, y=1467.7, columns=12, rows=101
+2026-07-27 11:58:57.592 +05:30 [INF] Variant schedule table x=1221.6, y=1306.2, columns=4, rows=28
+2026-07-27 11:58:57.603 +05:30 [INF] Variant schedule table x=198.2, y=1185.0, columns=12, rows=90
+2026-07-27 11:58:57.609 +05:30 [INF] Variant schedule table x=1221.6, y=1144.4, columns=4, rows=13
+2026-07-27 11:58:57.611 +05:30 [INF] Variant schedule table x=1221.6, y=1050.3, columns=4, rows=2
+2026-07-27 11:58:57.617 +05:30 [INF] Variant schedule table x=1221.6, y=982.9, columns=4, rows=9
+2026-07-27 11:58:57.622 +05:30 [INF] Extraction: using 733 coordinate-resolved multi-variant schedule cells
+2026-07-27 11:58:57.749 +05:30 [INF] Drawing 277: extraction method=Text, lines=266, members=733
+2026-07-27 11:58:57.752 +05:30 [INF] Extracted 733 members from drawing 277
+2026-07-27 11:58:57.753 +05:30 [INF] HTTP POST /api/extraction/drawing/277 responded 200 in 488.6208 ms
+2026-07-27 12:27:52.103 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276/summary responded 200 in 1293.6626 ms
+2026-07-27 12:27:52.103 +05:30 [INF] HTTP GET /api/drawings/276 responded 200 in 1301.1775 ms
+2026-07-27 12:27:52.117 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 1307.4576 ms
+2026-07-27 12:27:52.117 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 1136.3622 ms
+2026-07-27 12:27:52.117 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/276 responded 200 in 1314.9387 ms
+2026-07-27 12:28:00.694 +05:30 [INF] Extraction: using 58 coordinate-resolved schedule rows
+2026-07-27 12:28:00.703 +05:30 [INF] Drawing 276: extraction method=Text, lines=171, members=58
+2026-07-27 12:28:00.705 +05:30 [INF] Extracted 58 members from drawing 276
+2026-07-27 12:28:00.707 +05:30 [INF] HTTP POST /api/extraction/drawing/276 responded 200 in 960.8202 ms
+2026-07-27 12:28:08.936 +05:30 [INF] Upserted 58 extracted members for drawing 276
+2026-07-27 12:28:08.938 +05:30 [INF] HTTP POST /api/extraction/drawing/276/confirm responded 200 in 771.6437 ms
+2026-07-27 12:28:09.133 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276 responded 200 in 185.1364 ms
+2026-07-27 12:28:09.498 +05:30 [INF] HTTP GET /api/memberschedules/drawing/276/summary responded 200 in 549.6512 ms
+2026-07-27 12:32:56.429 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 5.3415 ms
+2026-07-27 12:32:56.429 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 3.6668 ms
+2026-07-27 12:32:56.482 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 56.0377 ms
+2026-07-27 12:32:56.482 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270 responded 200 in 61.7391 ms
+2026-07-27 12:32:56.482 +05:30 [INF] HTTP GET /api/drawings/270 responded 200 in 60.7441 ms
+2026-07-27 12:35:24.459 +05:30 [INF] HTTP POST /api/takeoffitems/1147/delete responded 200 in 213.5836 ms
+2026-07-27 12:35:24.577 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 26.2677 ms
+2026-07-27 12:35:26.440 +05:30 [INF] HTTP POST /api/takeoffitems/1148/delete responded 200 in 6.5110 ms
+2026-07-27 12:35:26.559 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 5.2839 ms
+2026-07-27 12:35:28.827 +05:30 [INF] HTTP POST /api/takeoffitems/1149/delete responded 200 in 9.5671 ms
+2026-07-27 12:35:28.933 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.6708 ms
+2026-07-27 12:35:31.454 +05:30 [INF] HTTP POST /api/takeoffitems/1150/delete responded 200 in 11.5621 ms
+2026-07-27 12:35:31.554 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 4.3665 ms
+2026-07-27 12:35:34.237 +05:30 [INF] HTTP POST /api/takeoffitems/1152/delete responded 200 in 5.9100 ms
+2026-07-27 12:35:34.330 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.7170 ms
+2026-07-27 12:35:36.420 +05:30 [INF] HTTP POST /api/takeoffitems/1153/delete responded 200 in 11.1581 ms
+2026-07-27 12:35:36.517 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 4.2801 ms
+2026-07-27 12:35:39.016 +05:30 [INF] HTTP POST /api/takeoffitems/1154/delete responded 200 in 12.9316 ms
+2026-07-27 12:35:39.117 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 4.5004 ms
+2026-07-27 12:35:41.760 +05:30 [INF] HTTP POST /api/takeoffitems/1155/delete responded 200 in 10.8336 ms
+2026-07-27 12:35:41.845 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.6938 ms
+2026-07-27 12:35:43.838 +05:30 [INF] HTTP POST /api/takeoffitems/1156/delete responded 200 in 25.1814 ms
+2026-07-27 12:35:43.922 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 12.6404 ms
+2026-07-27 12:35:46.433 +05:30 [INF] HTTP POST /api/takeoffitems/1157/delete responded 200 in 5.7281 ms
+2026-07-27 12:35:46.514 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 11.1648 ms
+2026-07-27 12:35:48.624 +05:30 [INF] HTTP POST /api/takeoffitems/1158/delete responded 200 in 5.8207 ms
+2026-07-27 12:35:48.688 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.5332 ms
+2026-07-27 12:35:51.107 +05:30 [INF] HTTP POST /api/takeoffitems/1159/delete responded 200 in 10.4185 ms
+2026-07-27 12:35:51.169 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 8.3567 ms
+2026-07-27 12:35:53.270 +05:30 [INF] HTTP POST /api/takeoffitems/1160/delete responded 200 in 6.6388 ms
+2026-07-27 12:35:53.342 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 5.1707 ms
+2026-07-27 12:35:58.757 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/270 responded 200 in 290.1535 ms
+2026-07-27 12:35:58.824 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 5.1066 ms
+2026-07-27 12:36:05.937 +05:30 [INF] HTTP POST /api/takeoffitems/1161/delete responded 200 in 8.1863 ms
+2026-07-27 12:36:05.998 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 4.5489 ms
+2026-07-27 12:36:09.520 +05:30 [INF] Drawing 270: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-27 12:36:23.747 +05:30 [INF] Dynamic schedule locator: 991 word(s), 1 header(s), signals=MEMBER | SCHEDULE
+2026-07-27 12:36:26.500 +05:30 [INF] Schedule OCR page 1: dynamically detected 24 schedule line(s): MARK SIZE | R1 - 310 UB 40.4 | R2 - 250 UB 25.7 | R3 - 200 PFC | R4 - 200 PFC | R5 - 250 PFC | R6 - 250 PFC | RB1 - 410 UB 59.7 | RB2 - 200 PFC | RB3 - 200 PFC | RB4 - 200 PFC | FAB1 - FASCIA PURLIN TO BUILDERS DETAILS | P1 - C20019 @ 1200 CTS | P2 C20015 @ 1200 CTS | P3 - C10010 @ 1200 CTS | WS1 - 180 PFC | RA1 - 75x75x8.0 EA | S1 - 114.3x4.5 CHS | S2 - 200 PFC | rbr1 - 75x75x6.0 EA | rbr2 - 16% ROD WITH TURNBUCKLE | rbr3 - 35x1.2mm METAL STRAP BRACE | PR1 - C15019 GIRTS @ 600 CTS | ST1 - 89x89x6.0 SHS
+2026-07-27 12:36:26.616 +05:30 [INF] [Extract] Parsed 'R1' (310UB40.4) from section 'global'
+2026-07-27 12:36:26.617 +05:30 [INF] [Extract] Parsed 'R2' (250UB25.7) from section 'global'
+2026-07-27 12:36:26.617 +05:30 [INF] [Extract] Parsed 'R3' (200PFC) from section 'global'
+2026-07-27 12:36:26.617 +05:30 [INF] [Extract] Parsed 'R4' (200PFC) from section 'global'
+2026-07-27 12:36:26.618 +05:30 [INF] [Extract] Parsed 'R5' (250PFC) from section 'global'
+2026-07-27 12:36:26.618 +05:30 [INF] [Extract] Parsed 'R6' (250PFC) from section 'global'
+2026-07-27 12:36:26.618 +05:30 [INF] [Extract] Parsed 'RB1' (410UB59.7) from section 'global'
+2026-07-27 12:36:26.618 +05:30 [INF] [Extract] Parsed 'RB2' (200PFC) from section 'global'
+2026-07-27 12:36:26.619 +05:30 [INF] [Extract] Parsed 'RB3' (200PFC) from section 'global'
+2026-07-27 12:36:26.619 +05:30 [INF] [Extract] Parsed 'RB4' (200PFC) from section 'global'
+2026-07-27 12:36:26.619 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'global'
+2026-07-27 12:36:26.619 +05:30 [INF] [Extract] Parsed 'P1' (C20019) from section 'global'
+2026-07-27 12:36:26.620 +05:30 [INF] [Extract] Parsed 'P3' (C10010) from section 'global'
+2026-07-27 12:36:26.620 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'global'
+2026-07-27 12:36:26.620 +05:30 [INF] [Extract] Parsed 'RA1' (75X75X8.0EA) from section 'global'
+2026-07-27 12:36:26.620 +05:30 [INF] [Extract] Parsed 'S1' (114.3x4.5 CHS) from section 'global'
+2026-07-27 12:36:26.620 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'global'
+2026-07-27 12:36:26.621 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'global'
+2026-07-27 12:36:26.621 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE) from section 'global'
+2026-07-27 12:36:26.621 +05:30 [INF] [Extract] Parsed 'RBR3' (35x1.2mm METAL STRAP BRACE) from section 'global'
+2026-07-27 12:36:26.621 +05:30 [INF] [Extract] Parsed 'PR1' (C15019) from section 'global'
+2026-07-27 12:36:26.621 +05:30 [INF] [Extract] Parsed 'ST1' (89X89X6.0SHS) from section 'global'
+2026-07-27 12:36:26.626 +05:30 [INF] Drawing 270: extraction method=Text+ScheduleOCR, lines=35, members=23
+2026-07-27 12:36:26.626 +05:30 [INF] Extracted 23 members from drawing 270
+2026-07-27 12:36:26.628 +05:30 [INF] HTTP POST /api/extraction/drawing/270 responded 200 in 17304.5485 ms
+2026-07-27 12:36:34.925 +05:30 [INF] Upserted 23 extracted members for drawing 270
+2026-07-27 12:36:34.925 +05:30 [INF] HTTP POST /api/extraction/drawing/270/confirm responded 200 in 246.1852 ms
+2026-07-27 12:36:34.937 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270 responded 200 in 4.4093 ms
+2026-07-27 12:36:34.937 +05:30 [INF] HTTP GET /api/memberschedules/drawing/270/summary responded 200 in 4.4688 ms
+2026-07-27 12:46:43.605 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/270 responded 200 in 444.7955 ms
+2026-07-27 12:46:43.735 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 38.3512 ms
+2026-07-27 12:47:04.888 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 1550.9213 ms
+2026-07-27 12:47:05.010 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 38.5009 ms
+2026-07-27 12:47:08.151 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 92.0439 ms
+2026-07-27 12:47:08.606 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 6.6550 ms
+2026-07-27 12:47:30.542 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 13.1139 ms
+2026-07-27 12:47:31.846 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 4.7571 ms
+2026-07-27 12:47:35.430 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 140.3868 ms
+2026-07-27 12:47:35.461 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.2727 ms
+2026-07-27 12:47:37.499 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 13.1742 ms
+2026-07-27 12:47:38.668 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 55.0638 ms
+2026-07-27 12:47:42.737 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 5.6029 ms
+2026-07-27 12:47:45.392 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 5.3973 ms
+2026-07-27 12:47:52.995 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 27.5803 ms
+2026-07-27 12:47:56.290 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 28.2297 ms
+2026-07-27 12:47:56.319 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/270/summary responded 200 in 3.2494 ms
+2026-07-27 12:47:59.070 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 14.4631 ms
+2026-07-27 12:48:03.047 +05:30 [INF] HTTP PUT /api/takeoffitems/1162 responded 200 in 4.8250 ms
+2026-07-27 12:48:17.866 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 277.5048 ms
+2026-07-27 12:48:17.943 +05:30 [INF] HTTP GET /api/drawings/project/69 responded 200 in 38.0794 ms
+2026-07-27 12:48:17.991 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/277 responded 200 in 4.7514 ms
+2026-07-27 12:48:18.000 +05:30 [INF] HTTP GET /api/drawings/277 responded 200 in 10.9267 ms
+2026-07-27 12:48:18.034 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/277/summary responded 200 in 42.8696 ms
+2026-07-27 12:48:18.229 +05:30 [INF] HTTP GET /api/memberschedules/drawing/277/summary responded 200 in 235.5486 ms
+2026-07-27 12:48:18.229 +05:30 [INF] HTTP GET /api/memberschedules/drawing/277 responded 200 in 237.9327 ms
+2026-07-27 12:48:19.011 +05:30 [INF] HTTP GET /api/drawings/277/file responded 304 in 304.1967 ms
+2026-07-27 12:59:52.577 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/268 responded 200 in 470.1004 ms
+2026-07-27 12:59:52.602 +05:30 [INF] HTTP GET /api/memberschedules/drawing/268/summary responded 200 in 499.7952 ms
+2026-07-27 12:59:52.606 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/268/summary responded 200 in 521.7452 ms
+2026-07-27 12:59:52.615 +05:30 [INF] HTTP GET /api/memberschedules/drawing/268 responded 200 in 497.1169 ms
+2026-07-27 12:59:52.621 +05:30 [INF] HTTP GET /api/drawings/268 responded 200 in 537.7615 ms
+2026-07-27 12:59:52.621 +05:30 [INF] HTTP GET /api/drawings/268/file responded 304 in 465.8861 ms
+2026-07-27 13:00:00.352 +05:30 [INF] [Extract] Entered section: 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.353 +05:30 [INF] [Extract] Parsed 'PF1' (3500 x 3500 x600 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.424 +05:30 [INF] [Extract] Salvaged 'PF2' (3500 x 3500 x600 DEEP) from stop-line row 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:00:00.425 +05:30 [INF] [Extract] Section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.' ended at stop line: 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:00:00.558 +05:30 [INF] [Extract] Parsed split-row 'PF5' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.558 +05:30 [INF] [Extract] Parsed split-row 'PF6' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.559 +05:30 [INF] [Extract] Parsed 'PF8' (800 x800 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.559 +05:30 [INF] [Extract] Parsed 'SF2' (600 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.560 +05:30 [INF] [Extract] Parsed 'SF5' (720 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.563 +05:30 [INF] [Extract] Parsed 'N16' (200UB1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.584 +05:30 [INF] [Extract] Parsed 'NOTE' (FOR EXTERNAL USE DDSLPL06X110G APPLICATIONS NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.585 +05:30 [INF] [Extract] Parsed 'NOTE' (PROVIDE CONTROL JOINTS IN ANY FLOOR TILES DIRECT) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.590 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.597 +05:30 [INF] [Extract] Parsed 'N16' (200 TOP & EXISTING LIMESTONE N16-200 TOP & BOTTO) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.604 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.604 +05:30 [INF] [Extract] Parsed 'N12' (200 BOTTOM PF3 - 1200 (x 1200) N12-200 BOTTOM PF) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.607 +05:30 [INF] [Extract] Parsed 'CAST' (IN SLIDING 1. ALL RETAINING WALL WORKS TO COMPLY) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.610 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY PF4 - 1600 (x 1600) N12-200 BOTTOM ) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.612 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.614 +05:30 [INF] [Extract] Parsed 'TILT' (UP CONCRETE PANEL NOTES.) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.622 +05:30 [INF] [Extract] Parsed 'TILT' (UP PANEL PLAN1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.626 +05:30 [INF] [Extract] Parsed 'A2' (AT ABUTTING PANELS AT ABUTTING STUDWALLS) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.627 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.635 +05:30 [INF] [Extract] Parsed 'CAST' (IN 'R1' REID BAR) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.644 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.652 +05:30 [INF] [Extract] Parsed 'NON' (BEARING WALL BELOW F B2 125 x10 BASE PLATE. FULL) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:00.653 +05:30 [INF] [Extract] Entered section: 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.653 +05:30 [INF] [Extract] Parsed 'C0' (N . CAST-IN PLATE PACKING UP BEAM) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.654 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.654 +05:30 [INF] [Extract] Parsed 'C2' (360UB) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.686 +05:30 [INF] [Extract] Parsed 'HSL' (3AT300 M8 CTS100) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.687 +05:30 [INF] [Extract] Parsed split-row 'C3' (75X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.687 +05:30 [INF] [Extract] Parsed split-row 'C4' (89X6SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.687 +05:30 [INF] [Extract] Parsed 'C5' (125 x6 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.688 +05:30 [INF] [Extract] Parsed 'C6' (165 O.D. x5.4 CHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.688 +05:30 [INF] [Extract] Parsed 'C7' (310UB32) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.689 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.689 +05:30 [INF] [Extract] Parsed split-row 'C9' (100X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.689 +05:30 [INF] [Extract] Parsed split-row 'C10' (125X75SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.690 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:00.690 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO': 'PROVIDE 70mm LONG SLOTTED HOLES TO TOP FIXING AS DETAIL 8 IN SHEET S12'
+2026-07-27 13:00:00.690 +05:30 [INF] [Extract] Entered section: 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.691 +05:30 [INF] [Extract] Parsed split-row 'FB1' (460PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.691 +05:30 [INF] [Extract] Parsed split-row 'FB2' (250UB67) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.692 +05:30 [INF] [Extract] Parsed 'FB3' (200UB22) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.694 +05:30 [INF] [Extract] Parsed 'FB4' (250PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.695 +05:30 [INF] [Extract] Parsed 'FA1' (150X12EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.695 +05:30 [INF] [Extract] Parsed 'FA2' (100 x8 EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:00.695 +05:30 [INF] [Extract] Entered section: 'OTHERS'
+2026-07-27 13:00:00.696 +05:30 [INF] [Extract] Parsed 'WH1' (150PFC) from section 'OTHERS'
+2026-07-27 13:00:00.696 +05:30 [INF] [Extract] Parsed 'WH2' (150X10EA) from section 'OTHERS'
+2026-07-27 13:00:00.697 +05:30 [INF] [Extract] Parsed 'OR1' (250PFC) from section 'OTHERS'
+2026-07-27 13:00:00.699 +05:30 [INF] [Extract] Parsed 'STR1' (200PFC) from section 'OTHERS'
+2026-07-27 13:00:00.700 +05:30 [INF] [Extract] Parsed 'FJ1' (C15012) from section 'OTHERS'
+2026-07-27 13:00:00.701 +05:30 [INF] [Extract] Parsed 'EX8' (PLATE & 2-M12 BOLTS EACH END) from section 'OTHERS'
+2026-07-27 13:00:00.701 +05:30 [INF] [Extract] Parsed 'FR1' (C30030) from section 'OTHERS'
+2026-07-27 13:00:00.701 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '- SEE SHEET S10'
+2026-07-27 13:00:00.702 +05:30 [INF] [Extract] Parsed 'R1' (RB12) from section 'OTHERS'
+2026-07-27 13:00:00.702 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '600 CTS MAX. CENTRAL IN TOPPING'
+2026-07-27 13:00:00.702 +05:30 [INF] [Extract] Parsed 'R2' (RB12) from section 'OTHERS'
+2026-07-27 13:00:00.703 +05:30 [INF] [Extract] Parsed 'AT200' (CTS CENTRAL IN SLAB (TYP.).) from section 'OTHERS'
+2026-07-27 13:00:00.704 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': 'E N G I N E E R S'
+2026-07-27 13:00:00.705 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.705 +05:30 [INF] [Extract] Section 'OTHERS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.766 +05:30 [INF] [Extract] Parsed 'T2' (M16 8.8/S BOLTS SL62 MESH CENTRAL 2-M16 8.8/S BO) from section 'OTHERS'
+2026-07-27 13:00:00.771 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:00:00.774 +05:30 [INF] [Extract] Parsed 'N12' (300UB8.8) from section 'OTHERS'
+2026-07-27 13:00:00.776 +05:30 [INF] [Extract] Parsed 'N12' (300UB) from section 'OTHERS'
+2026-07-27 13:00:00.780 +05:30 [INF] [Extract] Parsed 'N12' (200PFC) from section 'OTHERS'
+2026-07-27 13:00:00.780 +05:30 [INF] [Extract] Parsed 'PF8' (800 (x800) BOTTOM) from section 'OTHERS'
+2026-07-27 13:00:00.780 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:00:00.782 +05:30 [INF] [Extract] Parsed 'C2' (M12 BOLTS) from section 'OTHERS'
+2026-07-27 13:00:00.786 +05:30 [INF] [Extract] Parsed 'NOTE' (17 O F F E F E R) from section 'OTHERS'
+2026-07-27 13:00:00.792 +05:30 [INF] [Extract] Entered section: 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24'
+2026-07-27 13:00:00.792 +05:30 [INF] [Extract] UNPARSED in 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24': 'BRACINGS PURLIN 8.8/S BOLTS EACH END (TYP.)'
+2026-07-27 13:00:00.792 +05:30 [INF] [Extract] Section 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24' ended at stop line: 'LEGEND'
+2026-07-27 13:00:00.793 +05:30 [INF] [Extract] Entered section: 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.793 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.793 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.794 +05:30 [INF] [Extract] Parsed 'NOTE7' (14 ON STRUCTURAL DRAWING S1) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.794 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS WB2 - 100 x5 SHS) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.794 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.795 +05:30 [INF] [Extract] Parsed 'SC1' (610 PROVIDE UB 70mm 113 LONG SLOTTED HOLES TO TO) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.795 +05:30 [INF] [Extract] Parsed 'SC2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:00.796 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)': 'WELD AT CORNERS. 200 PFC'
+2026-07-27 13:00:00.796 +05:30 [INF] [Extract] Entered section: 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.797 +05:30 [INF] [Extract] Parsed 'B1' (610UB113) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.798 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.799 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.799 +05:30 [INF] [Extract] Parsed 'BEAMS' (EX10 PLATE) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.800 +05:30 [INF] [Extract] Parsed 'P2' (Z15019 AT 1500 CTS MAX. & 2-M16 8.8/S) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.800 +05:30 [INF] [Extract] Parsed 'CB1' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.801 +05:30 [INF] [Extract] Parsed 'CB2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.801 +05:30 [INF] [Extract] Parsed 'P3' (Z15012 LAP900 AT AT 1000 INTERNAL CTS MAX. SUPPO) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.801 +05:30 [INF] [Extract] Salvaged 'NOTE' (BRIDGING AT THIRD POINTS 2-M12 BOLTS) from stop-line row 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:00:00.801 +05:30 [INF] [Extract] Section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED' ended at stop line: 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:00:00.802 +05:30 [INF] [Extract] Parsed 'G1' (Z15012 AT 1800 CTS MAX.) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:00.810 +05:30 [INF] [Extract] Entered section: 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.810 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.810 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.811 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS LAP900 AT INTERNAL SUPPORTS) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.811 +05:30 [INF] [Extract] Parsed 'C7' (C5 - - 125 310 x UB6 SHS32 BRIDGING AT MIDSPAN *) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.811 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS * * ALL ALL FRAME MEMBERS MEMBERS TO ) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.811 +05:30 [INF] [Extract] Parsed 'C9' (C20015) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.812 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.812 +05:30 [INF] [Extract] Parsed 'SC3' (75x5 SHS STUB P7 - Z15019 PURLINS AT 1200 CTS MA) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:00.812 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.812 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.812 +05:30 [INF] [Extract] Parsed 'B3' (360UB51) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.813 +05:30 [INF] [Extract] Parsed 'B4' (150PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.813 +05:30 [INF] [Extract] Parsed 'B5' (200UB18) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.813 +05:30 [INF] [Extract] Parsed 'B6' (C20024) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.814 +05:30 [INF] [Extract] Parsed 'B7' (125PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.814 +05:30 [INF] [Extract] Parsed 'B9' (100PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:00.814 +05:30 [INF] [Extract] Entered section: 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.814 +05:30 [INF] [Extract] Parsed 'OR2' (150UC23) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.814 +05:30 [INF] [Extract] Parsed 'ET1' (150PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.815 +05:30 [INF] [Extract] Parsed 'RA1' (WH1 - - 100 150 x PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.815 +05:30 [INF] [Extract] Parsed 'EX10' (PLATE & 2-M16 8.8/S BOLTS EACH END BR3 - 30x0.8m) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.815 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED FRAME AS DETAIL ADJACENT SERIES 500) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.815 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.816 +05:30 [INF] [Extract] Parsed 'ST1' (60 O.D. x4.5 CHS) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.816 +05:30 [INF] [Extract] Parsed 'VO1' (75x8 EA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.816 +05:30 [INF] [Extract] Parsed 'EX10' (END PLATE & FULLY WELD SC3 EX10 PLATE &) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.816 +05:30 [INF] [Extract] Parsed 'HSL' (3 AT M12 200 x200 TO B4 BOLTS 2-M16 8.8/S) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.817 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'CTS'
+2026-07-27 13:00:00.818 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'SECTION 24 --'
+2026-07-27 13:00:00.819 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'E N G I N E E R S'
+2026-07-27 13:00:00.819 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.819 +05:30 [INF] [Extract] Section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.835 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.838 +05:30 [INF] [Extract] Parsed 'DWG' (C20015) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.842 +05:30 [INF] [Extract] Parsed 'EX4' (M16 10END8.8/S PLATE BOLTS & PLATE SC1. EX & 10 ) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.845 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.854 +05:30 [INF] [Extract] Parsed 'A' (A FIX CB1 TO410 UB54) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:00.861 +05:30 [INF] [Extract] Entered section: '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:00.862 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'B5BE H NI D E T1 WELD ALL NOT SHOWN FOR CLARITY 35 70'
+2026-07-27 13:00:00.862 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '0 2 5 AROUND'
+2026-07-27 13:00:00.862 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': ') D N PROVIDE 2/C20024 PURLINS TO SUPPORT ET1 ET1 0'
+2026-07-27 13:00:00.862 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '3 O Y E BASE OF ACCESS LADDER. FIX TOGETHER 7 0'
+2026-07-27 13:00:00.862 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'C ( B VIA M12 BOLTS AT 1200 CTS MAX. EX10 B5 2 5'
+2026-07-27 13:00:00.863 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE & 2-M16 8.8/S BOLTS EACH END EX10 PLATE'
+2026-07-27 13:00:00.863 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'TEE PLATE (EX16 END PLATE & EX12 WEB & 2-M16 8.8/S'
+2026-07-27 13:00:00.864 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE) FULLY WELDED WITH 6mm GP CFW. BOLT TO BOLTS 300'
+2026-07-27 13:00:00.865 +05:30 [INF] [Extract] Parsed 'WITH4' ('REID' ORBIPLATE (ORB2020) 300) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:00.865 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'D E T A I L5 S11 CONNECTORS TORQUED TO MANUF. SPECIF.'
+2026-07-27 13:00:00.865 +05:30 [INF] [Extract] Parsed 'IN4' ('REID' ELEPHANT FOOT CAST-IN V I E W X1 -- END P) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:00.866 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'FERRULES WITH 'REID' 10Ø x300 LONG X1 E N G I N E E R S'
+2026-07-27 13:00:00.866 +05:30 [INF] [Extract] Salvaged 'TO' (- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.866 +05:30 [INF] [Extract] Section '100 MIN. PURLINS AND BRACING' ended at stop line: 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:00.873 +05:30 [INF] [Extract] Parsed 'HSL' (3's. BOLT TO EX10 PLATE FULLY) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:00.875 +05:30 [INF] [Extract] Parsed 'B2' (M16 8.8/S BOLTS 6 PANEL PLATE & VIA2-HILTI EX8 E) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:00.878 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:01.202 +05:30 [INF] Extraction: 75 valid, 34 filtered. Skipped marks: NOTE(0.95), CAST(0.95), TILT(0.95), NON(0.95), HSL(0.95), NOTE7(0.95), SC1(0.95), BEAMS(0.95), B4(0.95), A(0.95), TO(0.95), 200PFC(0.90), 150X12EA(0.70), OTING(0.70), LONG(0.70), FULLY(0.70), S(0.70), 250PFC(0.70), C20015(0.70), F(0.70), URLIN(0.70), UTTER(0.70), 55X55X5EA(0.70), OINTS(0.70), C15012(0.70), RLINS(0.70), C15024(0.70), M12(0.70), AS(0.70), FIX(0.70), 410UB54(0.70), EYOND(0.70), C10019(0.70), CTS(0.70)
+2026-07-27 13:00:01.202 +05:30 [INF] Drawing 268: extraction method=Text, lines=1304, members=75
+2026-07-27 13:00:01.203 +05:30 [INF] Extracted 75 members from drawing 268
+2026-07-27 13:00:01.203 +05:30 [INF] HTTP POST /api/extraction/drawing/268 responded 200 in 5490.1927 ms
+2026-07-27 13:00:20.611 +05:30 [INF] HTTP GET /api/drawings/269 responded 200 in 32.5316 ms
+2026-07-27 13:00:20.612 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/269 responded 200 in 79.7618 ms
+2026-07-27 13:00:20.620 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/269/summary responded 200 in 29.5986 ms
+2026-07-27 13:00:20.642 +05:30 [INF] HTTP GET /api/memberschedules/drawing/269 responded 200 in 50.6556 ms
+2026-07-27 13:00:20.649 +05:30 [INF] HTTP GET /api/memberschedules/drawing/269/summary responded 200 in 39.7137 ms
+2026-07-27 13:00:20.692 +05:30 [INF] HTTP GET /api/drawings/269/file responded 304 in 3.2008 ms
+2026-07-27 13:00:23.561 +05:30 [INF] HTTP GET /api/drawings/268 responded 200 in 14.5244 ms
+2026-07-27 13:00:23.562 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/268 responded 200 in 7.1483 ms
+2026-07-27 13:00:23.564 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/268/summary responded 200 in 7.3586 ms
+2026-07-27 13:00:23.566 +05:30 [INF] HTTP GET /api/memberschedules/drawing/268 responded 200 in 8.1951 ms
+2026-07-27 13:00:23.572 +05:30 [INF] HTTP GET /api/memberschedules/drawing/268/summary responded 200 in 14.2779 ms
+2026-07-27 13:00:30.808 +05:30 [INF] [Extract] Entered section: 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.808 +05:30 [INF] [Extract] Parsed 'PF1' (3500 x 3500 x600 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.808 +05:30 [INF] [Extract] Salvaged 'PF2' (3500 x 3500 x600 DEEP) from stop-line row 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:00:30.808 +05:30 [INF] [Extract] Section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.' ended at stop line: 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:00:30.809 +05:30 [INF] [Extract] Parsed split-row 'PF5' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.809 +05:30 [INF] [Extract] Parsed split-row 'PF6' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.810 +05:30 [INF] [Extract] Parsed 'PF8' (800 x800 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.810 +05:30 [INF] [Extract] Parsed 'SF2' (600 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.810 +05:30 [INF] [Extract] Parsed 'SF5' (720 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.812 +05:30 [INF] [Extract] Parsed 'N16' (200UB1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.827 +05:30 [INF] [Extract] Parsed 'NOTE' (FOR EXTERNAL USE DDSLPL06X110G APPLICATIONS NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.829 +05:30 [INF] [Extract] Parsed 'NOTE' (PROVIDE CONTROL JOINTS IN ANY FLOOR TILES DIRECT) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.834 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.839 +05:30 [INF] [Extract] Parsed 'N16' (200 TOP & EXISTING LIMESTONE N16-200 TOP & BOTTO) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.843 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.843 +05:30 [INF] [Extract] Parsed 'N12' (200 BOTTOM PF3 - 1200 (x 1200) N12-200 BOTTOM PF) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.846 +05:30 [INF] [Extract] Parsed 'CAST' (IN SLIDING 1. ALL RETAINING WALL WORKS TO COMPLY) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.856 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY PF4 - 1600 (x 1600) N12-200 BOTTOM ) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.859 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.864 +05:30 [INF] [Extract] Parsed 'TILT' (UP CONCRETE PANEL NOTES.) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.931 +05:30 [INF] [Extract] Parsed 'TILT' (UP PANEL PLAN1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.935 +05:30 [INF] [Extract] Parsed 'A2' (AT ABUTTING PANELS AT ABUTTING STUDWALLS) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.936 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.945 +05:30 [INF] [Extract] Parsed 'CAST' (IN 'R1' REID BAR) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.954 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.993 +05:30 [INF] [Extract] Parsed 'NON' (BEARING WALL BELOW F B2 125 x10 BASE PLATE. FULL) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:00:30.994 +05:30 [INF] [Extract] Entered section: 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.994 +05:30 [INF] [Extract] Parsed 'C0' (N . CAST-IN PLATE PACKING UP BEAM) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.995 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.995 +05:30 [INF] [Extract] Parsed 'C2' (360UB) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.995 +05:30 [INF] [Extract] Parsed 'HSL' (3AT300 M8 CTS100) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.996 +05:30 [INF] [Extract] Parsed split-row 'C3' (75X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.996 +05:30 [INF] [Extract] Parsed split-row 'C4' (89X6SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.996 +05:30 [INF] [Extract] Parsed 'C5' (125 x6 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.996 +05:30 [INF] [Extract] Parsed 'C6' (165 O.D. x5.4 CHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.997 +05:30 [INF] [Extract] Parsed 'C7' (310UB32) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.997 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.997 +05:30 [INF] [Extract] Parsed split-row 'C9' (100X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.997 +05:30 [INF] [Extract] Parsed split-row 'C10' (125X75SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO': 'PROVIDE 70mm LONG SLOTTED HOLES TO TOP FIXING AS DETAIL 8 IN SHEET S12'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] Entered section: 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] Parsed split-row 'FB1' (460PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] Parsed split-row 'FB2' (250UB67) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.998 +05:30 [INF] [Extract] Parsed 'FB3' (200UB22) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.999 +05:30 [INF] [Extract] Parsed 'FB4' (250PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.999 +05:30 [INF] [Extract] Parsed 'FA1' (150X12EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.999 +05:30 [INF] [Extract] Parsed 'FA2' (100 x8 EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:00:30.999 +05:30 [INF] [Extract] Entered section: 'OTHERS'
+2026-07-27 13:00:30.999 +05:30 [INF] [Extract] Parsed 'WH1' (150PFC) from section 'OTHERS'
+2026-07-27 13:00:31.000 +05:30 [INF] [Extract] Parsed 'WH2' (150X10EA) from section 'OTHERS'
+2026-07-27 13:00:31.000 +05:30 [INF] [Extract] Parsed 'OR1' (250PFC) from section 'OTHERS'
+2026-07-27 13:00:31.000 +05:30 [INF] [Extract] Parsed 'STR1' (200PFC) from section 'OTHERS'
+2026-07-27 13:00:31.001 +05:30 [INF] [Extract] Parsed 'FJ1' (C15012) from section 'OTHERS'
+2026-07-27 13:00:31.001 +05:30 [INF] [Extract] Parsed 'EX8' (PLATE & 2-M12 BOLTS EACH END) from section 'OTHERS'
+2026-07-27 13:00:31.001 +05:30 [INF] [Extract] Parsed 'FR1' (C30030) from section 'OTHERS'
+2026-07-27 13:00:31.002 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '- SEE SHEET S10'
+2026-07-27 13:00:31.002 +05:30 [INF] [Extract] Parsed 'R1' (RB12) from section 'OTHERS'
+2026-07-27 13:00:31.002 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '600 CTS MAX. CENTRAL IN TOPPING'
+2026-07-27 13:00:31.002 +05:30 [INF] [Extract] Parsed 'R2' (RB12) from section 'OTHERS'
+2026-07-27 13:00:31.002 +05:30 [INF] [Extract] Parsed 'AT200' (CTS CENTRAL IN SLAB (TYP.).) from section 'OTHERS'
+2026-07-27 13:00:31.003 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': 'E N G I N E E R S'
+2026-07-27 13:00:31.003 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.003 +05:30 [INF] [Extract] Section 'OTHERS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.021 +05:30 [INF] [Extract] Parsed 'T2' (M16 8.8/S BOLTS SL62 MESH CENTRAL 2-M16 8.8/S BO) from section 'OTHERS'
+2026-07-27 13:00:31.025 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:00:31.029 +05:30 [INF] [Extract] Parsed 'N12' (300UB8.8) from section 'OTHERS'
+2026-07-27 13:00:31.032 +05:30 [INF] [Extract] Parsed 'N12' (300UB) from section 'OTHERS'
+2026-07-27 13:00:31.059 +05:30 [INF] [Extract] Parsed 'N12' (200PFC) from section 'OTHERS'
+2026-07-27 13:00:31.060 +05:30 [INF] [Extract] Parsed 'PF8' (800 (x800) BOTTOM) from section 'OTHERS'
+2026-07-27 13:00:31.060 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:00:31.062 +05:30 [INF] [Extract] Parsed 'C2' (M12 BOLTS) from section 'OTHERS'
+2026-07-27 13:00:31.064 +05:30 [INF] [Extract] Parsed 'NOTE' (17 O F F E F E R) from section 'OTHERS'
+2026-07-27 13:00:31.071 +05:30 [INF] [Extract] Entered section: 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24'
+2026-07-27 13:00:31.071 +05:30 [INF] [Extract] UNPARSED in 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24': 'BRACINGS PURLIN 8.8/S BOLTS EACH END (TYP.)'
+2026-07-27 13:00:31.072 +05:30 [INF] [Extract] Section 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24' ended at stop line: 'LEGEND'
+2026-07-27 13:00:31.072 +05:30 [INF] [Extract] Entered section: 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.073 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.073 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.074 +05:30 [INF] [Extract] Parsed 'NOTE7' (14 ON STRUCTURAL DRAWING S1) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.075 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS WB2 - 100 x5 SHS) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.076 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.077 +05:30 [INF] [Extract] Parsed 'SC1' (610 PROVIDE UB 70mm 113 LONG SLOTTED HOLES TO TO) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.078 +05:30 [INF] [Extract] Parsed 'SC2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:00:31.079 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)': 'WELD AT CORNERS. 200 PFC'
+2026-07-27 13:00:31.079 +05:30 [INF] [Extract] Entered section: 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.079 +05:30 [INF] [Extract] Parsed 'B1' (610UB113) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.080 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.081 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.081 +05:30 [INF] [Extract] Parsed 'BEAMS' (EX10 PLATE) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.081 +05:30 [INF] [Extract] Parsed 'P2' (Z15019 AT 1500 CTS MAX. & 2-M16 8.8/S) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.082 +05:30 [INF] [Extract] Parsed 'CB1' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.082 +05:30 [INF] [Extract] Parsed 'CB2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.082 +05:30 [INF] [Extract] Parsed 'P3' (Z15012 LAP900 AT AT 1000 INTERNAL CTS MAX. SUPPO) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.083 +05:30 [INF] [Extract] Salvaged 'NOTE' (BRIDGING AT THIRD POINTS 2-M12 BOLTS) from stop-line row 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:00:31.083 +05:30 [INF] [Extract] Section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED' ended at stop line: 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:00:31.083 +05:30 [INF] [Extract] Parsed 'G1' (Z15012 AT 1800 CTS MAX.) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:00:31.095 +05:30 [INF] [Extract] Entered section: 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.095 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.095 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.096 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS LAP900 AT INTERNAL SUPPORTS) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.096 +05:30 [INF] [Extract] Parsed 'C7' (C5 - - 125 310 x UB6 SHS32 BRIDGING AT MIDSPAN *) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.097 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS * * ALL ALL FRAME MEMBERS MEMBERS TO ) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.097 +05:30 [INF] [Extract] Parsed 'C9' (C20015) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.097 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.101 +05:30 [INF] [Extract] Parsed 'SC3' (75x5 SHS STUB P7 - Z15019 PURLINS AT 1200 CTS MA) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:00:31.102 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.102 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.103 +05:30 [INF] [Extract] Parsed 'B3' (360UB51) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.105 +05:30 [INF] [Extract] Parsed 'B4' (150PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.106 +05:30 [INF] [Extract] Parsed 'B5' (200UB18) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.106 +05:30 [INF] [Extract] Parsed 'B6' (C20024) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.107 +05:30 [INF] [Extract] Parsed 'B7' (125PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.108 +05:30 [INF] [Extract] Parsed 'B9' (100PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:00:31.108 +05:30 [INF] [Extract] Entered section: 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.150 +05:30 [INF] [Extract] Parsed 'OR2' (150UC23) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.150 +05:30 [INF] [Extract] Parsed 'ET1' (150PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.151 +05:30 [INF] [Extract] Parsed 'RA1' (WH1 - - 100 150 x PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.151 +05:30 [INF] [Extract] Parsed 'EX10' (PLATE & 2-M16 8.8/S BOLTS EACH END BR3 - 30x0.8m) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.152 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED FRAME AS DETAIL ADJACENT SERIES 500) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.152 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.152 +05:30 [INF] [Extract] Parsed 'ST1' (60 O.D. x4.5 CHS) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.153 +05:30 [INF] [Extract] Parsed 'VO1' (75x8 EA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.153 +05:30 [INF] [Extract] Parsed 'EX10' (END PLATE & FULLY WELD SC3 EX10 PLATE &) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.153 +05:30 [INF] [Extract] Parsed 'HSL' (3 AT M12 200 x200 TO B4 BOLTS 2-M16 8.8/S) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.153 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'CTS'
+2026-07-27 13:00:31.154 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'SECTION 24 --'
+2026-07-27 13:00:31.154 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'E N G I N E E R S'
+2026-07-27 13:00:31.154 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.154 +05:30 [INF] [Extract] Section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.181 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.183 +05:30 [INF] [Extract] Parsed 'DWG' (C20015) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.188 +05:30 [INF] [Extract] Parsed 'EX4' (M16 10END8.8/S PLATE BOLTS & PLATE SC1. EX & 10 ) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.190 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.191 +05:30 [INF] [Extract] Parsed 'A' (A FIX CB1 TO410 UB54) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:00:31.203 +05:30 [INF] [Extract] Entered section: '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.203 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'B5BE H NI D E T1 WELD ALL NOT SHOWN FOR CLARITY 35 70'
+2026-07-27 13:00:31.206 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '0 2 5 AROUND'
+2026-07-27 13:00:31.207 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': ') D N PROVIDE 2/C20024 PURLINS TO SUPPORT ET1 ET1 0'
+2026-07-27 13:00:31.207 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '3 O Y E BASE OF ACCESS LADDER. FIX TOGETHER 7 0'
+2026-07-27 13:00:31.208 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'C ( B VIA M12 BOLTS AT 1200 CTS MAX. EX10 B5 2 5'
+2026-07-27 13:00:31.208 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE & 2-M16 8.8/S BOLTS EACH END EX10 PLATE'
+2026-07-27 13:00:31.208 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'TEE PLATE (EX16 END PLATE & EX12 WEB & 2-M16 8.8/S'
+2026-07-27 13:00:31.209 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE) FULLY WELDED WITH 6mm GP CFW. BOLT TO BOLTS 300'
+2026-07-27 13:00:31.210 +05:30 [INF] [Extract] Parsed 'WITH4' ('REID' ORBIPLATE (ORB2020) 300) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.210 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'D E T A I L5 S11 CONNECTORS TORQUED TO MANUF. SPECIF.'
+2026-07-27 13:00:31.211 +05:30 [INF] [Extract] Parsed 'IN4' ('REID' ELEPHANT FOOT CAST-IN V I E W X1 -- END P) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.276 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'FERRULES WITH 'REID' 10Ø x300 LONG X1 E N G I N E E R S'
+2026-07-27 13:00:31.276 +05:30 [INF] [Extract] Salvaged 'TO' (- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.276 +05:30 [INF] [Extract] Section '100 MIN. PURLINS AND BRACING' ended at stop line: 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:00:31.285 +05:30 [INF] [Extract] Parsed 'HSL' (3's. BOLT TO EX10 PLATE FULLY) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.291 +05:30 [INF] [Extract] Parsed 'B2' (M16 8.8/S BOLTS 6 PANEL PLATE & VIA2-HILTI EX8 E) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.296 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:00:31.322 +05:30 [INF] Extraction: 75 valid, 34 filtered. Skipped marks: NOTE(0.95), CAST(0.95), TILT(0.95), NON(0.95), HSL(0.95), NOTE7(0.95), SC1(0.95), BEAMS(0.95), B4(0.95), A(0.95), TO(0.95), 200PFC(0.90), 150X12EA(0.70), OTING(0.70), LONG(0.70), FULLY(0.70), S(0.70), 250PFC(0.70), C20015(0.70), F(0.70), URLIN(0.70), UTTER(0.70), 55X55X5EA(0.70), OINTS(0.70), C15012(0.70), RLINS(0.70), C15024(0.70), M12(0.70), AS(0.70), FIX(0.70), 410UB54(0.70), EYOND(0.70), C10019(0.70), CTS(0.70)
+2026-07-27 13:00:31.322 +05:30 [INF] Drawing 268: extraction method=Text, lines=1304, members=75
+2026-07-27 13:00:31.322 +05:30 [INF] Extracted 75 members from drawing 268
+2026-07-27 13:00:31.323 +05:30 [INF] HTTP POST /api/extraction/drawing/268 responded 200 in 1625.6420 ms
+2026-07-27 13:01:24.894 +05:30 [INF] [Extract] Entered section: 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.895 +05:30 [INF] [Extract] Parsed 'PF1' (3500 x 3500 x600 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.895 +05:30 [INF] [Extract] Salvaged 'PF2' (3500 x 3500 x600 DEEP) from stop-line row 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:01:24.895 +05:30 [INF] [Extract] Section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.' ended at stop line: 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:01:24.896 +05:30 [INF] [Extract] Parsed split-row 'PF5' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.896 +05:30 [INF] [Extract] Parsed split-row 'PF6' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.896 +05:30 [INF] [Extract] Parsed 'PF8' (800 x800 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.897 +05:30 [INF] [Extract] Parsed 'SF2' (600 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.897 +05:30 [INF] [Extract] Parsed 'SF5' (720 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.899 +05:30 [INF] [Extract] Parsed 'N16' (200UB1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.908 +05:30 [INF] [Extract] Parsed 'NOTE' (FOR EXTERNAL USE DDSLPL06X110G APPLICATIONS NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.912 +05:30 [INF] [Extract] Parsed 'NOTE' (PROVIDE CONTROL JOINTS IN ANY FLOOR TILES DIRECT) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.919 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.929 +05:30 [INF] [Extract] Parsed 'N16' (200 TOP & EXISTING LIMESTONE N16-200 TOP & BOTTO) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.934 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.935 +05:30 [INF] [Extract] Parsed 'N12' (200 BOTTOM PF3 - 1200 (x 1200) N12-200 BOTTOM PF) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.936 +05:30 [INF] [Extract] Parsed 'CAST' (IN SLIDING 1. ALL RETAINING WALL WORKS TO COMPLY) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.938 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY PF4 - 1600 (x 1600) N12-200 BOTTOM ) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.939 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.942 +05:30 [INF] [Extract] Parsed 'TILT' (UP CONCRETE PANEL NOTES.) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.955 +05:30 [INF] [Extract] Parsed 'TILT' (UP PANEL PLAN1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.959 +05:30 [INF] [Extract] Parsed 'A2' (AT ABUTTING PANELS AT ABUTTING STUDWALLS) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.961 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.966 +05:30 [INF] [Extract] Parsed 'CAST' (IN 'R1' REID BAR) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.970 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.989 +05:30 [INF] [Extract] Parsed 'NON' (BEARING WALL BELOW F B2 125 x10 BASE PLATE. FULL) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:24.989 +05:30 [INF] [Extract] Entered section: 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.990 +05:30 [INF] [Extract] Parsed 'C0' (N . CAST-IN PLATE PACKING UP BEAM) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.991 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.991 +05:30 [INF] [Extract] Parsed 'C2' (360UB) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.992 +05:30 [INF] [Extract] Parsed 'HSL' (3AT300 M8 CTS100) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.992 +05:30 [INF] [Extract] Parsed split-row 'C3' (75X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.992 +05:30 [INF] [Extract] Parsed split-row 'C4' (89X6SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.993 +05:30 [INF] [Extract] Parsed 'C5' (125 x6 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.993 +05:30 [INF] [Extract] Parsed 'C6' (165 O.D. x5.4 CHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.993 +05:30 [INF] [Extract] Parsed 'C7' (310UB32) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.994 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.994 +05:30 [INF] [Extract] Parsed split-row 'C9' (100X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.994 +05:30 [INF] [Extract] Parsed split-row 'C10' (125X75SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.995 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:24.995 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO': 'PROVIDE 70mm LONG SLOTTED HOLES TO TOP FIXING AS DETAIL 8 IN SHEET S12'
+2026-07-27 13:01:24.995 +05:30 [INF] [Extract] Entered section: 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.996 +05:30 [INF] [Extract] Parsed split-row 'FB1' (460PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.996 +05:30 [INF] [Extract] Parsed split-row 'FB2' (250UB67) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.996 +05:30 [INF] [Extract] Parsed 'FB3' (200UB22) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.997 +05:30 [INF] [Extract] Parsed 'FB4' (250PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.997 +05:30 [INF] [Extract] Parsed 'FA1' (150X12EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.997 +05:30 [INF] [Extract] Parsed 'FA2' (100 x8 EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:24.997 +05:30 [INF] [Extract] Entered section: 'OTHERS'
+2026-07-27 13:01:24.998 +05:30 [INF] [Extract] Parsed 'WH1' (150PFC) from section 'OTHERS'
+2026-07-27 13:01:24.998 +05:30 [INF] [Extract] Parsed 'WH2' (150X10EA) from section 'OTHERS'
+2026-07-27 13:01:24.998 +05:30 [INF] [Extract] Parsed 'OR1' (250PFC) from section 'OTHERS'
+2026-07-27 13:01:24.999 +05:30 [INF] [Extract] Parsed 'STR1' (200PFC) from section 'OTHERS'
+2026-07-27 13:01:24.999 +05:30 [INF] [Extract] Parsed 'FJ1' (C15012) from section 'OTHERS'
+2026-07-27 13:01:25.000 +05:30 [INF] [Extract] Parsed 'EX8' (PLATE & 2-M12 BOLTS EACH END) from section 'OTHERS'
+2026-07-27 13:01:25.000 +05:30 [INF] [Extract] Parsed 'FR1' (C30030) from section 'OTHERS'
+2026-07-27 13:01:25.000 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '- SEE SHEET S10'
+2026-07-27 13:01:25.001 +05:30 [INF] [Extract] Parsed 'R1' (RB12) from section 'OTHERS'
+2026-07-27 13:01:25.001 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '600 CTS MAX. CENTRAL IN TOPPING'
+2026-07-27 13:01:25.002 +05:30 [INF] [Extract] Parsed 'R2' (RB12) from section 'OTHERS'
+2026-07-27 13:01:25.002 +05:30 [INF] [Extract] Parsed 'AT200' (CTS CENTRAL IN SLAB (TYP.).) from section 'OTHERS'
+2026-07-27 13:01:25.002 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': 'E N G I N E E R S'
+2026-07-27 13:01:25.003 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.003 +05:30 [INF] [Extract] Section 'OTHERS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.017 +05:30 [INF] [Extract] Parsed 'T2' (M16 8.8/S BOLTS SL62 MESH CENTRAL 2-M16 8.8/S BO) from section 'OTHERS'
+2026-07-27 13:01:25.023 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:01:25.026 +05:30 [INF] [Extract] Parsed 'N12' (300UB8.8) from section 'OTHERS'
+2026-07-27 13:01:25.028 +05:30 [INF] [Extract] Parsed 'N12' (300UB) from section 'OTHERS'
+2026-07-27 13:01:25.033 +05:30 [INF] [Extract] Parsed 'N12' (200PFC) from section 'OTHERS'
+2026-07-27 13:01:25.033 +05:30 [INF] [Extract] Parsed 'PF8' (800 (x800) BOTTOM) from section 'OTHERS'
+2026-07-27 13:01:25.034 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:01:25.038 +05:30 [INF] [Extract] Parsed 'C2' (M12 BOLTS) from section 'OTHERS'
+2026-07-27 13:01:25.047 +05:30 [INF] [Extract] Parsed 'NOTE' (17 O F F E F E R) from section 'OTHERS'
+2026-07-27 13:01:25.053 +05:30 [INF] [Extract] Entered section: 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24'
+2026-07-27 13:01:25.054 +05:30 [INF] [Extract] UNPARSED in 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24': 'BRACINGS PURLIN 8.8/S BOLTS EACH END (TYP.)'
+2026-07-27 13:01:25.054 +05:30 [INF] [Extract] Section 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24' ended at stop line: 'LEGEND'
+2026-07-27 13:01:25.055 +05:30 [INF] [Extract] Entered section: 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.055 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.056 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.056 +05:30 [INF] [Extract] Parsed 'NOTE7' (14 ON STRUCTURAL DRAWING S1) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.057 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS WB2 - 100 x5 SHS) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.057 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.057 +05:30 [INF] [Extract] Parsed 'SC1' (610 PROVIDE UB 70mm 113 LONG SLOTTED HOLES TO TO) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.058 +05:30 [INF] [Extract] Parsed 'SC2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:25.058 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)': 'WELD AT CORNERS. 200 PFC'
+2026-07-27 13:01:25.058 +05:30 [INF] [Extract] Entered section: 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.058 +05:30 [INF] [Extract] Parsed 'B1' (610UB113) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.059 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.059 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.060 +05:30 [INF] [Extract] Parsed 'BEAMS' (EX10 PLATE) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.060 +05:30 [INF] [Extract] Parsed 'P2' (Z15019 AT 1500 CTS MAX. & 2-M16 8.8/S) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.061 +05:30 [INF] [Extract] Parsed 'CB1' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.062 +05:30 [INF] [Extract] Parsed 'CB2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.062 +05:30 [INF] [Extract] Parsed 'P3' (Z15012 LAP900 AT AT 1000 INTERNAL CTS MAX. SUPPO) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.062 +05:30 [INF] [Extract] Salvaged 'NOTE' (BRIDGING AT THIRD POINTS 2-M12 BOLTS) from stop-line row 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:01:25.062 +05:30 [INF] [Extract] Section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED' ended at stop line: 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:01:25.063 +05:30 [INF] [Extract] Parsed 'G1' (Z15012 AT 1800 CTS MAX.) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:25.144 +05:30 [INF] [Extract] Entered section: 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.145 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.145 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.146 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS LAP900 AT INTERNAL SUPPORTS) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.146 +05:30 [INF] [Extract] Parsed 'C7' (C5 - - 125 310 x UB6 SHS32 BRIDGING AT MIDSPAN *) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.146 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS * * ALL ALL FRAME MEMBERS MEMBERS TO ) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.147 +05:30 [INF] [Extract] Parsed 'C9' (C20015) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.147 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.147 +05:30 [INF] [Extract] Parsed 'SC3' (75x5 SHS STUB P7 - Z15019 PURLINS AT 1200 CTS MA) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:25.147 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.148 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.148 +05:30 [INF] [Extract] Parsed 'B3' (360UB51) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.148 +05:30 [INF] [Extract] Parsed 'B4' (150PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.149 +05:30 [INF] [Extract] Parsed 'B5' (200UB18) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.149 +05:30 [INF] [Extract] Parsed 'B6' (C20024) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.149 +05:30 [INF] [Extract] Parsed 'B7' (125PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.149 +05:30 [INF] [Extract] Parsed 'B9' (100PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:25.149 +05:30 [INF] [Extract] Entered section: 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.150 +05:30 [INF] [Extract] Parsed 'OR2' (150UC23) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.150 +05:30 [INF] [Extract] Parsed 'ET1' (150PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.150 +05:30 [INF] [Extract] Parsed 'RA1' (WH1 - - 100 150 x PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.151 +05:30 [INF] [Extract] Parsed 'EX10' (PLATE & 2-M16 8.8/S BOLTS EACH END BR3 - 30x0.8m) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.151 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED FRAME AS DETAIL ADJACENT SERIES 500) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.151 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.152 +05:30 [INF] [Extract] Parsed 'ST1' (60 O.D. x4.5 CHS) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.152 +05:30 [INF] [Extract] Parsed 'VO1' (75x8 EA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.152 +05:30 [INF] [Extract] Parsed 'EX10' (END PLATE & FULLY WELD SC3 EX10 PLATE &) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] Parsed 'HSL' (3 AT M12 200 x200 TO B4 BOLTS 2-M16 8.8/S) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'CTS'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'SECTION 24 --'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'E N G I N E E R S'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.153 +05:30 [INF] [Extract] Section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.168 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.169 +05:30 [INF] [Extract] Parsed 'DWG' (C20015) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.177 +05:30 [INF] [Extract] Parsed 'EX4' (M16 10END8.8/S PLATE BOLTS & PLATE SC1. EX & 10 ) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.178 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.179 +05:30 [INF] [Extract] Parsed 'A' (A FIX CB1 TO410 UB54) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:25.183 +05:30 [INF] [Extract] Entered section: '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.185 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'B5BE H NI D E T1 WELD ALL NOT SHOWN FOR CLARITY 35 70'
+2026-07-27 13:01:25.185 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '0 2 5 AROUND'
+2026-07-27 13:01:25.186 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': ') D N PROVIDE 2/C20024 PURLINS TO SUPPORT ET1 ET1 0'
+2026-07-27 13:01:25.186 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '3 O Y E BASE OF ACCESS LADDER. FIX TOGETHER 7 0'
+2026-07-27 13:01:25.187 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'C ( B VIA M12 BOLTS AT 1200 CTS MAX. EX10 B5 2 5'
+2026-07-27 13:01:25.187 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE & 2-M16 8.8/S BOLTS EACH END EX10 PLATE'
+2026-07-27 13:01:25.187 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'TEE PLATE (EX16 END PLATE & EX12 WEB & 2-M16 8.8/S'
+2026-07-27 13:01:25.187 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE) FULLY WELDED WITH 6mm GP CFW. BOLT TO BOLTS 300'
+2026-07-27 13:01:25.188 +05:30 [INF] [Extract] Parsed 'WITH4' ('REID' ORBIPLATE (ORB2020) 300) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.188 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'D E T A I L5 S11 CONNECTORS TORQUED TO MANUF. SPECIF.'
+2026-07-27 13:01:25.188 +05:30 [INF] [Extract] Parsed 'IN4' ('REID' ELEPHANT FOOT CAST-IN V I E W X1 -- END P) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.189 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'FERRULES WITH 'REID' 10Ø x300 LONG X1 E N G I N E E R S'
+2026-07-27 13:01:25.189 +05:30 [INF] [Extract] Salvaged 'TO' (- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.189 +05:30 [INF] [Extract] Section '100 MIN. PURLINS AND BRACING' ended at stop line: 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:25.205 +05:30 [INF] [Extract] Parsed 'HSL' (3's. BOLT TO EX10 PLATE FULLY) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.207 +05:30 [INF] [Extract] Parsed 'B2' (M16 8.8/S BOLTS 6 PANEL PLATE & VIA2-HILTI EX8 E) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.210 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:25.239 +05:30 [INF] Extraction: 75 valid, 34 filtered. Skipped marks: NOTE(0.95), CAST(0.95), TILT(0.95), NON(0.95), HSL(0.95), NOTE7(0.95), SC1(0.95), BEAMS(0.95), B4(0.95), A(0.95), TO(0.95), 200PFC(0.90), 150X12EA(0.70), OTING(0.70), LONG(0.70), FULLY(0.70), S(0.70), 250PFC(0.70), C20015(0.70), F(0.70), URLIN(0.70), UTTER(0.70), 55X55X5EA(0.70), OINTS(0.70), C15012(0.70), RLINS(0.70), C15024(0.70), M12(0.70), AS(0.70), FIX(0.70), 410UB54(0.70), EYOND(0.70), C10019(0.70), CTS(0.70)
+2026-07-27 13:01:25.239 +05:30 [INF] Drawing 268: extraction method=Text, lines=1304, members=75
+2026-07-27 13:01:25.239 +05:30 [INF] Extracted 75 members from drawing 268
+2026-07-27 13:01:25.239 +05:30 [INF] HTTP POST /api/extraction/drawing/268 responded 200 in 1549.7969 ms
+2026-07-27 13:01:50.871 +05:30 [INF] [Extract] Entered section: 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.871 +05:30 [INF] [Extract] Parsed 'PF1' (3500 x 3500 x600 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.872 +05:30 [INF] [Extract] Salvaged 'PF2' (3500 x 3500 x600 DEEP) from stop-line row 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:01:50.872 +05:30 [INF] [Extract] Section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.' ended at stop line: 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-27 13:01:50.872 +05:30 [INF] [Extract] Parsed split-row 'PF5' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.872 +05:30 [INF] [Extract] Parsed split-row 'PF6' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.873 +05:30 [INF] [Extract] Parsed 'PF8' (800 x800 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.873 +05:30 [INF] [Extract] Parsed 'SF2' (600 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.874 +05:30 [INF] [Extract] Parsed 'SF5' (720 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.875 +05:30 [INF] [Extract] Parsed 'N16' (200UB1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.886 +05:30 [INF] [Extract] Parsed 'NOTE' (FOR EXTERNAL USE DDSLPL06X110G APPLICATIONS NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.887 +05:30 [INF] [Extract] Parsed 'NOTE' (PROVIDE CONTROL JOINTS IN ANY FLOOR TILES DIRECT) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.893 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.901 +05:30 [INF] [Extract] Parsed 'N16' (200 TOP & EXISTING LIMESTONE N16-200 TOP & BOTTO) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.944 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.944 +05:30 [INF] [Extract] Parsed 'N12' (200 BOTTOM PF3 - 1200 (x 1200) N12-200 BOTTOM PF) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.949 +05:30 [INF] [Extract] Parsed 'CAST' (IN SLIDING 1. ALL RETAINING WALL WORKS TO COMPLY) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.989 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY PF4 - 1600 (x 1600) N12-200 BOTTOM ) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.990 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.993 +05:30 [INF] [Extract] Parsed 'TILT' (UP CONCRETE PANEL NOTES.) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:50.999 +05:30 [INF] [Extract] Parsed 'TILT' (UP PANEL PLAN1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.003 +05:30 [INF] [Extract] Parsed 'A2' (AT ABUTTING PANELS AT ABUTTING STUDWALLS) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.007 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.019 +05:30 [INF] [Extract] Parsed 'CAST' (IN 'R1' REID BAR) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.023 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.033 +05:30 [INF] [Extract] Parsed 'NON' (BEARING WALL BELOW F B2 125 x10 BASE PLATE. FULL) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-27 13:01:51.034 +05:30 [INF] [Extract] Entered section: 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.034 +05:30 [INF] [Extract] Parsed 'C0' (N . CAST-IN PLATE PACKING UP BEAM) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.034 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.036 +05:30 [INF] [Extract] Parsed 'C2' (360UB) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.037 +05:30 [INF] [Extract] Parsed 'HSL' (3AT300 M8 CTS100) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.046 +05:30 [INF] [Extract] Parsed split-row 'C3' (75X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.046 +05:30 [INF] [Extract] Parsed split-row 'C4' (89X6SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.046 +05:30 [INF] [Extract] Parsed 'C5' (125 x6 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.047 +05:30 [INF] [Extract] Parsed 'C6' (165 O.D. x5.4 CHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.047 +05:30 [INF] [Extract] Parsed 'C7' (310UB32) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.048 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.049 +05:30 [INF] [Extract] Parsed split-row 'C9' (100X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.049 +05:30 [INF] [Extract] Parsed split-row 'C10' (125X75SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.050 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-27 13:01:51.051 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO': 'PROVIDE 70mm LONG SLOTTED HOLES TO TOP FIXING AS DETAIL 8 IN SHEET S12'
+2026-07-27 13:01:51.051 +05:30 [INF] [Extract] Entered section: 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.051 +05:30 [INF] [Extract] Parsed split-row 'FB1' (460PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.051 +05:30 [INF] [Extract] Parsed split-row 'FB2' (250UB67) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.052 +05:30 [INF] [Extract] Parsed 'FB3' (200UB22) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.052 +05:30 [INF] [Extract] Parsed 'FB4' (250PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.053 +05:30 [INF] [Extract] Parsed 'FA1' (150X12EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.054 +05:30 [INF] [Extract] Parsed 'FA2' (100 x8 EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-27 13:01:51.054 +05:30 [INF] [Extract] Entered section: 'OTHERS'
+2026-07-27 13:01:51.054 +05:30 [INF] [Extract] Parsed 'WH1' (150PFC) from section 'OTHERS'
+2026-07-27 13:01:51.054 +05:30 [INF] [Extract] Parsed 'WH2' (150X10EA) from section 'OTHERS'
+2026-07-27 13:01:51.055 +05:30 [INF] [Extract] Parsed 'OR1' (250PFC) from section 'OTHERS'
+2026-07-27 13:01:51.055 +05:30 [INF] [Extract] Parsed 'STR1' (200PFC) from section 'OTHERS'
+2026-07-27 13:01:51.055 +05:30 [INF] [Extract] Parsed 'FJ1' (C15012) from section 'OTHERS'
+2026-07-27 13:01:51.055 +05:30 [INF] [Extract] Parsed 'EX8' (PLATE & 2-M12 BOLTS EACH END) from section 'OTHERS'
+2026-07-27 13:01:51.056 +05:30 [INF] [Extract] Parsed 'FR1' (C30030) from section 'OTHERS'
+2026-07-27 13:01:51.057 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '- SEE SHEET S10'
+2026-07-27 13:01:51.057 +05:30 [INF] [Extract] Parsed 'R1' (RB12) from section 'OTHERS'
+2026-07-27 13:01:51.057 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '600 CTS MAX. CENTRAL IN TOPPING'
+2026-07-27 13:01:51.057 +05:30 [INF] [Extract] Parsed 'R2' (RB12) from section 'OTHERS'
+2026-07-27 13:01:51.058 +05:30 [INF] [Extract] Parsed 'AT200' (CTS CENTRAL IN SLAB (TYP.).) from section 'OTHERS'
+2026-07-27 13:01:51.058 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': 'E N G I N E E R S'
+2026-07-27 13:01:51.058 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.058 +05:30 [INF] [Extract] Section 'OTHERS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.065 +05:30 [INF] [Extract] Parsed 'T2' (M16 8.8/S BOLTS SL62 MESH CENTRAL 2-M16 8.8/S BO) from section 'OTHERS'
+2026-07-27 13:01:51.087 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:01:51.090 +05:30 [INF] [Extract] Parsed 'N12' (300UB8.8) from section 'OTHERS'
+2026-07-27 13:01:51.092 +05:30 [INF] [Extract] Parsed 'N12' (300UB) from section 'OTHERS'
+2026-07-27 13:01:51.097 +05:30 [INF] [Extract] Parsed 'N12' (200PFC) from section 'OTHERS'
+2026-07-27 13:01:51.098 +05:30 [INF] [Extract] Parsed 'PF8' (800 (x800) BOTTOM) from section 'OTHERS'
+2026-07-27 13:01:51.102 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-27 13:01:51.106 +05:30 [INF] [Extract] Parsed 'C2' (M12 BOLTS) from section 'OTHERS'
+2026-07-27 13:01:51.116 +05:30 [INF] [Extract] Parsed 'NOTE' (17 O F F E F E R) from section 'OTHERS'
+2026-07-27 13:01:51.121 +05:30 [INF] [Extract] Entered section: 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24'
+2026-07-27 13:01:51.121 +05:30 [INF] [Extract] UNPARSED in 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24': 'BRACINGS PURLIN 8.8/S BOLTS EACH END (TYP.)'
+2026-07-27 13:01:51.121 +05:30 [INF] [Extract] Section 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24' ended at stop line: 'LEGEND'
+2026-07-27 13:01:51.121 +05:30 [INF] [Extract] Entered section: 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.122 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.122 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.123 +05:30 [INF] [Extract] Parsed 'NOTE7' (14 ON STRUCTURAL DRAWING S1) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.123 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS WB2 - 100 x5 SHS) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.123 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.124 +05:30 [INF] [Extract] Parsed 'SC1' (610 PROVIDE UB 70mm 113 LONG SLOTTED HOLES TO TO) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.127 +05:30 [INF] [Extract] Parsed 'SC2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-27 13:01:51.127 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)': 'WELD AT CORNERS. 200 PFC'
+2026-07-27 13:01:51.127 +05:30 [INF] [Extract] Entered section: 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.127 +05:30 [INF] [Extract] Parsed 'B1' (610UB113) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.128 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.128 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.128 +05:30 [INF] [Extract] Parsed 'BEAMS' (EX10 PLATE) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.136 +05:30 [INF] [Extract] Parsed 'P2' (Z15019 AT 1500 CTS MAX. & 2-M16 8.8/S) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.137 +05:30 [INF] [Extract] Parsed 'CB1' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.137 +05:30 [INF] [Extract] Parsed 'CB2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.137 +05:30 [INF] [Extract] Parsed 'P3' (Z15012 LAP900 AT AT 1000 INTERNAL CTS MAX. SUPPO) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.137 +05:30 [INF] [Extract] Salvaged 'NOTE' (BRIDGING AT THIRD POINTS 2-M12 BOLTS) from stop-line row 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:01:51.137 +05:30 [INF] [Extract] Section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED' ended at stop line: 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-27 13:01:51.138 +05:30 [INF] [Extract] Parsed 'G1' (Z15012 AT 1800 CTS MAX.) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-27 13:01:51.150 +05:30 [INF] [Extract] Entered section: 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.150 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.151 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.151 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS LAP900 AT INTERNAL SUPPORTS) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.152 +05:30 [INF] [Extract] Parsed 'C7' (C5 - - 125 310 x UB6 SHS32 BRIDGING AT MIDSPAN *) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.152 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS * * ALL ALL FRAME MEMBERS MEMBERS TO ) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.152 +05:30 [INF] [Extract] Parsed 'C9' (C20015) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.153 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.153 +05:30 [INF] [Extract] Parsed 'SC3' (75x5 SHS STUB P7 - Z15019 PURLINS AT 1200 CTS MA) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-27 13:01:51.153 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.153 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.154 +05:30 [INF] [Extract] Parsed 'B3' (360UB51) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.154 +05:30 [INF] [Extract] Parsed 'B4' (150PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.154 +05:30 [INF] [Extract] Parsed 'B5' (200UB18) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.155 +05:30 [INF] [Extract] Parsed 'B6' (C20024) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.155 +05:30 [INF] [Extract] Parsed 'B7' (125PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.156 +05:30 [INF] [Extract] Parsed 'B9' (100PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-27 13:01:51.156 +05:30 [INF] [Extract] Entered section: 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.156 +05:30 [INF] [Extract] Parsed 'OR2' (150UC23) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.156 +05:30 [INF] [Extract] Parsed 'ET1' (150PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.157 +05:30 [INF] [Extract] Parsed 'RA1' (WH1 - - 100 150 x PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.157 +05:30 [INF] [Extract] Parsed 'EX10' (PLATE & 2-M16 8.8/S BOLTS EACH END BR3 - 30x0.8m) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.158 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED FRAME AS DETAIL ADJACENT SERIES 500) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.158 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.159 +05:30 [INF] [Extract] Parsed 'ST1' (60 O.D. x4.5 CHS) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.159 +05:30 [INF] [Extract] Parsed 'VO1' (75x8 EA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.159 +05:30 [INF] [Extract] Parsed 'EX10' (END PLATE & FULLY WELD SC3 EX10 PLATE &) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.160 +05:30 [INF] [Extract] Parsed 'HSL' (3 AT M12 200 x200 TO B4 BOLTS 2-M16 8.8/S) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.160 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'CTS'
+2026-07-27 13:01:51.160 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'SECTION 24 --'
+2026-07-27 13:01:51.163 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'E N G I N E E R S'
+2026-07-27 13:01:51.165 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.165 +05:30 [INF] [Extract] Section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.182 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.184 +05:30 [INF] [Extract] Parsed 'DWG' (C20015) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.188 +05:30 [INF] [Extract] Parsed 'EX4' (M16 10END8.8/S PLATE BOLTS & PLATE SC1. EX & 10 ) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.189 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.189 +05:30 [INF] [Extract] Parsed 'A' (A FIX CB1 TO410 UB54) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-27 13:01:51.194 +05:30 [INF] [Extract] Entered section: '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.195 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'B5BE H NI D E T1 WELD ALL NOT SHOWN FOR CLARITY 35 70'
+2026-07-27 13:01:51.196 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '0 2 5 AROUND'
+2026-07-27 13:01:51.197 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': ') D N PROVIDE 2/C20024 PURLINS TO SUPPORT ET1 ET1 0'
+2026-07-27 13:01:51.198 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '3 O Y E BASE OF ACCESS LADDER. FIX TOGETHER 7 0'
+2026-07-27 13:01:51.199 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'C ( B VIA M12 BOLTS AT 1200 CTS MAX. EX10 B5 2 5'
+2026-07-27 13:01:51.199 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE & 2-M16 8.8/S BOLTS EACH END EX10 PLATE'
+2026-07-27 13:01:51.200 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'TEE PLATE (EX16 END PLATE & EX12 WEB & 2-M16 8.8/S'
+2026-07-27 13:01:51.201 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE) FULLY WELDED WITH 6mm GP CFW. BOLT TO BOLTS 300'
+2026-07-27 13:01:51.201 +05:30 [INF] [Extract] Parsed 'WITH4' ('REID' ORBIPLATE (ORB2020) 300) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.208 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'D E T A I L5 S11 CONNECTORS TORQUED TO MANUF. SPECIF.'
+2026-07-27 13:01:51.210 +05:30 [INF] [Extract] Parsed 'IN4' ('REID' ELEPHANT FOOT CAST-IN V I E W X1 -- END P) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.210 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'FERRULES WITH 'REID' 10Ø x300 LONG X1 E N G I N E E R S'
+2026-07-27 13:01:51.211 +05:30 [INF] [Extract] Salvaged 'TO' (- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.211 +05:30 [INF] [Extract] Section '100 MIN. PURLINS AND BRACING' ended at stop line: 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-27 13:01:51.219 +05:30 [INF] [Extract] Parsed 'HSL' (3's. BOLT TO EX10 PLATE FULLY) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.221 +05:30 [INF] [Extract] Parsed 'B2' (M16 8.8/S BOLTS 6 PANEL PLATE & VIA2-HILTI EX8 E) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.227 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section '100 MIN. PURLINS AND BRACING'
+2026-07-27 13:01:51.249 +05:30 [INF] Extraction: 75 valid, 34 filtered. Skipped marks: NOTE(0.95), CAST(0.95), TILT(0.95), NON(0.95), HSL(0.95), NOTE7(0.95), SC1(0.95), BEAMS(0.95), B4(0.95), A(0.95), TO(0.95), 200PFC(0.90), 150X12EA(0.70), OTING(0.70), LONG(0.70), FULLY(0.70), S(0.70), 250PFC(0.70), C20015(0.70), F(0.70), URLIN(0.70), UTTER(0.70), 55X55X5EA(0.70), OINTS(0.70), C15012(0.70), RLINS(0.70), C15024(0.70), M12(0.70), AS(0.70), FIX(0.70), 410UB54(0.70), EYOND(0.70), C10019(0.70), CTS(0.70)
+2026-07-27 13:01:51.249 +05:30 [INF] Drawing 268: extraction method=Text, lines=1304, members=75
+2026-07-27 13:01:51.249 +05:30 [INF] Extracted 75 members from drawing 268
+2026-07-27 13:01:51.250 +05:30 [INF] HTTP POST /api/extraction/drawing/268 responded 200 in 1534.7048 ms
+2026-07-27 13:10:47.470 +05:30 [INF] HTTP GET /api/memberschedules/drawing/275 responded 200 in 767.6515 ms
+2026-07-27 13:10:47.476 +05:30 [INF] HTTP GET /api/memberschedules/drawing/275/summary responded 200 in 772.6374 ms
+2026-07-27 13:10:47.560 +05:30 [INF] HTTP GET /api/drawings/275/file responded 304 in 755.6615 ms
+2026-07-27 13:10:47.676 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/275 responded 200 in 971.8417 ms
+2026-07-27 13:10:47.679 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/275/summary responded 200 in 976.1616 ms
+2026-07-27 13:10:47.697 +05:30 [INF] HTTP GET /api/drawings/275 responded 200 in 994.3471 ms
