@@ -635,3 +635,462 @@ ClientConnectionId:9400324b-3751-4c67-b321-3470def46ca1
 2026-07-28 17:01:02.951 +05:30 [INF] HTTP PUT /api/takeoffitems/2040 responded 200 in 478.3812 ms
 2026-07-28 17:01:03.171 +05:30 [INF] HTTP PUT /api/memberschedules/1980 responded 200 in 142.2275 ms
 2026-07-28 17:01:04.134 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 486.7737 ms
+2026-07-28 17:01:19.111 +05:30 [INF] HTTP POST /api/drawings/1032/calibrate responded 200 in 425.1217 ms
+2026-07-28 17:01:19.549 +05:30 [INF] HTTP GET /api/drawings/1032 responded 200 in 115.4210 ms
+2026-07-28 17:01:19.766 +05:30 [INF] HTTP GET /api/drawings/1032 responded 200 in 14.6699 ms
+2026-07-28 17:01:19.968 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/1032 responded 200 in 85.8461 ms
+2026-07-28 17:01:20.517 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 7.5255 ms
+2026-07-28 17:01:42.063 +05:30 [INF] HTTP PUT /api/takeoffitems/2040 responded 200 in 61.8882 ms
+2026-07-28 17:01:42.436 +05:30 [INF] HTTP PUT /api/memberschedules/1982 responded 200 in 13.1290 ms
+2026-07-28 17:01:42.697 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 7.8552 ms
+2026-07-28 17:01:42.959 +05:30 [INF] HTTP PUT /api/takeoffitems/2046 responded 200 in 52.4457 ms
+2026-07-28 17:01:43.111 +05:30 [INF] HTTP PUT /api/memberschedules/1982 responded 200 in 73.7832 ms
+2026-07-28 17:01:43.620 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 32.9866 ms
+2026-07-28 17:01:45.685 +05:30 [INF] HTTP PUT /api/takeoffitems/2046 responded 200 in 58.1824 ms
+2026-07-28 17:01:46.164 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 61.2354 ms
+2026-07-28 17:01:48.418 +05:30 [INF] HTTP PUT /api/takeoffitems/2040 responded 200 in 908.1599 ms
+2026-07-28 17:01:48.825 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 6.1316 ms
+2026-07-28 17:01:50.040 +05:30 [INF] HTTP POST /api/takeoffitems/2046/delete responded 200 in 86.6522 ms
+2026-07-28 17:01:50.529 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 45.3585 ms
+2026-07-28 17:12:40.562 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 6034.8388 ms
+2026-07-28 17:12:41.122 +05:30 [INF] HTTP GET /api/Projects responded 200 in 396.7894 ms
+2026-07-28 17:12:41.235 +05:30 [INF] HTTP GET /api/Drawings/project/4 responded 200 in 103.0152 ms
+2026-07-28 17:12:41.346 +05:30 [INF] HTTP GET /api/Drawings/project/3 responded 200 in 3.1335 ms
+2026-07-28 17:12:55.599 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 1434.1879 ms
+2026-07-28 17:12:57.636 +05:30 [INF] Extraction: using 6 coordinate-resolved schedule rows
+2026-07-28 17:12:57.662 +05:30 [INF] Drawing 1032: selectable text exists but schedule candidates are weak (3 member(s)) — running targeted schedule OCR
+2026-07-28 17:13:42.028 +05:30 [INF] Dynamic schedule locator: 429 word(s), 0 header(s), signals=SCHEDULE | SCHEDULE
+2026-07-28 17:13:58.704 +05:30 [INF] Drawing 1032: extraction method=Text, lines=206, members=3
+2026-07-28 17:13:58.781 +05:30 [INF] Extracted 3 members from drawing 1032
+2026-07-28 17:13:58.870 +05:30 [INF] HTTP POST /api/Extraction/drawing/1032 responded 200 in 63232.3924 ms
+2026-07-28 17:14:01.775 +05:30 [INF] Extraction: using 13 coordinate-resolved schedule rows
+2026-07-28 17:14:01.816 +05:30 [INF] Drawing 1029: extraction method=Text, lines=305, members=6
+2026-07-28 17:14:01.816 +05:30 [INF] Extracted 6 members from drawing 1029
+2026-07-28 17:14:01.817 +05:30 [INF] HTTP POST /api/Extraction/drawing/1029 responded 200 in 2871.6546 ms
+2026-07-28 17:18:50.743 +05:30 [WRN] Database migration failed — will attempt EnsureCreated
+Microsoft.Data.SqlClient.SqlException (0x80131904): Failed to generate SSPI context.
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.SSPIError(String error, String procedure)
+   at Microsoft.Data.SqlClient.TdsParser.SNISSPIData(Byte[] receivedBuff, UInt32 receivedLength, Byte[]& sendBuff, UInt32& sendLength)
+   at Microsoft.Data.SqlClient.TdsParser.SSPIData(Byte[] receivedBuff, UInt32 receivedLength, Byte[]& sendBuff, UInt32& sendLength)
+   at Microsoft.Data.SqlClient.TdsParser.TdsLogin(SqlLogin rec, FeatureExtension requestedFeatures, SessionData recoverySessionData, FederatedAuthenticationFeatureExtensionData fedAuthFeatureExtensionData, SqlConnectionEncryptOption encrypt)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.Login(ServerInfo server, TimeoutTimer timeout, String newPassword, SecureString newSecurePassword, SqlConnectionEncryptOption encrypt)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.AttemptOneLogin(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean ignoreSniOpenTimeout, TimeoutTimer timeout, Boolean withFailover)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.LoginNoFailover(ServerInfo serverInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString connectionOptions, SqlCredential credential, TimeoutTimer timeout)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds.OpenLoginEnlist(TimeoutTimer timeout, SqlConnectionString connectionOptions, SqlCredential credential, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance)
+   at Microsoft.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken, DbConnectionPool pool)
+   at Microsoft.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.CreateNonPooledConnection(DbConnection owningConnection, DbConnectionPoolGroup poolGroup, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at Microsoft.Data.ProviderBase.DbConnectionClosed.TryOpenConnection(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at Microsoft.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry, SqlConnectionOverrides overrides)
+   at Microsoft.Data.SqlClient.SqlConnection.Open(SqlConnectionOverrides overrides)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerConnection.OpenDbConnection(Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenInternal(Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.Open(Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerDatabaseCreator.<>c__DisplayClass18_0.<Exists>b__0(DateTime giveUp)
+   at Microsoft.EntityFrameworkCore.ExecutionStrategyExtensions.<>c__DisplayClass12_0`2.<Execute>b__0(DbContext _, TState s)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ExecutionStrategyExtensions.Execute[TState,TResult](IExecutionStrategy strategy, TState state, Func`2 operation, Func`2 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerDatabaseCreator.Exists(Boolean retryOnNotExists)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerDatabaseCreator.Exists()
+   at Microsoft.EntityFrameworkCore.Migrations.HistoryRepository.Exists()
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+   at Program.<Main>$(String[] args) in E:\Construction Git Repo Project\construction-estimation\backend\ConstructionEstimation.API\Program.cs:line 102
+ClientConnectionId:cbf553c2-0a8f-4520-a4c1-2ea7533be94a
+2026-07-28 17:19:34.557 +05:30 [INF] Database migrated successfully
+2026-07-28 17:19:35.208 +05:30 [INF] BuildTakeoff Pro API starting
+2026-07-28 17:19:36.820 +05:30 [INF] HTTP GET /swagger/index.html responded 200 in 437.4488 ms
+2026-07-28 17:19:55.015 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 2820.1695 ms
+2026-07-28 17:19:58.481 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-07-28 17:19:58.574 +05:30 [INF] Drawing 1032: extraction method=Text, lines=206, members=9
+2026-07-28 17:19:58.582 +05:30 [INF] Extracted 9 members from drawing 1032
+2026-07-28 17:19:58.616 +05:30 [INF] HTTP POST /api/Extraction/drawing/1032 responded 200 in 3547.4610 ms
+2026-07-28 17:19:59.538 +05:30 [INF] Extraction: using 22 coordinate-resolved schedule rows
+2026-07-28 17:19:59.545 +05:30 [INF] Drawing 1029: extraction method=Text, lines=305, members=22
+2026-07-28 17:19:59.550 +05:30 [INF] Extracted 22 members from drawing 1029
+2026-07-28 17:19:59.555 +05:30 [INF] HTTP POST /api/Extraction/drawing/1029 responded 200 in 868.7049 ms
+2026-07-28 17:21:19.659 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 819.8026 ms
+2026-07-28 17:21:20.090 +05:30 [INF] HTTP GET /api/MemberSchedules/drawing/1032 responded 200 in 352.8087 ms
+2026-07-28 17:21:20.238 +05:30 [INF] HTTP GET /api/MemberSchedules/drawing/1029 responded 200 in 12.5914 ms
+2026-07-28 17:21:30.154 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 343.6746 ms
+2026-07-28 17:21:30.266 +05:30 [INF] HTTP GET /api/Drawings/project/4 responded 200 in 88.2443 ms
+2026-07-28 17:22:13.973 +05:30 [INF] HTTP POST /api/Auth/login responded 200 in 388.9759 ms
+2026-07-28 17:22:20.159 +05:30 [INF] Variant schedule table x=198.2, y=2274.8, columns=12, rows=51
+2026-07-28 17:22:20.164 +05:30 [INF] Variant schedule table x=1221.6, y=2274.8, columns=7, rows=31
+2026-07-28 17:22:20.170 +05:30 [INF] Variant schedule table x=1269.6, y=2140.9, columns=11, rows=131
+2026-07-28 17:22:20.179 +05:30 [INF] Variant schedule table x=198.2, y=2046.6, columns=12, rows=46
+2026-07-28 17:22:20.184 +05:30 [INF] Variant schedule table x=198.2, y=1844.7, columns=12, rows=19
+2026-07-28 17:22:20.194 +05:30 [INF] Variant schedule table x=1283.3, y=1804.2, columns=4, rows=62
+2026-07-28 17:22:20.200 +05:30 [INF] Variant schedule table x=1640.2, y=1804.2, columns=1, rows=32
+2026-07-28 17:22:20.204 +05:30 [INF] Variant schedule table x=1881.6, y=1804.2, columns=1, rows=5
+2026-07-28 17:22:20.212 +05:30 [INF] Variant schedule table x=198.2, y=1737.0, columns=12, rows=102
+2026-07-28 17:22:20.217 +05:30 [INF] Variant schedule table x=1895.3, y=1710.1, columns=1, rows=11
+2026-07-28 17:22:20.226 +05:30 [INF] Variant schedule table x=198.2, y=1467.7, columns=12, rows=101
+2026-07-28 17:22:20.232 +05:30 [INF] Variant schedule table x=1221.6, y=1306.2, columns=4, rows=28
+2026-07-28 17:22:20.243 +05:30 [INF] Variant schedule table x=198.2, y=1185.0, columns=12, rows=90
+2026-07-28 17:22:20.314 +05:30 [INF] Variant schedule table x=1221.6, y=1144.4, columns=4, rows=13
+2026-07-28 17:22:20.351 +05:30 [INF] Variant schedule table x=1221.6, y=1050.3, columns=4, rows=2
+2026-07-28 17:22:20.410 +05:30 [INF] Variant schedule table x=1221.6, y=982.9, columns=4, rows=9
+2026-07-28 17:22:20.424 +05:30 [INF] Extraction: using 733 coordinate-resolved multi-variant schedule cells
+2026-07-28 17:22:20.456 +05:30 [INF] Drawing 1009: extraction method=Text, lines=266, members=733
+2026-07-28 17:22:20.470 +05:30 [INF] Extracted 733 members from drawing 1009
+2026-07-28 17:22:20.483 +05:30 [INF] HTTP POST /api/Extraction/drawing/1009 responded 200 in 6486.2600 ms
+2026-07-28 17:22:24.016 +05:30 [INF] Drawing 1028: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-28 17:26:58.432 +05:30 [INF] Dynamic schedule locator: 2583 word(s), 2 header(s), signals=MEMBER | SCHEDULE | MEMBER | SCHEDULE | MEMBER | MEMBER | Esch | SCHEMATIC | MEMBERS. | MEMBER
+2026-07-28 17:27:11.173 +05:30 [INF] Schedule OCR page 1: dynamically detected 108 schedule line(s): MEMBER SCHEDULE | EC - EXISTING COLUMN | EC1 - 89 SHS 5.0 EXISTING COLUMN | EC2 - 5/ 102 CHS 4.0 EXISTING COLUMN | EC3 - 140 CHS 3.5/48 CHS 3.2 EXISTING COLUMN | ESC1 - 89 SHS 5.0 EXISTING STUB | ESC2 - 125 SHS 6.0 EXISTING STUB | ESC4 - 89 CHS 4.9 EXISTING STUB | ESC6 - 250 UB 26 EXISTING STUB | ESC7 - 50 SHS 3.0 EXISTING STUB | EDP1 - 89 SHS 5.0 EXISTING DROPPER | EDP2 - 140 CHS 3.5 / 48 CHS 3.2 EXISTING DROPPER | EB2 - 310 UB 40 EXISTING BEAM | EB4 - 460 UB 67 EXISTING BEAM | ER1 - 200 UB 18 EXISTING RAFTER | EBR1 - 150C24 EXISTING BRACE | EWH1 - 125 PFC EXISTING WINDOW HEAD | EWH3 - 150 PFC EXISTING WINDOW HEAD | EWH4 - 150C15 EXISTING WINDOW HEAD | EOR - 100 PFC EXISTING OUTRIGGER | EFT1 - EXISTING FASCIA TRUSS | VERTICAL AT BEAM / COLUMN | SUPPORT LOCATIONS 100 SHS 4.0 | VERTICAL & DIAGONAL WEBS | 100 x 50 RHS 4.0 | BEAM | LUMN BOTTOM CHORD | > AND 100 SHS 4.0 | AT | -iN- | T1 - AL TRUSS ELEVATION 1:50 | /ELDED FRAME | 1200 MAX. NTS | PURLIN Z150 | AS NOTED | C3 - - COLUMN - 89 SHS 5.0 | FIXED TO TRIMMER TR VIA | 260 x 110 x 6 CAP PLATE | AND - 2-M12 BOLTS | fio}
+2026-07-28 17:27:11.520 +05:30 [INF] [Extract] Parsed 'EC' (EXISTING COLUMN) from section 'global'
+2026-07-28 17:27:11.524 +05:30 [INF] [Extract] Parsed 'EC1' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.527 +05:30 [INF] [Extract] Parsed 'EC2' (102CHS4.0) from section 'global'
+2026-07-28 17:27:11.530 +05:30 [INF] [Extract] Parsed 'EC3' (140CHS3.5) from section 'global'
+2026-07-28 17:27:11.534 +05:30 [INF] [Extract] Parsed 'ESC1' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.538 +05:30 [INF] [Extract] Parsed 'ESC2' (125SHS6.0) from section 'global'
+2026-07-28 17:27:11.541 +05:30 [INF] [Extract] Parsed 'ESC4' (89CHS4.9) from section 'global'
+2026-07-28 17:27:11.585 +05:30 [INF] [Extract] Parsed 'ESC6' (250UB26) from section 'global'
+2026-07-28 17:27:11.590 +05:30 [INF] [Extract] Parsed 'ESC7' (50SHS3.0) from section 'global'
+2026-07-28 17:27:11.593 +05:30 [INF] [Extract] Parsed 'EDP1' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.596 +05:30 [INF] [Extract] Parsed 'EDP2' (140CHS3.5) from section 'global'
+2026-07-28 17:27:11.599 +05:30 [INF] [Extract] Parsed 'EB2' (310UB40) from section 'global'
+2026-07-28 17:27:11.602 +05:30 [INF] [Extract] Parsed 'EB4' (460UB67) from section 'global'
+2026-07-28 17:27:11.606 +05:30 [INF] [Extract] Parsed 'ER1' (200UB18) from section 'global'
+2026-07-28 17:27:11.609 +05:30 [INF] [Extract] Parsed 'EBR1' (150C24 EXISTING BRACE) from section 'global'
+2026-07-28 17:27:11.612 +05:30 [INF] [Extract] Parsed 'EWH1' (125PFC) from section 'global'
+2026-07-28 17:27:11.616 +05:30 [INF] [Extract] Parsed 'EWH3' (150PFC) from section 'global'
+2026-07-28 17:27:11.619 +05:30 [INF] [Extract] Parsed 'EWH4' (150C15 EXISTING WINDOW HEAD) from section 'global'
+2026-07-28 17:27:11.623 +05:30 [INF] [Extract] Parsed 'EOR' (100PFC) from section 'global'
+2026-07-28 17:27:11.626 +05:30 [INF] [Extract] Parsed 'EFT1' (EXISTING FASCIA TRUSS) from section 'global'
+2026-07-28 17:27:11.635 +05:30 [INF] [Extract] Parsed 'T1' (AL TRUSS ELEVATION 1) from section 'global'
+2026-07-28 17:27:11.639 +05:30 [INF] [Extract] Parsed 'C3' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.643 +05:30 [INF] [Extract] Parsed 'AND' (2-M12 BOLTS) from section 'global'
+2026-07-28 17:27:11.648 +05:30 [INF] [Extract] Parsed 'I' (_— STUD FRAMING AS NOTED) from section 'global'
+2026-07-28 17:27:11.653 +05:30 [INF] [Extract] Parsed 'CC1' (600 x300 CONCRETE COLUMN) from section 'global'
+2026-07-28 17:27:11.657 +05:30 [INF] [Extract] Parsed 'CC2' (450 x300 CONCRETE COLUMN) from section 'global'
+2026-07-28 17:27:11.661 +05:30 [INF] [Extract] Parsed 'C1' (75SHS5.0) from section 'global'
+2026-07-28 17:27:11.667 +05:30 [INF] [Extract] Parsed 'C1X' (75SHS5.0) from section 'global'
+2026-07-28 17:27:11.670 +05:30 [INF] [Extract] Parsed 'C2' (100SHS5.0) from section 'global'
+2026-07-28 17:27:11.676 +05:30 [INF] [Extract] Parsed 'C3' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.679 +05:30 [INF] [Extract] Parsed 'C4' (300 x200 RHS6.0) from section 'global'
+2026-07-28 17:27:11.683 +05:30 [INF] [Extract] Parsed 'C5' (101.6 CHS) from section 'global'
+2026-07-28 17:27:11.687 +05:30 [INF] [Extract] Parsed 'C6' (200 x100 RHS6.0) from section 'global'
+2026-07-28 17:27:11.690 +05:30 [INF] [Extract] Parsed 'C7' (100 x50 RHS4.0) from section 'global'
+2026-07-28 17:27:11.695 +05:30 [INF] [Extract] Parsed 'C8' (50SHS5.0) from section 'global'
+2026-07-28 17:27:11.699 +05:30 [INF] [Extract] Parsed 'SC1' (75SHS5.0) from section 'global'
+2026-07-28 17:27:11.704 +05:30 [INF] [Extract] Parsed 'SC2' (100SHS5.0) from section 'global'
+2026-07-28 17:27:11.708 +05:30 [INF] [Extract] Parsed 'DP1' (75SHS4.0) from section 'global'
+2026-07-28 17:27:11.713 +05:30 [INF] [Extract] Parsed 'DP2' (100SHS5.0) from section 'global'
+2026-07-28 17:27:11.721 +05:30 [INF] [Extract] Parsed 'DP3' (75x50 RHS4.0 DROPPER) from section 'global'
+2026-07-28 17:27:11.724 +05:30 [INF] [Extract] Parsed 'B1' (200UB22.3) from section 'global'
+2026-07-28 17:27:11.728 +05:30 [INF] [Extract] Parsed 'B2' (200UB25.4) from section 'global'
+2026-07-28 17:27:11.733 +05:30 [INF] [Extract] Parsed 'B3' (200PFC) from section 'global'
+2026-07-28 17:27:11.738 +05:30 [INF] [Extract] Parsed 'B4' (180PFC) from section 'global'
+2026-07-28 17:27:11.742 +05:30 [INF] [Extract] Parsed 'B5' (150 x100 RHS4.0) from section 'global'
+2026-07-28 17:27:11.746 +05:30 [INF] [Extract] Parsed 'B6' (410UB59.7) from section 'global'
+2026-07-28 17:27:11.752 +05:30 [INF] [Extract] Parsed 'B7' (250UB25.7) from section 'global'
+2026-07-28 17:27:11.755 +05:30 [INF] [Extract] Parsed 'B8' (150PFC) from section 'global'
+2026-07-28 17:27:11.759 +05:30 [INF] [Extract] Parsed 'B9' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.763 +05:30 [INF] [Extract] Parsed 'B10' (180UB18.1) from section 'global'
+2026-07-28 17:27:11.767 +05:30 [INF] [Extract] Parsed 'B11' (100SHS5.0) from section 'global'
+2026-07-28 17:27:11.772 +05:30 [INF] [Extract] Parsed 'CB1' (200UB22.3) from section 'global'
+2026-07-28 17:27:11.776 +05:30 [INF] [Extract] Parsed 'CB2' (100 x50 RHS4.0 CRANKED BEAM) from section 'global'
+2026-07-28 17:27:11.780 +05:30 [INF] [Extract] Parsed 'CB3' (180PFC) from section 'global'
+2026-07-28 17:27:11.785 +05:30 [INF] [Extract] Parsed 'CB4' (150 x50 RHS4.0 CRANK BEAM) from section 'global'
+2026-07-28 17:27:11.789 +05:30 [INF] [Extract] Parsed 'CB5' (75SHS3.0) from section 'global'
+2026-07-28 17:27:11.794 +05:30 [INF] [Extract] Parsed 'HB1' (180PFC) from section 'global'
+2026-07-28 17:27:11.798 +05:30 [INF] [Extract] Parsed 'HB2' (150 x100 RHS5.0 HEAD BEAM) from section 'global'
+2026-07-28 17:27:11.802 +05:30 [INF] [Extract] Parsed 'HB2A' (150 x100 RHS5.0 HEAD BEAM C)) from section 'global'
+2026-07-28 17:27:11.806 +05:30 [INF] [Extract] Parsed 'HB3' (125 x75 RHS4.0 HEAD BEAM ©) from section 'global'
+2026-07-28 17:27:11.812 +05:30 [INF] [Extract] Parsed 'HB3A' (125 x75 RHS4.0 HEAD BEAM (J) from section 'global'
+2026-07-28 17:27:11.816 +05:30 [INF] [Extract] Parsed 'HB4' (200 x100 RHS4.0 HEAD BEAM (1)) from section 'global'
+2026-07-28 17:27:11.821 +05:30 [INF] [Extract] Parsed 'HB6' (89SHS5.0) from section 'global'
+2026-07-28 17:27:11.825 +05:30 [INF] [Extract] Parsed 'FB1' (150 x100 RHS5.0 FASCIA BEAM) from section 'global'
+2026-07-28 17:27:11.829 +05:30 [INF] [Extract] Parsed 'VB1' (180UB22) from section 'global'
+2026-07-28 17:27:11.833 +05:30 [INF] [Extract] Parsed 'BR1' (75EA6.0) from section 'global'
+2026-07-28 17:27:11.839 +05:30 [INF] [Extract] Parsed 'BR2' (75SHS4.0) from section 'global'
+2026-07-28 17:27:11.843 +05:30 [INF] [Extract] Parsed 'BR3' (125SHS) from section 'global'
+2026-07-28 17:27:11.851 +05:30 [INF] [Extract] Parsed 'BR4' (100SHS4.0) from section 'global'
+2026-07-28 17:27:11.856 +05:30 [INF] [Extract] Parsed 'BR5' (75SHS4.0) from section 'global'
+2026-07-28 17:27:11.860 +05:30 [INF] [Extract] Parsed 'OR1' (125 x75 RHS4.0 QUTRIGGER) from section 'global'
+2026-07-28 17:27:11.865 +05:30 [INF] [Extract] Parsed 'OR2' (100SHS4.0) from section 'global'
+2026-07-28 17:27:11.869 +05:30 [INF] [Extract] Parsed 'DB1' (125 x75 RHS4.0 DIAGONAL BRACE) from section 'global'
+2026-07-28 17:27:11.874 +05:30 [INF] [Extract] Parsed 'WB1' (2-16 RODS DIAGONAL BRACE) from section 'global'
+2026-07-28 17:27:11.879 +05:30 [INF] [Extract] Parsed 'RA1' (150 x90 UA10.0 RAKING ANGLE) from section 'global'
+2026-07-28 17:27:11.885 +05:30 [INF] [Extract] Parsed 'TRUSS' (REFER SECTION 3) from section 'global'
+2026-07-28 17:27:11.889 +05:30 [INF] [Extract] Parsed 'T2' (- TRUSS REFER SECTION C) from section 'global'
+2026-07-28 17:27:12.001 +05:30 [INF] Extraction: 74 valid, 5 filtered. Skipped marks: T1(0.95), AND(0.95), I(0.95), TIONS(0.90), OLUMN(0.90)
+2026-07-28 17:27:12.004 +05:30 [INF] Drawing 1028: extraction method=Text+ScheduleOCR, lines=124, members=74
+2026-07-28 17:27:12.008 +05:30 [INF] Extracted 74 members from drawing 1028
+2026-07-28 17:27:12.045 +05:30 [INF] HTTP POST /api/Extraction/drawing/1028 responded 200 in 291445.9496 ms
+2026-07-28 17:27:51.966 +05:30 [INF] HTTP GET /swagger/index.html responded 200 in 108.9349 ms
+2026-07-28 17:28:15.575 +05:30 [INF] HTTP GET /swagger/index.html responded 200 in 0.2867 ms
+2026-07-28 17:29:42.435 +05:30 [INF] HTTP GET /api/drawings/project/4 responded 200 in 1249.8232 ms
+2026-07-28 17:29:42.527 +05:30 [INF] HTTP GET /api/drawings/project/4 responded 200 in 62.0421 ms
+2026-07-28 17:29:43.659 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1032 responded 200 in 445.4223 ms
+2026-07-28 17:29:43.821 +05:30 [INF] HTTP GET /api/drawings/1032/file responded 304 in 296.1001 ms
+2026-07-28 17:29:43.952 +05:30 [INF] HTTP GET /api/drawings/1032 responded 200 in 745.3566 ms
+2026-07-28 17:29:43.954 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1032/summary responded 200 in 513.3859 ms
+2026-07-28 17:29:44.555 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032/summary responded 200 in 1346.7357 ms
+2026-07-28 17:29:44.617 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1032 responded 200 in 1413.9187 ms
+2026-07-28 17:30:08.589 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-07-28 17:30:08.592 +05:30 [INF] Drawing 1032: extraction method=Text, lines=206, members=9
+2026-07-28 17:30:08.607 +05:30 [INF] Extracted 9 members from drawing 1032
+2026-07-28 17:30:08.613 +05:30 [INF] HTTP POST /api/extraction/drawing/1032 responded 200 in 565.4980 ms
+2026-07-28 17:30:13.954 +05:30 [INF] HTTP GET /api/drawings/1031 responded 200 in 78.9623 ms
+2026-07-28 17:30:14.261 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1031/summary responded 200 in 74.8280 ms
+2026-07-28 17:30:14.262 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1031 responded 200 in 73.8598 ms
+2026-07-28 17:30:14.301 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1031/summary responded 200 in 112.4691 ms
+2026-07-28 17:30:14.343 +05:30 [INF] HTTP GET /api/drawings/1031/file responded 304 in 33.2268 ms
+2026-07-28 17:30:14.492 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1031 responded 200 in 305.9874 ms
+2026-07-28 17:30:15.783 +05:30 [INF] HTTP GET /api/drawings/1029 responded 200 in 4.3898 ms
+2026-07-28 17:30:15.908 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1029 responded 200 in 10.4578 ms
+2026-07-28 17:30:15.910 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1029 responded 200 in 16.6992 ms
+2026-07-28 17:30:15.915 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1029/summary responded 200 in 15.0005 ms
+2026-07-28 17:30:15.920 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1029/summary responded 200 in 23.8871 ms
+2026-07-28 17:30:16.015 +05:30 [INF] HTTP GET /api/drawings/1029/file responded 304 in 3.4602 ms
+2026-07-28 17:30:21.516 +05:30 [INF] Extraction: using 22 coordinate-resolved schedule rows
+2026-07-28 17:30:21.701 +05:30 [INF] Drawing 1029: extraction method=Text, lines=305, members=22
+2026-07-28 17:30:21.726 +05:30 [INF] Extracted 22 members from drawing 1029
+2026-07-28 17:30:21.734 +05:30 [INF] HTTP POST /api/extraction/drawing/1029 responded 200 in 2425.8839 ms
+2026-07-28 17:30:27.157 +05:30 [INF] Upserted 22 extracted members for drawing 1029
+2026-07-28 17:30:27.164 +05:30 [INF] HTTP POST /api/extraction/drawing/1029/confirm responded 200 in 955.3538 ms
+2026-07-28 17:30:27.494 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1029/summary responded 200 in 6.0798 ms
+2026-07-28 17:30:27.494 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1029 responded 200 in 7.0803 ms
+2026-07-28 17:30:31.353 +05:30 [INF] HTTP GET /api/drawings/1031 responded 200 in 178.9857 ms
+2026-07-28 17:30:31.619 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1031/summary responded 200 in 52.4084 ms
+2026-07-28 17:30:31.620 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1031 responded 200 in 54.4313 ms
+2026-07-28 17:30:31.633 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1031/summary responded 200 in 62.6488 ms
+2026-07-28 17:30:31.645 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1031 responded 200 in 70.3671 ms
+2026-07-28 17:30:36.104 +05:30 [INF] Extraction: using 58 coordinate-resolved schedule rows
+2026-07-28 17:30:36.801 +05:30 [INF] Drawing 1031: extraction method=Text, lines=171, members=58
+2026-07-28 17:30:36.886 +05:30 [INF] Extracted 58 members from drawing 1031
+2026-07-28 17:30:37.068 +05:30 [INF] HTTP POST /api/extraction/drawing/1031 responded 200 in 2955.3544 ms
+2026-07-28 17:30:45.730 +05:30 [INF] HTTP GET /api/drawings/1030 responded 200 in 133.2008 ms
+2026-07-28 17:30:45.901 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1030 responded 200 in 27.4532 ms
+2026-07-28 17:30:45.903 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1030/summary responded 200 in 28.7892 ms
+2026-07-28 17:30:45.906 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1030/summary responded 200 in 28.7542 ms
+2026-07-28 17:30:45.907 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1030 responded 200 in 31.4511 ms
+2026-07-28 17:30:46.035 +05:30 [INF] HTTP GET /api/drawings/1030/file responded 304 in 23.8385 ms
+2026-07-28 17:30:54.809 +05:30 [INF] [Extract] Entered section: 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:54.816 +05:30 [INF] [Extract] Parsed 'PF1' (3500 x 3500 x600 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:54.931 +05:30 [INF] [Extract] Salvaged 'PF2' (3500 x 3500 x600 DEEP) from stop-line row 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-28 17:30:54.937 +05:30 [INF] [Extract] Section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.' ended at stop line: 'LEGEND PF2 - 3500 x 3500 x600 DEEP: N16-200 EACH WAY TOP & BOTTOM (50 COVER) S6 - OFFICE / MEZZANINE FLOOR PLANS  GROUND SHIELDING SLAB MULTIPLIER: DESIGN LIVE LOAD - AS/NZS 1170.1:2002 7.7 U OF N LESS MEMBERS O THER JOINED. WI SE S HO WN , ALL BO LTED CO N NECTIONS ARE TO DEVELO P F ULL STRENGTH 6.10 6.11 FOR CONCRETE BRICK WALLS BLOCKS GREATER ARE TO BE THAN FILLED 15m WITH IN LENGTH S10 HOLCIM VERTICAL BLOCK EXPANSION MIX WHERE JOINTS FILLING MUST IS BE NOTED. PROVIDED.'
+2026-07-28 17:30:54.954 +05:30 [INF] [Extract] Parsed split-row 'PF5' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:54.968 +05:30 [INF] [Extract] Parsed split-row 'PF6' (1200X1200X300DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:54.983 +05:30 [INF] [Extract] Parsed 'PF8' (800 x800 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:54.992 +05:30 [INF] [Extract] Parsed 'SF2' (600 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.003 +05:30 [INF] [Extract] Parsed 'SF5' (720 x300 DEEP) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.027 +05:30 [INF] [Extract] Parsed 'N16' (200UB1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.080 +05:30 [INF] [Extract] Parsed 'NOTE' (FOR EXTERNAL USE DDSLPL06X110G APPLICATIONS NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.095 +05:30 [INF] [Extract] Parsed 'NOTE' (PROVIDE CONTROL JOINTS IN ANY FLOOR TILES DIRECT) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.117 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.151 +05:30 [INF] [Extract] Parsed 'N16' (200 TOP & EXISTING LIMESTONE N16-200 TOP & BOTTO) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.181 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY NOTE) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.191 +05:30 [INF] [Extract] Parsed 'N12' (200 BOTTOM PF3 - 1200 (x 1200) N12-200 BOTTOM PF) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.211 +05:30 [INF] [Extract] Parsed 'CAST' (IN SLIDING 1. ALL RETAINING WALL WORKS TO COMPLY) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.263 +05:30 [INF] [Extract] Parsed 'N12' (200 EACH WAY PF4 - 1600 (x 1600) N12-200 BOTTOM ) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.277 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.297 +05:30 [INF] [Extract] Parsed 'TILT' (UP CONCRETE PANEL NOTES.) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.354 +05:30 [INF] [Extract] Parsed 'TILT' (UP PANEL PLAN1) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.383 +05:30 [INF] [Extract] Parsed 'A2' (AT ABUTTING PANELS AT ABUTTING STUDWALLS) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.400 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.433 +05:30 [INF] [Extract] Parsed 'CAST' (IN 'R1' REID BAR) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.464 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.506 +05:30 [INF] [Extract] Parsed 'NON' (BEARING WALL BELOW F B2 125 x10 BASE PLATE. FULL) from section 'ENGINEER IF IN DOUBT. PAD FOOTINGS S4 - TILT-UP PANEL PLAN & DETAILS   ULTIMATE SERVICEABILITY REGIONAL REGIONAL WIND SPEED WIND SPEED 45m/s37m/s7.4 7.5 FULLY ALL WELDS SEAL TO ALL DEVELOP HOLLOW FULL SECTIONS STRENGTH USING OF5m MEMBERS m PLATES JOINED WHERE UNO. NECESSARY. 6.7 APPROVAL ALL BUILT-IN FROM MASONRY THIS OFFICE. CONSTRUCTION TO CONFORM WITH AS/NZS 2699 PARTS 1, 2 & 3.'
+2026-07-28 17:30:55.517 +05:30 [INF] [Extract] Entered section: 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.527 +05:30 [INF] [Extract] Parsed 'C0' (N . CAST-IN PLATE PACKING UP BEAM) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.561 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.570 +05:30 [INF] [Extract] Parsed 'C2' (360UB) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.584 +05:30 [INF] [Extract] Parsed 'HSL' (3AT300 M8 CTS100) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.593 +05:30 [INF] [Extract] Parsed split-row 'C3' (75X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.601 +05:30 [INF] [Extract] Parsed split-row 'C4' (89X6SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.611 +05:30 [INF] [Extract] Parsed 'C5' (125 x6 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.619 +05:30 [INF] [Extract] Parsed 'C6' (165 O.D. x5.4 CHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.630 +05:30 [INF] [Extract] Parsed 'C7' (310UB32) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.637 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.650 +05:30 [INF] [Extract] Parsed split-row 'C9' (100X5SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.653 +05:30 [INF] [Extract] Parsed split-row 'C10' (125X75SHS) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.667 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO'
+2026-07-28 17:30:55.677 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS ENGINEER. APPROVED DETAILS ONLY AND SHALL BE APPROVED BY THE MANUF ACTURER & THE STRUCTURAL ON SHEET S7 0 1 SITE WELD COLUMN TO': 'PROVIDE 70mm LONG SLOTTED HOLES TO TOP FIXING AS DETAIL 8 IN SHEET S12'
+2026-07-28 17:30:55.686 +05:30 [INF] [Extract] Entered section: 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.698 +05:30 [INF] [Extract] Parsed split-row 'FB1' (460PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.717 +05:30 [INF] [Extract] Parsed split-row 'FB2' (250UB67) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.729 +05:30 [INF] [Extract] Parsed 'FB3' (200UB22) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.736 +05:30 [INF] [Extract] Parsed 'FB4' (250PFC) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.749 +05:30 [INF] [Extract] Parsed 'FA1' (150X12EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.761 +05:30 [INF] [Extract] Parsed 'FA2' (100 x8 EA) from section 'FLOOR BEAMS 13. BUILDER IS TO ALLOW FOR CAMBER IN FLOOR PANELS WHEN FABRICATING COLUMNS OVER.'
+2026-07-28 17:30:55.783 +05:30 [INF] [Extract] Entered section: 'OTHERS'
+2026-07-28 17:30:55.809 +05:30 [INF] [Extract] Parsed 'WH1' (150PFC) from section 'OTHERS'
+2026-07-28 17:30:55.819 +05:30 [INF] [Extract] Parsed 'WH2' (150X10EA) from section 'OTHERS'
+2026-07-28 17:30:55.836 +05:30 [INF] [Extract] Parsed 'OR1' (250PFC) from section 'OTHERS'
+2026-07-28 17:30:55.859 +05:30 [INF] [Extract] Parsed 'STR1' (200PFC) from section 'OTHERS'
+2026-07-28 17:30:55.867 +05:30 [INF] [Extract] Parsed 'FJ1' (C15012) from section 'OTHERS'
+2026-07-28 17:30:55.875 +05:30 [INF] [Extract] Parsed 'EX8' (PLATE & 2-M12 BOLTS EACH END) from section 'OTHERS'
+2026-07-28 17:30:55.883 +05:30 [INF] [Extract] Parsed 'FR1' (C30030) from section 'OTHERS'
+2026-07-28 17:30:55.891 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '- SEE SHEET S10'
+2026-07-28 17:30:55.899 +05:30 [INF] [Extract] Parsed 'R1' (RB12) from section 'OTHERS'
+2026-07-28 17:30:55.910 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': '600 CTS MAX. CENTRAL IN TOPPING'
+2026-07-28 17:30:55.924 +05:30 [INF] [Extract] Parsed 'R2' (RB12) from section 'OTHERS'
+2026-07-28 17:30:55.932 +05:30 [INF] [Extract] Parsed 'AT200' (CTS CENTRAL IN SLAB (TYP.).) from section 'OTHERS'
+2026-07-28 17:30:55.935 +05:30 [INF] [Extract] UNPARSED in 'OTHERS': 'E N G I N E E R S'
+2026-07-28 17:30:55.950 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:55.966 +05:30 [INF] [Extract] Section 'OTHERS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:56.083 +05:30 [INF] [Extract] Parsed 'T2' (M16 8.8/S BOLTS SL62 MESH CENTRAL 2-M16 8.8/S BO) from section 'OTHERS'
+2026-07-28 17:30:56.165 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-28 17:30:56.183 +05:30 [INF] [Extract] Parsed 'N12' (300UB8.8) from section 'OTHERS'
+2026-07-28 17:30:56.216 +05:30 [INF] [Extract] Parsed 'N12' (300UB) from section 'OTHERS'
+2026-07-28 17:30:56.299 +05:30 [INF] [Extract] Parsed 'N12' (200PFC) from section 'OTHERS'
+2026-07-28 17:30:56.316 +05:30 [INF] [Extract] Parsed 'PF8' (800 (x800) BOTTOM) from section 'OTHERS'
+2026-07-28 17:30:56.365 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS'
+2026-07-28 17:30:56.385 +05:30 [INF] [Extract] Parsed 'C2' (M12 BOLTS) from section 'OTHERS'
+2026-07-28 17:30:56.402 +05:30 [INF] [Extract] Parsed 'NOTE' (17 O F F E F E R) from section 'OTHERS'
+2026-07-28 17:30:56.430 +05:30 [INF] [Extract] Entered section: 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24'
+2026-07-28 17:30:56.435 +05:30 [INF] [Extract] UNPARSED in 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24': 'BRACINGS PURLIN 8.8/S BOLTS EACH END (TYP.)'
+2026-07-28 17:30:56.443 +05:30 [INF] [Extract] Section 'PURLINS / GIRTS BEAM1-M12 BOLT2-M12 BOLTS TO VIA EX16 WEB PLATE & 4-M24' ended at stop line: 'LEGEND'
+2026-07-28 17:30:56.451 +05:30 [INF] [Extract] Entered section: 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.461 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.470 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.484 +05:30 [INF] [Extract] Parsed 'NOTE7' (14 ON STRUCTURAL DRAWING S1) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.499 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS WB2 - 100 x5 SHS) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.509 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.517 +05:30 [INF] [Extract] Parsed 'SC1' (610 PROVIDE UB 70mm 113 LONG SLOTTED HOLES TO TO) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.530 +05:30 [INF] [Extract] Parsed 'SC2' (360UB45) from section 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)'
+2026-07-28 17:30:56.536 +05:30 [INF] [Extract] UNPARSED in 'COLUMNS BR2 - 100 x5 SHS: EX10 TEE PLATE & 2-M16 * DENOTED F1 ON ROOF STEEL PLAN (AT GIRTS) (AT WALL PANEL)': 'WELD AT CORNERS. 200 PFC'
+2026-07-28 17:30:56.549 +05:30 [INF] [Extract] Entered section: 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.552 +05:30 [INF] [Extract] Parsed 'B1' (610UB113) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.565 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.574 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.583 +05:30 [INF] [Extract] Parsed 'BEAMS' (EX10 PLATE) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.592 +05:30 [INF] [Extract] Parsed 'P2' (Z15019 AT 1500 CTS MAX. & 2-M16 8.8/S) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.600 +05:30 [INF] [Extract] Parsed 'CB1' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.612 +05:30 [INF] [Extract] Parsed 'CB2' (410UB54) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.619 +05:30 [INF] [Extract] Parsed 'P3' (Z15012 LAP900 AT AT 1000 INTERNAL CTS MAX. SUPPO) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.626 +05:30 [INF] [Extract] Salvaged 'NOTE' (BRIDGING AT THIRD POINTS 2-M12 BOLTS) from stop-line row 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-28 17:30:56.632 +05:30 [INF] [Extract] Section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED' ended at stop line: 'NOTE: BRIDGING AT THIRD POINTS 2-M12 BOLTS'
+2026-07-28 17:30:56.641 +05:30 [INF] [Extract] Parsed 'G1' (Z15012 AT 1800 CTS MAX.) from section 'BEAMS PURLINS / GIRTS 50x3 FLAT PLATE WELDED'
+2026-07-28 17:30:56.819 +05:30 [INF] [Extract] Entered section: 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.834 +05:30 [INF] [Extract] Parsed 'C1' (610UB113) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.848 +05:30 [INF] [Extract] Parsed 'C2' (360UB45) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.858 +05:30 [INF] [Extract] Parsed 'C3' (75x5 SHS LAP900 AT INTERNAL SUPPORTS) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.869 +05:30 [INF] [Extract] Parsed 'C7' (C5 - - 125 310 x UB6 SHS32 BRIDGING AT MIDSPAN *) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.884 +05:30 [INF] [Extract] Parsed 'C8' (100 x5 SHS * * ALL ALL FRAME MEMBERS MEMBERS TO ) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.893 +05:30 [INF] [Extract] Parsed 'C9' (C20015) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.900 +05:30 [INF] [Extract] Parsed 'C11' (410UB54) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.908 +05:30 [INF] [Extract] Parsed 'SC3' (75x5 SHS STUB P7 - Z15019 PURLINS AT 1200 CTS MA) from section 'COLUMNS PURLINS / GIRTS / CEILING JOISTS 2'
+2026-07-28 17:30:56.915 +05:30 [INF] [Extract] Entered section: 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.919 +05:30 [INF] [Extract] Parsed 'B2' (410UB54) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.926 +05:30 [INF] [Extract] Parsed 'B3' (360UB51) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.934 +05:30 [INF] [Extract] Parsed 'B4' (150PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.944 +05:30 [INF] [Extract] Parsed 'B5' (200UB18) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.951 +05:30 [INF] [Extract] Parsed 'B6' (C20024) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.963 +05:30 [INF] [Extract] Parsed 'B7' (125PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.968 +05:30 [INF] [Extract] Parsed 'B9' (100PFC) from section 'ROOF BEAMS 1000 MAX END SPACING EX5 SEAL PLATE a - C30030'
+2026-07-28 17:30:56.979 +05:30 [INF] [Extract] Entered section: 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:56.983 +05:30 [INF] [Extract] Parsed 'OR2' (150UC23) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:56.993 +05:30 [INF] [Extract] Parsed 'ET1' (150PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.000 +05:30 [INF] [Extract] Parsed 'RA1' (WH1 - - 100 150 x PFC) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.010 +05:30 [INF] [Extract] Parsed 'EX10' (PLATE & 2-M16 8.8/S BOLTS EACH END BR3 - 30x0.8m) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.017 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED FRAME AS DETAIL ADJACENT SERIES 500) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.026 +05:30 [INF] [Extract] Parsed 'DH1' (310UB32) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.033 +05:30 [INF] [Extract] Parsed 'ST1' (60 O.D. x4.5 CHS) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.043 +05:30 [INF] [Extract] Parsed 'VO1' (75x8 EA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.049 +05:30 [INF] [Extract] Parsed 'EX10' (END PLATE & FULLY WELD SC3 EX10 PLATE &) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.059 +05:30 [INF] [Extract] Parsed 'HSL' (3 AT M12 200 x200 TO B4 BOLTS 2-M16 8.8/S) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.067 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'CTS'
+2026-07-28 17:30:57.081 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'SECTION 24 --'
+2026-07-28 17:30:57.085 +05:30 [INF] [Extract] UNPARSED in 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS': 'E N G I N E E R S'
+2026-07-28 17:30:57.102 +05:30 [INF] [Extract] Salvaged 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:57.115 +05:30 [INF] [Extract] Section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS' ended at stop line: 'A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:57.169 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.190 +05:30 [INF] [Extract] Parsed 'DWG' (C20015) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.217 +05:30 [INF] [Extract] Parsed 'EX4' (M16 10END8.8/S PLATE BOLTS & PLATE SC1. EX & 10 ) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.232 +05:30 [INF] [Extract] Parsed 'FR1' (FULLY WELDED) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.242 +05:30 [INF] [Extract] Parsed 'A' (A FIX CB1 TO410 UB54) from section 'OTHERS BR1 - 65x5 8.8/S EA: BOLTS EX10 EACH PLATE END. & 2-M16 R10 SAG ROD B8 B9 (AT600 CTS) WEATHERPROOFING AS'
+2026-07-28 17:30:57.259 +05:30 [INF] [Extract] Entered section: '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.265 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'B5BE H NI D E T1 WELD ALL NOT SHOWN FOR CLARITY 35 70'
+2026-07-28 17:30:57.273 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '0 2 5 AROUND'
+2026-07-28 17:30:57.280 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': ') D N PROVIDE 2/C20024 PURLINS TO SUPPORT ET1 ET1 0'
+2026-07-28 17:30:57.285 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': '3 O Y E BASE OF ACCESS LADDER. FIX TOGETHER 7 0'
+2026-07-28 17:30:57.294 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'C ( B VIA M12 BOLTS AT 1200 CTS MAX. EX10 B5 2 5'
+2026-07-28 17:30:57.300 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE & 2-M16 8.8/S BOLTS EACH END EX10 PLATE'
+2026-07-28 17:30:57.308 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'TEE PLATE (EX16 END PLATE & EX12 WEB & 2-M16 8.8/S'
+2026-07-28 17:30:57.315 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'PLATE) FULLY WELDED WITH 6mm GP CFW. BOLT TO BOLTS 300'
+2026-07-28 17:30:57.325 +05:30 [INF] [Extract] Parsed 'WITH4' ('REID' ORBIPLATE (ORB2020) 300) from section '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.333 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'D E T A I L5 S11 CONNECTORS TORQUED TO MANUF. SPECIF.'
+2026-07-28 17:30:57.341 +05:30 [INF] [Extract] Parsed 'IN4' ('REID' ELEPHANT FOOT CAST-IN V I E W X1 -- END P) from section '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.349 +05:30 [INF] [Extract] UNPARSED in '100 MIN. PURLINS AND BRACING': 'FERRULES WITH 'REID' 10Ø x300 LONG X1 E N G I N E E R S'
+2026-07-28 17:30:57.358 +05:30 [INF] [Extract] Salvaged 'TO' (- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA) from stop-line row 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:57.365 +05:30 [INF] [Extract] Section '100 MIN. PURLINS AND BRACING' ended at stop line: 'TAILBAR CENTRAL ON FERRULE ℄ BOLT TO -- A17-10-2019 ISSUED FOR TENDER A U S T R A L IA'
+2026-07-28 17:30:57.393 +05:30 [INF] [Extract] Parsed 'HSL' (3's. BOLT TO EX10 PLATE FULLY) from section '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.409 +05:30 [INF] [Extract] Parsed 'B2' (M16 8.8/S BOLTS 6 PANEL PLATE & VIA2-HILTI EX8 E) from section '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.432 +05:30 [INF] [Extract] Parsed 'A17' (10-2019 ISSUED FOR TENDER A U S T R A L IA) from section '100 MIN. PURLINS AND BRACING'
+2026-07-28 17:30:57.516 +05:30 [INF] Extraction: 75 valid, 34 filtered. Skipped marks: NOTE(0.95), CAST(0.95), TILT(0.95), NON(0.95), HSL(0.95), NOTE7(0.95), SC1(0.95), BEAMS(0.95), B4(0.95), A(0.95), TO(0.95), 200PFC(0.90), 150X12EA(0.70), OTING(0.70), LONG(0.70), FULLY(0.70), S(0.70), 250PFC(0.70), C20015(0.70), F(0.70), URLIN(0.70), UTTER(0.70), 55X55X5EA(0.70), OINTS(0.70), C15012(0.70), RLINS(0.70), C15024(0.70), M12(0.70), AS(0.70), FIX(0.70), 410UB54(0.70), EYOND(0.70), C10019(0.70), CTS(0.70)
+2026-07-28 17:30:57.525 +05:30 [INF] Drawing 1030: extraction method=Text, lines=1304, members=75
+2026-07-28 17:30:57.534 +05:30 [INF] Extracted 75 members from drawing 1030
+2026-07-28 17:30:57.566 +05:30 [INF] HTTP POST /api/extraction/drawing/1030 responded 200 in 9811.0437 ms
+2026-07-28 17:31:04.455 +05:30 [INF] HTTP GET /api/drawings/1009 responded 200 in 255.3160 ms
+2026-07-28 17:31:04.588 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1009/summary responded 200 in 77.2079 ms
+2026-07-28 17:31:04.665 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1009 responded 200 in 155.3117 ms
+2026-07-28 17:31:04.733 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1009/summary responded 200 in 219.8221 ms
+2026-07-28 17:31:04.766 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1009 responded 200 in 253.1763 ms
+2026-07-28 17:31:04.888 +05:30 [INF] HTTP GET /api/drawings/1009/file responded 200 in 142.0777 ms
+2026-07-28 17:31:06.965 +05:30 [INF] Variant schedule table x=198.2, y=2274.8, columns=12, rows=51
+2026-07-28 17:31:06.982 +05:30 [INF] Variant schedule table x=1221.6, y=2274.8, columns=7, rows=31
+2026-07-28 17:31:06.993 +05:30 [INF] Variant schedule table x=1269.6, y=2140.9, columns=11, rows=131
+2026-07-28 17:31:07.015 +05:30 [INF] Variant schedule table x=198.2, y=2046.6, columns=12, rows=46
+2026-07-28 17:31:07.025 +05:30 [INF] Variant schedule table x=198.2, y=1844.7, columns=12, rows=19
+2026-07-28 17:31:07.050 +05:30 [INF] Variant schedule table x=1283.3, y=1804.2, columns=4, rows=62
+2026-07-28 17:31:07.064 +05:30 [INF] Variant schedule table x=1640.2, y=1804.2, columns=1, rows=32
+2026-07-28 17:31:07.075 +05:30 [INF] Variant schedule table x=1881.6, y=1804.2, columns=1, rows=5
+2026-07-28 17:31:07.101 +05:30 [INF] Variant schedule table x=198.2, y=1737.0, columns=12, rows=102
+2026-07-28 17:31:07.122 +05:30 [INF] Variant schedule table x=1895.3, y=1710.1, columns=1, rows=11
+2026-07-28 17:31:07.132 +05:30 [INF] Variant schedule table x=198.2, y=1467.7, columns=12, rows=101
+2026-07-28 17:31:07.139 +05:30 [INF] Variant schedule table x=1221.6, y=1306.2, columns=4, rows=28
+2026-07-28 17:31:07.149 +05:30 [INF] Variant schedule table x=198.2, y=1185.0, columns=12, rows=90
+2026-07-28 17:31:07.157 +05:30 [INF] Variant schedule table x=1221.6, y=1144.4, columns=4, rows=13
+2026-07-28 17:31:07.164 +05:30 [INF] Variant schedule table x=1221.6, y=1050.3, columns=4, rows=2
+2026-07-28 17:31:07.172 +05:30 [INF] Variant schedule table x=1221.6, y=982.9, columns=4, rows=9
+2026-07-28 17:31:07.188 +05:30 [INF] Extraction: using 733 coordinate-resolved multi-variant schedule cells
+2026-07-28 17:31:07.206 +05:30 [INF] Drawing 1009: extraction method=Text, lines=266, members=733
+2026-07-28 17:31:07.223 +05:30 [INF] Extracted 733 members from drawing 1009
+2026-07-28 17:31:07.240 +05:30 [INF] HTTP POST /api/extraction/drawing/1009 responded 200 in 449.3202 ms
+2026-07-28 17:31:15.988 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010 responded 200 in 240.1194 ms
+2026-07-28 17:31:16.116 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010/summary responded 200 in 8.4752 ms
+2026-07-28 17:31:16.160 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1010/summary responded 200 in 50.5066 ms
+2026-07-28 17:31:16.233 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1010 responded 200 in 120.9398 ms
+2026-07-28 17:31:16.257 +05:30 [INF] HTTP GET /api/drawings/1010 responded 200 in 153.2798 ms
+2026-07-28 17:31:18.498 +05:30 [INF] Drawing 1010: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-07-28 17:32:11.820 +05:30 [INF] Dynamic schedule locator: 991 word(s), 1 header(s), signals=MEMBER | SCHEDULE
+2026-07-28 17:32:21.261 +05:30 [INF] Schedule OCR page 1: dynamically detected 24 schedule line(s): MARK SIZE | R1 - 310 UB 40.4 | R2 - 250 UB 25.7 | R3 - 200 PFC | R4 - 200 PFC | R5 - 250 PFC | R6 - 250 PFC | RB1 - 410 UB 59.7 | RB2 - 200 PFC | RB3 - 200 PFC | RB4 - 200 PFC | FAB1 - FASCIA PURLIN TO BUILDERS DETAILS | P1 - C20019 @ 1200 CTS | P2 C20015 @ 1200 CTS | P3 - C10010 @ 1200 CTS | WS1 - 180 PFC | RA1 - 75x75x8.0 EA | S1 - 114.3x4.5 CHS | S2 - 200 PFC | rbr1 - 75x75x6.0 EA | rbr2 - 16% ROD WITH TURNBUCKLE | rbr3 - 35x1.2mm METAL STRAP BRACE | PR1 - C15019 GIRTS @ 600 CTS | ST1 - 89x89x6.0 SHS
+2026-07-28 17:32:21.652 +05:30 [INF] [Extract] Parsed 'R1' (310UB40.4) from section 'global'
+2026-07-28 17:32:21.661 +05:30 [INF] [Extract] Parsed 'R2' (250UB25.7) from section 'global'
+2026-07-28 17:32:21.670 +05:30 [INF] [Extract] Parsed 'R3' (200PFC) from section 'global'
+2026-07-28 17:32:21.678 +05:30 [INF] [Extract] Parsed 'R4' (200PFC) from section 'global'
+2026-07-28 17:32:21.685 +05:30 [INF] [Extract] Parsed 'R5' (250PFC) from section 'global'
+2026-07-28 17:32:21.697 +05:30 [INF] [Extract] Parsed 'R6' (250PFC) from section 'global'
+2026-07-28 17:32:21.704 +05:30 [INF] [Extract] Parsed 'RB1' (410UB59.7) from section 'global'
+2026-07-28 17:32:21.713 +05:30 [INF] [Extract] Parsed 'RB2' (200PFC) from section 'global'
+2026-07-28 17:32:21.720 +05:30 [INF] [Extract] Parsed 'RB3' (200PFC) from section 'global'
+2026-07-28 17:32:21.731 +05:30 [INF] [Extract] Parsed 'RB4' (200PFC) from section 'global'
+2026-07-28 17:32:21.738 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'global'
+2026-07-28 17:32:21.746 +05:30 [INF] [Extract] Parsed 'P1' (C20019) from section 'global'
+2026-07-28 17:32:21.754 +05:30 [INF] [Extract] Parsed 'P3' (C10010) from section 'global'
+2026-07-28 17:32:21.762 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'global'
+2026-07-28 17:32:21.770 +05:30 [INF] [Extract] Parsed 'RA1' (75X75X8.0EA) from section 'global'
+2026-07-28 17:32:21.786 +05:30 [INF] [Extract] Parsed 'S1' (114.3x4.5 CHS) from section 'global'
+2026-07-28 17:32:21.795 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'global'
+2026-07-28 17:32:21.803 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'global'
+2026-07-28 17:32:21.811 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE) from section 'global'
+2026-07-28 17:32:21.817 +05:30 [INF] [Extract] Parsed 'RBR3' (35x1.2mm METAL STRAP BRACE) from section 'global'
+2026-07-28 17:32:21.822 +05:30 [INF] [Extract] Parsed 'PR1' (C15019) from section 'global'
+2026-07-28 17:32:21.829 +05:30 [INF] [Extract] Parsed 'ST1' (89X89X6.0SHS) from section 'global'
+2026-07-28 17:32:21.840 +05:30 [INF] Drawing 1010: extraction method=Text+ScheduleOCR, lines=35, members=23
+2026-07-28 17:32:21.847 +05:30 [INF] Extracted 23 members from drawing 1010
+2026-07-28 17:32:21.852 +05:30 [INF] HTTP POST /api/extraction/drawing/1010 responded 200 in 63804.8839 ms
+2026-07-28 17:32:41.958 +05:30 [INF] HTTP GET /api/drawings/1028 responded 200 in 28.8135 ms
+2026-07-28 17:32:42.152 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1028 responded 200 in 51.4584 ms
+2026-07-28 17:32:42.200 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1028 responded 200 in 98.6579 ms
+2026-07-28 17:32:42.206 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1028/summary responded 200 in 105.9401 ms
+2026-07-28 17:32:42.221 +05:30 [INF] HTTP GET /api/memberschedules/drawing/1028/summary responded 200 in 113.1388 ms
+2026-07-28 17:32:49.368 +05:30 [INF] Drawing 1028: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR

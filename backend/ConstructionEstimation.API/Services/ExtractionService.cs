@@ -2076,8 +2076,21 @@ public class ExtractionService
         var results = new List<ExtractedMemberDto>();
         foreach (var table in tables)
         {
+            // Stacked schedules often share the same MARK column (for example floor,
+            // column, then truss schedules). Stop this table at the next lower MARK
+            // header whose horizontal range overlaps, otherwise the upper table can
+            // skip its digit-prefixed rows and incorrectly consume rows from below.
+            var lowerBoundary = tables
+                .Where(t => t.MarkHeader.BoundingBox.Bottom
+                                < table.MarkHeader.BoundingBox.Bottom - rowTolerance
+                    && Math.Min(table.Right, t.Right) - Math.Max(table.Left, t.Left) > 20)
+                .Select(t => t.MarkHeader.BoundingBox.Bottom)
+                .DefaultIfEmpty(double.MinValue)
+                .Max();
+
             var candidateRows = pageWords
                 .Where(w => w.BoundingBox.Bottom < table.MarkHeader.BoundingBox.Bottom - rowTolerance
+                    && w.BoundingBox.Bottom > lowerBoundary + rowTolerance
                     && w.BoundingBox.Left > table.Left
                     && w.BoundingBox.Left < table.Right)
                 .GroupBy(w => (int)Math.Round(w.BoundingBox.Bottom / rowTolerance))
@@ -2089,7 +2102,8 @@ public class ExtractionService
                                 < markColumnTolerance
                             && Regex.IsMatch(
                                 w.Text,
-                                @"^[A-Z]{1,5}[A-Z0-9]{0,4}\*?$",
+                                "^" + MarkPrefix + @"[A-Z]{1,5}[A-Z0-9]{0,4}"
+                                    + CompoundMarkSuffix + @"\*?$",
                                 RegexOptions.IgnoreCase))
                         .OrderBy(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left))
                         .FirstOrDefault();
@@ -2125,7 +2139,8 @@ public class ExtractionService
                 if (previousY.HasValue && previousY.Value - row.Y > 60) break;
                 previousY = row.Y;
 
-                if (row.Mark is "MARK" or "ITEM" or "SIZE" or "MEMBER") continue;
+                if (row.Mark is "MARK" or "ITEM" or "SIZE" or "MEMBER"
+                    or "STEEL" or "STRUCTURAL" or "COMMENTS") continue;
                 var section = NormalizeSection(row.Value);
                 results.Add(new ExtractedMemberDto(
                     row.Mark,
