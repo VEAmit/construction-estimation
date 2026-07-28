@@ -46,6 +46,18 @@ function getThickness(item) {
   } catch { return null }
 }
 
+function getOccurrenceCount(item) {
+  if (!item?.pointsJson) return null
+  try {
+    const raw = JSON.parse(item.pointsJson)
+    return Array.isArray(raw?.occurrences) && raw.occurrences.length
+      ? raw.occurrences.length
+      : null
+  } catch {
+    return null
+  }
+}
+
 function fmtScale(drawing) {
   if (!drawing?.isCalibrated || !drawing?.scaleRatio) return '—'
   return 'Set'
@@ -103,7 +115,11 @@ export default function MeasurementTable({
     const historyToken = onBeforeUpdate?.()
     setSaving(true)
     try {
-      const updated = await takeoffService.update(editBuf)
+      const occurrenceCount = getOccurrenceCount(editBuf)
+      const updated = await takeoffService.update({
+        ...editBuf,
+        quantity: occurrenceCount ?? editBuf.quantity,
+      })
       updateTakeoffItem(updated)
       toast.success('Measurement updated')
       cancelEdit()
@@ -439,7 +455,7 @@ export default function MeasurementTable({
                       {item.totalWeight != null ? `${item.totalWeight.toFixed(1)} kg` : '—'}
                     </td>
                     <td style={td}>
-                      {isEditing
+                      {isEditing && getOccurrenceCount(item) == null
                         ? <input value={row.quantity ?? 1} type="number" min="1" onChange={e => setEditBuf(b => ({ ...b, quantity: +e.target.value }))} style={{ ...ei, width: '44px' }} />
                         : item.quantity}
                     </td>

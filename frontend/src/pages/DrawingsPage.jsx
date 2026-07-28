@@ -35,6 +35,7 @@ import {
   buildLinearMeasurementClipboard,
   DEFAULT_MEASURE_LABEL_SIZE,
   isValidLinearMeasurementForCopy,
+  mapLinearArrowStyle,
 } from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark } from '../utils/memberMeasureLink'
@@ -175,6 +176,10 @@ function buildTakeoffOccurrencesFromItem(item) {
           rotation: occ?.rotation ?? geometry.RotateAngle ?? geometry.rotateAngle ?? 0,
           createdAt: occ?.createdAt ?? occ?.CreatedAt ?? item?.createdAt ?? new Date().toISOString(),
           isRoot: Boolean(occ?.isRoot ?? index === 0),
+          length: Number.isFinite(Number(occ?.length ?? occ?.Length))
+            ? Number(occ?.length ?? occ?.Length)
+            : (Number.isFinite(Number(item?.length)) ? Number(item.length) : null),
+          unit: occ?.unit ?? occ?.Unit ?? item?.unit ?? null,
           geometry,
         }
       })
@@ -193,8 +198,206 @@ function buildTakeoffOccurrencesFromItem(item) {
     rotation: geometry.RotateAngle ?? geometry.rotateAngle ?? 0,
     createdAt: item?.createdAt ?? new Date().toISOString(),
     isRoot: true,
+    length: Number.isFinite(Number(item?.length)) ? Number(item.length) : null,
+    unit: item?.unit ?? null,
     geometry,
   }]
+}
+
+function takeoffOccurrenceLength(occurrence, fallback = null) {
+  const value = Number(occurrence?.length ?? occurrence?.Length)
+  if (Number.isFinite(value) && value >= 0) return value
+  const fallbackValue = Number(fallback)
+  return Number.isFinite(fallbackValue) && fallbackValue >= 0 ? fallbackValue : null
+}
+
+function totalTakeoffOccurrenceLength(occurrences, fallback = null) {
+  const lengths = (occurrences ?? [])
+    .map(occurrence => takeoffOccurrenceLength(occurrence, fallback))
+    .filter(value => value != null)
+  return lengths.length ? lengths.reduce((sum, value) => sum + value, 0) : fallback
+}
+
+function buildOccurrenceContainer(item, occurrences) {
+  const raw = readTakeoffPointsJson(item?.pointsJson) ?? {}
+  const normalized = (occurrences ?? []).map((occurrence, index) => ({
+    ...occurrence,
+    occurrenceId: occurrence?.occurrenceId
+      ?? occurrence?.OccurrenceId
+      ?? occurrence?.annotationName
+      ?? getRawAnnotationId(occurrence?.geometry ?? occurrence?.rawAnnotation ?? occurrence),
+    itemId: Number(item?.id ?? occurrence?.itemId) || item?.id,
+    annotationName: occurrence?.annotationName
+      ?? getRawAnnotationId(occurrence?.geometry ?? occurrence?.rawAnnotation ?? occurrence),
+    isRoot: index === 0,
+    geometry: stripOccurrenceContainer(
+      occurrence?.geometry ?? occurrence?.rawAnnotation ?? occurrence,
+    ),
+  }))
+  const rootGeometry = normalized[0]?.geometry ?? stripOccurrenceContainer(raw)
+  return {
+    ...rootGeometry,
+    occurrenceModelVersion: 2,
+    itemId: item?.id,
+    occurrences: normalized,
+  }
+}
+
+function appendTakeoffOccurrence(item, {
+  geometry,
+  annotationId,
+  pageNumber,
+  occurrenceId,
+  length,
+  unit,
+}) {
+  if (!item || !geometry || !annotationId) return null
+  const existing = buildTakeoffOccurrencesFromItem(item)
+  if (existing.some(occ => String(occ.annotationName) === String(annotationId))) {
+    return { item, occurrences: existing, appended: false }
+  }
+  const occurrences = [
+    ...existing,
+    {
+      occurrenceId: occurrenceId ?? annotationId,
+      itemId: item.id,
+      pageNumber: Number(pageNumber ?? geometry.pageNumber ?? geometry.PageNumber ?? 1) || 1,
+      annotationName: annotationId,
+      position: null,
+      rotation: geometry.RotateAngle ?? geometry.rotateAngle ?? 0,
+      createdAt: new Date().toISOString(),
+      isRoot: false,
+      length: Number.isFinite(Number(length)) ? Number(length) : null,
+      unit: unit ?? item.unit ?? null,
+      geometry: stripOccurrenceContainer(geometry),
+    },
+  ]
+  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  const next = {
+    ...item,
+    quantity: occurrences.length,
+    length: totalLength,
+    totalWeight: item.unitWeight != null && totalLength != null
+      ? Number(item.unitWeight) * toMeters(totalLength, unit ?? item.unit)
+      : item.totalWeight,
+    pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
+  }
+  return { item: next, occurrences, appended: true }
+}
+
+function updateTakeoffOccurrence(item, annotationId, updater) {
+  if (!item?.pointsJson || annotationId == null) return null
+  const raw = readTakeoffPointsJson(item.pointsJson)
+  if (!Array.isArray(raw?.occurrences) || !raw.occurrences.length) return null
+  let changed = false
+  const occurrences = buildTakeoffOccurrencesFromItem(item).map(occurrence => {
+    if (String(occurrence.annotationName) !== String(annotationId)) return occurrence
+    changed = true
+    return updater(occurrence)
+  })
+  if (!changed) return null
+  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  return {
+    ...item,
+    quantity: occurrences.length,
+    length: totalLength,
+    totalWeight: item.unitWeight != null && totalLength != null
+      ? Number(item.unitWeight) * toMeters(totalLength, item.unit)
+      : item.totalWeight,
+    pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
+  }
+}
+
+function removeTakeoffOccurrence(item, annotationId) {
+  if (!item?.pointsJson || annotationId == null) return null
+  const raw = readTakeoffPointsJson(item.pointsJson)
+  if (!Array.isArray(raw?.occurrences) || !raw.occurrences.length) return null
+  const existing = buildTakeoffOccurrencesFromItem(item)
+  const occurrences = existing.filter(
+    occurrence => String(occurrence.annotationName) !== String(annotationId),
+  )
+  if (occurrences.length === existing.length) return null
+  if (!occurrences.length) return { item: null, occurrences, removed: true }
+  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  return {
+    item: {
+      ...item,
+      quantity: occurrences.length,
+      length: totalLength,
+      totalWeight: item.unitWeight != null && totalLength != null
+        ? Number(item.unitWeight) * toMeters(totalLength, item.unit)
+        : item.totalWeight,
+      pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
+    },
+    occurrences,
+    removed: true,
+  }
+}
+
+function linkedTakeoffRootId(notes) {
+  const match = String(notes ?? '').match(/\blinkedItem:(\d+)/i)
+  return match ? Number(match[1]) : null
+}
+
+async function consolidateLegacyLinkedTakeoffRows(items) {
+  let working = [...(items ?? [])]
+  const childrenByRoot = new Map()
+  working.forEach(item => {
+    const rootId = linkedTakeoffRootId(item?.notes)
+    if (rootId == null || Number(item.id) === rootId) return
+    const children = childrenByRoot.get(rootId) ?? []
+    children.push(item)
+    childrenByRoot.set(rootId, children)
+  })
+
+  let changed = false
+  for (const [rootId, children] of childrenByRoot) {
+    const originalRoot = working.find(item => Number(item.id) === Number(rootId))
+    if (!originalRoot || !children.length) continue
+
+    let groupedRoot = originalRoot
+    let appendedAny = false
+    children.forEach(child => {
+      buildTakeoffOccurrencesFromItem(child).forEach(occurrence => {
+        const appended = appendTakeoffOccurrence(groupedRoot, {
+          geometry: occurrence.geometry,
+          annotationId: occurrence.annotationName,
+          occurrenceId: occurrence.occurrenceId,
+          pageNumber: occurrence.pageNumber,
+          length: occurrence.length,
+          unit: occurrence.unit ?? child.unit,
+        })
+        if (appended?.appended) {
+          groupedRoot = appended.item
+          appendedAny = true
+        }
+      })
+    })
+    if (!appendedAny) continue
+
+    const deletedChildren = []
+    try {
+      const savedRoot = await takeoffService.update(groupedRoot)
+      for (const child of children) {
+        await takeoffService.delete(child.id)
+        deletedChildren.push(child)
+      }
+      const childIds = new Set(children.map(child => Number(child.id)))
+      working = working
+        .filter(item => !childIds.has(Number(item.id)))
+        .map(item => Number(item.id) === Number(rootId) ? savedRoot : item)
+      changed = true
+    } catch (error) {
+      // Consolidation is all-or-nothing for a group. Restore any children that
+      // were already soft-deleted and put the untouched root back if a later
+      // request failed, so a migration can never lose an annotation.
+      await Promise.allSettled(deletedChildren.map(child => takeoffService.restore(child)))
+      await takeoffService.update(originalRoot).catch(() => {})
+      console.warn('[BuildTakeoff] legacy pasted-row consolidation skipped:', error)
+    }
+  }
+
+  return { items: working, changed }
 }
 
 function extractTakeoffAnnotationIds(pointsJson) {
@@ -273,7 +476,7 @@ export default function DrawingsPage() {
     _hydrated,
     measureColor, lineThickness, lineStyle, arrowStyle, measureCategory,
     measureLabelFontSize, setMeasureLabelFontSize,
-    measurementClipboard, setMeasurementClipboard, clearPasteAnchor,
+    measurementClipboard, setMeasurementClipboard, clearMeasurementClipboard, clearPasteAnchor,
     pdfScale,
     removeTakeoffItem,
     setMeasureColor,
@@ -291,11 +494,21 @@ export default function DrawingsPage() {
   }
   const initialDockLayout = initialDockLayoutRef.current
 
-  const readThicknessFromPointsJson = useCallback((pointsJson) => {
+  const readThicknessFromPointsJson = useCallback((pointsJson, annotationId = null) => {
     if (!pointsJson) return null
     try {
       const d = JSON.parse(pointsJson)
-      const t = d.Thickness ?? d.thickness
+      const selectedOccurrence = annotationId != null && Array.isArray(d.occurrences)
+        ? d.occurrences.find(occ => {
+            const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+            return String(occ?.annotationName ?? getRawAnnotationId(geometry)) === String(annotationId)
+          })
+        : null
+      const source = selectedOccurrence?.geometry
+        ?? selectedOccurrence?.rawAnnotation
+        ?? selectedOccurrence
+        ?? d
+      const t = source.Thickness ?? source.thickness
       return t != null && Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : null
     } catch {
       return null
@@ -331,10 +544,22 @@ export default function DrawingsPage() {
 
   const syncToolbarFromTakeoffItem = useCallback((item, annotationId = null) => {
     if (!item) return
-    // Prefer stored item color; fall back to MSI palette color for that mark
     const HEX_RE = /^#[0-9A-Fa-f]{6}$/
-    if (item.color && HEX_RE.test(item.color)) {
-      setMeasureColor(item.color)
+    const raw = readTakeoffPointsJson(item.pointsJson)
+    const selectedOccurrence = annotationId != null && Array.isArray(raw?.occurrences)
+      ? raw.occurrences.find(occ => {
+          const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+          return String(occ?.annotationName ?? getRawAnnotationId(geometry)) === String(annotationId)
+        })
+      : null
+    const selectedGeometry = selectedOccurrence?.geometry
+      ?? selectedOccurrence?.rawAnnotation
+      ?? selectedOccurrence
+    const selectedColor = selectedGeometry?.strokeColor
+      ?? selectedGeometry?.StrokeColor
+      ?? item.color
+    if (selectedColor && HEX_RE.test(selectedColor)) {
+      setMeasureColor(selectedColor)
     } else {
       const memberMark = (item.material || item.mark || '').trim().toLowerCase()
       if (memberMark) {
@@ -343,7 +568,7 @@ export default function DrawingsPage() {
         if (msi?.color && HEX_RE.test(msi.color)) setMeasureColor(msi.color)
       }
     }
-    const t = readThicknessFromPointsJson(item.pointsJson)
+    const t = readThicknessFromPointsJson(item.pointsJson, annotationId)
     if (t != null) setLineThickness(t)
     // Reflect this item's own current label size in the toolbar so the S/M/L/XL
     // buttons and the custom pt input show what's actually on the drawing —
@@ -459,6 +684,33 @@ export default function DrawingsPage() {
   const historyBusyRef = useRef(false)
   const [undoDepth, setUndoDepth] = useState(0)
   const [redoDepth, setRedoDepth] = useState(0)
+
+  const clearCopiedMeasurements = useCallback(() => {
+    clearMeasurementClipboard()
+    clearPasteAnchor()
+    triggerPdfCommand({ type: 'cancelPastePlacement' })
+  }, [clearMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
+
+  // A copied measurement belongs only to the drawing it was copied from.
+  // Clear both the toolbar clipboard and any active canvas paste session when
+  // the drawing changes (including the first load after a browser refresh).
+  useEffect(() => {
+    clearCopiedMeasurements()
+  }, [selectedDrawing?.id, clearCopiedMeasurements])
+
+  // Also clear the in-memory clipboard when leaving/reloading this page. The
+  // cleanup covers route changes; pagehide covers refresh and browser history.
+  useEffect(() => {
+    const handlePageExit = () => {
+      clearMeasurementClipboard()
+      clearPasteAnchor()
+    }
+    window.addEventListener('pagehide', handlePageExit)
+    return () => {
+      window.removeEventListener('pagehide', handlePageExit)
+      handlePageExit()
+    }
+  }, [clearMeasurementClipboard, clearPasteAnchor])
 
   const captureHistorySnapshot = useCallback(() => {
     const state = useAppStore.getState()
@@ -618,17 +870,6 @@ export default function DrawingsPage() {
     }).length
   }, [parseLinkedItemId])
 
-  const appendLinkedOccurrenceNotes = useCallback((notes, linkedItemId, occurrenceId) => {
-    const parts = String(notes ?? '')
-      .split(';')
-      .map(p => p.trim())
-      .filter(Boolean)
-      .filter(p => !/^linkedItem:/i.test(p) && !/^occurrence:/i.test(p))
-    if (linkedItemId != null) parts.push(`linkedItem:${linkedItemId}`)
-    if (occurrenceId) parts.push(`occurrence:${occurrenceId}`)
-    return parts.join(';')
-  }, [])
-
   // Track style values at the moment an annotation is selected.
   // Used to detect when the user actually changes a style prop (vs. selecting an annotation
   // for the first time) so we only write to the DB on genuine style changes.
@@ -658,6 +899,7 @@ export default function DrawingsPage() {
     const prev = annotStyleBaselineRef.current
     const styleChanged =
       prev.color !== current.color ||
+      prev.thickness !== current.thickness ||
       prev.lineStyle !== current.lineStyle ||
       prev.arrowStyle !== current.arrowStyle
     const labelSizeChanged = prev.labelFontSize !== current.labelFontSize
@@ -683,7 +925,40 @@ export default function DrawingsPage() {
     if (!item) return
 
     if (!labelSizeChanged) recordUndoSnapshot('measurement style change')
-    const optimistic = { ...item, color: measureColor, category: measureCategory }
+    const arrowPatch = mapLinearArrowStyle(arrowStyle)
+    const patchGeometry = geometry => ({
+      ...geometry,
+      strokeColor: measureColor,
+      StrokeColor: measureColor,
+      thickness: lineThickness,
+      Thickness: lineThickness,
+      lineStyle,
+      LineStyle: lineStyle,
+      borderDashArray: lineStyle === 'solid'
+        ? '0'
+        : (geometry.borderDashArray ?? geometry.BorderDashArray ?? '6,3'),
+      BorderDashArray: lineStyle === 'solid'
+        ? '0'
+        : (geometry.BorderDashArray ?? geometry.borderDashArray ?? '6,3'),
+      ...arrowPatch,
+      LineHeadStartStyle: arrowPatch.lineHeadStartStyle,
+      LineHeadEndStyle: arrowPatch.lineHeadEndStyle,
+    })
+    const occurrenceId = selectedOccurrenceAnnotIdRef.current
+    const occurrenceUpdate = updateTakeoffOccurrence(item, occurrenceId, occurrence => ({
+      ...occurrence,
+      geometry: patchGeometry(occurrence.geometry),
+    }))
+    let optimistic = occurrenceUpdate
+    if (!optimistic) {
+      const raw = readTakeoffPointsJson(item.pointsJson)
+      optimistic = {
+        ...item,
+        color: measureColor,
+        category: measureCategory,
+        pointsJson: raw ? JSON.stringify(patchGeometry(raw)) : item.pointsJson,
+      }
+    }
     updateTakeoffItem(optimistic)
     takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
@@ -861,9 +1136,14 @@ export default function DrawingsPage() {
           )
           triggerPdfCommand('rehydrateMeasureLabels')
         }
+        const consolidation = await consolidateLegacyLinkedTakeoffRows(finalItems)
+        finalItems = consolidation.items
+        const finalSummary = consolidation.changed
+          ? await takeoffService.getSummary(selectedDrawing.id).catch(() => sum)
+          : sum
         setTakeoffItems(finalItems)
-        setSummaryLocal(sum)
-        setSummary(sum)
+        setSummaryLocal(finalSummary)
+        setSummary(finalSummary)
         setMemberScheduleItems(assignMemberColors(members))
         setMemberScheduleSummary(memberSum)
         const index = buildTakeoffAnnotationIndex(finalItems)
@@ -1302,9 +1582,7 @@ export default function DrawingsPage() {
     const linkedRootItemId = isPaste
       ? (measurement.linkedItemId ?? measurement.sourceItemId ?? null)
       : null
-    const saveNotes = isPaste
-      ? appendLinkedOccurrenceNotes(baseNotes, linkedRootItemId, measurement.occurrenceId)
-      : baseNotes
+    const saveNotes = baseNotes
 
     const undoToken = skipUndo
       ? null
@@ -1314,32 +1592,70 @@ export default function DrawingsPage() {
         )
     try {
       const pointsJson = buildPointsJson()
-      // A pasted measurement must be persisted as its own takeoff row. The
-      // clipboard still carries linkedRootItemId for source quantity tracking,
-      // but geometry is never appended to the source row's shared occurrences
-      // array. Consequently every pasted shape has both a unique annotation
-      // UUID (assigned by translateRawLine) and a unique database id, so later
-      // move/style/member/label/delete operations resolve to this item alone.
-      const saved = await takeoffService.create({
-        drawingId:   drw.id,
-        itemType,
-        mark:        nextMark,
-        description: desc,
-        quantity:    isCount ? measurement.count : (isPaste ? (measurement.quantity ?? 1) : 1),
-        unit,
-        material:    saveMaterial,
-        notes:       saveNotes,
-        length:      isCount ? null : (saveLength ?? null),
-        area:        isCount ? null : (saveArea ?? null),
-        unitWeight:  isPaste ? (measurement.unitWeight ?? null) : null,
-        totalWeight: isPaste ? (measurement.totalWeight ?? null) : null,
-        color:       saveColor,
-        category:    saveCategoryFinal,
-        pointsJson,
-        scaleRatioAtCreation:      normDrw.scaleRatio,
-        calibrationUnitAtCreation: normDrw.calibrationUnit,
-      })
-      let finalSaved = saved
+      const liveItems = useAppStore.getState().takeoffItems ?? []
+      const normalizeMemberKey = value => String(value ?? '').trim().toLowerCase()
+      const pastedMemberKeys = new Set(
+        [nextMark, saveMaterial, memberMark]
+          .map(normalizeMemberKey)
+          .filter(Boolean),
+      )
+      const isSamePastedMember = item => {
+        if (!item || Number(item.drawingId) !== Number(drw.id)) return false
+        return [item.mark, item.material, getMeasurementMemberMark(item, memberScheduleItems)]
+          .map(normalizeMemberKey)
+          .filter(Boolean)
+          .some(key => pastedMemberKeys.has(key))
+      }
+      const linkedRoot = isPaste && linkedRootItemId != null
+        ? liveItems.find(item => Number(item.id) === Number(linkedRootItemId))
+        : null
+      const pasteGroup = isPaste
+        ? (
+            (linkedRoot && isSamePastedMember(linkedRoot) ? linkedRoot : null)
+            ?? liveItems.find(item => isSamePastedMember(item))
+            ?? null
+          )
+        : null
+
+      // One takeoff row represents the member group. Every pasted mark remains
+      // an independent occurrence with its own annotation UUID and geometry.
+      let finalSaved
+      if (pasteGroup && measurement.rawAnnotation && measurement.annotationId) {
+        const appended = appendTakeoffOccurrence(pasteGroup, {
+          geometry: measurement.rawAnnotation,
+          annotationId: measurement.annotationId,
+          occurrenceId: measurement.occurrenceId,
+          pageNumber: measurement.pageNumber,
+          length: saveLength,
+          unit,
+        })
+        finalSaved = appended?.appended
+          ? await takeoffService.update(appended.item)
+          : pasteGroup
+        updateTakeoffItem(finalSaved)
+      } else {
+        const saved = await takeoffService.create({
+          drawingId:   drw.id,
+          itemType,
+          mark:        nextMark,
+          description: desc,
+          quantity:    isCount ? measurement.count : 1,
+          unit,
+          material:    saveMaterial,
+          notes:       saveNotes,
+          length:      isCount ? null : (saveLength ?? null),
+          area:        isCount ? null : (saveArea ?? null),
+          unitWeight:  isPaste ? (measurement.unitWeight ?? null) : null,
+          totalWeight: isPaste ? (measurement.totalWeight ?? null) : null,
+          color:       saveColor,
+          category:    saveCategoryFinal,
+          pointsJson,
+          scaleRatioAtCreation:      normDrw.scaleRatio,
+          calibrationUnitAtCreation: normDrw.calibrationUnit,
+        })
+        finalSaved = saved
+        addTakeoffItem(finalSaved)
+      }
       const latestThick = isPaste
         ? null
         : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness)
@@ -1348,24 +1664,10 @@ export default function DrawingsPage() {
           const raw = JSON.parse(pointsJson)
           if (Number(raw.thickness) !== Number(latestThick)) {
             const patchedJson = JSON.stringify({ ...raw, thickness: Number(latestThick), Thickness: Number(latestThick) })
-            finalSaved = await takeoffService.update({ ...saved, pointsJson: patchedJson })
+            finalSaved = await takeoffService.update({ ...finalSaved, pointsJson: patchedJson })
+            updateTakeoffItem(finalSaved)
           }
         } catch (_) {}
-      }
-      addTakeoffItem(finalSaved)
-      if (isPaste && linkedRootItemId != null) {
-        try {
-          const rootId = Number(linkedRootItemId)
-          const rowsAfterPaste = useAppStore.getState().takeoffItems ?? []
-          const occurrenceCount = countLinkedOccurrences(rowsAfterPaste, rootId)
-          const rootItem = rowsAfterPaste.find(t => Number(t.id) === rootId)
-          if (rootItem && occurrenceCount > 0 && Number(rootItem.quantity ?? 1) !== occurrenceCount) {
-            const updatedRoot = await takeoffService.update({ ...rootItem, quantity: occurrenceCount })
-            updateTakeoffItem(updatedRoot)
-          }
-        } catch (err) {
-          console.warn('[BuildTakeoff] linked occurrence quantity update failed:', err)
-        }
       }
       console.log('[BT-Lifecycle] autoSave — database success, id:', finalSaved.id, 'mark:', finalSaved.mark, 'length:', finalSaved.length)
       setShowBottom(true)
@@ -1400,9 +1702,10 @@ export default function DrawingsPage() {
         annotStyleBaselineRef.current = null
       }
       if (measurement.annotationId) {
+        const annotationIds = extractTakeoffAnnotationIds(finalSaved.pointsJson)
         annotationMapRef.current[finalSaved.id] = {
           annotationId: measurement.annotationId,
-          annotationIds: [measurement.annotationId],
+          annotationIds: annotationIds.length ? annotationIds : [measurement.annotationId],
           pageNumber:   measurement.pageNumber ?? 1,
         }
         persistedAnnotIdsRef.current.add(measurement.annotationId)
@@ -1452,7 +1755,6 @@ export default function DrawingsPage() {
     scheduleAnnotationBlobSave,
     updateMemberScheduleItem,
     updateTakeoffItem,
-    appendLinkedOccurrenceNotes,
     countLinkedOccurrences,
     discardUndoSnapshot,
     recordUndoSnapshot,
@@ -1787,10 +2089,31 @@ export default function DrawingsPage() {
     if (!item?.pointsJson) return
     try {
       const raw = JSON.parse(item.pointsJson)
-      const existing = raw.thickness ?? raw.Thickness
+      const occurrenceId = annotId ?? selectedOccurrenceAnnotIdRef.current
+      const selectedOccurrence = occurrenceId != null && Array.isArray(raw.occurrences)
+        ? raw.occurrences.find(occ => {
+            const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
+            return String(occ?.annotationName ?? getRawAnnotationId(geometry)) === String(occurrenceId)
+          })
+        : null
+      const selectedGeometry = selectedOccurrence?.geometry
+        ?? selectedOccurrence?.rawAnnotation
+        ?? selectedOccurrence
+        ?? raw
+      const existing = selectedGeometry.thickness ?? selectedGeometry.Thickness
       if (existing != null && Number(existing) === Number(thickness)) return
-      const pointsJson = JSON.stringify({ ...raw, thickness, Thickness: thickness })
-      const optimistic = { ...item, pointsJson }
+      const occurrenceUpdate = updateTakeoffOccurrence(item, occurrenceId, occurrence => ({
+        ...occurrence,
+        geometry: {
+          ...occurrence.geometry,
+          thickness,
+          Thickness: thickness,
+        },
+      }))
+      const optimistic = occurrenceUpdate ?? {
+        ...item,
+        pointsJson: JSON.stringify({ ...raw, thickness, Thickness: thickness }),
+      }
       recordUndoSnapshot('measurement thickness change')
       updateTakeoffItem(optimistic)
       takeoffService.update(optimistic).then(saved => updateTakeoffItem(saved)).catch(() => {})
@@ -1804,10 +2127,11 @@ export default function DrawingsPage() {
           thickness,
           lineStyle,
           arrowStyle,
+          labelFontSize: measureLabelFontSize,
         }
       }
     } catch (_) {}
-  }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson, recordUndoSnapshot])
+  }, [takeoffItems, updateTakeoffItem, selectedAnnotId, measureColor, measureLabelFontSize, lineStyle, arrowStyle, resolveMeasurementDbId, extractAnnotIdFromPointsJson, recordUndoSnapshot])
 
   const handleMeasurementGeometryChange = useCallback((payload) => {
     const annotId = payload?.annotationId
@@ -1884,14 +2208,33 @@ export default function DrawingsPage() {
       const nextTotalWeight = item.unitWeight != null && nextLength != null
         ? Number(item.unitWeight) * toMeters(nextLength, unit) * Number(item.quantity ?? 1)
         : item.totalWeight
-      const next = {
-        ...item,
-        unit,
+      const occurrenceUpdate = updateTakeoffOccurrence(item, stableAnnotId, occurrence => ({
+        ...occurrence,
+        pageNumber: payload.pageNumber ?? occurrence.pageNumber ?? movedRaw.pageNumber ?? 1,
+        rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occurrence.rotation ?? 0,
         length: nextLength,
-        totalWeight: Number.isFinite(nextTotalWeight) ? nextTotalWeight : item.totalWeight,
-        description: formatLineMeasureDescription(pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
-        pointsJson: JSON.stringify(mergedRaw),
-      }
+        unit,
+        geometry: mergeGeometry(occurrence.geometry),
+      }))
+      const next = occurrenceUpdate
+        ? {
+            ...occurrenceUpdate,
+            unit,
+            description: formatLineMeasureDescription(
+              pixelLength,
+              occurrenceUpdate.length,
+              unit,
+              getCalibratedDrawingFromStore(),
+            ),
+          }
+        : {
+            ...item,
+            unit,
+            length: nextLength,
+            totalWeight: Number.isFinite(nextTotalWeight) ? nextTotalWeight : item.totalWeight,
+            description: formatLineMeasureDescription(pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
+            pointsJson: JSON.stringify(mergedRaw),
+          }
 
       // Geometry, length, label, and the Measurements grid update together on
       // every pointer move. Only the network write remains debounced.
@@ -1959,15 +2302,27 @@ export default function DrawingsPage() {
       // several items at once, each potentially selected via a different
       // occurrence) — fall back to the shared "current" occurrence ref for
       // the solo-select case, exactly as before.
+      const occurrences = buildTakeoffOccurrencesFromItem(item)
       const ownOccurrenceId = annotationMapRef.current[targetId]?.annotationId
-      const selectedOccurrenceId = ownOccurrenceId ?? selectedOccurrenceAnnotIdRef.current
+      const selectedViewerOccurrenceId = [...selectedViewerAnnotIdsRef.current]
+        .find(id => occurrences.some(occ => String(occ.annotationName) === String(id)))
+      const currentOccurrenceId = selectedOccurrenceAnnotIdRef.current
+      const currentBelongsToItem = currentOccurrenceId != null
+        && occurrences.some(occ => String(occ.annotationName) === String(currentOccurrenceId))
+      const selectedOccurrenceId = selectedViewerOccurrenceId
+        ?? (currentBelongsToItem ? currentOccurrenceId : null)
+        ?? ownOccurrenceId
       const selectedOccurrence = selectedOccurrenceId
-        ? buildTakeoffOccurrencesFromItem(item).find(
+        ? occurrences.find(
           occ => String(occ.annotationName) === String(selectedOccurrenceId)
         )
         : null
       const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
-      return buildLinearMeasurementClipboard(item, copyRaw, pdfScale)
+      return buildLinearMeasurementClipboard({
+        ...item,
+        length: takeoffOccurrenceLength(selectedOccurrence, item.length),
+        quantity: 1,
+      }, copyRaw, pdfScale)
     } catch {
       return null
     }
@@ -2025,80 +2380,224 @@ export default function DrawingsPage() {
   const canCopyMeasurement = selectedAnnotIds.size > 1 ? true : !!copyTargetId
   const canPasteMeasurement = !!measurementClipboard?.items?.length && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
 
-  // The canvas renderer prefers a color embedded *inside* pointsJson's
-  // geometry over the takeoff item's own flat `color` column (see the
-  // matching strokeColor/StrokeColor comment in autoSave, and the occurrence
-  // merge in handleMeasurementGeometryChange below) — a color change that
-  // only patches the flat column updates the grid (which reads `color`
-  // directly) but leaves the PDF still showing the old color. Handles both
-  // a flat single-geometry item and a multi-occurrence one (quantity > 1),
-  // recoloring every occurrence so the whole measurement updates together.
-  const embedColorInPointsJson = (pointsJsonString, color) => {
-    if (!pointsJsonString) return pointsJsonString
-    try {
-      const raw = JSON.parse(pointsJsonString)
-      if (Array.isArray(raw.occurrences) && raw.occurrences.length) {
-        return JSON.stringify({
-          ...raw,
-          // The root object carries its own (redundant, but read by some
-          // paths) strokeColor/StrokeColor alongside the per-occurrence
-          // ones — keep both in sync so nothing is left stale.
-          strokeColor: color,
-          StrokeColor: color,
-          occurrences: raw.occurrences.map(occ => {
-            const geometry = occ?.geometry ?? occ?.rawAnnotation ?? occ
-            if (!geometry || typeof geometry !== 'object') return occ
-            return { ...occ, geometry: { ...geometry, strokeColor: color, StrokeColor: color } }
-          }),
-        })
-      }
-      return JSON.stringify({ ...raw, strokeColor: color, StrokeColor: color })
-    } catch {
-      return pointsJsonString
-    }
-  }
-
-  // Quick member reassignment: instantly re-tags every selected measurement
-  // (one, via a plain click, or several via ctrl/shift-click) with the
-  // clicked member's mark/material/category/color — a fast fix for a
-  // wrongly-assigned member without redrawing. Triggered from
-  // MemberSchedulePanel's handleSelectMember when a selection is active.
-  // Mirrors the existing optimistic-update + fire-and-forget PUT pattern
-  // MemberSchedulePanel's own applyColorToMember already uses for its
-  // batch-by-mark recolor.
+  // Reassign the selected PDF occurrences without moving their siblings.
+  // Occurrences join an existing row for the destination member when one
+  // exists; otherwise the selected occurrence becomes the first instance of a
+  // new member row.
   const handleAssignMemberToSelection = useCallback(async (member, ids) => {
+    const initialItems = useAppStore.getState().takeoffItems ?? []
     const rows = ids
-      .map(id => (useAppStore.getState().takeoffItems ?? []).find(t => t.id === id))
+      .map(id => initialItems.find(t => Number(t.id) === Number(id)))
       .filter(Boolean)
-    if (!rows.length) return
-    recordUndoSnapshot('member reassignment')
-    await Promise.allSettled(rows.map(async row => {
-      const newColor = member.color || row.color
-      const optimistic = {
-        ...row,
-        material: member.mark,
-        mark: member.mark,
-        category: member.memberType || row.category,
-        color: newColor,
-        pointsJson: embedColorInPointsJson(row.pointsJson, newColor),
-      }
-      updateTakeoffItem(optimistic)
-      try {
-        const saved = await takeoffService.update(optimistic)
-        updateTakeoffItem(saved)
-      } catch {
-        // Roll back this row's optimistic change on failure so the grid/PDF
-        // don't keep showing a reassignment that was never actually saved.
-        updateTakeoffItem(row)
-        toast.error(`Could not reassign ${row.mark || 'measurement'}`)
-      }
-    }))
-  }, [recordUndoSnapshot, updateTakeoffItem])
+    if (!rows.length || !member?.mark) return
 
-  const handleRowDelete = useCallback(async (id) => {
+    const selectedOccurrenceIds = new Set(
+      [...selectedViewerAnnotIdsRef.current].map(String),
+    )
+    const targets = rows.flatMap(row => {
+      const occurrences = buildTakeoffOccurrencesFromItem(row)
+      let selected = occurrences.filter(occurrence =>
+        selectedOccurrenceIds.has(String(occurrence.annotationName)),
+      )
+      if (!selected.length && selectedOccurrenceAnnotIdRef.current != null) {
+        selected = occurrences.filter(occurrence =>
+          String(occurrence.annotationName)
+            === String(selectedOccurrenceAnnotIdRef.current),
+        )
+      }
+      if (!selected.length && occurrences.length) selected = [occurrences[0]]
+      return selected.map(occurrence => ({
+        sourceItemId: row.id,
+        annotationId: occurrence.annotationName,
+      }))
+    })
+    if (!targets.length) return
+
+    recordUndoSnapshot('member reassignment')
+    let lastAssignedItemId = null
+    let lastAssignedAnnotationId = null
+    const memberKey = String(member.mark).trim().toLowerCase()
+
+    for (const target of targets) {
+      const liveItems = useAppStore.getState().takeoffItems ?? []
+      const source = liveItems.find(item => Number(item.id) === Number(target.sourceItemId))
+      if (!source) continue
+      const sourceOccurrences = buildTakeoffOccurrencesFromItem(source)
+      const occurrence = sourceOccurrences.find(
+        entry => String(entry.annotationName) === String(target.annotationId),
+      )
+      if (!occurrence) continue
+
+      const newColor = member.color || source.color
+      const patchedGeometry = {
+        ...occurrence.geometry,
+        strokeColor: newColor,
+        StrokeColor: newColor,
+      }
+      const cleanNotes = String(source.notes ?? '')
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .filter(part => !/^msi:/i.test(part) && !/^linkedItem:/i.test(part) && !/^occurrence:/i.test(part))
+      if (member.id != null) cleanNotes.push(`msi:${member.id}`)
+      const notes = cleanNotes.join(';')
+
+      try {
+        const sourceMemberKey = String(
+          getMeasurementMemberMark(source, useAppStore.getState().memberScheduleItems)
+            || source.material
+            || source.mark
+            || '',
+        ).trim().toLowerCase()
+        const matchingGroup = liveItems.find(item => {
+          if (Number(item.id) === Number(source.id)
+              || Number(item.drawingId) !== Number(source.drawingId)) return false
+          const key = String(
+            getMeasurementMemberMark(item, useAppStore.getState().memberScheduleItems)
+              || item.material
+              || item.mark
+              || '',
+          ).trim().toLowerCase()
+          return key === memberKey
+        })
+
+        if (sourceMemberKey === memberKey) {
+          const patched = updateTakeoffOccurrence(source, occurrence.annotationName, entry => ({
+            ...entry,
+            geometry: patchedGeometry,
+          }))
+          const raw = readTakeoffPointsJson(source.pointsJson)
+          const optimistic = patched ?? {
+            ...source,
+            color: newColor,
+            pointsJson: raw ? JSON.stringify(patchedGeometry) : source.pointsJson,
+          }
+          const saved = await takeoffService.update(optimistic)
+          updateTakeoffItem(saved)
+          lastAssignedItemId = saved.id
+          lastAssignedAnnotationId = occurrence.annotationName
+          continue
+        }
+
+        if (matchingGroup) {
+          const appended = appendTakeoffOccurrence(matchingGroup, {
+            geometry: patchedGeometry,
+            annotationId: occurrence.annotationName,
+            occurrenceId: occurrence.occurrenceId,
+            pageNumber: occurrence.pageNumber,
+            length: occurrence.length,
+            unit: occurrence.unit ?? source.unit,
+          })
+          if (appended?.appended) {
+            const savedTarget = await takeoffService.update(appended.item)
+            updateTakeoffItem(savedTarget)
+            lastAssignedItemId = savedTarget.id
+          } else {
+            lastAssignedItemId = matchingGroup.id
+          }
+        }
+
+        const removal = removeTakeoffOccurrence(source, occurrence.annotationName)
+        if (matchingGroup) {
+          if (removal?.item) {
+            const savedSource = await takeoffService.update(removal.item)
+            updateTakeoffItem(savedSource)
+          } else {
+            await takeoffService.delete(source.id)
+            removeTakeoffItem(source.id)
+          }
+        } else if (removal?.item) {
+          const created = await takeoffService.create({
+            drawingId: source.drawingId,
+            itemType: source.itemType || 'Line',
+            mark: member.mark,
+            description: source.description,
+            quantity: 1,
+            unit: occurrence.unit ?? source.unit,
+            material: member.mark,
+            notes,
+            length: takeoffOccurrenceLength(occurrence, source.length),
+            area: source.area,
+            unitWeight: source.unitWeight,
+            totalWeight: source.unitWeight != null && occurrence.length != null
+              ? Number(source.unitWeight) * toMeters(occurrence.length, occurrence.unit ?? source.unit)
+              : source.totalWeight,
+            color: newColor,
+            category: member.memberType || source.category,
+            pointsJson: JSON.stringify(patchedGeometry),
+            scaleRatioAtCreation: source.scaleRatioAtCreation,
+            calibrationUnitAtCreation: source.calibrationUnitAtCreation,
+          })
+          addTakeoffItem(created)
+          const savedSource = await takeoffService.update(removal.item)
+          updateTakeoffItem(savedSource)
+          lastAssignedItemId = created.id
+        } else {
+          const raw = readTakeoffPointsJson(source.pointsJson)
+          const wasContainer = Array.isArray(raw?.occurrences)
+          const pointsJson = wasContainer
+            ? JSON.stringify(buildOccurrenceContainer(source, [{
+                ...occurrence,
+                geometry: patchedGeometry,
+              }]))
+            : JSON.stringify(patchedGeometry)
+          const saved = await takeoffService.update({
+            ...source,
+            mark: member.mark,
+            material: member.mark,
+            notes,
+            color: newColor,
+            category: member.memberType || source.category,
+            quantity: 1,
+            length: takeoffOccurrenceLength(occurrence, source.length),
+            pointsJson,
+          })
+          updateTakeoffItem(saved)
+          lastAssignedItemId = saved.id
+        }
+        lastAssignedAnnotationId = occurrence.annotationName
+      } catch (err) {
+        console.warn('[BuildTakeoff] occurrence member reassignment failed:', err)
+        toast.error(`Could not reassign ${source.mark || 'measurement'}`)
+      }
+    }
+
+    const index = buildTakeoffAnnotationIndex(useAppStore.getState().takeoffItems ?? [])
+    annotationMapRef.current = index.map
+    persistedAnnotIdsRef.current = index.persistedIds
+    if (lastAssignedItemId != null && lastAssignedAnnotationId != null) {
+      setSelectedAnnotId(lastAssignedItemId)
+      setSelectedViewerAnnotId(String(lastAssignedAnnotationId))
+      selectedOccurrenceAnnotIdRef.current = String(lastAssignedAnnotationId)
+      selectedAnnotIdsRef.current = new Set([lastAssignedItemId])
+      selectedViewerAnnotIdsRef.current = new Set([String(lastAssignedAnnotationId)])
+      setSelectedAnnotIds(new Set([lastAssignedItemId]))
+      setSelectedViewerAnnotIds(new Set([String(lastAssignedAnnotationId)]))
+    }
+    if (selectedDrawing?.id) {
+      takeoffService.getSummary(selectedDrawing.id)
+        .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+        .catch(() => {})
+    }
+  }, [
+    addTakeoffItem,
+    recordUndoSnapshot,
+    removeTakeoffItem,
+    selectedDrawing?.id,
+    setSummary,
+    updateTakeoffItem,
+  ])
+
+  const handleRowDelete = useCallback(async (
+    id,
+    { annotationId = null, deleteGroup = false } = {},
+  ) => {
     const annot = annotationMapRef.current[id]
     const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
     const itemBeingDeleted = beforeDeleteItems.find(t => Number(t.id) === Number(id))
+    const occurrenceRemoval = !deleteGroup && annotationId != null
+      ? removeTakeoffOccurrence(itemBeingDeleted, annotationId)
+      : null
     const annotationIds = Array.from(new Set([
       ...(annot?.annotationIds ?? []),
       annot?.annotationId,
@@ -2107,6 +2606,42 @@ export default function DrawingsPage() {
     const linkedRootBeforeDelete = parseLinkedItemId(itemBeingDeleted?.notes)
     const undoToken = recordUndoSnapshot('delete measurement')
     try {
+      if (occurrenceRemoval?.item) {
+        const saved = await takeoffService.update(occurrenceRemoval.item)
+        updateTakeoffItem(saved)
+        persistedAnnotIdsRef.current.delete(annotationId)
+        const remainingIds = extractTakeoffAnnotationIds(saved.pointsJson)
+        annotationMapRef.current[id] = {
+          annotationId: remainingIds[0] ?? null,
+          annotationIds: remainingIds,
+          pageNumber: buildTakeoffOccurrencesFromItem(saved)[0]?.pageNumber ?? 1,
+        }
+        triggerPdfCommand({
+          type: 'deleteAnnotation',
+          annotationId,
+          pageNumber: annot?.pageNumber ?? 1,
+        })
+        if (String(selectedOccurrenceAnnotIdRef.current) === String(annotationId)) {
+          setSelectedAnnotId(null)
+          setSelectedViewerAnnotId(null)
+          selectedOccurrenceAnnotIdRef.current = null
+          selectedAnnotIdsRef.current = new Set()
+          selectedViewerAnnotIdsRef.current = new Set()
+          setSelectedAnnotIds(new Set())
+          setSelectedViewerAnnotIds(new Set())
+        }
+        if (pendingMeasurementRef.current?.annotationId != null
+            && String(pendingMeasurementRef.current.annotationId) === String(annotationId)) {
+          pendingMeasurementRef.current = null
+        }
+        if (selectedDrawing) {
+          takeoffService.getSummary(selectedDrawing.id)
+            .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+            .catch(() => {})
+        }
+        return
+      }
+
       await takeoffService.delete(id)
       removeTakeoffItem(id)
       delete annotationMapRef.current[id]
@@ -2284,8 +2819,7 @@ export default function DrawingsPage() {
         e.preventDefault()
         e.stopPropagation()
         closeCtxMenu()
-        clearPasteAnchor()
-        triggerPdfCommand({ type: 'cancelPastePlacement' })
+        clearCopiedMeasurements()
         resetDrawingInteraction()
         clearAllSelection()
         // The calibration modal still needs its completed reference measurement.
@@ -2299,7 +2833,9 @@ export default function DrawingsPage() {
       if (!hasMod && (e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotId) {
         e.preventDefault()
         e.stopPropagation()
-        handleRowDelete(selectedAnnotId).catch(() => {})
+        handleRowDelete(selectedAnnotId, {
+          annotationId: selectedOccurrenceAnnotIdRef.current,
+        }).catch(() => {})
         return
       }
 
@@ -2326,7 +2862,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [handleCopyMeasurement, handlePasteMeasurement, handleRedo, handleUndo, selectedAnnotId, handleRowDelete, triggerPdfCommand, clearPasteAnchor, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection])
+  }, [handleCopyMeasurement, handlePasteMeasurement, handleRedo, handleUndo, selectedAnnotId, handleRowDelete, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection, clearCopiedMeasurements])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -2955,7 +3491,12 @@ export default function DrawingsPage() {
                   <>
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '2px 0' }} />
                     <button
-                      onClick={() => { handleRowDelete(selectedAnnotId); closeCtxMenu() }}
+                      onClick={() => {
+                        handleRowDelete(selectedAnnotId, {
+                          annotationId: selectedOccurrenceAnnotIdRef.current,
+                        })
+                        closeCtxMenu()
+                      }}
                       style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#f87171', fontSize: 13, cursor: 'pointer' }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}

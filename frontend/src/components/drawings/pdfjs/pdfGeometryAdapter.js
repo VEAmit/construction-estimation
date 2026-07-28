@@ -54,11 +54,16 @@ export function annotationPoints(raw, pageSize) {
   return start && end ? [start, end] : []
 }
 
-function occurrenceGeometries(item, root) {
-  if (!Array.isArray(root?.occurrences) || root.occurrences.length === 0) return [root]
+function occurrenceEntries(root) {
+  if (!Array.isArray(root?.occurrences) || root.occurrences.length === 0) {
+    return [{ raw: root, occurrence: null }]
+  }
   return root.occurrences
-    .map(occurrence => occurrence?.geometry ?? occurrence?.rawAnnotation ?? occurrence)
-    .filter(Boolean)
+    .map(occurrence => ({
+      raw: occurrence?.geometry ?? occurrence?.rawAnnotation ?? occurrence,
+      occurrence,
+    }))
+    .filter(entry => entry.raw)
 }
 
 export function normalizeAnnotations(items, pageMetrics) {
@@ -66,8 +71,8 @@ export function normalizeAnnotations(items, pageMetrics) {
   for (const item of items ?? []) {
     const root = parseJson(item?.pointsJson)
     if (!root) continue
-    const geometries = occurrenceGeometries(item, root)
-    geometries.forEach((raw, occurrenceIndex) => {
+    const entries = occurrenceEntries(root)
+    entries.forEach(({ raw, occurrence }, occurrenceIndex) => {
       const pageNumber = Math.max(1, number(
         raw.pageNumber ?? raw.PageNumber ?? (number(raw.page, 0) + 1),
         1,
@@ -89,8 +94,15 @@ export function normalizeAnnotations(items, pageMetrics) {
         points,
         type,
         mark: String(item.mark ?? raw.Mark ?? raw.mark ?? ''),
-        value: number(item.length ?? raw.measurementValue ?? raw.MeasurementValue, 0),
-        unit: String(item.unit ?? raw.unit ?? 'mm').toLowerCase(),
+        // Grouped rows keep the aggregate in item.length, while each
+        // independently editable annotation stores its own occurrence length.
+        value: number(
+          occurrence?.length ?? occurrence?.Length
+            ?? raw.measurementValue ?? raw.MeasurementValue
+            ?? item.length,
+          0,
+        ),
+        unit: String(occurrence?.unit ?? occurrence?.Unit ?? item.unit ?? raw.unit ?? 'mm').toLowerCase(),
         // Occurrences may have their own copied appearance. Prefer the saved
         // annotation style over the shared item colour when rendering it.
         color: raw.strokeColor ?? raw.StrokeColor ?? item.color ?? '#EF233C',

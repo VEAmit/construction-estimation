@@ -1886,3 +1886,12 @@ Error Number:20,State:0,Class:20
 2026-07-27 18:52:35.714 +05:30 [INF] HTTP POST /api/takeoffitems/1179/delete responded 200 in 2.1239 ms
 2026-07-27 18:52:35.778 +05:30 [INF] HTTP PUT /api/takeoffitems/1178 responded 200 in 2.5423 ms
 2026-07-27 18:52:35.831 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/268/summary responded 200 in 1.4820 ms
+2026-07-27 18:08:50.122 +05:30 [INF] HTTP PUT /api/takeoffitems/1050 responded 200 in 175.5210 ms
+2026-07-27 18:08:50.122 +05:30 [INF] HTTP PUT /api/takeoffitems/1050 responded 200 in 281.6456 ms
+2026-07-27 18:08:50.161 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010/summary responded 200 in 7.5426 ms
+2026-07-27 18:08:50.483 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010/summary responded 200 in 2.6956 ms
+2026-07-27 18:43:03.318 +05:30 [INF] HTTP GET /swagger/index.html responded 200 in 1585.7277 ms
+2026-07-27 18:45:48.446 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/1010 responded 200 in 4143.8778 ms
+2026-07-27 18:45:49.087 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010/summary responded 200 in 168.2178 ms
+2026-07-27 18:45:54.369 +05:30 [INF] HTTP PUT /api/takeoffitems/1061 responded 200 in 196.5854 ms
+2026-07-27 18:45:54.806 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/1010/summary responded 200 in 30.8883 ms

@@ -4,6 +4,7 @@ using ConstructionEstimation.Core.Entities;
 using ConstructionEstimation.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace ConstructionEstimation.API.Controllers;
 
@@ -47,7 +48,10 @@ public class TakeoffItemsController : ControllerBase
         {
             // Convert length to meters based on unit for weight calc
             var lengthInMeters = ConvertToMeters(request.Length.Value, unit);
-            totalWeight = request.UnitWeight.Value * lengthInMeters * request.Quantity;
+            var quantityMultiplier = HasGroupedOccurrences(request.PointsJson)
+                ? 1
+                : request.Quantity;
+            totalWeight = request.UnitWeight.Value * lengthInMeters * quantityMultiplier;
         }
 
         var item = new TakeoffItem
@@ -124,7 +128,10 @@ public class TakeoffItemsController : ControllerBase
         if (request.UnitWeight.HasValue && request.Length.HasValue)
         {
             var lengthInMeters = ConvertToMeters(request.Length.Value, unit);
-            item.TotalWeight = request.UnitWeight.Value * lengthInMeters * request.Quantity;
+            var quantityMultiplier = HasGroupedOccurrences(request.PointsJson)
+                ? 1
+                : request.Quantity;
+            item.TotalWeight = request.UnitWeight.Value * lengthInMeters * quantityMultiplier;
         }
         else
         {
@@ -168,6 +175,24 @@ public class TakeoffItemsController : ControllerBase
         MeasurementUnit.Inch => value * 0.0254,
         _ => value / 1000.0
     };
+
+    private static bool HasGroupedOccurrences(string? pointsJson)
+    {
+        if (string.IsNullOrWhiteSpace(pointsJson))
+            return false;
+
+        try
+        {
+            using var document = JsonDocument.Parse(pointsJson);
+            return document.RootElement.TryGetProperty("occurrences", out var occurrences)
+                && occurrences.ValueKind == JsonValueKind.Array
+                && occurrences.GetArrayLength() > 0;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     private static TakeoffItemResponse MapToResponse(TakeoffItem t) => new(
         t.Id, t.Mark, t.Description, t.ItemType.ToString(),
