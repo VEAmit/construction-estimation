@@ -676,11 +676,15 @@ function PdfSvgOverlay({
       return
     }
 
-    // Unchanged existing behavior: plain click always eagerly selects just
-    // this one shape (collapsing any existing multi-selection) and starts a
-    // normal single-shape drag — multi-select does not change how dragging
-    // works.
-    onSelect?.(annotation.id, annotation, event)
+    // A plain click (no modifier held) now ADDS this shape to the selection
+    // instead of collapsing it to just this one — clicking each line in turn
+    // builds a multi-selection without needing to hold Ctrl/Shift. Passing a
+    // synthetic ctrlKey-true marker (handleAnnotationSelect only ever reads
+    // the modifier flags off this object) routes through the exact same
+    // toggle logic Ctrl+click already used, already proven correct there.
+    // Drag-arming is unchanged from before — still only armed for a plain
+    // click, exactly as it always was, so this carries no new drag risk.
+    onSelect?.(annotation.id, annotation, { ctrlKey: true })
     const origin = toPdfPoint(event, svgRef.current, pageSize)
     svgRef.current?.setPointerCapture?.(event.pointerId)
     dragRef.current = {

@@ -329,15 +329,13 @@ export default function MeasurementTable({
                     key={item.id}
                     onClick={(event) => {
                       if (isEditing) return
-                      const additive = event.ctrlKey || event.metaKey || event.shiftKey
-                      if (additive) { onRowSelect?.(item.id, event); return }
-                      // Plain click: today's exact toggle-off-if-sole-selection
-                      // behavior, generalized so a plain click on a row that's
-                      // part of an existing multi-selection collapses to
-                      // selecting just this row (matches Bluebeam: a plain
-                      // click always resolves to single-select).
-                      const soleSelection = selectedIds ? (selectedIds.size === 1 && selectedIds.has(item.id)) : isSelected
-                      onRowSelect?.(soleSelection ? null : item.id, event)
+                      // Every row click adds/toggles this row's membership in the
+                      // selection — no modifier key required, matching the
+                      // canvas's click-to-multi-select behavior. handleRowSelect's
+                      // own toggle logic already turns clicking the only currently
+                      // -selected row into a deselect, so no extra check is needed
+                      // here beyond always forwarding an additive-style call.
+                      onRowSelect?.(item.id, { ctrlKey: true })
                     }}
                     style={{
                       borderBottom: '1px solid rgba(255,255,255,.04)',

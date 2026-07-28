@@ -1074,10 +1074,14 @@ export default function DrawingsPage() {
         triggerPdfCommand('ensureMeasureMode')
         return
       }
+      // Reset the thickness override to its default (2) each time Linear is picked, rather
+      // than carrying over whatever value was last manually set — the override button row
+      // still lets the user change it for that session same as before.
+      setLineThickness(2)
     }
     setActiveTool(toolId)
     triggerPdfCommand('ensureMeasureMode')
-  }, [setActiveTool, triggerPdfCommand])
+  }, [setActiveTool, triggerPdfCommand, setLineThickness])
 
   const autoSave = useCallback(async (
     measurement,
