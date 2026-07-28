@@ -679,6 +679,10 @@ export default function DrawingsPage() {
   const clearedMarkRef = useRef(null)
   const pendingCalibMeasureRef = useRef(null)
   const calibrateOnlyRef = useRef(false)
+  // Calibrate can be armed first and Linear selected afterwards. Keep that
+  // one-shot intent separate from activeTool so selecting Linear does not
+  // silently fall back to the drawing's existing scale.
+  const calibrationDrawPendingRef = useRef(false)
   const undoStackRef = useRef([])
   const redoStackRef = useRef([])
   const historyBusyRef = useRef(false)
@@ -695,8 +699,15 @@ export default function DrawingsPage() {
   // Clear both the toolbar clipboard and any active canvas paste session when
   // the drawing changes (including the first load after a browser refresh).
   useEffect(() => {
+    calibrationDrawPendingRef.current = false
     clearCopiedMeasurements()
   }, [selectedDrawing?.id, clearCopiedMeasurements])
+
+  useEffect(() => {
+    if (!['line', 'calibrate'].includes(activeTool)) {
+      calibrationDrawPendingRef.current = false
+    }
+  }, [activeTool])
 
   // Also clear the in-memory clipboard when leaving/reloading this page. The
   // cleanup covers route changes; pagehide covers refresh and browser history.
@@ -1345,11 +1356,17 @@ export default function DrawingsPage() {
   }, [])
 
   const pickMeasureTool = useCallback((toolId) => {
+    if (toolId === 'calibrate') {
+      calibrationDrawPendingRef.current = true
+    } else if (toolId !== 'line') {
+      calibrationDrawPendingRef.current = false
+    }
     // Bluebeam: clicking Linear on an uncalibrated drawing auto-redirects to calibrate mode.
     // Catches both toolbar clicks and keyboard shortcut (L key) via Toolbar's pickTool().
     if (toolId === 'line') {
       const drw = normalizeDrawing(useAppStore.getState().selectedDrawing)
       if (drw && !drw.isCalibrated) {
+        calibrationDrawPendingRef.current = true
         setActiveTool('calibrate')
         triggerPdfCommand('ensureMeasureMode')
         return
@@ -1764,7 +1781,11 @@ export default function DrawingsPage() {
     const { activeTool: currentTool } = useAppStore.getState()
     console.log('[BT-Lifecycle] handleMeasure — tool:', currentTool, 'length:', measurement?.length, 'unit:', measurement?.unit, 'annotationId:', measurement?.annotationId)
 
-    if (currentTool === 'calibrate') {
+    const isRequestedCalibrationLine = currentTool === 'calibrate'
+      || (currentTool === 'line' && calibrationDrawPendingRef.current)
+
+    if (isRequestedCalibrationLine) {
+      calibrationDrawPendingRef.current = false
       const drw = getCalibratedDrawingFromStore()
       const isFirstTimeCal = !drw?.isCalibrated
 
@@ -2818,6 +2839,7 @@ export default function DrawingsPage() {
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
+        calibrationDrawPendingRef.current = false
         closeCtxMenu()
         clearCopiedMeasurements()
         resetDrawingInteraction()
@@ -2879,6 +2901,7 @@ export default function DrawingsPage() {
 
   // "How to set scale" button when not calibrated — just activate calibrate tool
   const handleCalibrateScaleClick = useCallback(() => {
+    calibrationDrawPendingRef.current = true
     setActiveTool('calibrate')
     triggerPdfCommand('ensureMeasureMode')
   }, [setActiveTool, triggerPdfCommand])
@@ -2892,6 +2915,7 @@ export default function DrawingsPage() {
       setSelectedDrawing(refreshed)
       setDrawings(prev => (Array.isArray(prev) ? prev : []).map(d => d.id === refreshed.id ? refreshed : normalizeDrawing(d)))
       triggerPdfCommand('refreshCalibration')
+      calibrationDrawPendingRef.current = true
       setActiveTool('calibrate')
       triggerPdfCommand('ensureMeasureMode')
       toast('Scale reset — draw a reference line to re-calibrate', { duration: 4000, icon: '📐' })
@@ -3633,6 +3657,7 @@ export default function DrawingsPage() {
             setScaleSetupFirstMeasure(false)
             pendingCalibMeasureRef.current = null
             calibrateOnlyRef.current = false
+            calibrationDrawPendingRef.current = false
           }}
         />
       )}
