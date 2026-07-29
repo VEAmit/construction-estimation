@@ -120,7 +120,10 @@ public class ExtractionService
 
     private static readonly string[] DrawingListSections = {
         "COLUMNS", "BEAMS", "RAFTERS", "PURLINS", "GIRTS", "BRACES",
+        "BRACINGS", "CRANE RUNWAY BEAMS", "TRUSSES/FRAME", "TRUSSES / FRAME",
+        "PURLINS / GIRTS", "PURLINS / GIRTS / CEILING JOISTS",
         "FLOOR BEAMS", "FLOORBEAMS", "ROOF BEAMS", "PAD FOOTINGS", "STRUTS",
+        "STRIP FOOTINGS",
         "SECONDARY MEMBERS", "OTHERS", "OTHER",
         "FASCIA BEAM", "WALL STIFFENERS", "RAKING ANGLES", "ROOF BRACING",
         "PARAPET", "STUB COLUMNS",
@@ -160,6 +163,7 @@ public class ExtractionService
             var allLines = new List<string>();
             var variantScheduleMembers = new List<ExtractedMemberDto>();
             var columnScheduleMembers = new List<ExtractedMemberDto>();
+            var coordinateDrawingListMembers = new List<ExtractedMemberDto>();
             int pageCount;
             string extractionMethod;
 
@@ -184,6 +188,11 @@ public class ExtractionService
                     // Conventional MARK/SIZE and ITEM/MEMBER schedule columns can also be
                     // resolved by coordinates without mixing them with plan annotations.
                     columnScheduleMembers.AddRange(ExtractColumnScheduleRows(words));
+                    // Drawing-list schedules often use two or more adjacent columns without
+                    // MARK/SIZE headers. Resolve those columns independently so rows sharing
+                    // the same Y coordinate cannot be spliced together.
+                    coordinateDrawingListMembers.AddRange(
+                        ExtractCoordinateDrawingListRows(words));
                 }
             }
 
@@ -225,7 +234,8 @@ public class ExtractionService
 
             var fullText = string.Join(" ", allLines);
             var members = ParseMembers(
-                allLines, fullText, variantScheduleMembers, columnScheduleMembers);
+                allLines, fullText, variantScheduleMembers, columnScheduleMembers,
+                coordinateDrawingListMembers);
 
             if (ShouldRunScheduleOcr(allLines, members))
             {
@@ -241,7 +251,8 @@ public class ExtractionService
                     extractionMethod = extractionMethod == "Text" ? "Text+ScheduleOCR" : $"{extractionMethod}+ScheduleOCR";
                     fullText = string.Join(" ", allLines);
                     members = ParseMembers(
-                        allLines, fullText, variantScheduleMembers, columnScheduleMembers);
+                        allLines, fullText, variantScheduleMembers, columnScheduleMembers,
+                        coordinateDrawingListMembers);
                 }
             }
 
@@ -1762,11 +1773,277 @@ public class ExtractionService
 
     // ── Member parsing ───────────────────────────────────────────────────────────
 
+    private sealed record PositionedDrawingListLine(
+        string Text,
+        double Left,
+        double Right,
+        double Bottom);
+
+    /// <summary>
+    /// Resolves adjacent COLUMNS / BEAMS / PURLINS-style lists by coordinates.
+    /// CAD PDFs can put two independent list rows on the same Y coordinate. The
+    /// full-page text path joins them; this narrow path keeps the columns separate.
+    /// </summary>
+    private List<ExtractedMemberDto> ExtractCoordinateDrawingListRows(List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        const double rowTolerance = 4.0;
+        const double horizontalColumnGap = 18.0;
+        const double columnLeftTolerance = 12.0;
+        const double maximumColumnWidth = 280.0;
+        const double maximumBlockDepth = 180.0;
+
+        var segments = new List<PositionedDrawingListLine>();
+        var visualRows = pageWords
+            .GroupBy(w => (int)Math.Round(w.BoundingBox.Bottom / rowTolerance))
+            .Select(g => g.OrderBy(w => w.BoundingBox.Left).ToList());
+
+        foreach (var row in visualRows)
+        {
+            var current = new List<Word>();
+
+            void Flush()
+            {
+                if (current.Count == 0) return;
+                var text = NormalizeCoordinateDrawingListText(
+                    string.Join(" ", current.Select(w => w.Text)));
+                if (text.Length > 0)
+                {
+                    segments.Add(new PositionedDrawingListLine(
+                        text,
+                        current.Min(w => w.BoundingBox.Left),
+                        current.Max(w => w.BoundingBox.Right),
+                        current.Average(w => w.BoundingBox.Bottom)));
+                }
+                current.Clear();
+            }
+
+            foreach (var word in row)
+            {
+                if (current.Count > 0
+                    && word.BoundingBox.Left - current[^1].BoundingBox.Right
+                        > horizontalColumnGap)
+                {
+                    Flush();
+                }
+                current.Add(word);
+            }
+            Flush();
+        }
+
+        var headers = segments
+            .Where(s => IsExactCoordinateDrawingListHeader(s.Text))
+            .OrderBy(s => s.Left)
+            .ThenByDescending(s => s.Bottom)
+            .ToList();
+        if (headers.Count == 0) return [];
+
+        // Headers with nearly the same left edge belong to one vertical list column.
+        var headerColumns = new List<List<PositionedDrawingListLine>>();
+        foreach (var header in headers)
+        {
+            var column = headerColumns.FirstOrDefault(c =>
+                Math.Abs(c.Average(h => h.Left) - header.Left) <= 35.0);
+            if (column == null)
+            {
+                column = [];
+                headerColumns.Add(column);
+            }
+            column.Add(header);
+        }
+        headerColumns = headerColumns
+            .OrderBy(c => c.Average(h => h.Left))
+            .ToList();
+
+        var results = new List<ExtractedMemberDto>();
+        for (var columnIndex = 0; columnIndex < headerColumns.Count; columnIndex++)
+        {
+            var columnHeaders = headerColumns[columnIndex]
+                .OrderByDescending(h => h.Bottom)
+                .ToList();
+            var columnLeft = columnHeaders.Average(h => h.Left);
+            var columnRight = columnIndex + 1 < headerColumns.Count
+                ? (columnLeft + headerColumns[columnIndex + 1].Average(h => h.Left)) / 2.0
+                : columnLeft + maximumColumnWidth;
+
+            for (var headerIndex = 0; headerIndex < columnHeaders.Count; headerIndex++)
+            {
+                var header = columnHeaders[headerIndex];
+                var lowerBoundary = headerIndex + 1 < columnHeaders.Count
+                    ? columnHeaders[headerIndex + 1].Bottom
+                    : header.Bottom - maximumBlockDepth;
+
+                var blockLines = segments
+                    .Where(s => s.Bottom < header.Bottom - 0.5
+                        && s.Bottom > lowerBoundary + 0.5
+                        && s.Left >= columnLeft - columnLeftTolerance
+                        && s.Left < columnRight)
+                    .OrderByDescending(s => s.Bottom)
+                    .ToList();
+
+                for (var lineIndex = 0; lineIndex < blockLines.Count; lineIndex++)
+                {
+                    var line = blockLines[lineIndex];
+                    if (IsExactCoordinateDrawingListHeader(line.Text)) continue;
+
+                    var groupedMarks = ExtractGroupedDrawingListMarks(line.Text, out var rest);
+                    if (groupedMarks.Count >= 2)
+                    {
+                        if (string.IsNullOrWhiteSpace(rest)
+                            && lineIndex + 1 < blockLines.Count
+                            && line.Bottom - blockLines[lineIndex + 1].Bottom <= 14
+                            && !IsExactCoordinateDrawingListHeader(
+                                blockLines[lineIndex + 1].Text))
+                        {
+                            rest = blockLines[lineIndex + 1].Text;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(rest))
+                        {
+                            foreach (var mark in groupedMarks)
+                            {
+                                var groupedMember = TryParseDrawingListLine(
+                                    $"{mark} - {rest}");
+                                if (groupedMember != null
+                                    && !IsCoordinateDrawingListNoise(groupedMember))
+                                {
+                                    results.Add(groupedMember with
+                                    {
+                                        Description =
+                                            $"Coordinate list: {TruncateLine(line.Text)}",
+                                        Confidence = 0.99
+                                    });
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Require an explicit dash here. Space-only rows stay on the existing
+                    // fallback path, so plan labels and revision text cannot enter this set.
+                    var member = TryParseDrawingListLine(line.Text);
+                    if (member != null && !IsCoordinateDrawingListNoise(member))
+                    {
+                        results.Add(member with
+                        {
+                            Description =
+                                $"Coordinate list: {TruncateLine(line.Text)}",
+                            Confidence = 0.99
+                        });
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    private static bool IsCoordinateDrawingListNoise(ExtractedMemberDto member)
+    {
+        var mark = member.Mark.ToUpperInvariant();
+        var value = member.MemberSize.ToUpperInvariant();
+
+        // Drawing schedules use S1, S2... for sheet numbers and reinforcing notes
+        // use N12-300 CTS. Both have the same superficial "mark - value" shape as a
+        // member row, so require their accompanying text to show member evidence.
+        if (Regex.IsMatch(mark, @"^S\d{1,3}$"))
+        {
+            var hasMemberSection = SteelSectionPattern.IsMatch(value)
+                || HollowSectionPattern.IsMatch(value)
+                || PurlinSectionPattern.IsMatch(value)
+                || RodBracingPattern.IsMatch(value);
+            var hasMemberDescription = Regex.IsMatch(value,
+                @"\b(STRUT|BRACE|MEMBER)\b");
+            if (!hasMemberSection && !hasMemberDescription)
+                return true;
+        }
+        if (Regex.IsMatch(mark, @"^N\d{1,3}$")
+            && Regex.IsMatch(value,
+                @"\b(CTS|CENTRES|EACH\s+WAY|TOP|BOTTOM|LONG)\b"))
+            return true;
+
+        return false;
+    }
+
+    private static bool IsExactCoordinateDrawingListHeader(string line)
+    {
+        var upper = line.Trim().Trim(':', '-', '–', '—').ToUpperInvariant();
+        var compact = Regex.Replace(upper, @"[\s/]+", "");
+        return DrawingListSections.Any(section =>
+            compact.Equals(
+                Regex.Replace(section.ToUpperInvariant(), @"[\s/]+", ""),
+                StringComparison.Ordinal));
+    }
+
+    private static string NormalizeCoordinateDrawingListText(string text)
+    {
+        var tokens = Regex.Split(Regex.Replace(text.Trim(), @"\s+", " "), @"\s+")
+            .Where(t => t.Length > 0)
+            .ToList();
+        var normalized = new List<string>();
+        var glyphRun = new List<string>();
+
+        void FlushGlyphRun()
+        {
+            if (glyphRun.Count == 0) return;
+            normalized.Add(string.Concat(glyphRun));
+            glyphRun.Clear();
+        }
+
+        foreach (var token in tokens)
+        {
+            if (Regex.IsMatch(token, @"^[A-Z0-9xX]$", RegexOptions.IgnoreCase))
+            {
+                glyphRun.Add(token);
+                continue;
+            }
+
+            FlushGlyphRun();
+            normalized.Add(token);
+        }
+        FlushGlyphRun();
+
+        return MergeMarkFragments(string.Join(" ", normalized));
+    }
+
+    private static List<string> ExtractGroupedDrawingListMarks(
+        string line,
+        out string rest)
+    {
+        rest = string.Empty;
+        var separator = Regex.Match(line, @"\s+[-–—]\s*");
+        if (!separator.Success) return [];
+
+        var prefix = line[..separator.Index].Trim();
+        var markPattern = MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?";
+        var marks = Regex.Matches(
+                prefix,
+                @"\b(" + markPattern + @")\b",
+                RegexOptions.IgnoreCase)
+            .Select(m => m.Groups[1].Value.ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (marks.Count < 2) return [];
+
+        var remaining = Regex.Replace(
+            prefix,
+            @"\b(?:" + markPattern + @")\b",
+            "",
+            RegexOptions.IgnoreCase);
+        if (Regex.Replace(remaining, @"[\s,/&]+", "").Length > 0)
+            return [];
+
+        rest = line[(separator.Index + separator.Length)..].Trim();
+        return marks;
+    }
+
     private List<ExtractedMemberDto> ParseMembers(
         List<string> lines,
         string fullText,
         List<ExtractedMemberDto>? variantScheduleMembers = null,
-        List<ExtractedMemberDto>? columnScheduleMembers = null)
+        List<ExtractedMemberDto>? columnScheduleMembers = null,
+        List<ExtractedMemberDto>? coordinateDrawingListMembers = null)
     {
         // Merge split mark tokens produced by CAD PDFs: "PF 2" → "PF2", "C 1" → "C1"
         var mergedLines = lines.Select(MergeMarkFragments).ToList();
@@ -1793,6 +2070,17 @@ public class ExtractionService
             _logger.LogInformation(
                 "Extraction: using {Count} coordinate-resolved schedule rows",
                 columnScheduleMembers.Count);
+        }
+        else if (coordinateDrawingListMembers != null
+            && coordinateDrawingListMembers
+                .Select(r => r.Mark)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() >= 10)
+        {
+            results.AddRange(coordinateDrawingListMembers);
+            _logger.LogInformation(
+                "Extraction: using {Count} coordinate-resolved drawing-list rows",
+                coordinateDrawingListMembers.Count);
         }
         else
         {
