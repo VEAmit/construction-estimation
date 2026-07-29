@@ -17,9 +17,22 @@ api.interceptors.response.use(
   (error) => {
     const url = error.config?.url ?? ''
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register')
-    if (error.response?.status === 401 && !isAuthEndpoint) {
+    const isLicenseConfigurationEndpoint =
+      url.includes('/license/status') ||
+      url.includes('/license/configuration')
+    const responseData = error.response?.data
+    const isLicenseError =
+      responseData?.requiresLogout === true ||
+      String(responseData?.code ?? '').startsWith('LICENSE_')
+
+    if (isLicenseError && !isAuthEndpoint && !isLicenseConfigurationEndpoint) {
+      const message = responseData?.message ?? 'Your license is no longer valid.'
+      sessionStorage.setItem('buildtakeoff-license-message', message)
       useAppStore.getState().clearAuth()
-      window.location.href = '/login'
+      if (window.location.pathname !== '/login') window.location.replace('/login')
+    } else if (error.response?.status === 401 && !isAuthEndpoint) {
+      useAppStore.getState().clearAuth()
+      if (window.location.pathname !== '/login') window.location.replace('/login')
     }
     return Promise.reject(error)
   }

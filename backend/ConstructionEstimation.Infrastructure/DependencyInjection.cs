@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IDrawingRepository, DrawingRepository>();
         services.AddScoped<ITakeoffItemRepository, TakeoffItemRepository>();
         services.AddScoped<IMemberScheduleRepository, MemberScheduleRepository>();
+        services.AddScoped<ILicenseRepository, LicenseRepository>();
 
         return services;
     }

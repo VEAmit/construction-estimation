@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Drawing> Drawings => Set<Drawing>();
     public DbSet<TakeoffItem> TakeoffItems => Set<TakeoffItem>();
     public DbSet<MemberScheduleItem> MemberScheduleItems => Set<MemberScheduleItem>();
+    public DbSet<LicenseConfiguration> LicenseConfigurations => Set<LicenseConfiguration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Drawing>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<TakeoffItem>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<MemberScheduleItem>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<LicenseConfiguration>().HasQueryFilter(e => !e.IsDeleted);
 
         modelBuilder.Entity<User>(entity =>
         {
@@ -90,6 +92,19 @@ public class AppDbContext : DbContext
                   .WithMany(d => d.MemberScheduleItems)
                   .HasForeignKey(m => m.DrawingId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LicenseConfiguration>(entity =>
+        {
+            entity.Property(e => e.EncryptedLicenseKey).IsRequired();
+            entity.Property(e => e.ApiBaseUrl).HasMaxLength(500);
+            entity.Property(e => e.ValidationEndpoint).HasMaxLength(500);
+            entity.Property(e => e.ApplicationIdentifier).HasMaxLength(150);
+            entity.Property(e => e.MachineIdentifier).HasMaxLength(256);
+            entity.Property(e => e.CustomerName).HasMaxLength(200);
+            entity.Property(e => e.CompanyName).HasMaxLength(200);
+            entity.Property(e => e.LastValidationStatus).HasMaxLength(50);
+            entity.HasIndex(e => e.IsActive);
         });
 
         // Seed a default project

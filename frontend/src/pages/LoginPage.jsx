@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
@@ -18,6 +18,14 @@ export default function LoginPage() {
   const [showPwd, setShowPwd]       = useState(false)
   const [navigating, setNavigating] = useState(false)
 
+  useEffect(() => {
+    const licenseMessage = sessionStorage.getItem('buildtakeoff-license-message')
+    if (!licenseMessage) return
+
+    sessionStorage.removeItem('buildtakeoff-license-message')
+    toast.error(licenseMessage, { duration: 6000 })
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -28,8 +36,11 @@ export default function LoginPage() {
       toast.success(`Welcome back, ${auth.fullName}!`)
       navigate('/dashboard')
     } catch (err) {
-      toast.error(err?.response?.data?.message ?? 'Invalid email or password')
+      const code = err?.response?.data?.code
+      const message = err?.response?.data?.message ?? 'Invalid email or password'
+      toast.error(message, { duration: String(code ?? '').startsWith('LICENSE_') ? 6000 : 4000 })
       setLoading(false)
+      if (code === 'LICENSE_MISSING') navigate('/system-settings')
     }
   }
 
@@ -366,6 +377,46 @@ export default function LoginPage() {
               {loading ? 'Signing in…' : 'Sign In →'}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={() => navigate('/system-settings')}
+            style={{
+              width: '100%',
+              marginTop: '12px',
+              padding: '12px',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,.025)',
+              color: 'rgba(255,255,255,.62)',
+              border: '1px solid rgba(255,255,255,.1)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '.08em',
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background .15s, color .15s, border-color .15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(239,35,60,.08)'
+              e.currentTarget.style.borderColor = 'rgba(239,35,60,.32)'
+              e.currentTarget.style.color = '#fff'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,.025)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'
+              e.currentTarget.style.color = 'rgba(255,255,255,.62)'
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.1.4.3.8.6 1 .3.3.7.4 1.1.4h.1v4h-.1c-.4 0-.8.1-1.1.4-.3.2-.5.6-.6 1.2Z"/>
+            </svg>
+            System Settings
+          </button>
 
           {/* Demo credentials */}
           {/* <div style={{
