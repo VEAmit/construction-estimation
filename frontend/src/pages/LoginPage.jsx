@@ -40,7 +40,6 @@ export default function LoginPage() {
       const message = err?.response?.data?.message ?? 'Invalid email or password'
       toast.error(message, { duration: String(code ?? '').startsWith('LICENSE_') ? 6000 : 4000 })
       setLoading(false)
-      if (code === 'LICENSE_MISSING') navigate('/system-settings')
     }
   }
 

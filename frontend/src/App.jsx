@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Toaster, toast } from 'react-hot-toast'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { useAppStore } from './store/useAppStore'
 import { licenseService } from './services/licenseService'
 import Layout from './components/layout/Layout'
@@ -65,57 +65,6 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-function StartupLicenseGuard({ children }) {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const clearAuth = useAppStore(state => state.clearAuth)
-  const [checking, setChecking] = useState(true)
-
-  useEffect(() => {
-    let active = true
-    licenseService.getStatus()
-      .then(status => {
-        if (!active || status?.isConfigured) return
-        clearAuth()
-        if (location.pathname !== '/system-settings') {
-          navigate('/system-settings', { replace: true })
-          toast.error('License setup is required before you can sign in.', {
-            id: 'license-setup-required',
-          })
-        }
-      })
-      .catch(() => {
-        if (active) {
-          toast.error('Unable to check license configuration. Please verify that the API is running.', {
-            id: 'license-startup-check-failed',
-          })
-        }
-      })
-      .finally(() => {
-        if (active) setChecking(false)
-      })
-
-    return () => { active = false }
-  }, [clearAuth, location.pathname, navigate])
-
-  if (checking && location.pathname !== '/system-settings') {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        background: '#080B12',
-        color: '#64748b',
-        fontSize: '12px',
-      }}>
-        Checking application configuration…
-      </div>
-    )
-  }
-
-  return children
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -134,10 +83,9 @@ export default function App() {
           error:   { iconTheme: { primary: '#EF233C', secondary: '#111827' } },
         }}
       />
-      <StartupLicenseGuard>
-        <Routes>
-          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-          <Route path="/system-settings" element={<SystemSettingsPage />} />
+      <Routes>
+        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+        <Route path="/system-settings" element={<SystemSettingsPage />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />
@@ -151,9 +99,8 @@ export default function App() {
             </Suspense>
           } />
         </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </StartupLicenseGuard>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   )
 }
