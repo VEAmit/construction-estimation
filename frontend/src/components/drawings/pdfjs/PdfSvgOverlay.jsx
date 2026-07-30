@@ -381,14 +381,14 @@ function PdfSvgOverlay({
 
   const previewAnnotations = useMemo(() => {
     if (!cursor || !itemOffsets.length) return []
-    return itemOffsets.map(({ item, dx, dy }) => {
+    return itemOffsets.map(({ item, dx, dy }, previewIndex) => {
       const raw = item.copyJson ?? item.raw
       if (!raw) return null
       const translated = translateRawLine(raw, { x: cursor.x + dx, y: cursor.y + dy }, pageNumber, pageSize)
       const points = translated?.vertexPoints ?? []
       if (points.length < 2) return null
       return {
-        id: `paste-preview-${item.sourceItemId ?? item.mark ?? Math.random()}`,
+        id: `paste-preview-${item.sourceItemId ?? item.mark ?? 'measurement'}-${item.occurrenceId ?? previewIndex}`,
         type: 'line',
         points,
         mark: String(item.mark ?? ''),

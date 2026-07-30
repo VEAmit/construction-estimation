@@ -81,6 +81,7 @@ export default function MeasurementTable({
   selectedId,
   selectedIds,
   onRowSelect,
+  onSelectAll,
   onDelete,
   onBeforeUpdate,
   onUpdateFailed,
@@ -91,6 +92,7 @@ export default function MeasurementTable({
   const [editBuf, setEditBuf] = useState({})
   const [saving,  setSaving]  = useState(false)
   const [filter,  setFilter]  = useState('')
+  const gridRef = useRef(null)
 
   const prevItemCountRef = useRef(takeoffItems.length)
   useEffect(() => {
@@ -107,6 +109,21 @@ export default function MeasurementTable({
   )
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
   const pageItems  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const focusGrid = (event) => {
+    const interactive = event.target?.closest?.('input, textarea, select, button, [contenteditable="true"]')
+    if (!interactive) gridRef.current?.focus({ preventScroll: true })
+  }
+
+  const handleGridKeyDown = (event) => {
+    const key = event.key?.toLowerCase?.()
+    if (!(event.ctrlKey || event.metaKey) || key !== 'a') return
+    const tag = event.target?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target?.isContentEditable) return
+    event.preventDefault()
+    event.stopPropagation()
+    onSelectAll?.(filtered.map(item => item.id))
+  }
 
   const startEdit  = (item) => { setEditId(item.id); setEditBuf({ ...item }) }
   const cancelEdit = () => { setEditId(null); setEditBuf({}) }
@@ -164,7 +181,18 @@ export default function MeasurementTable({
   }, {})
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#080B12' }}>
+    <div
+      ref={gridRef}
+      role="grid"
+      aria-label="Measurements grid"
+      tabIndex={0}
+      onMouseDown={focusGrid}
+      onKeyDown={handleGridKeyDown}
+      style={{
+        display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
+        background: '#080B12', outline: 'none',
+      }}
+    >
 
       {/* ── Toolbar ── */}
       <div style={{
@@ -345,6 +373,7 @@ export default function MeasurementTable({
                     key={item.id}
                     onClick={(event) => {
                       if (isEditing) return
+                      gridRef.current?.focus({ preventScroll: true })
                       // Every row click adds/toggles this row's membership in the
                       // selection — no modifier key required, matching the
                       // canvas's click-to-multi-select behavior. handleRowSelect's

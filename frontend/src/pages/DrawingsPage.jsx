@@ -917,15 +917,50 @@ export default function DrawingsPage() {
 
     if (!styleChanged && !labelSizeChanged) return
     annotStyleBaselineRef.current = current
+    const selectedRowIds = selectedAnnotIdsRef.current.size
+      ? [...selectedAnnotIdsRef.current]
+      : [selectedAnnotId]
+    const selectedOccurrenceIds = new Set(
+      [...selectedViewerAnnotIdsRef.current].map(String),
+    )
+    const isBulkSelection = selectedRowIds.length > 1 || selectedOccurrenceIds.size > 1
 
     // Label size shares the same debounced pipeline as hover+scroll resize —
     // see handleMeasurementLabelSizeChange for why (avoids the two racing).
     if (labelSizeChanged) {
-      handleMeasurementLabelSizeChange({
-        annotationId: selectedOccurrenceAnnotIdRef.current,
-        dbId: selectedAnnotId,
-        size: current.labelFontSize,
-      })
+      if (isBulkSelection) {
+        const liveItems = useAppStore.getState().takeoffItems ?? []
+        selectedRowIds.forEach(dbId => {
+          const row = liveItems.find(item => Number(item.id) === Number(dbId))
+          const occurrences = buildTakeoffOccurrencesFromItem(row)
+            .filter(occurrence =>
+              selectedOccurrenceIds.has(String(occurrence.annotationName)),
+            )
+          if (occurrences.length) {
+            occurrences.forEach(occurrence => {
+              handleMeasurementLabelSizeChange({
+                annotationId: occurrence.annotationName,
+                dbId: row.id,
+                size: current.labelFontSize,
+              })
+            })
+          } else {
+            handleMeasurementLabelSizeChange({
+              annotationId: dbId === selectedAnnotId
+                ? selectedOccurrenceAnnotIdRef.current
+                : null,
+              dbId,
+              size: current.labelFontSize,
+            })
+          }
+        })
+      } else {
+        handleMeasurementLabelSizeChange({
+          annotationId: selectedOccurrenceAnnotIdRef.current,
+          dbId: selectedAnnotId,
+          size: current.labelFontSize,
+        })
+      }
     }
     if (!styleChanged) return
 
@@ -955,6 +990,50 @@ export default function DrawingsPage() {
       LineHeadStartStyle: arrowPatch.lineHeadStartStyle,
       LineHeadEndStyle: arrowPatch.lineHeadEndStyle,
     })
+    if (isBulkSelection) {
+      const liveItems = useAppStore.getState().takeoffItems ?? []
+      selectedRowIds.forEach(dbId => {
+        const liveItem = liveItems.find(item => Number(item.id) === Number(dbId))
+        if (!liveItem) return
+        const occurrences = buildTakeoffOccurrencesFromItem(liveItem)
+        const selectedOccurrences = occurrences.filter(occurrence =>
+          selectedOccurrenceIds.has(String(occurrence.annotationName)),
+        )
+        let optimistic = liveItem
+
+        if (selectedOccurrences.length) {
+          selectedOccurrences.forEach(occurrence => {
+            optimistic = updateTakeoffOccurrence(
+              optimistic,
+              occurrence.annotationName,
+              currentOccurrence => ({
+                ...currentOccurrence,
+                geometry: patchGeometry(currentOccurrence.geometry),
+              }),
+            ) ?? optimistic
+          })
+        } else {
+          const raw = readTakeoffPointsJson(liveItem.pointsJson)
+          optimistic = {
+            ...liveItem,
+            pointsJson: raw ? JSON.stringify(patchGeometry(raw)) : liveItem.pointsJson,
+          }
+        }
+
+        if (!occurrences.length || selectedOccurrences.length === occurrences.length) {
+          optimistic = {
+            ...optimistic,
+            color: measureColor,
+            category: measureCategory,
+          }
+        }
+        updateTakeoffItem(optimistic)
+        takeoffService.update(optimistic)
+          .then(saved => updateTakeoffItem(saved))
+          .catch(() => {})
+      })
+      return
+    }
     const occurrenceId = selectedOccurrenceAnnotIdRef.current
     const occurrenceUpdate = updateTakeoffOccurrence(item, occurrenceId, occurrence => ({
       ...occurrence,
@@ -974,7 +1053,7 @@ export default function DrawingsPage() {
     takeoffService.update(optimistic)
       .then(saved => updateTakeoffItem(saved))
       .catch(() => {})
-  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, styleEditTargetId, handleMeasurementLabelSizeChange, recordUndoSnapshot, updateTakeoffItem])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [measureColor, measureCategory, lineStyle, arrowStyle, measureLabelFontSize, selectedAnnotId, selectedAnnotIds, selectedViewerAnnotIds, styleEditTargetId, handleMeasurementLabelSizeChange, recordUndoSnapshot, updateTakeoffItem])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zooming in/out auto-deselects the current measurement — otherwise it stays
   // selected (and wheel keeps resizing its label, see PdfSvgOverlay) even
@@ -2077,6 +2156,47 @@ export default function DrawingsPage() {
     }
   }, [triggerPdfCommand, takeoffItems, syncToolbarFromTakeoffItem])
 
+  const handleSelectAllRows = useCallback((rowIds = []) => {
+    triggerPdfCommand({ type: 'cancelPastePlacement' })
+
+    const requestedIds = new Set(rowIds.map(id => String(id)))
+    const rows = takeoffItems.filter(item => requestedIds.has(String(item.id)))
+    if (!rows.length) {
+      clearAllSelection()
+      return
+    }
+
+    const rowSelection = new Set(rows.map(item => item.id))
+    const viewerSelection = new Set()
+    rows.forEach(item => {
+      buildTakeoffOccurrencesFromItem(item).forEach(occurrence => {
+        if (occurrence?.annotationName != null) {
+          viewerSelection.add(String(occurrence.annotationName))
+        }
+      })
+    })
+
+    const primaryItem = rows[0]
+    const primaryOccurrenceId = buildTakeoffOccurrencesFromItem(primaryItem)
+      .map(occurrence => occurrence?.annotationName)
+      .find(id => id != null)
+    const primaryViewerId = primaryOccurrenceId == null
+      ? null
+      : String(primaryOccurrenceId)
+
+    selectedAnnotIdsRef.current = rowSelection
+    selectedViewerAnnotIdsRef.current = viewerSelection
+    selectedOccurrenceAnnotIdRef.current = primaryViewerId
+    setSelectedAnnotIds(rowSelection)
+    setSelectedViewerAnnotIds(viewerSelection)
+    setSelectedAnnotId(primaryItem.id)
+    setSelectedViewerAnnotId(primaryViewerId)
+    setStyleEditTargetId(primaryItem.id)
+    annotStyleBaselineRef.current = null
+    lastCopyTargetRef.current = primaryItem.id
+    syncToolbarFromTakeoffItem(primaryItem, primaryViewerId)
+  }, [clearAllSelection, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
+
   const handleMeasurementThicknessChange = useCallback((itemId, thickness, annotId = null) => {
     const pending = pendingMeasurementRef.current
     const pendingMatch = annotId && pending?.annotationId
@@ -2313,7 +2433,7 @@ export default function DrawingsPage() {
   // the solo-select and multi-select paths call the exact same, unchanged
   // per-item logic (today's single-copy behavior IS this function called
   // once, with idsToUse === [resolveCopyTargetId()]).
-  const buildClipboardItemFor = useCallback((targetId) => {
+  const buildClipboardItemFor = useCallback((targetId, requestedOccurrenceId = null) => {
     const item = takeoffItems.find(t => t.id === targetId)
     if (!item?.pointsJson || (item.itemType || 'Line') !== 'Line') return null
     if (!isValidLinearMeasurementForCopy(item)) return null
@@ -2330,7 +2450,8 @@ export default function DrawingsPage() {
       const currentOccurrenceId = selectedOccurrenceAnnotIdRef.current
       const currentBelongsToItem = currentOccurrenceId != null
         && occurrences.some(occ => String(occ.annotationName) === String(currentOccurrenceId))
-      const selectedOccurrenceId = selectedViewerOccurrenceId
+      const selectedOccurrenceId = requestedOccurrenceId
+        ?? selectedViewerOccurrenceId
         ?? (currentBelongsToItem ? currentOccurrenceId : null)
         ?? ownOccurrenceId
       const selectedOccurrence = selectedOccurrenceId
@@ -2341,6 +2462,7 @@ export default function DrawingsPage() {
       const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
       return buildLinearMeasurementClipboard({
         ...item,
+        occurrenceId: selectedOccurrenceId,
         length: takeoffOccurrenceLength(selectedOccurrence, item.length),
         quantity: 1,
       }, copyRaw, pdfScale)
@@ -2350,11 +2472,31 @@ export default function DrawingsPage() {
   }, [takeoffItems, pdfScale])
 
   const handleCopyMeasurement = useCallback(() => {
-    const idsToUse = selectedAnnotIds.size > 1 ? [...selectedAnnotIds] : [resolveCopyTargetId()].filter(id => id != null)
-    const items = idsToUse.map(buildClipboardItemFor).filter(Boolean)
+    const selectedRowIds = [...selectedAnnotIdsRef.current]
+    const idsToUse = selectedRowIds.length
+      ? selectedRowIds
+      : [resolveCopyTargetId()].filter(id => id != null)
+    const selectedOccurrenceIds = new Set(
+      [...selectedViewerAnnotIdsRef.current].map(String),
+    )
+    const items = idsToUse.flatMap(targetId => {
+      const row = takeoffItems.find(item => Number(item.id) === Number(targetId))
+      const occurrenceIds = buildTakeoffOccurrencesFromItem(row)
+        .map(occurrence => occurrence?.annotationName)
+        .filter(id => id != null && selectedOccurrenceIds.has(String(id)))
+      if (occurrenceIds.length) {
+        return occurrenceIds
+          .map(occurrenceId => buildClipboardItemFor(targetId, occurrenceId))
+          .filter(Boolean)
+      }
+      const item = buildClipboardItemFor(targetId)
+      return item ? [item] : []
+    })
 
     if (!items.length) {
-      toast.error(idsToUse.length > 1 ? 'No copyable linear measurements in selection' : 'Draw or select a linear measurement to copy')
+      toast.error(idsToUse.length > 1 || selectedOccurrenceIds.size > 1
+        ? 'No copyable linear measurements in selection'
+        : 'Draw or select a linear measurement to copy')
       return
     }
     recordUndoSnapshot('copy measurement')
@@ -2370,7 +2512,7 @@ export default function DrawingsPage() {
     triggerPdfCommand({ type: 'cancelPastePlacement' })
     if (idsToUse[0] != null) lastCopyTargetRef.current = idsToUse[0]
     if (items.length > 1) toast.success(`${items.length} measurements copied`)
-  }, [selectedAnnotIds, resolveCopyTargetId, buildClipboardItemFor, recordUndoSnapshot, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
+  }, [takeoffItems, resolveCopyTargetId, buildClipboardItemFor, recordUndoSnapshot, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
 
   const handlePasteMeasurement = useCallback(() => {
     const clipboard = useAppStore.getState().measurementClipboard ?? measurementClipboard
@@ -2398,7 +2540,11 @@ export default function DrawingsPage() {
   }, [measurementClipboard, selectedDrawing, triggerPdfCommand, clearPasteAnchor, closeCtxMenu])
 
   const copyTargetId = resolveCopyTargetId()
-  const canCopyMeasurement = selectedAnnotIds.size > 1 ? true : !!copyTargetId
+  const selectedMeasurementCount = Math.max(
+    selectedAnnotIds.size,
+    selectedViewerAnnotIds.size,
+  )
+  const canCopyMeasurement = selectedMeasurementCount > 1 ? true : !!copyTargetId
   const canPasteMeasurement = !!measurementClipboard?.items?.length && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
 
   // Reassign the selected PDF occurrences without moving their siblings.
@@ -2732,6 +2878,41 @@ export default function DrawingsPage() {
     updateTakeoffItem,
   ])
 
+  const handleDeleteSelectedMeasurements = useCallback(async () => {
+    const liveItems = useAppStore.getState().takeoffItems ?? []
+    const selectedRowIds = selectedAnnotIdsRef.current.size
+      ? [...selectedAnnotIdsRef.current]
+      : [selectedAnnotId].filter(id => id != null)
+    const selectedOccurrenceIds = new Set(
+      [...selectedViewerAnnotIdsRef.current].map(String),
+    )
+    const targets = []
+
+    selectedRowIds.forEach(rowId => {
+      const row = liveItems.find(item => Number(item.id) === Number(rowId))
+      if (!row) return
+      const selectedOccurrences = buildTakeoffOccurrencesFromItem(row)
+        .map(occurrence => occurrence?.annotationName)
+        .filter(id => id != null && selectedOccurrenceIds.has(String(id)))
+
+      if (selectedOccurrences.length) {
+        selectedOccurrences.forEach(annotationId => {
+          targets.push({ id: row.id, annotationId, deleteGroup: false })
+        })
+      } else {
+        targets.push({ id: row.id, annotationId: null, deleteGroup: true })
+      }
+    })
+
+    for (const target of targets) {
+      await handleRowDelete(target.id, {
+        annotationId: target.annotationId,
+        deleteGroup: target.deleteGroup,
+      })
+    }
+    clearAllSelection()
+  }, [clearAllSelection, handleRowDelete, selectedAnnotId])
+
   const handlePdfAreaContextMenu = useCallback((e) => {
     e.preventDefault()
     setCtxMenu({ x: e.clientX, y: e.clientY })
@@ -2855,9 +3036,7 @@ export default function DrawingsPage() {
       if (!hasMod && (e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotId) {
         e.preventDefault()
         e.stopPropagation()
-        handleRowDelete(selectedAnnotId, {
-          annotationId: selectedOccurrenceAnnotIdRef.current,
-        }).catch(() => {})
+        handleDeleteSelectedMeasurements().catch(() => {})
         return
       }
 
@@ -2884,7 +3063,7 @@ export default function DrawingsPage() {
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [handleCopyMeasurement, handlePasteMeasurement, handleRedo, handleUndo, selectedAnnotId, handleRowDelete, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection, clearCopiedMeasurements])
+  }, [handleCopyMeasurement, handlePasteMeasurement, handleRedo, handleUndo, selectedAnnotId, handleDeleteSelectedMeasurements, closeCtxMenu, showCalModal, resetDrawingInteraction, clearAllSelection, clearCopiedMeasurements])
 
   const handleCalibrated = useCallback(async () => {
     if (!selectedDrawing) return
@@ -3481,9 +3660,9 @@ export default function DrawingsPage() {
                 }}
                 onClick={e => { e.stopPropagation(); closeCtxMenu() }}
               >
-                {selectedAnnotIds.size > 1 && (
+                {selectedMeasurementCount > 1 && (
                   <div style={{ padding: '7px 16px', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
-                    {selectedAnnotIds.size} selected
+                    {selectedMeasurementCount} selected
                   </div>
                 )}
                 {canCopyMeasurement && (
@@ -3493,7 +3672,7 @@ export default function DrawingsPage() {
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   >
-                    {selectedAnnotIds.size > 1 ? `Copy ${selectedAnnotIds.size} Measurements` : 'Copy Measurement'}
+                    {selectedMeasurementCount > 1 ? `Copy ${selectedMeasurementCount} Measurements` : 'Copy Measurement'}
                   </button>
                 )}
                 {canPasteMeasurement && (
@@ -3516,16 +3695,14 @@ export default function DrawingsPage() {
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '2px 0' }} />
                     <button
                       onClick={() => {
-                        handleRowDelete(selectedAnnotId, {
-                          annotationId: selectedOccurrenceAnnotIdRef.current,
-                        })
+                        handleDeleteSelectedMeasurements().catch(() => {})
                         closeCtxMenu()
                       }}
                       style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#f87171', fontSize: 13, cursor: 'pointer' }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     >
-                      Delete
+                      {selectedMeasurementCount > 1 ? `Delete ${selectedMeasurementCount} Measurements` : 'Delete'}
                     </button>
                   </>
                 )}
@@ -3559,6 +3736,7 @@ export default function DrawingsPage() {
               selectedId={selectedAnnotId}
               selectedIds={selectedAnnotIds}
               onRowSelect={handleRowSelect}
+              onSelectAll={handleSelectAllRows}
               onDelete={handleRowDelete}
               onBeforeUpdate={() => recordUndoSnapshot('edit measurement')}
               onUpdateFailed={discardUndoSnapshot}
