@@ -15,7 +15,6 @@ public sealed class LicenseService : ILicenseService
 
     private readonly ILicenseRepository _repository;
     private readonly ILicenseApiClient _apiClient;
-    private readonly ILicenseMachineIdentifierProvider _machineIdentifierProvider;
     private readonly IDataProtector _protector;
     private readonly IMemoryCache _cache;
     private readonly LicensingOptions _options;
@@ -24,7 +23,6 @@ public sealed class LicenseService : ILicenseService
     public LicenseService(
         ILicenseRepository repository,
         ILicenseApiClient apiClient,
-        ILicenseMachineIdentifierProvider machineIdentifierProvider,
         IDataProtectionProvider dataProtectionProvider,
         IMemoryCache cache,
         IOptions<LicensingOptions> options,
@@ -32,24 +30,77 @@ public sealed class LicenseService : ILicenseService
     {
         _repository = repository;
         _apiClient = apiClient;
-        _machineIdentifierProvider = machineIdentifierProvider;
         _protector = dataProtectionProvider.CreateProtector("BuildTakeoffPro.Licensing.v1");
         _cache = cache;
         _options = options.Value;
         _logger = logger;
     }
 
+    public async Task EnsureServerConfigurationAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await ValidationLock.WaitAsync(cancellationToken);
+        try
+        {
+            var configuration = await _repository.GetActiveAsync(cancellationToken);
+            if (configuration is null)
+            {
+                configuration = new LicenseConfiguration
+                {
+                    EncryptedLicenseKey = string.Empty,
+                    ApiBaseUrl = _options.ApplicationApiUrl.Trim(),
+                    ValidationEndpoint = _options.ValidationUrl.Trim(),
+                    ApplicationIdentifier = _options.DefaultApplicationIdentifier.Trim(),
+                    IsActive = true,
+                    LastValidationStatus = LicenseValidationStatus.MissingConfiguration.ToString()
+                };
+                await _repository.SaveAsync(configuration, cancellationToken);
+                _logger.LogInformation(
+                    "Created server-managed license configuration without a license key");
+                return;
+            }
+
+            var changed = false;
+            if (string.IsNullOrWhiteSpace(configuration.ApiBaseUrl))
+            {
+                configuration.ApiBaseUrl = _options.ApplicationApiUrl.Trim();
+                changed = true;
+            }
+
+            if (!IsValidBaseUrl(configuration.ValidationEndpoint))
+            {
+                configuration.ValidationEndpoint = _options.ValidationUrl.Trim();
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration.ApplicationIdentifier))
+            {
+                configuration.ApplicationIdentifier = _options.DefaultApplicationIdentifier.Trim();
+                changed = true;
+            }
+
+            if (changed)
+            {
+                await _repository.SaveAsync(configuration, cancellationToken);
+                _logger.LogInformation("Updated missing server-managed license configuration values");
+            }
+        }
+        finally
+        {
+            ValidationLock.Release();
+        }
+    }
+
     public async Task<LicenseConfigurationStatusDto> GetConfigurationStatusAsync(
         CancellationToken cancellationToken = default)
     {
+        await EnsureServerConfigurationAsync(cancellationToken);
         var configuration = await _repository.GetActiveAsync(cancellationToken);
         if (configuration is null || string.IsNullOrWhiteSpace(configuration.EncryptedLicenseKey))
         {
             return new LicenseConfigurationStatusDto
             {
                 IsConfigured = false,
-                ValidationEndpoint = _options.DefaultValidationEndpoint,
-                ApplicationIdentifier = _options.DefaultApplicationIdentifier,
                 Status = LicenseValidationStatus.MissingConfiguration.ToString()
             };
         }
@@ -70,13 +121,6 @@ public sealed class LicenseService : ILicenseService
         {
             IsConfigured = true,
             MaskedLicenseKey = maskedLicenseKey,
-            HasApiKey = !string.IsNullOrWhiteSpace(configuration.EncryptedApiKey),
-            ApiBaseUrl = configuration.ApiBaseUrl,
-            ValidationEndpoint = configuration.ValidationEndpoint,
-            ApplicationIdentifier = configuration.ApplicationIdentifier,
-            MachineIdentifier = configuration.MachineIdentifier,
-            CustomerName = configuration.CustomerName,
-            CompanyName = configuration.CompanyName,
             Status = status,
             LastValidatedAt = configuration.LastValidatedAt,
             ExpiresAt = configuration.ExpiresAt
@@ -88,6 +132,7 @@ public sealed class LicenseService : ILicenseService
         string source,
         CancellationToken cancellationToken = default)
     {
+        await EnsureServerConfigurationAsync(cancellationToken);
         if (!forceRefresh &&
             _cache.TryGetValue(CacheKey, out LicenseValidationResult? cached) &&
             cached is not null)
@@ -168,6 +213,7 @@ public sealed class LicenseService : ILicenseService
         LicenseConfigurationRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsureServerConfigurationAsync(cancellationToken);
         await ValidationLock.WaitAsync(cancellationToken);
         try
         {
@@ -177,50 +223,27 @@ public sealed class LicenseService : ILicenseService
                 existing?.EncryptedLicenseKey,
                 required: true);
             var apiKey = ResolveSecret(
-                request.ApiKey,
+                submitted: null,
                 existing?.EncryptedApiKey,
                 required: false);
-            var apiBaseUrl = request.ApiBaseUrl?.Trim() ?? existing?.ApiBaseUrl ?? string.Empty;
-            var validationEndpoint = FirstNotBlank(
-                request.ValidationEndpoint,
-                existing?.ValidationEndpoint,
-                _options.DefaultValidationEndpoint);
-            var applicationIdentifier = FirstNotBlank(
-                request.ApplicationIdentifier,
-                existing?.ApplicationIdentifier,
-                _options.DefaultApplicationIdentifier);
-            var machineIdentifier = FirstNotBlank(
-                request.MachineIdentifier,
-                existing?.MachineIdentifier,
-                _machineIdentifierProvider.GetIdentifier());
+            var apiUrl = FirstNotBlank(existing?.ApiBaseUrl, _options.ApplicationApiUrl);
+            var validationUrl = FirstNotBlank(existing?.ValidationEndpoint, _options.ValidationUrl);
 
             if (string.IsNullOrWhiteSpace(licenseKey))
                 return CreateLocalResult(
                     LicenseValidationStatus.MissingConfiguration,
                     "A license key is required.");
-            if (!IsValidBaseUrl(apiBaseUrl))
+            if (!IsValidBaseUrl(apiUrl) || !IsValidBaseUrl(validationUrl))
                 return CreateLocalResult(
                     LicenseValidationStatus.InvalidConfiguration,
-                    "Enter a valid HTTP or HTTPS API Base URL.");
-            if (string.IsNullOrWhiteSpace(validationEndpoint))
-                return CreateLocalResult(
-                    LicenseValidationStatus.InvalidConfiguration,
-                    "A validation endpoint is required.");
-            if (string.IsNullOrWhiteSpace(applicationIdentifier))
-                return CreateLocalResult(
-                    LicenseValidationStatus.InvalidConfiguration,
-                    "An application identifier is required.");
+                    "License server configuration is missing. Please contact your administrator.");
 
             var result = await _apiClient.ValidateAsync(
                 new LicenseApiRequest(
                     licenseKey,
                     apiKey,
-                    apiBaseUrl,
-                    validationEndpoint,
-                    applicationIdentifier,
-                    machineIdentifier,
-                    request.CustomerName?.Trim() ?? existing?.CustomerName,
-                    request.CompanyName?.Trim() ?? existing?.CompanyName),
+                    apiUrl,
+                    validationUrl),
                 cancellationToken);
 
             if (!result.IsValid)
@@ -236,12 +259,11 @@ public sealed class LicenseService : ILicenseService
             configuration.EncryptedApiKey = string.IsNullOrWhiteSpace(apiKey)
                 ? null
                 : _protector.Protect(apiKey);
-            configuration.ApiBaseUrl = apiBaseUrl;
-            configuration.ValidationEndpoint = validationEndpoint;
-            configuration.ApplicationIdentifier = applicationIdentifier;
-            configuration.MachineIdentifier = machineIdentifier;
-            configuration.CustomerName = request.CustomerName?.Trim() ?? existing?.CustomerName;
-            configuration.CompanyName = request.CompanyName?.Trim() ?? existing?.CompanyName;
+            configuration.ApiBaseUrl = apiUrl;
+            configuration.ValidationEndpoint = validationUrl;
+            configuration.ApplicationIdentifier = FirstNotBlank(
+                existing?.ApplicationIdentifier,
+                _options.DefaultApplicationIdentifier);
             configuration.IsActive = true;
             configuration.LastValidationStatus = result.Status.ToString();
             configuration.LastValidatedAt = DateTime.UtcNow;
@@ -278,13 +300,7 @@ public sealed class LicenseService : ILicenseService
                 ? null
                 : Unprotect(configuration.EncryptedApiKey),
             configuration.ApiBaseUrl,
-            configuration.ValidationEndpoint,
-            configuration.ApplicationIdentifier,
-            FirstNotBlank(
-                configuration.MachineIdentifier,
-                _machineIdentifierProvider.GetIdentifier()),
-            configuration.CustomerName,
-            configuration.CompanyName);
+            configuration.ValidationEndpoint);
 
     private LicenseValidationResult CreateLocalResult(
         LicenseValidationStatus status,

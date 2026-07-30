@@ -19,6 +19,7 @@ public sealed class LicenseStartupValidationService : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<ILicenseService>();
+            await service.EnsureServerConfigurationAsync(stoppingToken);
             var status = await service.GetConfigurationStatusAsync(stoppingToken);
             if (!status.IsConfigured)
             {

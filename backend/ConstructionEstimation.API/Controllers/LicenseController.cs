@@ -28,6 +28,26 @@ public sealed class LicenseController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("startup")]
+    public async Task<ActionResult<ApiResponse<LicenseValidationResponseDto>>> ValidateStartup(
+        CancellationToken cancellationToken)
+    {
+        var result = await _licenseService.ValidateCurrentAsync(
+            forceRefresh: false,
+            source: "frontend-startup",
+            cancellationToken);
+        var data = new LicenseValidationResponseDto
+        {
+            IsValid = result.IsValid,
+            Status = result.Status.ToString(),
+            Code = result.Code,
+            Message = result.Message,
+            ExpiresAt = result.ExpiresAt
+        };
+        return Ok(ApiResponse<LicenseValidationResponseDto>.Ok(data, result.Message));
+    }
+
+    [AllowAnonymous]
     [HttpPost("configuration")]
     public async Task<ActionResult<ApiResponse<LicenseValidationResponseDto>>> SaveConfiguration(
         [FromBody] LicenseConfigurationRequest request,

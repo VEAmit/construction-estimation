@@ -41,7 +41,6 @@ builder.Services.AddHttpClient("LicenseApi", client =>
         120);
     client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
-builder.Services.AddSingleton<ILicenseMachineIdentifierProvider, LicenseMachineIdentifierProvider>();
 builder.Services.AddScoped<ILicenseApiClient, LicenseApiClient>();
 builder.Services.AddScoped<ILicenseService, LicenseService>();
 builder.Services.AddHostedService<LicenseStartupValidationService>();

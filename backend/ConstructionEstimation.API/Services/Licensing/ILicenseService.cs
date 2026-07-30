@@ -4,6 +4,9 @@ namespace ConstructionEstimation.API.Services.Licensing;
 
 public interface ILicenseService
 {
+    Task EnsureServerConfigurationAsync(
+        CancellationToken cancellationToken = default);
+
     Task<LicenseConfigurationStatusDto> GetConfigurationStatusAsync(
         CancellationToken cancellationToken = default);
 

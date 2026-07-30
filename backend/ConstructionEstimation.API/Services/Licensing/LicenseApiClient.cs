@@ -27,18 +27,15 @@ public sealed class LicenseApiClient : ILicenseApiClient
         LicenseApiRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!TryBuildEndpoint(request.ApiBaseUrl, request.ValidationEndpoint, out var endpoint))
+        if (!TryBuildEndpoint(request.ValidationUrl, out var endpoint))
             return Result(LicenseValidationStatus.InvalidResponse);
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
             Content = JsonContent.Create(new
             {
-                licenseKey = request.LicenseKey,
-                applicationIdentifier = request.ApplicationIdentifier,
-                machineIdentifier = request.MachineIdentifier,
-                customerName = request.CustomerName,
-                companyName = request.CompanyName
+                apiUrl = request.ApiUrl,
+                licenceKey = request.LicenseKey
             })
         };
 
@@ -110,18 +107,32 @@ public sealed class LicenseApiClient : ILicenseApiClient
         using var document = JsonDocument.Parse(body);
         var payload = SelectPayload(document.RootElement);
         var status = ReadString(payload, "status", "licenseStatus", "state", "code");
+        var responseStatus =
+            ReadString(payload, "responsestatus", "responseStatus", "message") ??
+            ReadString(document.RootElement, "responsestatus", "responseStatus", "message");
+        var responseCode =
+            ReadInt(payload, "responseCode") ??
+            ReadInt(document.RootElement, "responseCode");
         var expiresAt = ReadDate(payload, "expiresAt", "expirationDate", "expiryDate", "validUntil");
         var cacheMinutes = ReadInt(payload, "cacheMinutes", "refreshAfterMinutes", "validationIntervalMinutes");
         var valid = ReadBoolean(payload, "isValid", "valid", "licenseValid");
+
+        if (isSuccessStatusCode && responseCode == 4)
+            valid = true;
+        else if (responseCode is not null)
+        {
+            status = responseStatus ?? status;
+            valid = false;
+        }
 
         if (valid is null && string.IsNullOrWhiteSpace(status))
             valid = ReadBoolean(document.RootElement, "success");
 
         var mappedStatus = MapStatus(status, valid, statusCode, isSuccessStatusCode, expiresAt);
-        var result = Result(mappedStatus, expiresAt, cacheMinutes);
+        var result = Result(mappedStatus, expiresAt, cacheMinutes, responseStatus);
 
         if (result.IsValid && expiresAt is not null && expiresAt <= DateTime.UtcNow)
-            return Result(LicenseValidationStatus.Expired, expiresAt, cacheMinutes);
+            return Result(LicenseValidationStatus.Expired, expiresAt, cacheMinutes, responseStatus);
 
         return result;
     }
@@ -187,7 +198,8 @@ public sealed class LicenseApiClient : ILicenseApiClient
     private LicenseValidationResult Result(
         LicenseValidationStatus status,
         DateTime? expiresAt = null,
-        int? providerCacheMinutes = null)
+        int? providerCacheMinutes = null,
+        string? messageOverride = null)
     {
         var (code, message) = LicenseMessages.For(status);
         var configuredMinutes = status == LicenseValidationStatus.Valid
@@ -205,31 +217,20 @@ public sealed class LicenseApiClient : ILicenseApiClient
         {
             Status = status,
             Code = code,
-            Message = message,
+            Message = string.IsNullOrWhiteSpace(messageOverride) ? message : messageOverride.Trim(),
             ExpiresAt = expiresAt,
             CacheUntil = cacheUntil
         };
     }
 
-    private static bool TryBuildEndpoint(string baseUrl, string endpoint, out Uri uri)
+    private static bool TryBuildEndpoint(string validationUrl, out Uri uri)
     {
         uri = null!;
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) ||
-            (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
+        if (!Uri.TryCreate(validationUrl, UriKind.Absolute, out var endpoint) ||
+            (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps))
             return false;
 
-        if (Uri.TryCreate(endpoint, UriKind.Absolute, out var absoluteEndpoint))
-        {
-            if (absoluteEndpoint.Scheme != Uri.UriSchemeHttp &&
-                absoluteEndpoint.Scheme != Uri.UriSchemeHttps)
-                return false;
-
-            uri = absoluteEndpoint;
-            return true;
-        }
-
-        var normalizedBase = baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/";
-        uri = new Uri(new Uri(normalizedBase), endpoint.TrimStart('/'));
+        uri = endpoint;
         return true;
     }
 

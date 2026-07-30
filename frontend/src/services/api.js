@@ -29,7 +29,9 @@ api.interceptors.response.use(
       const message = responseData?.message ?? 'Your license is no longer valid.'
       sessionStorage.setItem('buildtakeoff-license-message', message)
       useAppStore.getState().clearAuth()
-      if (window.location.pathname !== '/login') window.location.replace('/login')
+      if (window.location.pathname !== '/system-settings') {
+        window.location.replace('/system-settings')
+      }
     } else if (error.response?.status === 401 && !isAuthEndpoint) {
       useAppStore.getState().clearAuth()
       if (window.location.pathname !== '/login') window.location.replace('/login')

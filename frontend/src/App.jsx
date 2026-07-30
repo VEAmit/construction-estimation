@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import toast, { Toaster } from 'react-hot-toast'
 import { useAppStore } from './store/useAppStore'
 import { licenseService } from './services/licenseService'
 import Layout from './components/layout/Layout'
@@ -9,6 +9,94 @@ import DashboardPage from './pages/DashboardPage'
 import SystemSettingsPage from './pages/SystemSettingsPage'
 
 const DrawingsPage = lazy(() => import('./pages/DrawingsPage'))
+const LICENSE_RECHECK_MS = 30 * 60 * 1000
+
+function StartupLicenseGuard({ children }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const clearAuth = useAppStore(state => state.clearAuth)
+  const [checking, setChecking] = useState(true)
+  const [licenseValid, setLicenseValid] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    let recheckTimer = null
+    let validating = false
+
+    const rejectLicense = message => {
+      if (!active) return
+      setLicenseValid(false)
+      sessionStorage.setItem('buildtakeoff-license-message', message)
+      clearAuth()
+      toast.error(message, {
+        id: 'startup-license',
+        duration: 6000,
+      })
+      navigate('/system-settings', { replace: true })
+    }
+
+    const scheduleRecheck = expiresAt => {
+      if (!active) return
+      const expiryTime = expiresAt ? Date.parse(expiresAt) : Number.NaN
+      const untilExpiry = Number.isFinite(expiryTime)
+        ? Math.max(1000, expiryTime - Date.now() + 1000)
+        : LICENSE_RECHECK_MS
+      const delay = Math.min(LICENSE_RECHECK_MS, untilExpiry)
+      recheckTimer = window.setTimeout(validateLicense, delay)
+    }
+
+    const validateLicense = async () => {
+      if (!active || validating) return
+      validating = true
+      if (recheckTimer) {
+        window.clearTimeout(recheckTimer)
+        recheckTimer = null
+      }
+
+      try {
+        const result = await licenseService.validateStartup()
+        if (!active) return
+        if (!result?.isValid) {
+          rejectLicense(result?.message || 'A valid license is required before login.')
+          return
+        }
+
+        setLicenseValid(true)
+        scheduleRecheck(result.expiresAt)
+      } catch (error) {
+        if (!active) return
+        rejectLicense(
+          error?.response?.data?.message ??
+          'Unable to validate license. Please check your internet connection or contact your administrator.',
+        )
+      } finally {
+        validating = false
+        if (active) setChecking(false)
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void validateLicense()
+      }
+    }
+
+    void validateLicense()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      active = false
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (recheckTimer) window.clearTimeout(recheckTimer)
+    }
+  }, [clearAuth, navigate])
+
+  if (checking) return null
+  if (!licenseValid && location.pathname !== '/system-settings') {
+    return <Navigate to="/system-settings" replace />
+  }
+  return children
+}
 
 // Redirect logged-in users away from /login (avoids the blurred login flash on back-navigation)
 function PublicRoute({ children }) {
@@ -83,7 +171,8 @@ export default function App() {
           error:   { iconTheme: { primary: '#EF233C', secondary: '#111827' } },
         }}
       />
-      <Routes>
+      <StartupLicenseGuard>
+        <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/system-settings" element={<SystemSettingsPage />} />
         <Route path="/" element={
@@ -100,7 +189,8 @@ export default function App() {
           } />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        </Routes>
+      </StartupLicenseGuard>
     </BrowserRouter>
   )
 }

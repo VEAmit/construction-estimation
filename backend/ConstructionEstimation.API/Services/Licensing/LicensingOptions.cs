@@ -4,7 +4,9 @@ public sealed class LicensingOptions
 {
     public const string SectionName = "Licensing";
 
-    public string DefaultValidationEndpoint { get; set; } = "api/license/validate";
+    public string ApplicationApiUrl { get; set; } = "http://localhost:5000";
+    public string ValidationUrl { get; set; } =
+        "http://subscription.integratedsteelsolutions.com/api/License/validateLicense";
     public string DefaultApplicationIdentifier { get; set; } = "BuildTakeoffPro";
     public string ApiKeyHeaderName { get; set; } = "X-Api-Key";
     public int CacheMinutes { get; set; } = 30;

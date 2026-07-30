@@ -29,26 +29,12 @@ public static class LicenseErrorCodes
 public sealed class LicenseConfigurationRequest
 {
     public string? LicenseKey { get; set; }
-    public string? ApiBaseUrl { get; set; }
-    public string? ValidationEndpoint { get; set; }
-    public string? ApiKey { get; set; }
-    public string? ApplicationIdentifier { get; set; }
-    public string? MachineIdentifier { get; set; }
-    public string? CustomerName { get; set; }
-    public string? CompanyName { get; set; }
 }
 
 public sealed class LicenseConfigurationStatusDto
 {
     public bool IsConfigured { get; init; }
     public string? MaskedLicenseKey { get; init; }
-    public bool HasApiKey { get; init; }
-    public string ApiBaseUrl { get; init; } = string.Empty;
-    public string ValidationEndpoint { get; init; } = string.Empty;
-    public string ApplicationIdentifier { get; init; } = string.Empty;
-    public string? MachineIdentifier { get; init; }
-    public string? CustomerName { get; init; }
-    public string? CompanyName { get; init; }
     public string Status { get; init; } = "MissingConfiguration";
     public DateTime? LastValidatedAt { get; init; }
     public DateTime? ExpiresAt { get; init; }

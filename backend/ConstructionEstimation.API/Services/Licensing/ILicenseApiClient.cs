@@ -5,12 +5,8 @@ namespace ConstructionEstimation.API.Services.Licensing;
 public sealed record LicenseApiRequest(
     string LicenseKey,
     string? ApiKey,
-    string ApiBaseUrl,
-    string ValidationEndpoint,
-    string ApplicationIdentifier,
-    string MachineIdentifier,
-    string? CustomerName,
-    string? CompanyName);
+    string ApiUrl,
+    string ValidationUrl);
 
 public interface ILicenseApiClient
 {
