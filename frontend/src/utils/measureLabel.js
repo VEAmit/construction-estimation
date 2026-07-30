@@ -141,6 +141,17 @@ export function inferLabelSizeFromSfFontSize(sfSize, pdfScale = 1) {
 
 /** Build clipboard payload from a saved takeoff row + parsed pointsJson. */
 export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
+  const sourceAnnotationId = item.occurrenceId
+    ?? raw.annotationId
+    ?? raw.AnnotName
+    ?? raw.name
+    ?? raw.AnnotationName
+    ?? raw.OccurrenceId
+    ?? raw.occurrenceId
+    ?? null
+  const clipboardItemId = sourceAnnotationId != null
+    ? `${item.id ?? item.sourceItemId ?? 'measurement'}:${sourceAnnotationId}`
+    : `measurement:${item.id ?? item.sourceItemId ?? 'unknown'}`
   const thickness = raw.Thickness ?? raw.thickness ?? defaultLineThicknessForLabelSize(DEFAULT_MEASURE_LABEL_SIZE)
   const sfFont = raw.FontSize ?? raw.fontSize
   const explicitLabelSize = Number(raw.labelUserFontSize ?? raw.LabelUserFontSize)
@@ -226,9 +237,11 @@ export function buildLinearMeasurementClipboard(item, raw, pdfScale = 1) {
     labelSettings: raw.labelSettings ?? raw.LabelSettings,
   }))
   return {
+    clipboardItemId,
     sourceItemId: item.id ?? null,
+    sourceAnnotationId,
     linkedItemId,
-    occurrenceId: item.occurrenceId ?? raw.OccurrenceId ?? raw.occurrenceId ?? null,
+    occurrenceId: sourceAnnotationId,
     itemType: item.itemType || 'Line',
     mark: item.mark ?? '',
     material: item.material ?? item.mark ?? '',

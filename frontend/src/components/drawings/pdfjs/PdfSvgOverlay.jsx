@@ -388,7 +388,8 @@ function PdfSvgOverlay({
       const points = translated?.vertexPoints ?? []
       if (points.length < 2) return null
       return {
-        id: `paste-preview-${item.sourceItemId ?? item.mark ?? 'measurement'}-${item.occurrenceId ?? previewIndex}`,
+        id: `paste-preview-${item.clipboardItemId
+          ?? `${item.sourceItemId ?? item.mark ?? 'measurement'}:${item.occurrenceId ?? previewIndex}`}`,
         type: 'line',
         points,
         mark: String(item.mark ?? ''),

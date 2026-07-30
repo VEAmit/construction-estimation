@@ -2473,28 +2473,47 @@ export default function DrawingsPage() {
 
   const handleCopyMeasurement = useCallback(() => {
     const selectedRowIds = [...selectedAnnotIdsRef.current]
-    const idsToUse = selectedRowIds.length
-      ? selectedRowIds
-      : [resolveCopyTargetId()].filter(id => id != null)
-    const selectedOccurrenceIds = new Set(
-      [...selectedViewerAnnotIdsRef.current].map(String),
-    )
-    const items = idsToUse.flatMap(targetId => {
-      const row = takeoffItems.find(item => Number(item.id) === Number(targetId))
-      const occurrenceIds = buildTakeoffOccurrencesFromItem(row)
-        .map(occurrence => occurrence?.annotationName)
-        .filter(id => id != null && selectedOccurrenceIds.has(String(id)))
-      if (occurrenceIds.length) {
-        return occurrenceIds
-          .map(occurrenceId => buildClipboardItemFor(targetId, occurrenceId))
-          .filter(Boolean)
-      }
-      const item = buildClipboardItemFor(targetId)
-      return item ? [item] : []
+    const selectedOccurrenceIds = [...selectedViewerAnnotIdsRef.current].map(String)
+
+    // Resolve every selected PDF occurrence UUID directly to its owning row.
+    // Do not infer identity from length/label and do not depend on how many
+    // occurrences happen to share one grouped grid-row id.
+    const occurrenceTargetsById = new Map()
+    takeoffItems.forEach(row => {
+      buildTakeoffOccurrencesFromItem(row).forEach(occurrence => {
+        if (occurrence?.annotationName == null) return
+        occurrenceTargetsById.set(String(occurrence.annotationName), {
+          targetId: row.id,
+          occurrenceId: occurrence.annotationName,
+        })
+      })
     })
+    const copyTargets = selectedOccurrenceIds
+      .map(occurrenceId => occurrenceTargetsById.get(occurrenceId))
+      .filter(Boolean)
+
+    // Grid-only rows (for example a manual measurement with no viewer UUID)
+    // still use the existing single-row copy fallback. Rows already represented
+    // by one or more selected occurrence UUIDs are not added again.
+    const representedRowIds = new Set(copyTargets.map(target => String(target.targetId)))
+    selectedRowIds.forEach(targetId => {
+      if (!representedRowIds.has(String(targetId))) {
+        copyTargets.push({ targetId, occurrenceId: null })
+      }
+    })
+    if (!copyTargets.length) {
+      const fallbackId = resolveCopyTargetId()
+      if (fallbackId != null) copyTargets.push({ targetId: fallbackId, occurrenceId: null })
+    }
+
+    const items = copyTargets
+      .map(({ targetId, occurrenceId }) =>
+        buildClipboardItemFor(targetId, occurrenceId),
+      )
+      .filter(Boolean)
 
     if (!items.length) {
-      toast.error(idsToUse.length > 1 || selectedOccurrenceIds.size > 1
+      toast.error(copyTargets.length > 1 || selectedOccurrenceIds.length > 1
         ? 'No copyable linear measurements in selection'
         : 'Draw or select a linear measurement to copy')
       return
@@ -2510,7 +2529,7 @@ export default function DrawingsPage() {
     // explicitly clicks Paste again, so the next click either does nothing
     // new or drops another copy of the wrong item.
     triggerPdfCommand({ type: 'cancelPastePlacement' })
-    if (idsToUse[0] != null) lastCopyTargetRef.current = idsToUse[0]
+    if (copyTargets[0]?.targetId != null) lastCopyTargetRef.current = copyTargets[0].targetId
     if (items.length > 1) toast.success(`${items.length} measurements copied`)
   }, [takeoffItems, resolveCopyTargetId, buildClipboardItemFor, recordUndoSnapshot, setMeasurementClipboard, clearPasteAnchor, triggerPdfCommand])
 
@@ -2961,11 +2980,24 @@ export default function DrawingsPage() {
 
     // Ctrl/Shift+click: toggle this shape's membership in the
     // multi-selection, leaving the rest of the current selection untouched.
-    const nextIds = new Set(selectedAnnotIdsRef.current)
-    let removed = false
-    if (dbId != null) { if (nextIds.has(dbId)) { nextIds.delete(dbId); removed = true } else nextIds.add(dbId) }
     const nextViewerIds = new Set(selectedViewerAnnotIdsRef.current)
-    if (viewerId) { if (nextViewerIds.has(viewerId)) nextViewerIds.delete(viewerId); else nextViewerIds.add(viewerId) }
+    const removed = viewerId != null && nextViewerIds.has(viewerId)
+    if (viewerId) {
+      if (removed) nextViewerIds.delete(viewerId)
+      else nextViewerIds.add(viewerId)
+    }
+
+    // A grouped quantity row can own several independently selectable PDF
+    // occurrences. Keep the row selected while any of its occurrence UUIDs
+    // remains selected, regardless of identical lengths or labels.
+    const nextIds = new Set(selectedAnnotIdsRef.current)
+    if (dbId != null) {
+      const rowStillHasSelectedOccurrence = [...nextViewerIds].some(id =>
+        Number(resolveMeasurementDbId(id)) === Number(dbId),
+      )
+      if (rowStillHasSelectedOccurrence) nextIds.add(dbId)
+      else nextIds.delete(dbId)
+    }
     selectedAnnotIdsRef.current = nextIds
     selectedViewerAnnotIdsRef.current = nextViewerIds
     setSelectedAnnotIds(nextIds)
@@ -2974,8 +3006,10 @@ export default function DrawingsPage() {
     // Keep the scalar "primary" pointed at whichever item this click just
     // affected — this is what keeps resolveCopyTargetId/the style-persist
     // effect/context-menu Delete meaningful mid-multi-select.
-    const primaryDbId = removed ? ([...nextIds].pop() ?? null) : dbId
     const primaryViewerId = removed ? ([...nextViewerIds].pop() ?? null) : viewerId
+    const primaryDbId = primaryViewerId != null
+      ? resolveMeasurementDbId(primaryViewerId)
+      : ([...nextIds].pop() ?? null)
     selectedOccurrenceAnnotIdRef.current = primaryViewerId
     setSelectedViewerAnnotId(primaryViewerId)
     setSelectedAnnotId(primaryDbId)
@@ -2997,8 +3031,15 @@ export default function DrawingsPage() {
     // must not collapse the group to just this one shape — a group
     // right-click menu should still act on (and Copy) the whole selection.
     const rawDbId = annotation?.dbId
-    const dbId = Number.isFinite(Number(rawDbId)) ? Number(rawDbId) : resolveMeasurementDbId(annotation?.id ?? annotUuid ?? null)
-    const isMultiMember = selectedAnnotIdsRef.current.size > 1 && dbId != null && selectedAnnotIdsRef.current.has(dbId)
+    const occurrenceId = annotation?.id ?? annotUuid ?? null
+    const dbId = Number.isFinite(Number(rawDbId)) ? Number(rawDbId) : resolveMeasurementDbId(occurrenceId)
+    const occurrenceIsInMultiSelection = occurrenceId != null
+      && selectedViewerAnnotIdsRef.current.size > 1
+      && selectedViewerAnnotIdsRef.current.has(String(occurrenceId))
+    const rowIsInMultiSelection = selectedAnnotIdsRef.current.size > 1
+      && dbId != null
+      && selectedAnnotIdsRef.current.has(dbId)
+    const isMultiMember = occurrenceIsInMultiSelection || rowIsInMultiSelection
     if (!isMultiMember) handleAnnotationSelect(annotUuid, annotation)
     setCtxMenu({ x: event.clientX, y: event.clientY })
   }, [handleAnnotationSelect, resolveMeasurementDbId])
