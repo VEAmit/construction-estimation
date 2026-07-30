@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAppStore } from '../../store/useAppStore'
 import { useBreakpoint } from '../../utils/useBreakpoint'
+import { authService } from '../../services/authService'
 import toast from 'react-hot-toast'
 
 const NAV = [
@@ -43,10 +44,16 @@ export default function Header() {
   // Close mobile menu on route change
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
-  const handleLogout = () => {
-    clearAuth()
-    toast.success('Logged out successfully')
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Local logout must still complete if the API is unavailable.
+    } finally {
+      clearAuth()
+      toast.success('Logged out successfully')
+      navigate('/login')
+    }
   }
 
   const initials = userName

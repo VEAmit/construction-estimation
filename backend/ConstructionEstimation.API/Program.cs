@@ -1,8 +1,11 @@
 using ConstructionEstimation.API.Services;
+using ConstructionEstimation.API.Middleware;
+using ConstructionEstimation.API.Services.Licensing;
 using Syncfusion.Licensing;
 using ConstructionEstimation.Infrastructure;
 using ConstructionEstimation.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -26,6 +29,21 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ConstructionEstimation.API.Services.ExtractionService>();
+builder.Services.Configure<LicensingOptions>(
+    builder.Configuration.GetSection(LicensingOptions.SectionName));
+builder.Services.AddDataProtection()
+    .SetApplicationName("BuildTakeoffPro");
+builder.Services.AddHttpClient("LicenseApi", client =>
+{
+    var timeoutSeconds = Math.Clamp(
+        builder.Configuration.GetValue<int?>("Licensing:HttpTimeoutSeconds") ?? 15,
+        2,
+        120);
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+});
+builder.Services.AddScoped<ILicenseApiClient, LicenseApiClient>();
+builder.Services.AddScoped<ILicenseService, LicenseService>();
+builder.Services.AddHostedService<LicenseStartupValidationService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -118,8 +136,10 @@ if (enableSwagger)
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuildTakeoff Pro API v1.0.2"));
 }
 
+app.UseRouting();
 app.UseCors("ReactApp");
 app.UseAuthentication();
+app.UseMiddleware<LicenseMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
