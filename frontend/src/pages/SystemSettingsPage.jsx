@@ -26,6 +26,7 @@ export default function SystemSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showLicense, setShowLicense] = useState(false)
+  const [replacingLicenseKey, setReplacingLicenseKey] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -33,6 +34,11 @@ export default function SystemSettingsPage() {
       .then(data => {
         if (!active) return
         setStatus(data)
+        setForm({
+          licenseKey: data?.isConfigured ? (data.maskedLicenseKey ?? '') : '',
+        })
+        setReplacingLicenseKey(false)
+        setShowLicense(false)
       })
       .catch(() => {
         if (active) toast.error('Unable to load license settings. Please check that the API is running.')
@@ -62,7 +68,9 @@ export default function SystemSettingsPage() {
     setSaving(true)
     try {
       await licenseService.saveConfiguration({
-        licenseKey: form.licenseKey.trim() || null,
+        licenseKey: replacingLicenseKey
+          ? (form.licenseKey.trim() || null)
+          : null,
       })
       toast.success('License validated and settings saved.')
       window.location.replace('/login')
@@ -131,21 +139,39 @@ export default function SystemSettingsPage() {
               <Field
                 label="License Key"
                 hint={status?.isConfigured
-                  ? `Stored securely as ${status.maskedLicenseKey}. Leave blank to keep it.`
+                  ? `Stored securely as ${status.maskedLicenseKey ?? 'an encrypted value'}. Click Change to replace it.`
                   : 'Required. The value is encrypted before it is saved.'}
               >
                 <div className="settings-secret-wrap">
                   <input
                     className="settings-input"
-                    type={showLicense ? 'text' : 'password'}
+                    type={status?.isConfigured && !replacingLicenseKey
+                      ? 'text'
+                      : (showLicense ? 'text' : 'password')}
                     value={form.licenseKey}
                     onChange={update('licenseKey')}
+                    readOnly={Boolean(status?.isConfigured && !replacingLicenseKey)}
                     required={!status?.isConfigured}
                     autoComplete="off"
-                    placeholder={status?.isConfigured ? 'Keep existing license key' : 'Enter license key'}
+                    placeholder={status?.isConfigured
+                      ? 'Stored license key'
+                      : 'Enter license key'}
                   />
-                  <button type="button" onClick={() => setShowLicense(value => !value)}>
-                    {showLicense ? 'Hide' : 'Show'}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (status?.isConfigured && !replacingLicenseKey) {
+                        setForm({ licenseKey: '' })
+                        setReplacingLicenseKey(true)
+                        setShowLicense(false)
+                        return
+                      }
+                      setShowLicense(value => !value)
+                    }}
+                  >
+                    {status?.isConfigured && !replacingLicenseKey
+                      ? 'Change'
+                      : (showLicense ? 'Hide' : 'Show')}
                   </button>
                 </div>
               </Field>
