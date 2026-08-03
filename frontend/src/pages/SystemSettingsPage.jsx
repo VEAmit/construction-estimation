@@ -68,7 +68,7 @@ export default function SystemSettingsPage() {
     setSaving(true)
     try {
       await licenseService.saveConfiguration({
-        licenseKey: replacingLicenseKey
+        licenseKey: !status?.isConfigured || replacingLicenseKey
           ? (form.licenseKey.trim() || null)
           : null,
       })
