@@ -12,6 +12,7 @@ public class Project : BaseEntity
     public int UserId { get; set; }
     public User User { get; set; } = null!;
     public ICollection<Drawing> Drawings { get; set; } = new List<Drawing>();
+    public ICollection<MemberScheduleItem> MemberScheduleItems { get; set; } = new List<MemberScheduleItem>();
 }
 
 public enum ProjectStatus

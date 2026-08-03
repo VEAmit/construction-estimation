@@ -87,7 +87,7 @@ public class ExtractionController : ControllerBase
             return NotFound(ApiResponse<int>.Fail("Drawing not found"));
 
         var items = DeduplicateByMark(request.Items);
-        var existing = (await _scheduleRepo.GetByDrawingIdAsync(drawingId)).ToList();
+        var existing = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId)).ToList();
         var byMark = new Dictionary<string, MemberScheduleItem>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in existing.GroupBy(e => e.Mark.Trim(), StringComparer.OrdinalIgnoreCase))
         {
@@ -134,6 +134,7 @@ public class ExtractionController : ControllerBase
                     Description = item.Description,
                     TakeoffItemId = item.TakeoffItemId,
                     Color = item.Color,
+                    ProjectId = drawing.ProjectId,
                     DrawingId = drawingId
                 };
                 await _scheduleRepo.AddAsync(entity);
@@ -148,8 +149,12 @@ public class ExtractionController : ControllerBase
                 await _scheduleRepo.DeleteAsync(old.Id);
         }
 
-        _logger.LogInformation("Upserted {Count} extracted members for drawing {DrawingId}", saved, drawingId);
-        return Ok(ApiResponse<int>.Ok(saved, $"{saved} member(s) saved to schedule"));
+        _logger.LogInformation(
+            "Upserted {Count} extracted members into project {ProjectId} schedule from drawing {DrawingId}",
+            saved,
+            drawing.ProjectId,
+            drawingId);
+        return Ok(ApiResponse<int>.Ok(saved, $"{saved} member(s) saved to the project schedule"));
     }
 
     private static List<CreateMemberScheduleItemRequest> DeduplicateByMark(

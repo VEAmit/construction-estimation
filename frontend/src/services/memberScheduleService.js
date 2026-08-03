@@ -1,6 +1,33 @@
 import api from './api'
 
 export const memberScheduleService = {
+  async getByProject(projectId) {
+    const res = await api.get(`/memberschedules/project/${projectId}`)
+    return res.data.data
+  },
+
+  async getProjectSummary(projectId) {
+    const res = await api.get(`/memberschedules/project/${projectId}/summary`)
+    return res.data.data
+  },
+
+  async createForProject(projectId, payload) {
+    const res = await api.post(`/memberschedules/project/${projectId}`, {
+      mark: payload.mark ?? '',
+      memberSize: payload.memberSize ?? '',
+      memberType: payload.memberType ?? '',
+      unitWeight: payload.unitWeight ?? 0,
+      length: payload.length ?? 0,
+      quantity: payload.quantity ?? 0,
+      description: payload.description ?? '',
+      takeoffItemId: payload.takeoffItemId ?? null,
+      color: payload.color ?? null,
+    })
+    return res.data.data
+  },
+
+  // Legacy drawing methods remain available for older callers. The backend
+  // resolves them to the drawing's project-level schedule.
   async getByDrawing(drawingId) {
     const res = await api.get(`/memberschedules/drawing/${drawingId}`)
     return res.data.data

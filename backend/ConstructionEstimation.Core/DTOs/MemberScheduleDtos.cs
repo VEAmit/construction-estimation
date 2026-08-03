@@ -35,7 +35,8 @@ public record MemberScheduleItemResponse(
     double TotalWeight,
     string Description,
     int? TakeoffItemId,
-    int DrawingId,
+    int ProjectId,
+    int? DrawingId,
     DateTime CreatedAt,
     string? Color
 );

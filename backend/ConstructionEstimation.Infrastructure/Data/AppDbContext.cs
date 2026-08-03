@@ -88,10 +88,17 @@ public class AppDbContext : DbContext
             entity.Property(e => e.MemberSize).HasMaxLength(100);
             entity.Property(e => e.MemberType).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
+            entity.HasIndex(e => new { e.ProjectId, e.Mark })
+                  .IsUnique()
+                  .HasFilter("[IsDeleted] = 0 AND [Mark] <> N''");
+            entity.HasOne(m => m.Project)
+                  .WithMany(p => p.MemberScheduleItems)
+                  .HasForeignKey(m => m.ProjectId)
+                  .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(m => m.Drawing)
                   .WithMany(d => d.MemberScheduleItems)
                   .HasForeignKey(m => m.DrawingId)
-                  .OnDelete(DeleteBehavior.Cascade);
+                  .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<LicenseConfiguration>(entity =>

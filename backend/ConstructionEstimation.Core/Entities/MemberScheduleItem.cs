@@ -11,8 +11,14 @@ public class MemberScheduleItem : BaseEntity
     public double TotalWeight { get; set; }
     public string Description { get; set; } = string.Empty;
 
-    public int DrawingId { get; set; }
-    public Drawing Drawing { get; set; } = null!;
+    // The member schedule is owned by the project and shared by every drawing
+    // in that project. DrawingId is retained as optional source metadata so
+    // existing records and API clients remain compatible after migration.
+    public int ProjectId { get; set; }
+    public Project Project { get; set; } = null!;
+
+    public int? DrawingId { get; set; }
+    public Drawing? Drawing { get; set; }
 
     // Optional link to a line measurement entry
     public int? TakeoffItemId { get; set; }

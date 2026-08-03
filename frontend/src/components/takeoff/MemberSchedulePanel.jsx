@@ -41,6 +41,7 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
     updateTakeoffItem,
     selectedMemberScheduleItem, setSelectedMemberScheduleItem, lastMeasureMember,
     setActiveTool, triggerPdfCommand, activeTool,
+    selectedProject,
   } = useAppStore()
 
   const activeMeasureMember = selectedMemberScheduleItem ?? lastMeasureMember
@@ -86,17 +87,17 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
   const calcTotal = (row) => (row.unitWeight ?? 0) * (row.length ?? 0) * (row.quantity ?? 1)
 
   const handleSaveNew = async () => {
-    if (!drawing) { toast.error('Select a drawing first'); return }
+    if (!selectedProject?.id) { toast.error('Select a project first'); return }
     if (!newRow.mark) { toast.error('Member mark is required'); return }
     setSaving(true)
     try {
-      const saved = await memberScheduleService.create(drawing.id, newRow)
+      const saved = await memberScheduleService.createForProject(selectedProject.id, newRow)
       addMemberScheduleItem(saved)
       setNewRow({ ...emptyRow })
       setAddMode(false)
-      toast.success('Member added to schedule')
-    } catch {
-      toast.error('Failed to save member')
+      toast.success('Member added to project schedule')
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? 'Failed to save member')
     } finally {
       setSaving(false)
     }
@@ -321,7 +322,7 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
           <div style={{ width: '2px', height: '16px', background: '#EF233C', borderRadius: '1px' }} />
           <span style={{ fontSize: '12px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-            Member Schedule
+            Project Member Schedule
           </span>
           <span style={{ fontSize: '10px', color: '#EF233C', fontWeight: 700,
             background: 'rgba(239,35,60,.1)', padding: '1px 6px', borderRadius: '10px',

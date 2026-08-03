@@ -1153,6 +1153,9 @@ export default function DrawingsPage() {
     let cancelled = false
     setSelectedDrawing(null)
     setDrawings([])
+    setMemberScheduleItems([])
+    setMemberScheduleSummary(null)
+    useAppStore.getState().clearSelectedMemberScheduleItem?.()
     drawingService.getByProject(selectedProject.id)
       .then(data => {
         if (cancelled) return
@@ -1164,6 +1167,32 @@ export default function DrawingsPage() {
       .catch(() => { if (!cancelled) toast.error('Failed to load drawings') })
     return () => { cancelled = true }
   }, [selectedProject?.id])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The member schedule belongs to the project, so it is loaded once per
+  // project and remains available while users move between that project's PDFs.
+  useEffect(() => {
+    if (!selectedProject?.id) {
+      setMemberScheduleItems([])
+      setMemberScheduleSummary(null)
+      return
+    }
+
+    let cancelled = false
+    Promise.all([
+      memberScheduleService.getByProject(selectedProject.id),
+      memberScheduleService.getProjectSummary(selectedProject.id),
+    ])
+      .then(([members, memberSum]) => {
+        if (cancelled) return
+        setMemberScheduleItems(assignMemberColors(members))
+        setMemberScheduleSummary(memberSum)
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load project member schedule')
+      })
+
+    return () => { cancelled = true }
+  }, [selectedProject?.id, setMemberScheduleItems, setMemberScheduleSummary])
 
   // Reload saved calibration from DB whenever the active drawing changes (Bluebeam-style persistence).
   useEffect(() => {
@@ -1192,8 +1221,6 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (!selectedDrawing) {
       setTakeoffItems([])
-      setMemberScheduleItems([])
-      useAppStore.getState().clearSelectedMemberScheduleItem?.()
       setSummaryLocal(null)
       annotationMapRef.current = {}
       persistedAnnotIdsRef.current = new Set()
@@ -1206,10 +1233,8 @@ export default function DrawingsPage() {
     Promise.all([
       takeoffService.getByDrawing(selectedDrawing.id),
       takeoffService.getSummary(selectedDrawing.id),
-      memberScheduleService.getByDrawing(selectedDrawing.id),
-      memberScheduleService.getSummary(selectedDrawing.id),
     ])
-      .then(async ([items, sum, members, memberSum]) => {
+      .then(async ([items, sum]) => {
         const drw = getCalibratedDrawingFromStore()
         const { activeUnit } = useAppStore.getState()
         const needsFix = drw?.isCalibrated && items.some(
@@ -1234,8 +1259,6 @@ export default function DrawingsPage() {
         setTakeoffItems(finalItems)
         setSummaryLocal(finalSummary)
         setSummary(finalSummary)
-        setMemberScheduleItems(assignMemberColors(members))
-        setMemberScheduleSummary(memberSum)
         const index = buildTakeoffAnnotationIndex(finalItems)
         annotationMapRef.current = index.map
         persistedAnnotIdsRef.current = index.persistedIds
@@ -3193,7 +3216,6 @@ export default function DrawingsPage() {
     if (selectedDrawing?.id === id) {
       setSelectedDrawing(rest[0] ? normalizeDrawing(rest[0]) : null)
       setTakeoffItems([])
-      setMemberScheduleItems([])
       setSummaryLocal(null)
       annotationMapRef.current = {}
       persistedAnnotIdsRef.current = new Set()
@@ -3214,21 +3236,21 @@ export default function DrawingsPage() {
   }
 
   const handleExtractionSaved = useCallback(async (count) => {
-    if (!selectedDrawing) return
+    if (!selectedProject?.id) return
     try {
       const [members, memberSum] = await Promise.all([
-        memberScheduleService.getByDrawing(selectedDrawing.id),
-        memberScheduleService.getSummary(selectedDrawing.id),
+        memberScheduleService.getByProject(selectedProject.id),
+        memberScheduleService.getProjectSummary(selectedProject.id),
       ])
       setMemberScheduleItems(assignMemberColors(members))
       setMemberScheduleSummary(memberSum)
       setLeftPanelTab('members')
       setLeftPanelOpen(true)
       setLeftHovered(true)
-      toast.success(`${count} member(s) saved — schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
+      toast.success(`${count} member(s) saved — project schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
     } catch { /* ignore */ }
     setShowExtractModal(false)
-  }, [selectedDrawing])
+  }, [selectedProject?.id, setMemberScheduleItems, setMemberScheduleSummary])
 
   const handleExport    = () => exportToExcel(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
   const handleExportPdf = () => exportToPdf(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)

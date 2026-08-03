@@ -173,7 +173,7 @@ namespace ConstructionEstimation.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("DrawingId")
+                    b.Property<int?>("DrawingId")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
@@ -197,6 +197,9 @@ namespace ConstructionEstimation.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
@@ -215,6 +218,10 @@ namespace ConstructionEstimation.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DrawingId");
+
+                    b.HasIndex("ProjectId", "Mark")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0 AND [Mark] <> N''");
 
                     b.ToTable("MemberScheduleItems");
                 });
@@ -451,10 +458,17 @@ namespace ConstructionEstimation.Infrastructure.Migrations
                     b.HasOne("ConstructionEstimation.Core.Entities.Drawing", "Drawing")
                         .WithMany("MemberScheduleItems")
                         .HasForeignKey("DrawingId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ConstructionEstimation.Core.Entities.Project", "Project")
+                        .WithMany("MemberScheduleItems")
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Drawing");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("ConstructionEstimation.Core.Entities.Project", b =>
@@ -489,6 +503,8 @@ namespace ConstructionEstimation.Infrastructure.Migrations
             modelBuilder.Entity("ConstructionEstimation.Core.Entities.Project", b =>
                 {
                     b.Navigation("Drawings");
+
+                    b.Navigation("MemberScheduleItems");
                 });
 
             modelBuilder.Entity("ConstructionEstimation.Core.Entities.User", b =>

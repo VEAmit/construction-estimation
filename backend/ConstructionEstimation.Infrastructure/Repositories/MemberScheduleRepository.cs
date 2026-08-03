@@ -9,18 +9,39 @@ public class MemberScheduleRepository : BaseRepository<MemberScheduleItem>, IMem
 {
     public MemberScheduleRepository(AppDbContext context) : base(context) { }
 
-    public async Task<IEnumerable<MemberScheduleItem>> GetByDrawingIdAsync(int drawingId)
+    public async Task<IEnumerable<MemberScheduleItem>> GetByProjectIdAsync(int projectId)
     {
         return await _context.MemberScheduleItems
-            .Where(m => m.DrawingId == drawingId)
+            .Where(m => m.ProjectId == projectId)
             .OrderBy(m => m.Mark)
             .ToListAsync();
     }
 
-    public async Task<bool> DeleteByDrawingIdAsync(int drawingId)
+    public async Task<MemberScheduleItem?> GetByProjectAndMarkAsync(int projectId, string mark)
+    {
+        var normalizedMark = mark.Trim().ToUpper();
+        return await _context.MemberScheduleItems
+            .FirstOrDefaultAsync(m =>
+                m.ProjectId == projectId &&
+                m.Mark.Trim().ToUpper() == normalizedMark);
+    }
+
+    public async Task<IEnumerable<MemberScheduleItem>> GetByDrawingIdAsync(int drawingId)
+    {
+        var projectId = await _context.Drawings
+            .Where(d => d.Id == drawingId)
+            .Select(d => (int?)d.ProjectId)
+            .FirstOrDefaultAsync();
+
+        return projectId.HasValue
+            ? await GetByProjectIdAsync(projectId.Value)
+            : [];
+    }
+
+    public async Task<bool> DeleteByProjectIdAsync(int projectId)
     {
         var items = await _context.MemberScheduleItems
-            .Where(m => m.DrawingId == drawingId)
+            .Where(m => m.ProjectId == projectId)
             .ToListAsync();
 
         foreach (var item in items)
@@ -28,5 +49,15 @@ public class MemberScheduleRepository : BaseRepository<MemberScheduleItem>, IMem
 
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> DeleteByDrawingIdAsync(int drawingId)
+    {
+        var projectId = await _context.Drawings
+            .Where(d => d.Id == drawingId)
+            .Select(d => (int?)d.ProjectId)
+            .FirstOrDefaultAsync();
+
+        return projectId.HasValue && await DeleteByProjectIdAsync(projectId.Value);
     }
 }

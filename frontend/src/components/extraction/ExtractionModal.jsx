@@ -204,7 +204,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF233C" strokeWidth="2">
               <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/>
             </svg>
-            Drawing Schedule Extraction
+            Project Member Schedule Extraction
             {result && (
               <span style={s.badge}>{result.pageCount} page{result.pageCount !== 1 ? 's' : ''}</span>
             )}
@@ -220,7 +220,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
               <div style={{ color: '#e2e8f0', fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-                Scan and Extract Structural Members
+                Scan and Extract the Shared Member Schedule
               </div>
               <div style={{ color: '#64748b', fontSize: 13, marginBottom: 24, maxWidth: 480, margin: '0 auto 24px' }}>
                 Reads <strong style={{ color: '#94a3b8' }}>Mark</strong>, <strong style={{ color: '#94a3b8' }}>Section size</strong>, and <strong style={{ color: '#94a3b8' }}>Type</strong> from{' '}
