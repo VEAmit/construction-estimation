@@ -28,6 +28,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // App services
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ConstructionEstimation.API.Services.ExtractionService>();
 builder.Services.Configure<LicensingOptions>(
     builder.Configuration.GetSection(LicensingOptions.SectionName));

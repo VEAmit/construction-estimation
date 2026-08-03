@@ -17,6 +17,7 @@ public sealed class LicenseService : ILicenseService
     private readonly ILicenseApiClient _apiClient;
     private readonly IDataProtector _protector;
     private readonly IMemoryCache _cache;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly LicensingOptions _options;
     private readonly ILogger<LicenseService> _logger;
 
@@ -25,6 +26,7 @@ public sealed class LicenseService : ILicenseService
         ILicenseApiClient apiClient,
         IDataProtectionProvider dataProtectionProvider,
         IMemoryCache cache,
+        IHttpContextAccessor httpContextAccessor,
         IOptions<LicensingOptions> options,
         ILogger<LicenseService> logger)
     {
@@ -32,6 +34,7 @@ public sealed class LicenseService : ILicenseService
         _apiClient = apiClient;
         _protector = dataProtectionProvider.CreateProtector("BuildTakeoffPro.Licensing.v1");
         _cache = cache;
+        _httpContextAccessor = httpContextAccessor;
         _options = options.Value;
         _logger = logger;
     }
@@ -61,9 +64,14 @@ public sealed class LicenseService : ILicenseService
             }
 
             var changed = false;
-            if (string.IsNullOrWhiteSpace(configuration.ApiBaseUrl))
+            var configuredApiUrl = _options.ApplicationApiUrl.Trim();
+            if (IsValidBaseUrl(configuredApiUrl) &&
+                !string.Equals(
+                    configuration.ApiBaseUrl,
+                    configuredApiUrl,
+                    StringComparison.OrdinalIgnoreCase))
             {
-                configuration.ApiBaseUrl = _options.ApplicationApiUrl.Trim();
+                configuration.ApiBaseUrl = configuredApiUrl;
                 changed = true;
             }
 
@@ -226,7 +234,7 @@ public sealed class LicenseService : ILicenseService
                 submitted: null,
                 existing?.EncryptedApiKey,
                 required: false);
-            var apiUrl = FirstNotBlank(existing?.ApiBaseUrl, _options.ApplicationApiUrl);
+            var apiUrl = ResolveApplicationApiUrl(existing?.ApiBaseUrl);
             var validationUrl = FirstNotBlank(existing?.ValidationEndpoint, _options.ValidationUrl);
 
             if (string.IsNullOrWhiteSpace(licenseKey))
@@ -353,6 +361,41 @@ public sealed class LicenseService : ILicenseService
 
     private static string FirstNotBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+
+    private string ResolveApplicationApiUrl(string? storedUrl)
+    {
+        var configuredUrl = _options.ApplicationApiUrl.Trim();
+        if (IsValidBaseUrl(configuredUrl))
+            return configuredUrl;
+
+        var requestUrl = GetCurrentRequestBaseUrl();
+        var storedIsValid = IsValidBaseUrl(storedUrl ?? string.Empty);
+
+        // Preserve a real server-managed URL, but replace the legacy localhost:5000
+        // placeholder with the actual IIS address used for this configuration request.
+        if (storedIsValid && !IsLoopbackUrl(storedUrl!))
+            return storedUrl!.Trim();
+        if (IsValidBaseUrl(requestUrl))
+            return requestUrl;
+
+        return storedIsValid ? storedUrl!.Trim() : string.Empty;
+    }
+
+    private string GetCurrentRequestBaseUrl()
+    {
+        var request = _httpContextAccessor.HttpContext?.Request;
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.Scheme) ||
+            !request.Host.HasValue)
+            return string.Empty;
+
+        return $"{request.Scheme}://{request.Host}{request.PathBase}".TrimEnd('/');
+    }
+
+    private static bool IsLoopbackUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+        (uri.IsLoopback ||
+         uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsValidBaseUrl(string value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&

@@ -39,4 +39,24 @@
     </Content>
   </ItemGroup>
 
+  <!-- Always place the current React production bundle in an IIS publish output.
+       This prevents a publish from silently serving the older bundle checked into
+       wwwroot (which did not submit the key during first-time configuration). -->
+  <PropertyGroup>
+    <FrontendProjectDirectory>$(MSBuildProjectDirectory)\..\..\frontend</FrontendProjectDirectory>
+  </PropertyGroup>
+
+  <Target Name="BuildAndCopyFrontendForPublish"
+          AfterTargets="Publish"
+          Condition="Exists('$(FrontendProjectDirectory)\package.json')">
+    <Exec WorkingDirectory="$(FrontendProjectDirectory)"
+          Command="npm.cmd run build" />
+    <ItemGroup>
+      <FrontendPublishFiles Include="$(FrontendProjectDirectory)\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FrontendPublishFiles)"
+          DestinationFiles="@(FrontendPublishFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
