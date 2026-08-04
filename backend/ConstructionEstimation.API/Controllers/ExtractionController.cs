@@ -142,10 +142,14 @@ public class ExtractionController : ControllerBase
             saved++;
         }
 
-        // Drop members no longer found in this extraction pass
+        // Drop members no longer found in this extraction pass.
+        // Scoped to the drawing being scanned: the schedule is project-wide, so
+        // members contributed by other drawings must survive this pass. Without
+        // the DrawingId check, extracting one drawing wipes every other
+        // drawing's members out of the shared schedule.
         foreach (var old in existing)
         {
-            if (!incomingMarks.Contains(old.Mark.Trim()))
+            if (old.DrawingId == drawingId && !incomingMarks.Contains(old.Mark.Trim()))
                 await _scheduleRepo.DeleteAsync(old.Id);
         }
 

@@ -1,0 +1,366 @@
+2026-08-03 09:53:14.323 +05:30 [INF] Database migrated successfully
+2026-08-03 09:53:14.609 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-03 09:53:15.422 +05:30 [INF] License provider responded with status "Valid" in 217 ms
+2026-08-03 09:53:15.531 +05:30 [INF] License validation succeeded from startup; cached until "2026-08-03T04:53:15.4192497Z"
+2026-08-03 09:53:15.532 +05:30 [INF] Startup license validation completed with status "Valid"
+2026-08-03 09:53:15.426 +05:30 [ERR] Hosting failed to start
+System.IO.IOException: Failed to bind to address http://127.0.0.1:5000: address already in use.
+ ---> Microsoft.AspNetCore.Connections.AddressInUseException: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+ ---> System.Net.Sockets.SocketException (10048): Only one usage of each socket address (protocol/network address/port) is normally permitted.
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions.CreateDefaultBoundListenSocket(EndPoint endpoint)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportFactory.BindAsync(EndPoint endpoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.TransportManager.BindAsync(EndPoint endPoint, ConnectionDelegate connectionDelegate, EndpointConfig endpointConfig, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.<>c__DisplayClass28_0`1.<<StartAsync>g__OnBind|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.LocalhostListenOptions.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.AddressesStrategy.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindAsync(ListenOptions[] listenOptions, AddressBindContext context, Func`2 useHttps, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.BindAsync(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync[TContext](IHttpApplication`1 application, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Hosting.GenericWebHostService.StartAsync(CancellationToken cancellationToken)
+   at Microsoft.Extensions.Hosting.Internal.Host.<StartAsync>b__15_1(IHostedService service, CancellationToken token)
+   at Microsoft.Extensions.Hosting.Internal.Host.ForeachService[T](IEnumerable`1 services, CancellationToken token, Boolean concurrent, Boolean abortOnFirstException, List`1 exceptions, Func`3 operation)
+2026-08-03 10:26:21.065 +05:30 [INF] Database migrated successfully
+2026-08-03 10:26:21.892 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-03 10:26:23.658 +05:30 [INF] License provider responded with status "Valid" in 356 ms
+2026-08-03 10:26:23.661 +05:30 [ERR] Hosting failed to start
+System.IO.IOException: Failed to bind to address http://127.0.0.1:5000: address already in use.
+ ---> Microsoft.AspNetCore.Connections.AddressInUseException: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+ ---> System.Net.Sockets.SocketException (10048): Only one usage of each socket address (protocol/network address/port) is normally permitted.
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions.CreateDefaultBoundListenSocket(EndPoint endpoint)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportFactory.BindAsync(EndPoint endpoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.TransportManager.BindAsync(EndPoint endPoint, ConnectionDelegate connectionDelegate, EndpointConfig endpointConfig, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.<>c__DisplayClass28_0`1.<<StartAsync>g__OnBind|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.LocalhostListenOptions.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.AddressesStrategy.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindAsync(ListenOptions[] listenOptions, AddressBindContext context, Func`2 useHttps, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.BindAsync(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync[TContext](IHttpApplication`1 application, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Hosting.GenericWebHostService.StartAsync(CancellationToken cancellationToken)
+   at Microsoft.Extensions.Hosting.Internal.Host.<StartAsync>b__15_1(IHostedService service, CancellationToken token)
+   at Microsoft.Extensions.Hosting.Internal.Host.ForeachService[T](IEnumerable`1 services, CancellationToken token, Boolean concurrent, Boolean abortOnFirstException, List`1 exceptions, Func`3 operation)
+2026-08-03 10:26:24.128 +05:30 [ERR] Startup license validation failed
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> System.InvalidOperationException: Operation cancelled by user.
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ConstructionEstimation.Infrastructure.Repositories.LicenseRepository.SaveAsync(LicenseConfiguration configuration, CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.Infrastructure\Repositories\LicenseRepository.cs:line 30
+   at ConstructionEstimation.API.Services.Licensing.LicenseService.ValidateCurrentAsync(Boolean forceRefresh, String source, CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseService.cs:line 198
+   at ConstructionEstimation.API.Services.Licensing.LicenseStartupValidationService.ExecuteAsync(CancellationToken stoppingToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseStartupValidationService.cs:line 31
+2026-08-03 13:05:38.089 +05:30 [INF] Database migrated successfully
+2026-08-03 13:05:38.892 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-03 13:05:40.681 +05:30 [ERR] Hosting failed to start
+System.IO.IOException: Failed to bind to address http://127.0.0.1:5000: address already in use.
+ ---> Microsoft.AspNetCore.Connections.AddressInUseException: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+ ---> System.Net.Sockets.SocketException (10048): Only one usage of each socket address (protocol/network address/port) is normally permitted.
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions.CreateDefaultBoundListenSocket(EndPoint endpoint)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportFactory.BindAsync(EndPoint endpoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.TransportManager.BindAsync(EndPoint endPoint, ConnectionDelegate connectionDelegate, EndpointConfig endpointConfig, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.<>c__DisplayClass28_0`1.<<StartAsync>g__OnBind|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.LocalhostListenOptions.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.AddressesStrategy.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindAsync(ListenOptions[] listenOptions, AddressBindContext context, Func`2 useHttps, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.BindAsync(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync[TContext](IHttpApplication`1 application, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Hosting.GenericWebHostService.StartAsync(CancellationToken cancellationToken)
+   at Microsoft.Extensions.Hosting.Internal.Host.<StartAsync>b__15_1(IHostedService service, CancellationToken token)
+   at Microsoft.Extensions.Hosting.Internal.Host.ForeachService[T](IEnumerable`1 services, CancellationToken token, Boolean concurrent, Boolean abortOnFirstException, List`1 exceptions, Func`3 operation)
+2026-08-03 13:05:41.032 +05:30 [ERR] Unexpected license validation failure from startup
+System.ObjectDisposedException: Cannot access a disposed object.
+Object name: 'DefaultMeterFactory'.
+   at Microsoft.Extensions.Diagnostics.Metrics.DefaultMeterFactory.Create(MeterOptions options)
+   at System.Net.Http.Metrics.MetricsHandler..ctor(HttpMessageHandler innerHandler, IMeterFactory meterFactory, Meter& meter)
+   at System.Net.Http.SocketsHttpHandler.SetupHandlerChain()
+   at System.Net.Http.SocketsHttpHandler.SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Http.Logging.LoggingHttpMessageHandler.<SendCoreAsync>g__Core|5_0(HttpRequestMessage request, Boolean useAsync, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Http.Logging.LoggingScopeHttpMessageHandler.<SendCoreAsync>g__Core|5_0(HttpRequestMessage request, Boolean useAsync, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at ConstructionEstimation.API.Services.Licensing.LicenseApiClient.ValidateAsync(LicenseApiRequest request, CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseApiClient.cs:line 49
+   at ConstructionEstimation.API.Services.Licensing.LicenseService.ValidateCurrentAsync(Boolean forceRefresh, String source, CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseService.cs:line 171
+2026-08-03 23:03:49.039 +05:30 [ERR] Failed executing DbCommand (236ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE [MemberScheduleItems] ADD [ProjectId] int NULL;
+2026-08-03 23:03:49.087 +05:30 [WRN] Database migration failed — will attempt EnsureCreated
+Microsoft.Data.SqlClient.SqlException (0x80131904): Column names in each table must be unique. Column name 'ProjectId' in table 'MemberScheduleItems' is specified more than once.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteNonQueryTds(String methodName, Boolean isAsync, Int32 timeout, Boolean asyncWrite)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalExecuteNonQuery(TaskCompletionSource`1 completion, Boolean sendToPipe, Int32 timeout, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String methodName)
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteNonQuery()
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+   at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IEnumerable`1 migrationCommands, IRelationalConnection connection)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+   at Program.<Main>$(String[] args) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Program.cs:line 121
+ClientConnectionId:1c97d134-96a2-4c26-9e7d-efcb47a20e6c
+Error Number:2705,State:4,Class:16
+2026-08-03 23:03:50.254 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-03 23:03:52.202 +05:30 [INF] License provider responded with status "Valid" in 407 ms
+2026-08-03 23:03:52.460 +05:30 [INF] License validation succeeded from startup; cached until "2026-08-03T18:03:52.2011303Z"
+2026-08-03 23:03:52.462 +05:30 [INF] Startup license validation completed with status "Valid"
+2026-08-03 23:04:12.360 +05:30 [INF] License provider responded with status "Valid" in 45 ms
+2026-08-03 23:04:12.371 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:04:12.3609267Z"
+2026-08-03 23:04:13.058 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 1858.4864 ms
+2026-08-03 23:04:13.168 +05:30 [INF] HTTP POST /api/extraction/drawing/288/confirm responded 401 in 10.4161 ms
+2026-08-03 23:04:19.315 +05:30 [INF] License provider responded with status "Valid" in 45 ms
+2026-08-03 23:04:19.318 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:04:19.3153875Z"
+2026-08-03 23:04:19.688 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 427.8027 ms
+2026-08-03 23:04:26.845 +05:30 [INF] License provider responded with status "Valid" in 44 ms
+2026-08-03 23:04:26.850 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:04:26.8453576Z"
+2026-08-03 23:04:27.022 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 227.3758 ms
+2026-08-03 23:04:28.015 +05:30 [INF] Upserted 1 extracted members into project 70 schedule from drawing 288
+2026-08-03 23:04:28.018 +05:30 [INF] HTTP POST /api/extraction/drawing/288/confirm responded 200 in 847.4998 ms
+2026-08-03 23:05:50.160 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 350.2594 ms
+2026-08-03 23:06:00.771 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.2352 ms
+2026-08-03 23:06:00.784 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 2.9395 ms
+2026-08-03 23:06:01.273 +05:30 [INF] HTTP GET /api/license/session responded 200 in 70.6543 ms
+2026-08-03 23:06:01.289 +05:30 [INF] HTTP GET /api/license/session responded 200 in 5.4615 ms
+2026-08-03 23:06:04.920 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 313.8740 ms
+2026-08-03 23:06:04.927 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 4.0481 ms
+2026-08-03 23:06:05.007 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 388.5682 ms
+2026-08-03 23:06:05.008 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 413.4975 ms
+2026-08-03 23:06:05.072 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 3.6554 ms
+2026-08-03 23:06:05.075 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 6.4857 ms
+2026-08-03 23:06:05.148 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 13.9023 ms
+2026-08-03 23:06:05.320 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 194.7603 ms
+2026-08-03 23:06:05.329 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 203.4853 ms
+2026-08-03 23:06:05.537 +05:30 [INF] HTTP GET /api/drawings/289/file responded 304 in 55.1718 ms
+2026-08-03 23:06:06.985 +05:30 [INF] HTTP GET /api/drawings/288 responded 200 in 44.3606 ms
+2026-08-03 23:06:07.011 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288 responded 200 in 41.7864 ms
+2026-08-03 23:06:07.021 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288/summary responded 200 in 39.9390 ms
+2026-08-03 23:06:07.049 +05:30 [INF] HTTP GET /api/drawings/288/file responded 304 in 4.6808 ms
+2026-08-03 23:06:11.088 +05:30 [INF] Drawing 288: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-08-03 23:06:55.717 +05:30 [INF] Dynamic schedule locator: 991 word(s), 1 header(s), signals=MEMBER | SCHEDULE
+2026-08-03 23:07:09.161 +05:30 [INF] Schedule OCR page 1: dynamically detected 24 schedule line(s): MARK SIZE | R1 - 310 UB 40.4 | R2 - 250 UB 25.7 | R3 - 200 PFC | R4 - 200 PFC | R5 - 250 PFC | R6 - 250 PFC | RB1 - 410 UB 59.7 | RB2 - 200 PFC | RB3 - 200 PFC | RB4 - 200 PFC | FAB1 - FASCIA PURLIN TO BUILDERS DETAILS | P1 - C20019 @ 1200 CTS | P2 C20015 @ 1200 CTS | P3 - C10010 @ 1200 CTS | WS1 - 180 PFC | RA1 - 75x75x8.0 EA | S1 - 114.3x4.5 CHS | S2 - 200 PFC | rbr1 - 75x75x6.0 EA | rbr2 - 16% ROD WITH TURNBUCKLE | rbr3 - 35x1.2mm METAL STRAP BRACE | PR1 - C15019 GIRTS @ 600 CTS | ST1 - 89x89x6.0 SHS
+2026-08-03 23:07:09.590 +05:30 [INF] [Extract] Parsed 'R1' (310UB40.4) from section 'global'
+2026-08-03 23:07:09.591 +05:30 [INF] [Extract] Parsed 'R2' (250UB25.7) from section 'global'
+2026-08-03 23:07:09.592 +05:30 [INF] [Extract] Parsed 'R3' (200PFC) from section 'global'
+2026-08-03 23:07:09.592 +05:30 [INF] [Extract] Parsed 'R4' (200PFC) from section 'global'
+2026-08-03 23:07:09.592 +05:30 [INF] [Extract] Parsed 'R5' (250PFC) from section 'global'
+2026-08-03 23:07:09.593 +05:30 [INF] [Extract] Parsed 'R6' (250PFC) from section 'global'
+2026-08-03 23:07:09.593 +05:30 [INF] [Extract] Parsed 'RB1' (410UB59.7) from section 'global'
+2026-08-03 23:07:09.594 +05:30 [INF] [Extract] Parsed 'RB2' (200PFC) from section 'global'
+2026-08-03 23:07:09.596 +05:30 [INF] [Extract] Parsed 'RB3' (200PFC) from section 'global'
+2026-08-03 23:07:09.597 +05:30 [INF] [Extract] Parsed 'RB4' (200PFC) from section 'global'
+2026-08-03 23:07:09.597 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'global'
+2026-08-03 23:07:09.597 +05:30 [INF] [Extract] Parsed 'P1' (C20019) from section 'global'
+2026-08-03 23:07:09.598 +05:30 [INF] [Extract] Parsed 'P3' (C10010) from section 'global'
+2026-08-03 23:07:09.599 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'global'
+2026-08-03 23:07:09.599 +05:30 [INF] [Extract] Parsed 'RA1' (75X75X8.0EA) from section 'global'
+2026-08-03 23:07:09.600 +05:30 [INF] [Extract] Parsed 'S1' (114.3x4.5 CHS) from section 'global'
+2026-08-03 23:07:09.600 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'global'
+2026-08-03 23:07:09.600 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'global'
+2026-08-03 23:07:09.601 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE) from section 'global'
+2026-08-03 23:07:09.601 +05:30 [INF] [Extract] Parsed 'RBR3' (35x1.2mm METAL STRAP BRACE) from section 'global'
+2026-08-03 23:07:09.601 +05:30 [INF] [Extract] Parsed 'PR1' (C15019) from section 'global'
+2026-08-03 23:07:09.602 +05:30 [INF] [Extract] Parsed 'ST1' (89X89X6.0SHS) from section 'global'
+2026-08-03 23:07:09.720 +05:30 [INF] Drawing 288: extraction method=Text+ScheduleOCR, lines=35, members=23
+2026-08-03 23:07:09.743 +05:30 [INF] Extracted 23 members from drawing 288
+2026-08-03 23:07:10.367 +05:30 [INF] HTTP POST /api/extraction/drawing/288 responded 200 in 60481.4298 ms
+2026-08-03 23:07:16.185 +05:30 [INF] Upserted 23 extracted members into project 70 schedule from drawing 288
+2026-08-03 23:07:16.185 +05:30 [INF] HTTP POST /api/extraction/drawing/288/confirm responded 200 in 1185.0190 ms
+2026-08-03 23:07:16.760 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 416.0953 ms
+2026-08-03 23:07:17.510 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 1165.7480 ms
+2026-08-03 23:07:22.819 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 245.1801 ms
+2026-08-03 23:07:22.843 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 264.2449 ms
+2026-08-03 23:07:22.895 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 76.1556 ms
+2026-08-03 23:07:28.157 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 121.9554 ms
+2026-08-03 23:07:29.223 +05:30 [INF] HTTP GET /api/projects responded 200 in 1171.5798 ms
+2026-08-03 23:07:29.236 +05:30 [INF] HTTP GET /api/projects responded 200 in 3.0975 ms
+2026-08-03 23:07:30.663 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 10.2598 ms
+2026-08-03 23:07:30.674 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 12.6784 ms
+2026-08-03 23:07:30.684 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 23.8288 ms
+2026-08-03 23:07:30.701 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 40.5262 ms
+2026-08-03 23:07:30.747 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 7.7912 ms
+2026-08-03 23:07:30.775 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 6.8542 ms
+2026-08-03 23:07:30.778 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 9.6518 ms
+2026-08-03 23:07:30.840 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 8.4169 ms
+2026-08-03 23:07:30.860 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 21.4851 ms
+2026-08-03 23:07:30.878 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 39.4585 ms
+2026-08-03 23:07:37.694 +05:30 [INF] HTTP GET /api/drawings/288 responded 200 in 22.0555 ms
+2026-08-03 23:07:37.738 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288 responded 200 in 44.0806 ms
+2026-08-03 23:07:37.742 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288/summary responded 200 in 42.8631 ms
+2026-08-03 23:07:40.295 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 31.3337 ms
+2026-08-03 23:07:40.316 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 50.4721 ms
+2026-08-03 23:07:40.325 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 50.1159 ms
+2026-08-03 23:07:48.235 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-03 23:07:48.235 +05:30 [INF] Drawing 289: extraction method=Text, lines=206, members=9
+2026-08-03 23:07:48.236 +05:30 [INF] Extracted 9 members from drawing 289
+2026-08-03 23:07:48.236 +05:30 [INF] HTTP POST /api/extraction/drawing/289 responded 200 in 5252.3393 ms
+2026-08-03 23:07:55.640 +05:30 [INF] Upserted 9 extracted members into project 70 schedule from drawing 289
+2026-08-03 23:07:55.640 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 200 in 193.1999 ms
+2026-08-03 23:07:55.652 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 3.8376 ms
+2026-08-03 23:07:55.655 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 6.2285 ms
+2026-08-03 23:08:02.155 +05:30 [INF] HTTP GET /api/drawings/288 responded 200 in 55.2968 ms
+2026-08-03 23:08:02.164 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288 responded 200 in 51.5684 ms
+2026-08-03 23:08:02.183 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288/summary responded 200 in 70.3021 ms
+2026-08-03 23:08:23.638 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 44.2626 ms
+2026-08-03 23:08:23.663 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 67.6507 ms
+2026-08-03 23:08:23.679 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 84.0722 ms
+2026-08-03 23:10:11.518 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 5.8042 ms
+2026-08-03 23:10:16.023 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-03 23:10:16.028 +05:30 [INF] Drawing 289: extraction method=Text, lines=206, members=9
+2026-08-03 23:10:16.029 +05:30 [INF] Extracted 9 members from drawing 289
+2026-08-03 23:10:16.030 +05:30 [INF] HTTP POST /api/extraction/drawing/289 responded 200 in 135.5102 ms
+2026-08-03 23:10:21.902 +05:30 [INF] HTTP GET /api/drawings/288 responded 200 in 79.5454 ms
+2026-08-03 23:10:21.904 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288 responded 200 in 79.3302 ms
+2026-08-03 23:10:21.907 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288/summary responded 200 in 60.3701 ms
+2026-08-03 23:22:44.026 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 169.3763 ms
+2026-08-03 23:26:38.774 +05:30 [ERR] Failed executing DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE [MemberScheduleItems] ADD [ProjectId] int NULL;
+2026-08-03 23:26:38.819 +05:30 [WRN] Database migration failed — will attempt EnsureCreated
+Microsoft.Data.SqlClient.SqlException (0x80131904): Column names in each table must be unique. Column name 'ProjectId' in table 'MemberScheduleItems' is specified more than once.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteNonQueryTds(String methodName, Boolean isAsync, Int32 timeout, Boolean asyncWrite)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalExecuteNonQuery(TaskCompletionSource`1 completion, Boolean sendToPipe, Int32 timeout, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String methodName)
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteNonQuery()
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+   at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IEnumerable`1 migrationCommands, IRelationalConnection connection)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+   at Program.<Main>$(String[] args) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Program.cs:line 121
+ClientConnectionId:88e4ec4e-ae80-4626-8454-fb88fbdf7d4d
+Error Number:2705,State:4,Class:16
+2026-08-03 23:26:39.218 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-03 23:26:40.475 +05:30 [INF] License provider responded with status "Valid" in 556 ms
+2026-08-03 23:26:40.619 +05:30 [INF] License validation succeeded from startup; cached until "2026-08-03T18:26:40.4734159Z"
+2026-08-03 23:26:40.621 +05:30 [INF] Startup license validation completed with status "Valid"
+2026-08-03 23:27:38.163 +05:30 [INF] License provider responded with status "Valid" in 48 ms
+2026-08-03 23:27:38.243 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:27:38.1636466Z"
+2026-08-03 23:27:38.878 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 1223.7781 ms
+2026-08-03 23:27:39.170 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 400 in 171.9818 ms
+2026-08-03 23:27:46.734 +05:30 [INF] License provider responded with status "Valid" in 45 ms
+2026-08-03 23:27:46.736 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:27:46.7343218Z"
+2026-08-03 23:27:47.064 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 381.4626 ms
+2026-08-03 23:27:47.519 +05:30 [INF] Upserted 9 extracted members into project 70 schedule from drawing 289
+2026-08-03 23:27:47.522 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 200 in 380.5516 ms
+2026-08-03 23:28:09.331 +05:30 [INF] License provider responded with status "Valid" in 43 ms
+2026-08-03 23:28:09.336 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:28:09.3315323Z"
+2026-08-03 23:28:09.500 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 218.2764 ms
+2026-08-03 23:28:09.592 +05:30 [INF] Upserted 8 extracted members into project 70 schedule from drawing 289
+2026-08-03 23:28:09.592 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 200 in 43.3595 ms
+2026-08-03 23:28:26.609 +05:30 [INF] License provider responded with status "Valid" in 44 ms
+2026-08-03 23:28:26.711 +05:30 [INF] License validation succeeded from login; cached until "2026-08-03T18:28:26.6097410Z"
+2026-08-03 23:28:26.884 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 321.7856 ms
+2026-08-03 23:28:26.995 +05:30 [INF] Upserted 9 extracted members into project 70 schedule from drawing 289
+2026-08-03 23:28:26.995 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 200 in 54.4724 ms
+2026-08-03 23:29:50.724 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 20.3742 ms
+2026-08-03 23:29:55.297 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 4.9704 ms
+2026-08-03 23:29:55.300 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.6299 ms
+2026-08-03 23:29:57.069 +05:30 [INF] HTTP GET /api/license/session responded 200 in 9.0242 ms
+2026-08-03 23:29:57.082 +05:30 [INF] HTTP GET /api/license/session responded 200 in 2.0709 ms
+2026-08-03 23:29:58.698 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 96.2091 ms
+2026-08-03 23:29:58.742 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 127.1881 ms
+2026-08-03 23:29:58.750 +05:30 [INF] HTTP GET /api/drawings/project/70 responded 200 in 12.3491 ms
+2026-08-03 23:29:58.760 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 11.8297 ms
+2026-08-03 23:29:58.839 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 12.3350 ms
+2026-08-03 23:29:58.942 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 327.3225 ms
+2026-08-03 23:29:58.950 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 3.8650 ms
+2026-08-03 23:29:58.986 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 157.8408 ms
+2026-08-03 23:29:58.987 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 159.8726 ms
+2026-08-03 23:29:59.207 +05:30 [INF] HTTP GET /api/drawings/289/file responded 304 in 38.0384 ms
+2026-08-03 23:30:10.545 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-03 23:30:10.601 +05:30 [INF] Drawing 289: extraction method=Text, lines=206, members=9
+2026-08-03 23:30:10.603 +05:30 [INF] Extracted 9 members from drawing 289
+2026-08-03 23:30:10.607 +05:30 [INF] HTTP POST /api/extraction/drawing/289 responded 200 in 4932.5475 ms
+2026-08-03 23:30:16.368 +05:30 [INF] HTTP GET /api/drawings/288 responded 200 in 44.1422 ms
+2026-08-03 23:30:16.385 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288 responded 200 in 58.1083 ms
+2026-08-03 23:30:16.409 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/288/summary responded 200 in 67.8761 ms
+2026-08-03 23:30:16.448 +05:30 [INF] HTTP GET /api/drawings/288/file responded 304 in 4.6565 ms
+2026-08-03 23:30:19.158 +05:30 [INF] Drawing 288: selectable text exists but schedule candidates are weak (0 member(s)) — running targeted schedule OCR
+2026-08-03 23:30:37.283 +05:30 [INF] Dynamic schedule locator: 991 word(s), 1 header(s), signals=MEMBER | SCHEDULE
+2026-08-03 23:30:40.063 +05:30 [INF] Schedule OCR page 1: dynamically detected 24 schedule line(s): MARK SIZE | R1 - 310 UB 40.4 | R2 - 250 UB 25.7 | R3 - 200 PFC | R4 - 200 PFC | R5 - 250 PFC | R6 - 250 PFC | RB1 - 410 UB 59.7 | RB2 - 200 PFC | RB3 - 200 PFC | RB4 - 200 PFC | FAB1 - FASCIA PURLIN TO BUILDERS DETAILS | P1 - C20019 @ 1200 CTS | P2 C20015 @ 1200 CTS | P3 - C10010 @ 1200 CTS | WS1 - 180 PFC | RA1 - 75x75x8.0 EA | S1 - 114.3x4.5 CHS | S2 - 200 PFC | rbr1 - 75x75x6.0 EA | rbr2 - 16% ROD WITH TURNBUCKLE | rbr3 - 35x1.2mm METAL STRAP BRACE | PR1 - C15019 GIRTS @ 600 CTS | ST1 - 89x89x6.0 SHS
+2026-08-03 23:30:40.113 +05:30 [INF] [Extract] Parsed 'R1' (310UB40.4) from section 'global'
+2026-08-03 23:30:40.113 +05:30 [INF] [Extract] Parsed 'R2' (250UB25.7) from section 'global'
+2026-08-03 23:30:40.113 +05:30 [INF] [Extract] Parsed 'R3' (200PFC) from section 'global'
+2026-08-03 23:30:40.114 +05:30 [INF] [Extract] Parsed 'R4' (200PFC) from section 'global'
+2026-08-03 23:30:40.114 +05:30 [INF] [Extract] Parsed 'R5' (250PFC) from section 'global'
+2026-08-03 23:30:40.114 +05:30 [INF] [Extract] Parsed 'R6' (250PFC) from section 'global'
+2026-08-03 23:30:40.115 +05:30 [INF] [Extract] Parsed 'RB1' (410UB59.7) from section 'global'
+2026-08-03 23:30:40.118 +05:30 [INF] [Extract] Parsed 'RB2' (200PFC) from section 'global'
+2026-08-03 23:30:40.119 +05:30 [INF] [Extract] Parsed 'RB3' (200PFC) from section 'global'
+2026-08-03 23:30:40.119 +05:30 [INF] [Extract] Parsed 'RB4' (200PFC) from section 'global'
+2026-08-03 23:30:40.120 +05:30 [INF] [Extract] Parsed 'FAB1' (FASCIA PURLIN TO BUILDERS DETAILS) from section 'global'
+2026-08-03 23:30:40.120 +05:30 [INF] [Extract] Parsed 'P1' (C20019) from section 'global'
+2026-08-03 23:30:40.121 +05:30 [INF] [Extract] Parsed 'P3' (C10010) from section 'global'
+2026-08-03 23:30:40.122 +05:30 [INF] [Extract] Parsed 'WS1' (180PFC) from section 'global'
+2026-08-03 23:30:40.123 +05:30 [INF] [Extract] Parsed 'RA1' (75X75X8.0EA) from section 'global'
+2026-08-03 23:30:40.124 +05:30 [INF] [Extract] Parsed 'S1' (114.3x4.5 CHS) from section 'global'
+2026-08-03 23:30:40.125 +05:30 [INF] [Extract] Parsed 'S2' (200PFC) from section 'global'
+2026-08-03 23:30:40.125 +05:30 [INF] [Extract] Parsed 'RBR1' (75X75X6.0EA) from section 'global'
+2026-08-03 23:30:40.125 +05:30 [INF] [Extract] Parsed 'RBR2' (16% ROD WITH TURNBUCKLE) from section 'global'
+2026-08-03 23:30:40.126 +05:30 [INF] [Extract] Parsed 'RBR3' (35x1.2mm METAL STRAP BRACE) from section 'global'
+2026-08-03 23:30:40.126 +05:30 [INF] [Extract] Parsed 'PR1' (C15019) from section 'global'
+2026-08-03 23:30:40.127 +05:30 [INF] [Extract] Parsed 'ST1' (89X89X6.0SHS) from section 'global'
+2026-08-03 23:30:40.153 +05:30 [INF] Drawing 288: extraction method=Text+ScheduleOCR, lines=35, members=23
+2026-08-03 23:30:40.153 +05:30 [INF] Extracted 23 members from drawing 288
+2026-08-03 23:30:40.155 +05:30 [INF] HTTP POST /api/extraction/drawing/288 responded 200 in 21302.6276 ms
+2026-08-03 23:30:45.167 +05:30 [INF] Upserted 23 extracted members into project 70 schedule from drawing 288
+2026-08-03 23:30:45.167 +05:30 [INF] HTTP POST /api/extraction/drawing/288/confirm responded 200 in 112.5378 ms
+2026-08-03 23:30:45.190 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 12.9439 ms
+2026-08-03 23:30:45.191 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 16.0443 ms
+2026-08-03 23:30:51.022 +05:30 [INF] HTTP GET /api/drawings/289 responded 200 in 28.4636 ms
+2026-08-03 23:30:51.047 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289 responded 200 in 51.7075 ms
+2026-08-03 23:30:51.073 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/289/summary responded 200 in 68.5669 ms
+2026-08-03 23:30:57.791 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-03 23:30:57.792 +05:30 [INF] Drawing 289: extraction method=Text, lines=206, members=9
+2026-08-03 23:30:57.792 +05:30 [INF] Extracted 9 members from drawing 289
+2026-08-03 23:30:57.792 +05:30 [INF] HTTP POST /api/extraction/drawing/289 responded 200 in 88.9240 ms
+2026-08-03 23:30:59.356 +05:30 [INF] Upserted 9 extracted members into project 70 schedule from drawing 289
+2026-08-03 23:30:59.356 +05:30 [INF] HTTP POST /api/extraction/drawing/289/confirm responded 200 in 20.8891 ms
+2026-08-03 23:30:59.381 +05:30 [INF] HTTP GET /api/memberschedules/project/70 responded 200 in 17.3529 ms
+2026-08-03 23:30:59.384 +05:30 [INF] HTTP GET /api/memberschedules/project/70/summary responded 200 in 19.9968 ms
