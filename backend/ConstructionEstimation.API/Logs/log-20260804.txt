@@ -627,3 +627,170 @@ System.Threading.Tasks.TaskCanceledException: A task was canceled.
 2026-08-04 12:36:32.609 +05:30 [INF] License provider responded with status "Valid" in 152 ms
 2026-08-04 12:36:32.613 +05:30 [INF] License validation succeeded from frontend-startup; cached until "2026-08-04T07:36:32.6091644Z"
 2026-08-04 12:36:32.613 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 415.4075 ms
+2026-08-04 12:37:51.714 +05:30 [ERR] Failed executing DbCommand (127ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE [MemberScheduleItems] ADD [ProjectId] int NULL;
+2026-08-04 12:37:51.755 +05:30 [WRN] Database migration failed — will attempt EnsureCreated
+Microsoft.Data.SqlClient.SqlException (0x80131904): Column names in each table must be unique. Column name 'ProjectId' in table 'MemberScheduleItems' is specified more than once.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteNonQueryTds(String methodName, Boolean isAsync, Int32 timeout, Boolean asyncWrite)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalExecuteNonQuery(TaskCompletionSource`1 completion, Boolean sendToPipe, Int32 timeout, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String methodName)
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteNonQuery()
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+   at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IEnumerable`1 migrationCommands, IRelationalConnection connection)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+   at Program.<Main>$(String[] args) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Program.cs:line 121
+ClientConnectionId:4dd826c2-5a7b-47ac-96f4-2351a4867d47
+Error Number:2705,State:4,Class:16
+2026-08-04 12:37:52.207 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-04 12:37:53.217 +05:30 [INF] License provider responded with status "Valid" in 307 ms
+2026-08-04 12:37:53.395 +05:30 [INF] License validation succeeded from startup; cached until "2026-08-04T07:37:53.2149997Z"
+2026-08-04 12:37:53.398 +05:30 [INF] Startup license validation completed with status "Valid"
+2026-08-04 12:39:12.693 +05:30 [ERR] HTTP GET /api/license/startup responded 500 in 669.3042 ms
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at ConstructionEstimation.API.Services.Licensing.LicenseService.EnsureServerConfigurationAsync(CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseService.cs:line 45
+   at ConstructionEstimation.API.Services.Licensing.LicenseService.ValidateCurrentAsync(Boolean forceRefresh, String source, CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Services\Licensing\LicenseService.cs:line 143
+   at ConstructionEstimation.API.Controllers.LicenseController.ValidateStartup(CancellationToken cancellationToken) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Controllers\LicenseController.cs:line 35
+   at lambda_method189(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ConstructionEstimation.API.Middleware.LicenseMiddleware.InvokeAsync(HttpContext context, ILicenseService licenseService) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Middleware\LicenseMiddleware.cs:line 25
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+2026-08-04 12:39:14.266 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 107.6025 ms
+2026-08-04 12:39:14.279 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.3567 ms
+2026-08-04 12:39:14.723 +05:30 [INF] HTTP GET /api/license/session responded 200 in 27.2877 ms
+2026-08-04 12:39:14.758 +05:30 [INF] HTTP GET /api/license/session responded 200 in 4.0144 ms
+2026-08-04 12:39:18.358 +05:30 [INF] HTTP GET /api/memberschedules/project/72/summary responded 200 in 410.1838 ms
+2026-08-04 12:39:18.385 +05:30 [INF] HTTP GET /api/drawings/project/72 responded 200 in 438.0152 ms
+2026-08-04 12:39:18.385 +05:30 [INF] HTTP GET /api/memberschedules/project/72 responded 200 in 436.3861 ms
+2026-08-04 12:39:18.413 +05:30 [INF] HTTP GET /api/drawings/project/72 responded 200 in 13.9833 ms
+2026-08-04 12:39:18.507 +05:30 [INF] HTTP GET /api/memberschedules/project/72/summary responded 200 in 120.9635 ms
+2026-08-04 12:39:18.577 +05:30 [INF] HTTP GET /api/memberschedules/project/72 responded 200 in 190.4566 ms
+2026-08-04 12:39:18.592 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 56.8234 ms
+2026-08-04 12:39:18.607 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294 responded 200 in 69.9334 ms
+2026-08-04 12:39:18.632 +05:30 [INF] HTTP GET /api/drawings/294 responded 200 in 98.3231 ms
+2026-08-04 12:39:18.682 +05:30 [INF] HTTP GET /api/drawings/294/file responded 304 in 55.6921 ms
+2026-08-04 12:39:52.968 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 447.9525 ms
+2026-08-04 12:39:53.158 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 30.3254 ms
+2026-08-04 12:39:53.180 +05:30 [INF] HTTP PUT /api/takeoffitems/1241 responded 200 in 50.5558 ms
+2026-08-04 12:39:53.290 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 10.4343 ms
+2026-08-04 12:39:53.312 +05:30 [INF] HTTP PUT /api/takeoffitems/1242 responded 200 in 31.7666 ms
+2026-08-04 12:39:53.474 +05:30 [INF] HTTP PUT /api/takeoffitems/1255 responded 200 in 55.2894 ms
+2026-08-04 12:39:53.480 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 68.6708 ms
+2026-08-04 12:39:53.590 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 28.4800 ms
+2026-08-04 12:39:53.624 +05:30 [INF] HTTP PUT /api/takeoffitems/1256 responded 200 in 60.6450 ms
+2026-08-04 12:39:53.719 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 8.8837 ms
+2026-08-04 12:39:53.749 +05:30 [INF] HTTP PUT /api/takeoffitems/1257 responded 200 in 35.7577 ms
+2026-08-04 12:39:53.850 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 4.2690 ms
+2026-08-04 12:39:53.893 +05:30 [INF] HTTP PUT /api/takeoffitems/1258 responded 200 in 46.3109 ms
+2026-08-04 12:39:54.041 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 59.3412 ms
+2026-08-04 12:39:54.053 +05:30 [INF] HTTP PUT /api/takeoffitems/1259 responded 200 in 51.3033 ms
+2026-08-04 12:39:54.194 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 12.7404 ms
+2026-08-04 12:40:08.380 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 58.7785 ms
+2026-08-04 12:40:08.419 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 5.6201 ms
+2026-08-04 12:40:09.081 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 45.8250 ms
+2026-08-04 12:40:09.128 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 6.8635 ms
+2026-08-04 12:40:10.106 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 15.1876 ms
+2026-08-04 12:40:10.164 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 25.5553 ms
+2026-08-04 12:40:11.190 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 28.7533 ms
+2026-08-04 12:40:11.236 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 5.2007 ms
+2026-08-04 12:40:13.562 +05:30 [INF] HTTP PUT /api/takeoffitems/1240 responded 200 in 103.1336 ms
+2026-08-04 12:40:13.643 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/294/summary responded 200 in 9.1661 ms
+2026-08-04 12:40:23.709 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.7962 ms
+2026-08-04 12:40:23.924 +05:30 [INF] HTTP GET /api/projects responded 200 in 183.2298 ms
+2026-08-04 12:40:23.931 +05:30 [INF] HTTP GET /api/projects responded 200 in 3.4002 ms
+2026-08-04 12:40:28.403 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 17.2338 ms
+2026-08-04 12:40:28.468 +05:30 [INF] HTTP GET /api/drawings/project/71 responded 200 in 82.6298 ms
+2026-08-04 12:40:28.469 +05:30 [INF] HTTP GET /api/memberschedules/project/71 responded 200 in 82.8722 ms
+2026-08-04 12:40:28.477 +05:30 [INF] HTTP GET /api/drawings/project/71 responded 200 in 3.7954 ms
+2026-08-04 12:40:28.482 +05:30 [INF] HTTP GET /api/memberschedules/project/71 responded 200 in 7.1106 ms
+2026-08-04 12:40:28.505 +05:30 [INF] HTTP GET /api/memberschedules/project/71/summary responded 200 in 106.2963 ms
+2026-08-04 12:40:28.514 +05:30 [INF] HTTP GET /api/memberschedules/project/71/summary responded 200 in 5.8599 ms
+2026-08-04 12:40:28.566 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 36.4618 ms
+2026-08-04 12:40:28.571 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 39.1917 ms
+2026-08-04 12:40:28.576 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291 responded 200 in 37.7153 ms
+2026-08-04 12:40:28.694 +05:30 [INF] HTTP GET /api/drawings/291/file responded 304 in 3.3366 ms
+2026-08-04 12:40:46.851 +05:30 [INF] HTTP POST /api/drawings/291/calibrate responded 200 in 214.2851 ms
+2026-08-04 12:40:46.916 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 34.0159 ms
+2026-08-04 12:40:46.945 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 15.2424 ms
+2026-08-04 12:40:47.155 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/291 responded 200 in 106.5387 ms
+2026-08-04 12:40:47.411 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 24.9874 ms
+2026-08-04 12:41:05.753 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 12.5189 ms
+2026-08-04 12:41:06.294 +05:30 [INF] HTTP PUT /api/memberschedules/7601 responded 200 in 488.8561 ms
+2026-08-04 12:41:06.421 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 8.4305 ms
+2026-08-04 12:41:09.825 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 40.6696 ms
+2026-08-04 12:41:09.883 +05:30 [INF] HTTP PUT /api/memberschedules/7601 responded 200 in 10.9995 ms
+2026-08-04 12:41:09.975 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 11.4271 ms
+2026-08-04 12:41:17.282 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 19.4772 ms
+2026-08-04 12:41:17.319 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 5.3160 ms
+2026-08-04 12:41:18.296 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 13.4541 ms
+2026-08-04 12:41:18.327 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 3.7447 ms
+2026-08-04 12:41:20.081 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 120.5014 ms
+2026-08-04 12:41:20.130 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 3.5943 ms
+2026-08-04 12:41:37.986 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 106.8357 ms
+2026-08-04 12:41:38.045 +05:30 [INF] HTTP PUT /api/memberschedules/7601 responded 200 in 9.8510 ms
+2026-08-04 12:41:38.194 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 13.0234 ms
+2026-08-04 12:41:38.804 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 621.9652 ms
+2026-08-04 12:41:38.876 +05:30 [INF] HTTP PUT /api/memberschedules/7601 responded 200 in 39.5476 ms
+2026-08-04 12:41:38.978 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 14.0052 ms
+2026-08-04 12:41:39.165 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 199.0282 ms
+2026-08-04 12:41:39.299 +05:30 [INF] HTTP PUT /api/memberschedules/7601 responded 200 in 80.4571 ms
+2026-08-04 12:41:39.416 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 11.1100 ms
+2026-08-04 12:41:48.722 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 164.8667 ms
+2026-08-04 12:41:48.935 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 125.2268 ms
+2026-08-04 12:41:52.322 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 52.0584 ms
+2026-08-04 12:41:52.409 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 4.7868 ms
+2026-08-04 12:55:31.237 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 85.6556 ms
+2026-08-04 12:55:37.678 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 11.0783 ms
+2026-08-04 12:55:37.682 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 14.4558 ms
+2026-08-04 12:55:38.196 +05:30 [INF] HTTP GET /api/license/session responded 200 in 12.9171 ms
+2026-08-04 12:55:38.231 +05:30 [INF] HTTP GET /api/license/session responded 200 in 2.6661 ms
+2026-08-04 12:55:39.402 +05:30 [INF] HTTP GET /api/memberschedules/project/71 responded 200 in 70.4027 ms
+2026-08-04 12:55:39.419 +05:30 [INF] HTTP GET /api/memberschedules/project/71 responded 200 in 5.8356 ms
+2026-08-04 12:55:39.424 +05:30 [INF] HTTP GET /api/memberschedules/project/71/summary responded 200 in 87.7627 ms
+2026-08-04 12:55:39.440 +05:30 [INF] HTTP GET /api/memberschedules/project/71/summary responded 200 in 8.0628 ms
+2026-08-04 12:55:39.524 +05:30 [INF] HTTP GET /api/drawings/project/71 responded 200 in 197.1934 ms
+2026-08-04 12:55:39.563 +05:30 [INF] HTTP GET /api/drawings/project/71 responded 200 in 7.7709 ms
+2026-08-04 12:55:39.659 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 37.3771 ms
+2026-08-04 12:55:39.659 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 37.6769 ms
+2026-08-04 12:55:39.659 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291 responded 200 in 39.1641 ms
+2026-08-04 12:56:19.920 +05:30 [INF] Extraction: using 22 coordinate-resolved schedule rows
+2026-08-04 12:56:19.990 +05:30 [INF] Drawing 291: extraction method=Text, lines=305, members=22
+2026-08-04 12:56:20.001 +05:30 [INF] Extracted 22 members from drawing 291
+2026-08-04 12:56:20.006 +05:30 [INF] HTTP POST /api/extraction/drawing/291 responded 200 in 7861.2233 ms
+2026-08-04 12:56:21.644 +05:30 [INF] Upserted 22 extracted members into project 71 schedule from drawing 291
+2026-08-04 12:56:21.646 +05:30 [INF] HTTP POST /api/extraction/drawing/291/confirm responded 200 in 64.5920 ms
+2026-08-04 12:56:21.665 +05:30 [INF] HTTP GET /api/memberschedules/project/71/summary responded 200 in 11.5293 ms
+2026-08-04 12:56:21.670 +05:30 [INF] HTTP GET /api/memberschedules/project/71 responded 200 in 17.2305 ms
+2026-08-04 12:58:17.042 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/291 responded 200 in 7.3550 ms
+2026-08-04 12:58:17.094 +05:30 [INF] HTTP PUT /api/takeoffitems/1260 responded 200 in 8.6452 ms
+2026-08-04 12:58:17.145 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 7.1953 ms
+2026-08-04 12:58:20.630 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/291 responded 200 in 4.2711 ms
+2026-08-04 12:58:20.735 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 3.8805 ms
+2026-08-04 13:13:27.848 +05:30 [INF] License provider responded with status "Valid" in 235 ms
+2026-08-04 13:13:27.885 +05:30 [INF] License validation succeeded from middleware; cached until "2026-08-04T08:13:27.8480445Z"
+2026-08-04 13:13:28.043 +05:30 [INF] HTTP POST /api/drawings/291/calibrate responded 200 in 1291.2128 ms
+2026-08-04 13:13:28.102 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 7.3506 ms
+2026-08-04 13:13:28.126 +05:30 [INF] HTTP GET /api/drawings/291 responded 200 in 7.9855 ms
+2026-08-04 13:13:28.302 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/291 responded 200 in 111.7199 ms
+2026-08-04 13:13:28.440 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 18.5903 ms
+2026-08-04 13:13:39.982 +05:30 [INF] HTTP POST /api/takeoffitems/drawing/291 responded 200 in 7.7309 ms
+2026-08-04 13:13:40.097 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/291/summary responded 200 in 4.0308 ms
+2026-08-04 13:25:37.819 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.6902 ms
+2026-08-04 13:28:57.385 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 3.4344 ms

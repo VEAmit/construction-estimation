@@ -1,0 +1,143 @@
+2026-08-05 08:26:52.149 +05:30 [ERR] Failed executing DbCommand (209ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE [MemberScheduleItems] ADD [ProjectId] int NULL;
+2026-08-05 08:26:52.260 +05:30 [WRN] Database migration failed — will attempt EnsureCreated
+Microsoft.Data.SqlClient.SqlException (0x80131904): Column names in each table must be unique. Column name 'ProjectId' in table 'MemberScheduleItems' is specified more than once.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteNonQueryTds(String methodName, Boolean isAsync, Int32 timeout, Boolean asyncWrite)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalExecuteNonQuery(TaskCompletionSource`1 completion, Boolean sendToPipe, Int32 timeout, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String methodName)
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteNonQuery()
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteNonQuery(RelationalCommandParameterObject parameterObject)
+   at Microsoft.EntityFrameworkCore.Migrations.MigrationCommand.ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary`2 parameterValues)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.MigrationCommandExecutor.ExecuteNonQuery(IEnumerable`1 migrationCommands, IRelationalConnection connection)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.Migrate(DatabaseFacade databaseFacade)
+   at Program.<Main>$(String[] args) in D:\Construction Git Repo Project\Construction Project\backend\ConstructionEstimation.API\Program.cs:line 121
+ClientConnectionId:a0dc9730-a376-4818-b166-a63f60a00c83
+Error Number:2705,State:4,Class:16
+2026-08-05 08:26:53.707 +05:30 [INF] BuildTakeoff Pro API starting
+2026-08-05 08:26:55.785 +05:30 [INF] License provider responded with status "Valid" in 397 ms
+2026-08-05 08:26:56.075 +05:30 [INF] License validation succeeded from startup; cached until "2026-08-05T03:26:55.7825978Z"
+2026-08-05 08:26:56.077 +05:30 [INF] Startup license validation completed with status "Valid"
+2026-08-05 08:29:26.881 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 1010.2369 ms
+2026-08-05 08:29:26.895 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 10.9318 ms
+2026-08-05 08:29:27.499 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 7.2714 ms
+2026-08-05 08:29:40.357 +05:30 [INF] License provider responded with status "Valid" in 307 ms
+2026-08-05 08:29:40.385 +05:30 [INF] License validation succeeded from login; cached until "2026-08-05T03:29:40.3577077Z"
+2026-08-05 08:29:41.016 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 1127.6427 ms
+2026-08-05 08:29:41.277 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 186.3315 ms
+2026-08-05 08:29:41.283 +05:30 [INF] HTTP GET /api/license/session responded 200 in 192.3295 ms
+2026-08-05 08:29:41.327 +05:30 [INF] HTTP GET /api/license/session responded 200 in 36.8120 ms
+2026-08-05 08:29:41.947 +05:30 [INF] HTTP GET /api/projects responded 200 in 528.7705 ms
+2026-08-05 08:29:41.983 +05:30 [INF] HTTP GET /api/projects responded 200 in 26.3854 ms
+2026-08-05 08:29:46.093 +05:30 [INF] HTTP POST /api/projects/70/delete responded 200 in 88.5892 ms
+2026-08-05 08:29:48.740 +05:30 [INF] HTTP POST /api/projects/71/delete responded 200 in 8.4225 ms
+2026-08-05 08:29:50.565 +05:30 [INF] HTTP POST /api/projects/72/delete responded 200 in 8.7625 ms
+2026-08-05 08:29:57.311 +05:30 [INF] HTTP POST /api/projects responded 200 in 204.5622 ms
+2026-08-05 08:30:42.282 +05:30 [INF] HTTP POST /api/projects responded 200 in 8.9684 ms
+2026-08-05 08:30:44.421 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 5.6262 ms
+2026-08-05 08:30:46.218 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 119.7249 ms
+2026-08-05 08:30:46.264 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 165.5009 ms
+2026-08-05 08:30:46.270 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 171.8556 ms
+2026-08-05 08:30:46.334 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 64.1174 ms
+2026-08-05 08:30:46.334 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 108.6800 ms
+2026-08-05 08:30:46.334 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 54.4648 ms
+2026-08-05 08:31:14.699 +05:30 [INF] Drawing 123456.pdf uploaded for project 73
+2026-08-05 08:31:14.740 +05:30 [INF] HTTP POST /api/drawings/upload/73 responded 200 in 490.7058 ms
+2026-08-05 08:31:14.873 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 43.1015 ms
+2026-08-05 08:31:14.873 +05:30 [INF] HTTP GET /api/drawings/295 responded 200 in 45.7190 ms
+2026-08-05 08:31:14.890 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295 responded 200 in 60.1577 ms
+2026-08-05 08:31:14.893 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295/summary responded 200 in 62.4034 ms
+2026-08-05 08:31:15.084 +05:30 [INF] HTTP GET /api/drawings/295/file responded 200 in 95.8510 ms
+2026-08-05 08:31:15.121 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 6.7293 ms
+2026-08-05 08:31:15.140 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 9.7427 ms
+2026-08-05 08:31:22.061 +05:30 [INF] Drawing S101_61 uploaded for project 73
+2026-08-05 08:31:22.062 +05:30 [INF] HTTP POST /api/drawings/upload/73 responded 200 in 18.4829 ms
+2026-08-05 08:31:22.163 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 37.9909 ms
+2026-08-05 08:31:22.186 +05:30 [INF] HTTP GET /api/drawings/296 responded 200 in 41.4718 ms
+2026-08-05 08:31:22.250 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296 responded 200 in 104.3251 ms
+2026-08-05 08:31:22.297 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296/summary responded 200 in 149.0398 ms
+2026-08-05 08:31:22.362 +05:30 [INF] HTTP GET /api/drawings/296/file responded 200 in 7.1934 ms
+2026-08-05 08:31:23.610 +05:30 [INF] HTTP GET /api/drawings/295 responded 200 in 30.8975 ms
+2026-08-05 08:31:23.648 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295 responded 200 in 65.0633 ms
+2026-08-05 08:31:23.668 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295/summary responded 200 in 84.7381 ms
+2026-08-05 08:31:23.684 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 2.7471 ms
+2026-08-05 08:31:23.716 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 4.4312 ms
+2026-08-05 08:31:42.475 +05:30 [INF] Extraction: using 110 coordinate-resolved drawing-list rows
+2026-08-05 08:31:42.493 +05:30 [INF] Drawing 295: extraction method=Text, lines=1304, members=77
+2026-08-05 08:31:42.495 +05:30 [INF] Extracted 77 members from drawing 295
+2026-08-05 08:31:42.501 +05:30 [INF] HTTP POST /api/extraction/drawing/295 responded 200 in 3197.4304 ms
+2026-08-05 08:31:44.950 +05:30 [INF] Upserted 77 extracted members into project 73 schedule from drawing 295
+2026-08-05 08:31:44.952 +05:30 [INF] HTTP POST /api/extraction/drawing/295/confirm responded 200 in 213.0235 ms
+2026-08-05 08:31:44.994 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 35.0744 ms
+2026-08-05 08:31:45.021 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 62.3639 ms
+2026-08-05 08:31:48.950 +05:30 [INF] HTTP GET /api/drawings/296 responded 200 in 50.0624 ms
+2026-08-05 08:31:48.957 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296 responded 200 in 51.6460 ms
+2026-08-05 08:31:48.980 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296/summary responded 200 in 72.2749 ms
+2026-08-05 08:31:49.022 +05:30 [INF] HTTP GET /api/drawings/296/file responded 304 in 2.4452 ms
+2026-08-05 08:32:06.778 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-05 08:32:06.780 +05:30 [INF] Drawing 296: extraction method=Text, lines=206, members=9
+2026-08-05 08:32:06.780 +05:30 [INF] Extracted 9 members from drawing 296
+2026-08-05 08:32:06.781 +05:30 [INF] HTTP POST /api/extraction/drawing/296 responded 200 in 4418.5850 ms
+2026-08-05 08:32:09.124 +05:30 [INF] Upserted 9 extracted members into project 73 schedule from drawing 296
+2026-08-05 08:32:09.125 +05:30 [INF] HTTP POST /api/extraction/drawing/296/confirm responded 200 in 119.3596 ms
+2026-08-05 08:32:09.152 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 19.3596 ms
+2026-08-05 08:32:09.172 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 38.4375 ms
+2026-08-05 08:36:41.633 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 249.4708 ms
+2026-08-05 08:36:41.778 +05:30 [INF] HTTP GET /api/license/startup responded 200 in 5.7133 ms
+2026-08-05 08:36:41.862 +05:30 [INF] HTTP GET /api/license/session responded 200 in 16.6365 ms
+2026-08-05 08:36:41.869 +05:30 [INF] HTTP GET /api/license/session responded 200 in 3.6083 ms
+2026-08-05 08:36:43.186 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 124.2556 ms
+2026-08-05 08:36:43.217 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 12.1660 ms
+2026-08-05 08:36:43.257 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 194.9348 ms
+2026-08-05 08:36:43.293 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 16.5834 ms
+2026-08-05 08:36:43.335 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 273.7316 ms
+2026-08-05 08:36:43.557 +05:30 [INF] HTTP GET /api/drawings/project/73 responded 200 in 218.8843 ms
+2026-08-05 08:36:43.668 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296 responded 200 in 66.4051 ms
+2026-08-05 08:36:43.681 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296/summary responded 200 in 78.4423 ms
+2026-08-05 08:36:43.790 +05:30 [INF] HTTP GET /api/drawings/296 responded 200 in 190.6079 ms
+2026-08-05 08:36:43.897 +05:30 [INF] HTTP GET /api/drawings/296/file responded 304 in 2.4330 ms
+2026-08-05 08:36:50.373 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 2.4828 ms
+2026-08-05 08:36:50.437 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295 responded 200 in 134.4953 ms
+2026-08-05 08:36:50.437 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295/summary responded 200 in 134.0452 ms
+2026-08-05 08:36:50.438 +05:30 [INF] HTTP GET /api/drawings/295 responded 200 in 137.7342 ms
+2026-08-05 08:36:54.135 +05:30 [INF] Extraction: using 110 coordinate-resolved drawing-list rows
+2026-08-05 08:36:54.141 +05:30 [INF] Drawing 295: extraction method=Text, lines=1304, members=77
+2026-08-05 08:36:54.141 +05:30 [INF] Extracted 77 members from drawing 295
+2026-08-05 08:36:54.142 +05:30 [INF] HTTP POST /api/extraction/drawing/295 responded 200 in 1259.5406 ms
+2026-08-05 08:36:56.007 +05:30 [INF] Upserted 77 extracted members into project 73 schedule from drawing 295
+2026-08-05 08:36:56.007 +05:30 [INF] HTTP POST /api/extraction/drawing/295/confirm responded 200 in 148.5871 ms
+2026-08-05 08:36:56.049 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 33.6451 ms
+2026-08-05 08:36:56.049 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 31.9575 ms
+2026-08-05 08:37:01.419 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296 responded 200 in 44.0349 ms
+2026-08-05 08:37:01.517 +05:30 [INF] HTTP GET /api/drawings/296 responded 200 in 139.4552 ms
+2026-08-05 08:37:01.517 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296/summary responded 200 in 139.4616 ms
+2026-08-05 08:37:03.963 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-05 08:37:03.964 +05:30 [INF] Drawing 296: extraction method=Text, lines=206, members=9
+2026-08-05 08:37:03.964 +05:30 [INF] Extracted 9 members from drawing 296
+2026-08-05 08:37:03.964 +05:30 [INF] HTTP POST /api/extraction/drawing/296 responded 200 in 109.1452 ms
+2026-08-05 08:37:05.714 +05:30 [INF] Upserted 9 extracted members into project 73 schedule from drawing 296
+2026-08-05 08:37:05.714 +05:30 [INF] HTTP POST /api/extraction/drawing/296/confirm responded 200 in 30.6713 ms
+2026-08-05 08:37:05.749 +05:30 [INF] HTTP GET /api/memberschedules/project/73/summary responded 200 in 23.9957 ms
+2026-08-05 08:37:05.749 +05:30 [INF] HTTP GET /api/memberschedules/project/73 responded 200 in 26.1891 ms
+2026-08-05 08:37:25.959 +05:30 [INF] HTTP GET /api/drawings/295 responded 200 in 25.8351 ms
+2026-08-05 08:37:25.972 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295/summary responded 200 in 38.3643 ms
+2026-08-05 08:37:25.988 +05:30 [INF] HTTP GET /api/drawings/295/file responded 304 in 15.5695 ms
+2026-08-05 08:37:25.991 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/295 responded 200 in 43.4263 ms
+2026-08-05 08:37:27.111 +05:30 [INF] HTTP GET /api/drawings/296 responded 200 in 35.3365 ms
+2026-08-05 08:37:27.148 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296 responded 200 in 70.5147 ms
+2026-08-05 08:37:27.152 +05:30 [INF] HTTP GET /api/takeoffitems/drawing/296/summary responded 200 in 73.9556 ms
+2026-08-05 08:37:27.155 +05:30 [INF] HTTP GET /api/drawings/296/file responded 304 in 4.7027 ms
+2026-08-05 08:43:06.031 +05:30 [INF] License provider responded with status "Valid" in 193 ms
+2026-08-05 08:43:06.038 +05:30 [INF] License validation succeeded from login; cached until "2026-08-05T03:43:06.0318100Z"
+2026-08-05 08:43:06.213 +05:30 [INF] HTTP POST /api/auth/login responded 200 in 382.0233 ms
+2026-08-05 08:43:07.223 +05:30 [INF] Extraction: using 110 coordinate-resolved drawing-list rows
+2026-08-05 08:43:07.227 +05:30 [INF] Drawing 295: extraction method=Text, lines=1304, members=77
+2026-08-05 08:43:07.228 +05:30 [INF] Extracted 77 members from drawing 295
+2026-08-05 08:43:07.228 +05:30 [INF] HTTP POST /api/extraction/drawing/295 responded 200 in 961.8422 ms
+2026-08-05 08:43:07.360 +05:30 [INF] Extraction: using 9 coordinate-resolved schedule rows
+2026-08-05 08:43:07.361 +05:30 [INF] Drawing 296: extraction method=Text, lines=206, members=9
+2026-08-05 08:43:07.361 +05:30 [INF] Extracted 9 members from drawing 296
+2026-08-05 08:43:07.361 +05:30 [INF] HTTP POST /api/extraction/drawing/296 responded 200 in 65.3804 ms

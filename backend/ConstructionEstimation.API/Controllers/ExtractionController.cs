@@ -87,7 +87,17 @@ public class ExtractionController : ControllerBase
             return NotFound(ApiResponse<int>.Fail("Drawing not found"));
 
         var items = DeduplicateByMark(request.Items);
-        var existing = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId)).ToList();
+        // Scoped to this drawing. A mark such as "SC1" is only unique within a
+        // sheet - two drawings in the same project routinely use the same mark
+        // for different members (SC1 = 610UB113 on one sheet, 400WC270 on
+        // another). Matching project-wide made the second drawing's save
+        // overwrite the first drawing's section size, and the duplicate-merge
+        // below then deleted the other sheet's row outright. The schedule stays
+        // project-wide for display; only the upsert/merge/prune key is per
+        // drawing.
+        var existing = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId))
+            .Where(e => e.DrawingId == drawingId)
+            .ToList();
         var byMark = new Dictionary<string, MemberScheduleItem>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in existing.GroupBy(e => e.Mark.Trim(), StringComparer.OrdinalIgnoreCase))
         {
