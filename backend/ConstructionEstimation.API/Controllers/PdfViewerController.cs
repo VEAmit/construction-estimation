@@ -1,3 +1,4 @@
+using ConstructionEstimation.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,16 +13,16 @@ namespace ConstructionEstimation.API.Controllers;
 [AllowAnonymous]
 public class PdfViewerController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly AppPaths _paths;
     private readonly ILogger<PdfViewerController> _logger;
     private readonly IMemoryCache _cache;
 
     public PdfViewerController(
-        IWebHostEnvironment env,
+        AppPaths paths,
         ILogger<PdfViewerController> logger,
         IMemoryCache cache)
     {
-        _env = env;
+        _paths = paths;
         _logger = logger;
         _cache = cache;
     }
@@ -47,7 +48,7 @@ public class PdfViewerController : ControllerBase
 
     private PdfRenderer CreateRenderer()
     {
-        var tempPath = Path.Combine(_env.ContentRootPath, "pdfviewer_temp");
+        var tempPath = _paths.PdfViewerTempPath;
         Directory.CreateDirectory(tempPath);
         PdfRenderer.ReferencePath = tempPath;
         return new PdfRenderer(_cache);

@@ -16,20 +16,20 @@ public class ExtractionController : ControllerBase
     private readonly IDrawingRepository _drawingRepo;
     private readonly IMemberScheduleRepository _scheduleRepo;
     private readonly ExtractionService _extractionService;
-    private readonly IWebHostEnvironment _env;
+    private readonly AppPaths _paths;
     private readonly ILogger<ExtractionController> _logger;
 
     public ExtractionController(
         IDrawingRepository drawingRepo,
         IMemberScheduleRepository scheduleRepo,
         ExtractionService extractionService,
-        IWebHostEnvironment env,
+        AppPaths paths,
         ILogger<ExtractionController> logger)
     {
         _drawingRepo = drawingRepo;
         _scheduleRepo = scheduleRepo;
         _extractionService = extractionService;
-        _env = env;
+        _paths = paths;
         _logger = logger;
     }
 
@@ -44,7 +44,7 @@ public class ExtractionController : ControllerBase
         if (drawing == null)
             return NotFound(ApiResponse<ExtractionResultDto>.Fail("Drawing not found"));
 
-        var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var filePath = _paths.UploadedFile(drawing.FilePath);
         var result = _extractionService.ExtractFromPdf(filePath, drawingId, drawing.Name);
 
         if (result.Status == "Error")
@@ -63,7 +63,7 @@ public class ExtractionController : ControllerBase
         if (drawing == null)
             return NotFound(ApiResponse<DetectDrawingMarkResponse>.Fail("Drawing not found"));
 
-        var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var filePath = _paths.UploadedFile(drawing.FilePath);
         var result = _extractionService.DetectMarkNearMeasurement(
             filePath,
             request.PageNumber,

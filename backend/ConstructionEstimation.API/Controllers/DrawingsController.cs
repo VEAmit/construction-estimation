@@ -1,3 +1,4 @@
+using ConstructionEstimation.API.Services;
 using ConstructionEstimation.Core.Common;
 using ConstructionEstimation.Core.DTOs;
 using ConstructionEstimation.Core.Entities;
@@ -14,18 +15,18 @@ public class DrawingsController : ControllerBase
 {
     private readonly IDrawingRepository _drawingRepo;
     private readonly IProjectRepository _projectRepo;
-    private readonly IWebHostEnvironment _env;
+    private readonly AppPaths _paths;
     private readonly ILogger<DrawingsController> _logger;
 
     public DrawingsController(
         IDrawingRepository drawingRepo,
         IProjectRepository projectRepo,
-        IWebHostEnvironment env,
+        AppPaths paths,
         ILogger<DrawingsController> logger)
     {
         _drawingRepo = drawingRepo;
         _projectRepo = projectRepo;
-        _env = env;
+        _paths = paths;
         _logger = logger;
     }
 
@@ -61,7 +62,7 @@ public class DrawingsController : ControllerBase
         if (project == null)
             return NotFound(ApiResponse<DrawingResponse>.Fail($"Project {projectId} not found. Please go back to the dashboard and re-open the project."));
 
-        var uploadsDir = Path.Combine(_env.ContentRootPath, "Uploads");
+        var uploadsDir = _paths.UploadsPath;
         Directory.CreateDirectory(uploadsDir);
 
         var uniqueName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
@@ -93,7 +94,7 @@ public class DrawingsController : ControllerBase
         if (drawing == null)
             return NotFound();
 
-        var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var filePath = _paths.UploadedFile(drawing.FilePath);
         if (!System.IO.File.Exists(filePath))
             return NotFound();
 
@@ -154,7 +155,7 @@ public class DrawingsController : ControllerBase
         if (drawing == null)
             return NotFound(ApiResponse<bool>.Fail("Drawing not found"));
 
-        var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var filePath = _paths.UploadedFile(drawing.FilePath);
         if (System.IO.File.Exists(filePath))
             System.IO.File.Delete(filePath);
 
