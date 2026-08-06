@@ -17,12 +17,14 @@ const emptyRow = {
 const DISPLAY_HEADERS = ['Color', 'Mark', 'Section Size', 'Type', '']
 
 function memberSearchText(item) {
+  // Keep filtering aligned with the values the schedule exposes as searchable.
+  // Including hidden fields (notably description) made a query such as "sc"
+  // retain apparently unrelated rows whose visible values did not contain it.
   return [
     item?.id,
     item?.mark,
     item?.memberSize,
     item?.memberType,
-    item?.description,
   ]
     .filter(value => value != null)
     .join(' ')
