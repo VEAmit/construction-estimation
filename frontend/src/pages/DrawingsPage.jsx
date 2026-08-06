@@ -3569,15 +3569,42 @@ export default function DrawingsPage() {
     }
   }
 
-  const handleDrawingDeleted = (id) => {
+  const handleDrawingDeleted = async (id) => {
     const rest = (Array.isArray(useAppStore.getState().drawings) ? useAppStore.getState().drawings : []).filter(d => d.id !== id)
     setDrawings(rest)
+
+    // The project schedule is shared, but extracted rows retain their source
+    // DrawingId. Remove those rows immediately, then reload from the server so
+    // counts/summary stay authoritative after the drawing's soft-delete cascade.
+    const remainingMembers = (useAppStore.getState().memberScheduleItems ?? [])
+      .filter(member => Number(member.drawingId) !== Number(id))
+    setMemberScheduleItems(remainingMembers)
+
+    const { selectedMemberScheduleItem, lastMeasureMember } = useAppStore.getState()
+    const removedSelectedMember = [selectedMemberScheduleItem, lastMeasureMember]
+      .some(member => member && Number(member.drawingId) === Number(id))
+    if (removedSelectedMember) useAppStore.getState().clearSelectedMemberScheduleItem()
+
     if (selectedDrawing?.id === id) {
       setSelectedDrawing(rest[0] ? normalizeDrawing(rest[0]) : null)
       setTakeoffItems([])
       setSummaryLocal(null)
       annotationMapRef.current = {}
       persistedAnnotIdsRef.current = new Set()
+    }
+
+    if (!selectedProject?.id) return
+    try {
+      const [members, memberSum] = await Promise.all([
+        memberScheduleService.getByProject(selectedProject.id),
+        memberScheduleService.getProjectSummary(selectedProject.id),
+      ])
+      setMemberScheduleItems(assignMemberColors(members))
+      setMemberScheduleSummary(memberSum)
+    } catch {
+      // The drawing has already been deleted successfully. Keep the safe
+      // optimistic schedule state; the normal project reload will reconcile it.
+      toast.error('Drawing deleted, but the member schedule could not be refreshed')
     }
   }
 

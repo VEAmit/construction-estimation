@@ -8,8 +8,9 @@ public interface IMemberScheduleRepository : IRepository<MemberScheduleItem>
     Task<MemberScheduleItem?> GetByProjectAndMarkAsync(int projectId, string mark);
     Task<bool> DeleteByProjectIdAsync(int projectId);
 
-    // Backward-compatible drawing operations resolve the drawing's project and
-    // operate on its shared schedule.
+    // Reading through a drawing remains project-wide for backward-compatible
+    // shared-schedule display. Deletion is source-scoped so removing one
+    // drawing cannot remove schedule rows contributed by another drawing.
     Task<IEnumerable<MemberScheduleItem>> GetByDrawingIdAsync(int drawingId);
     Task<bool> DeleteByDrawingIdAsync(int drawingId);
 }

@@ -9,6 +9,27 @@ public class DrawingRepository : BaseRepository<Drawing>, IDrawingRepository
 {
     public DrawingRepository(AppDbContext context) : base(context) { }
 
+    public override async Task<bool> DeleteAsync(int id)
+    {
+        var drawing = await GetByIdAsync(id);
+        if (drawing == null) return false;
+
+        // Drawings use soft deletion, so the database FK cascade is never
+        // triggered. Soft-delete only schedule rows extracted from this
+        // drawing in the same SaveChanges call. Project-created rows have a
+        // null DrawingId, and rows from every other drawing remain untouched.
+        var sourcedScheduleItems = await _context.MemberScheduleItems
+            .Where(item => item.DrawingId == id)
+            .ToListAsync();
+
+        drawing.IsDeleted = true;
+        foreach (var item in sourcedScheduleItems)
+            item.IsDeleted = true;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<IEnumerable<Drawing>> GetByProjectIdAsync(int projectId) =>
         await _dbSet
             .Include(d => d.TakeoffItems)
