@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, Fragment } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, Fragment } from 'react'
 import { memberScheduleService } from '../../services/memberScheduleService'
 import { useAppStore } from '../../store/useAppStore'
 import { steelSections } from '../../utils/steelSections'
@@ -15,6 +15,23 @@ const emptyRow = {
 }
 
 const DISPLAY_HEADERS = ['Color', 'Mark', 'Section Size', 'Type', '']
+
+function memberSearchText(item) {
+  return [
+    item?.id,
+    item?.mark,
+    item?.memberSize,
+    item?.memberType,
+    item?.description,
+  ]
+    .filter(value => value != null)
+    .join(' ')
+    .toLocaleLowerCase()
+}
+
+function isEditableKeyboardTarget(target) {
+  return Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"]'))
+}
 
 /** Silently update a single takeoff item's color via the existing PUT endpoint. */
 async function patchTakeoffItemColor(item, color) {
@@ -63,10 +80,66 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
   const [addMode, setAddMode] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyRow })
   const [saving, setSaving] = useState(false)
+  const [memberSearch, setMemberSearch] = useState('')
 
   // Bulk color update confirmation dialog state
   const [colorApplyDialog, setColorApplyDialog] = useState(null) // { item, newColor }
   const colorInputRefs = useRef({})
+  const panelRef = useRef(null)
+  const searchInputRef = useRef(null)
+  const tableScrollRef = useRef(null)
+  const panelHoveredRef = useRef(false)
+
+  const indexedMembers = useMemo(() => (
+    memberScheduleItems.map(item => ({ item, searchText: memberSearchText(item) }))
+  ), [memberScheduleItems])
+
+  const filteredMemberScheduleItems = useMemo(() => {
+    const terms = memberSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
+    if (!terms.length) return memberScheduleItems
+    return indexedMembers
+      .filter(entry => terms.every(term => entry.searchText.includes(term)))
+      .map(entry => entry.item)
+  }, [indexedMembers, memberScheduleItems, memberSearch])
+
+  useEffect(() => {
+    if (tableScrollRef.current) tableScrollRef.current.scrollTop = 0
+  }, [memberSearch])
+
+  useEffect(() => {
+    setMemberSearch('')
+  }, [selectedProject?.id])
+
+  useEffect(() => {
+    const handleTypeToSearch = (event) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
+      if (isEditableKeyboardTarget(event.target)) return
+      const panelHasFocus = panelRef.current?.contains(document.activeElement)
+      if (!panelHasFocus && !panelHoveredRef.current) return
+
+      if (event.key === 'Escape' && memberSearch) {
+        event.preventDefault()
+        event.stopPropagation()
+        setMemberSearch('')
+        return
+      }
+      if (event.key === 'Backspace' && memberSearch) {
+        event.preventDefault()
+        event.stopPropagation()
+        setMemberSearch(value => value.slice(0, -1))
+        return
+      }
+      if (event.key.length !== 1 || !/[\p{L}\p{N}._/-]/u.test(event.key)) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      setMemberSearch(value => `${value}${event.key}`)
+      requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }))
+    }
+
+    window.addEventListener('keydown', handleTypeToSearch, true)
+    return () => window.removeEventListener('keydown', handleTypeToSearch, true)
+  }, [memberSearch])
 
   const set = useCallback((buf, setBuf, f, v) => {
     setBuf(prev => {
@@ -281,7 +354,19 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
   const memberColor = (item) => item.color || '#EF233C'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#080B12' }}>
+    <div
+      ref={panelRef}
+      tabIndex={0}
+      aria-label="Project Member Schedule"
+      onMouseEnter={() => { panelHoveredRef.current = true }}
+      onMouseLeave={() => { panelHoveredRef.current = false }}
+      onMouseDown={(event) => {
+        if (!isEditableKeyboardTarget(event.target) && !event.target?.closest?.('button, a')) {
+          panelRef.current?.focus({ preventScroll: true })
+        }
+      }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#080B12', outline: 'none' }}
+    >
 
       {/* Bulk color apply dialog */}
       {colorApplyDialog && (
@@ -370,13 +455,71 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
         )}
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', flexShrink: 0,
+        background: '#0A101D', borderBottom: '1px solid rgba(255,255,255,.06)',
+      }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2"
+            aria-hidden="true"
+            style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            role="searchbox"
+            value={memberSearch}
+            onChange={event => setMemberSearch(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Escape' && memberSearch) {
+                event.preventDefault()
+                event.stopPropagation()
+                setMemberSearch('')
+              }
+            }}
+            placeholder="Search mark, ID, size or type…"
+            aria-label="Search member schedule"
+            autoComplete="off"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '6px 28px 6px 27px',
+              background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.1)',
+              borderRadius: 6, color: '#e2e8f0', fontSize: 11, outline: 'none',
+            }}
+            onFocus={event => { event.currentTarget.style.borderColor = 'rgba(239,35,60,.5)' }}
+            onBlur={event => { event.currentTarget.style.borderColor = 'rgba(255,255,255,.1)' }}
+          />
+          {memberSearch && (
+            <button
+              type="button"
+              onClick={() => { setMemberSearch(''); searchInputRef.current?.focus() }}
+              aria-label="Clear member search"
+              title="Clear search (Esc)"
+              style={{
+                position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                width: 21, height: 21, border: 'none', borderRadius: 4,
+                background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: 14,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              ×
+            </button>
+          )}
+        </div>
+        <span
+          title={`${filteredMemberScheduleItems.length} matching members out of ${memberScheduleItems.length}`}
+          style={{ fontSize: 10, color: '#EF233C', fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {filteredMemberScheduleItems.length}/{memberScheduleItems.length}
+        </span>
+      </div>
+
+      <div ref={tableScrollRef} style={{ flex: 1, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
             <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
               {DISPLAY_HEADERS.map((h, i) => (
                 <th key={i} style={{ padding: '7px 8px', textAlign: i === 0 ? 'center' : 'left', fontSize: '10px',
-                  fontWeight: 800, color: '#475569', textTransform: 'uppercase',
+                  fontWeight: 800, color: '#EF233C', textTransform: 'uppercase',
                   letterSpacing: '.07em', borderBottom: '2px solid rgba(239,35,60,.35)',
                   width: i === 0 ? '52px' : undefined }}>
                   {h}
@@ -422,15 +565,17 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
               </>
             )}
 
-            {memberScheduleItems.length === 0 && !addMode ? (
+            {filteredMemberScheduleItems.length === 0 && !addMode ? (
               <tr>
                 <td colSpan={DISPLAY_HEADERS.length} style={{ padding: '40px', textAlign: 'center' }}>
                   <div style={{ color: '#64748b', fontSize: '12px' }}>
-                    No members — use <strong style={{ color: '#94a3b8' }}>Schedule Extract</strong> or Add Member
+                    {memberSearch
+                      ? <>No members match <strong style={{ color: '#94a3b8' }}>“{memberSearch}”</strong></>
+                      : <>No members — use <strong style={{ color: '#94a3b8' }}>Schedule Extract</strong> or Add Member</>}
                   </div>
                 </td>
               </tr>
-            ) : memberScheduleItems.map((item) => {
+            ) : filteredMemberScheduleItems.map((item) => {
               const isEditing = editId === item.id
               const isSelected = selectedMemberScheduleItem?.id === item.id
                 || activeMeasureMember?.id === item.id

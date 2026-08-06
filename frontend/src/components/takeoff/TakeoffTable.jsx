@@ -165,7 +165,10 @@ export default function MeasurementTable({
   const areaItems    = takeoffItems.filter(i => i.itemType === 'Area')
   const countItems   = takeoffItems.filter(i => i.itemType === 'Count')
   const totalCount   = countItems.reduce((s, i) => s + (i.quantity ?? 1), 0)
-  const totalLength  = lineItems.reduce((s, i) => s + (i.length ?? 0), 0)
+  const totalLength  = lineItems.reduce(
+    (sum, item) => sum + ((item.length ?? 0) * Math.max(1, Number(item.quantity ?? 1))),
+    0,
+  )
   const totalArea    = areaItems.reduce((s, i) => s + (i.area ?? 0), 0)
   const totalWeight  = takeoffItems.reduce((s, i) => s + (i.totalWeight ?? 0), 0)
   const totalItems   = takeoffItems.length
@@ -176,7 +179,7 @@ export default function MeasurementTable({
     const cat = i.category || 'General'
     if (!acc[cat]) acc[cat] = { color: i.color ?? '#EF233C', count: 0, length: 0 }
     acc[cat].count++
-    acc[cat].length += i.length ?? 0
+    acc[cat].length += (i.length ?? 0) * Math.max(1, Number(i.quantity ?? 1))
     return acc
   }, {})
 

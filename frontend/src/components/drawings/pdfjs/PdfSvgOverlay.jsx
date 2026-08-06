@@ -730,7 +730,8 @@ function PdfSvgOverlay({
     setDragged(null)
   }, [publishGeometryChange])
 
-  const interactive = pasteClipboard || ['select', 'line', 'calibrate'].includes(activeTool)
+  const dimensionCommandActive = ['line', 'calibrate'].includes(activeTool)
+  const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive
   return (
     <svg
       ref={svgRef}
@@ -744,7 +745,13 @@ function PdfSvgOverlay({
       onPointerCancel={endDrag}
       onPointerLeave={() => { if (!dragRef.current && !draftStartRef.current) setCursor(null) }}
     >
-      <g pointerEvents={pasteClipboard ? 'none' : 'auto'}>
+      {/*
+        Let both placement clicks reach the SVG drawing surface even when the
+        pointer is over an existing line, endpoint, or label.  Hit-testing is
+        restored automatically as soon as the user leaves the dimension tool,
+        so normal Select-mode editing remains unchanged.
+      */}
+      <g pointerEvents={pasteClipboard || dimensionCommandActive ? 'none' : 'auto'}>
         {pageAnnotations.map(annotation => (
           <AnnotationShape
             key={annotation.id}

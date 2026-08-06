@@ -11,6 +11,10 @@ function getSectionSizeForItem(item, memberScheduleItems) {
   return msi?.memberSize ?? ''
 }
 
+function getExtendedMeasurementLength(item) {
+  return (item?.length ?? 0) * Math.max(1, Number(item?.quantity ?? 1))
+}
+
 export function exportToExcel(measurements, memberScheduleItems, drawing, project) {
   const wb = XLSX.utils.book_new()
   const unit = drawing?.calibrationUnit ?? 'Mm'
@@ -23,7 +27,7 @@ export function exportToExcel(measurements, memberScheduleItems, drawing, projec
     { Field: 'Drawing', Value: drawing?.name ?? 'N/A' },
     { Field: 'Scale Unit', Value: drawing?.isCalibrated ? unitLabel : 'Not calibrated' },
     { Field: 'Total Measurements', Value: (measurements ?? []).length },
-    { Field: 'Total Length', Value: (measurements ?? []).reduce((s, i) => s + (i.length ?? 0), 0).toFixed(4) + ' ' + unitLabel },
+    { Field: 'Total Length', Value: (measurements ?? []).reduce((s, i) => s + getExtendedMeasurementLength(i), 0).toFixed(4) + ' ' + unitLabel },
     { Field: 'Total Members', Value: (memberScheduleItems ?? []).length },
     { Field: 'Total Steel Weight (kg)', Value: (memberScheduleItems ?? []).reduce((s, m) => s + (m.totalWeight ?? 0), 0).toFixed(2) },
     { Field: 'Generated', Value: new Date().toLocaleDateString('en-AU') },
@@ -137,7 +141,7 @@ export function exportToPdf(measurements, memberScheduleItems, drawing, project)
   })
 
   // Measurement totals
-  const totalLength = (measurements ?? []).reduce((s, i) => s + (i.length ?? 0), 0)
+  const totalLength = (measurements ?? []).reduce((s, i) => s + getExtendedMeasurementLength(i), 0)
   const y1 = doc.lastAutoTable.finalY + 5
   doc.setFontSize(9)
   doc.setFont(undefined, 'bold')

@@ -157,7 +157,7 @@ public class TakeoffItemsController : ControllerBase
         var list = items.ToList();
 
         var summary = new TakeoffSummaryResponse(
-            TotalLength: list.Sum(i => i.Length ?? 0),
+            TotalLength: list.Sum(i => (i.Length ?? 0) * Math.Max(1, i.Quantity)),
             TotalArea: list.Sum(i => i.Area ?? 0),
             TotalWeight: list.Sum(i => i.TotalWeight ?? 0),
             TotalItems: list.Count

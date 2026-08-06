@@ -211,11 +211,35 @@ function takeoffOccurrenceLength(occurrence, fallback = null) {
   return Number.isFinite(fallbackValue) && fallbackValue >= 0 ? fallbackValue : null
 }
 
-function totalTakeoffOccurrenceLength(occurrences, fallback = null) {
-  const lengths = (occurrences ?? [])
-    .map(occurrence => takeoffOccurrenceLength(occurrence, fallback))
-    .filter(value => value != null)
-  return lengths.length ? lengths.reduce((sum, value) => sum + value, 0) : fallback
+function takeoffLengthsMatch(left, right) {
+  const leftValue = Number(left)
+  const rightValue = Number(right)
+  if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) return false
+  const tolerance = Math.max(0.000001, Math.max(Math.abs(leftValue), Math.abs(rightValue)) * 0.000001)
+  return Math.abs(leftValue - rightValue) <= tolerance
+}
+
+function takeoffUnitsMatch(left, right) {
+  if (left == null || right == null) return true
+  return String(left).trim().toLowerCase() === String(right).trim().toLowerCase()
+}
+
+// A grouped row represents repeated instances of one dimension. Its Length is
+// the per-instance length and Quantity is the number of occurrences; Length
+// must never become the sum of all pasted instances.
+function groupedTakeoffOccurrenceLength(occurrences, fallback = null) {
+  const first = (occurrences ?? [])
+    .map(occurrence => takeoffOccurrenceLength(occurrence, null))
+    .find(value => value != null)
+  return first ?? takeoffOccurrenceLength(null, fallback)
+}
+
+function groupedTakeoffTotalWeight(item, length, quantity, unit = null) {
+  if (item?.unitWeight == null || length == null) return item?.totalWeight
+  const totalWeight = Number(item.unitWeight)
+    * toMeters(length, unit ?? item.unit)
+    * Number(quantity ?? 1)
+  return Number.isFinite(totalWeight) ? totalWeight : item?.totalWeight
 }
 
 function buildOccurrenceContainer(item, occurrences) {
@@ -254,7 +278,15 @@ function appendTakeoffOccurrence(item, {
   if (!item || !geometry || !annotationId) return null
   const existing = buildTakeoffOccurrencesFromItem(item)
   if (existing.some(occ => String(occ.annotationName) === String(annotationId))) {
-    return { item, occurrences: existing, appended: false }
+    return { item, occurrences: existing, appended: false, duplicate: true }
+  }
+  const groupedLength = groupedTakeoffOccurrenceLength(existing, item.length)
+  const incomingLength = takeoffOccurrenceLength({ length }, null)
+  const groupedUnit = existing[0]?.unit ?? item.unit
+  const incomingUnit = unit ?? item.unit
+  if ((groupedLength != null && incomingLength != null && !takeoffLengthsMatch(groupedLength, incomingLength))
+      || !takeoffUnitsMatch(groupedUnit, incomingUnit)) {
+    return { item, occurrences: existing, appended: false, lengthMismatch: true }
   }
   const occurrences = [
     ...existing,
@@ -272,14 +304,12 @@ function appendTakeoffOccurrence(item, {
       geometry: stripOccurrenceContainer(geometry),
     },
   ]
-  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  const rowLength = groupedTakeoffOccurrenceLength(occurrences, item.length)
   const next = {
     ...item,
     quantity: occurrences.length,
-    length: totalLength,
-    totalWeight: item.unitWeight != null && totalLength != null
-      ? Number(item.unitWeight) * toMeters(totalLength, unit ?? item.unit)
-      : item.totalWeight,
+    length: rowLength,
+    totalWeight: groupedTakeoffTotalWeight(item, rowLength, occurrences.length, unit),
     pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
   }
   return { item: next, occurrences, appended: true }
@@ -296,14 +326,12 @@ function updateTakeoffOccurrence(item, annotationId, updater) {
     return updater(occurrence)
   })
   if (!changed) return null
-  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  const rowLength = groupedTakeoffOccurrenceLength(occurrences, item.length)
   return {
     ...item,
     quantity: occurrences.length,
-    length: totalLength,
-    totalWeight: item.unitWeight != null && totalLength != null
-      ? Number(item.unitWeight) * toMeters(totalLength, item.unit)
-      : item.totalWeight,
+    length: rowLength,
+    totalWeight: groupedTakeoffTotalWeight(item, rowLength, occurrences.length),
     pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
   }
 }
@@ -318,15 +346,13 @@ function removeTakeoffOccurrence(item, annotationId) {
   )
   if (occurrences.length === existing.length) return null
   if (!occurrences.length) return { item: null, occurrences, removed: true }
-  const totalLength = totalTakeoffOccurrenceLength(occurrences, item.length)
+  const rowLength = groupedTakeoffOccurrenceLength(occurrences, item.length)
   return {
     item: {
       ...item,
       quantity: occurrences.length,
-      length: totalLength,
-      totalWeight: item.unitWeight != null && totalLength != null
-        ? Number(item.unitWeight) * toMeters(totalLength, item.unit)
-        : item.totalWeight,
+      length: rowLength,
+      totalWeight: groupedTakeoffTotalWeight(item, rowLength, occurrences.length),
       pointsJson: JSON.stringify(buildOccurrenceContainer(item, occurrences)),
     },
     occurrences,
@@ -334,9 +360,77 @@ function removeTakeoffOccurrence(item, annotationId) {
   }
 }
 
+function buildChangedLineGeometry(item, occurrence, payload, annotationId, fallbackUnit) {
+  const movedRaw = JSON.parse(JSON.stringify(payload.rawAnnotation))
+  const baseGeometry = stripOccurrenceContainer(occurrence?.geometry ?? readTakeoffPointsJson(item?.pointsJson) ?? {})
+  const stableAnnotId = annotationId ?? getRawAnnotationId(baseGeometry) ?? getRawAnnotationId(movedRaw)
+  const geometry = {
+    ...baseGeometry,
+    ...movedRaw,
+    annotationId: stableAnnotId,
+    AnnotName: stableAnnotId,
+    name: stableAnnotId,
+    strokeColor: baseGeometry.strokeColor ?? baseGeometry.StrokeColor ?? movedRaw.strokeColor,
+    StrokeColor: baseGeometry.StrokeColor ?? baseGeometry.strokeColor ?? movedRaw.StrokeColor,
+    thickness: baseGeometry.thickness ?? baseGeometry.Thickness ?? movedRaw.thickness,
+    Thickness: baseGeometry.Thickness ?? baseGeometry.thickness ?? movedRaw.Thickness,
+  }
+  const movedPoints = movedRaw.vertexPoints ?? movedRaw.VertexPoints ?? []
+  const firstPoint = movedPoints[0]
+  const lastPoint = movedPoints[movedPoints.length - 1]
+  const derivedPixelLength = firstPoint && lastPoint
+    ? Math.hypot(
+        Number(lastPoint.x ?? lastPoint.X) - Number(firstPoint.x ?? firstPoint.X),
+        Number(lastPoint.y ?? lastPoint.Y) - Number(firstPoint.y ?? firstPoint.Y),
+      )
+    : null
+  const pixelLength = Number.isFinite(Number(payload.pixelLength))
+    ? Number(payload.pixelLength)
+    : derivedPixelLength
+  const unit = payload.unit ?? occurrence?.unit ?? item?.unit ?? fallbackUnit
+  const nextLength = payload.length != null
+    && Number.isFinite(Number(payload.length))
+    && Number(payload.length) >= 0
+    ? Number(payload.length)
+    : takeoffOccurrenceLength(occurrence, item?.length)
+  const description = formatLineMeasureDescription(
+    pixelLength,
+    nextLength,
+    unit,
+    getCalibratedDrawingFromStore(),
+  )
+  return { geometry, movedRaw, pixelLength, unit, nextLength, description, stableAnnotId }
+}
+
+function buildIndependentGeometryItem(item, occurrence, payload, annotationId, fallbackUnit) {
+  const change = buildChangedLineGeometry(item, occurrence, payload, annotationId, fallbackUnit)
+  const quantity = Number(item?.quantity ?? 1)
+  return {
+    change,
+    item: {
+      ...item,
+      quantity,
+      unit: change.unit,
+      length: change.nextLength,
+      totalWeight: groupedTakeoffTotalWeight(item, change.nextLength, quantity, change.unit),
+      description: change.description,
+      pointsJson: JSON.stringify(change.geometry),
+    },
+  }
+}
+
 function linkedTakeoffRootId(notes) {
   const match = String(notes ?? '').match(/\blinkedItem:(\d+)/i)
   return match ? Number(match[1]) : null
+}
+
+function withoutLegacyOccurrenceLinkNotes(notes) {
+  return String(notes ?? '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => !/^linkedItem:/i.test(part) && !/^occurrence:/i.test(part))
+    .join(';')
 }
 
 async function consolidateLegacyLinkedTakeoffRows(items) {
@@ -357,9 +451,15 @@ async function consolidateLegacyLinkedTakeoffRows(items) {
 
     let groupedRoot = originalRoot
     let appendedAny = false
+    const mergedChildren = []
     children.forEach(child => {
-      buildTakeoffOccurrencesFromItem(child).forEach(occurrence => {
-        const appended = appendTakeoffOccurrence(groupedRoot, {
+      const childOccurrences = buildTakeoffOccurrencesFromItem(child)
+      let candidateRoot = groupedRoot
+      let childCanMerge = childOccurrences.length > 0
+      let childAppended = false
+      childOccurrences.forEach(occurrence => {
+        if (!childCanMerge) return
+        const appended = appendTakeoffOccurrence(candidateRoot, {
           geometry: occurrence.geometry,
           annotationId: occurrence.annotationName,
           occurrenceId: occurrence.occurrenceId,
@@ -368,21 +468,28 @@ async function consolidateLegacyLinkedTakeoffRows(items) {
           unit: occurrence.unit ?? child.unit,
         })
         if (appended?.appended) {
-          groupedRoot = appended.item
-          appendedAny = true
+          candidateRoot = appended.item
+          childAppended = true
+        } else if (!appended?.duplicate) {
+          childCanMerge = false
         }
       })
+      if (childCanMerge) {
+        groupedRoot = candidateRoot
+        mergedChildren.push(child)
+        appendedAny = appendedAny || childAppended
+      }
     })
-    if (!appendedAny) continue
+    if (!appendedAny || !mergedChildren.length) continue
 
     const deletedChildren = []
     try {
       const savedRoot = await takeoffService.update(groupedRoot)
-      for (const child of children) {
+      for (const child of mergedChildren) {
         await takeoffService.delete(child.id)
         deletedChildren.push(child)
       }
-      const childIds = new Set(children.map(child => Number(child.id)))
+      const childIds = new Set(mergedChildren.map(child => Number(child.id)))
       working = working
         .filter(item => !childIds.has(Number(item.id)))
         .map(item => Number(item.id) === Number(rootId) ? savedRoot : item)
@@ -394,6 +501,124 @@ async function consolidateLegacyLinkedTakeoffRows(items) {
       await Promise.allSettled(deletedChildren.map(child => takeoffService.restore(child)))
       await takeoffService.update(originalRoot).catch(() => {})
       console.warn('[BuildTakeoff] legacy pasted-row consolidation skipped:', error)
+    }
+  }
+
+  return { items: working, changed }
+}
+
+function groupTakeoffOccurrencesByLength(occurrences, fallbackLength, fallbackUnit) {
+  const groups = []
+  ;(occurrences ?? []).forEach(occurrence => {
+    const length = takeoffOccurrenceLength(occurrence, fallbackLength)
+    const unit = occurrence?.unit ?? fallbackUnit
+    const existing = groups.find(group => (
+      takeoffUnitsMatch(group.unit, unit)
+      && ((group.length == null && length == null)
+        || (group.length != null && length != null && takeoffLengthsMatch(group.length, length)))
+    ))
+    if (existing) existing.occurrences.push(occurrence)
+    else groups.push({ length, unit, occurrences: [occurrence] })
+  })
+  return groups
+}
+
+function buildTakeoffOccurrenceGroupItem(item, occurrences) {
+  const rowLength = groupedTakeoffOccurrenceLength(occurrences, item.length)
+  const rowUnit = occurrences[0]?.unit ?? item.unit
+  const quantity = occurrences.length
+  const pointsJson = quantity === 1
+    ? JSON.stringify(stripOccurrenceContainer(occurrences[0].geometry))
+    : JSON.stringify(buildOccurrenceContainer(item, occurrences))
+  return {
+    ...item,
+    quantity,
+    unit: rowUnit,
+    length: rowLength,
+    totalWeight: groupedTakeoffTotalWeight(item, rowLength, quantity, rowUnit),
+    pointsJson,
+  }
+}
+
+// Records created by older builds may contain different occurrence lengths in
+// one row or may store the sum in Length. Normalize them on load so upgraded
+// projects obey the same per-dimension grouping invariant as new pastes.
+async function normalizeGroupedTakeoffRows(items) {
+  let working = [...(items ?? [])]
+  let changed = false
+
+  for (const original of [...working]) {
+    const raw = readTakeoffPointsJson(original?.pointsJson)
+    if (!Array.isArray(raw?.occurrences) || raw.occurrences.length === 0) continue
+    const occurrences = buildTakeoffOccurrencesFromItem(original)
+    if (!occurrences.length) continue
+    const groups = groupTakeoffOccurrencesByLength(occurrences, original.length, original.unit)
+    if (!groups.length) continue
+
+    if (groups.length === 1) {
+      const normalized = buildTakeoffOccurrenceGroupItem(original, groups[0].occurrences)
+      const totalWeightChanged = normalized.totalWeight != null
+        && !takeoffLengthsMatch(normalized.totalWeight, original.totalWeight)
+      if (Number(original.quantity ?? 1) === normalized.quantity
+          && takeoffLengthsMatch(original.length, normalized.length)
+          && takeoffUnitsMatch(original.unit, normalized.unit)
+          && !totalWeightChanged) continue
+      try {
+        const saved = await takeoffService.update(normalized)
+        working = working.map(item => Number(item.id) === Number(original.id) ? saved : item)
+        changed = true
+      } catch (error) {
+        console.warn('[BuildTakeoff] grouped measurement normalization skipped:', error)
+      }
+      continue
+    }
+
+    const createdRows = []
+    try {
+      for (const group of groups.slice(1)) {
+        const template = buildTakeoffOccurrenceGroupItem(
+          { ...original, quantity: group.occurrences.length },
+          group.occurrences,
+        )
+        let created = await takeoffService.create({
+          drawingId: original.drawingId,
+          itemType: original.itemType || 'Line',
+          mark: original.mark,
+          description: original.description,
+          quantity: template.quantity,
+          unit: template.unit,
+          material: original.material,
+          notes: withoutLegacyOccurrenceLinkNotes(original.notes),
+          length: template.length,
+          area: original.area,
+          unitWeight: original.unitWeight,
+          totalWeight: template.totalWeight,
+          color: original.color,
+          category: original.category,
+          pointsJson: template.pointsJson,
+          scaleRatioAtCreation: original.scaleRatioAtCreation,
+          calibrationUnitAtCreation: original.calibrationUnitAtCreation,
+        })
+        createdRows.push(created)
+        if (group.occurrences.length > 1) {
+          created = await takeoffService.update({
+            ...created,
+            pointsJson: JSON.stringify(buildOccurrenceContainer(created, group.occurrences)),
+          })
+          createdRows[createdRows.length - 1] = created
+        }
+      }
+
+      const root = await takeoffService.update(
+        buildTakeoffOccurrenceGroupItem(original, groups[0].occurrences),
+      )
+      working = working
+        .map(item => Number(item.id) === Number(original.id) ? root : item)
+        .concat(createdRows)
+      changed = true
+    } catch (error) {
+      await Promise.allSettled(createdRows.map(item => takeoffService.delete(item.id)))
+      console.warn('[BuildTakeoff] mixed-length measurement split skipped:', error)
     }
   }
 
@@ -672,6 +897,10 @@ export default function DrawingsPage() {
   const savingAnnotIdsRef = useRef(new Set())
   const geometrySaveTimersRef = useRef(new Map())
   const geometrySaveRevisionRef = useRef(new Map())
+  // Maps an occurrence UUID to the row created when that copied occurrence is
+  // first moved/resized. It prevents repeated pointer-move events from
+  // creating more than one detached row while the first save is in flight.
+  const geometryDetachmentsRef = useRef(new Map())
   const labelSizeSaveTimersRef = useRef(new Map())
   const measureReleaseRef = useRef(null)
   // Last auto-saved measurement — Clear removes it; mark reused on next draw after Clear
@@ -700,6 +929,7 @@ export default function DrawingsPage() {
   // the drawing changes (including the first load after a browser refresh).
   useEffect(() => {
     calibrationDrawPendingRef.current = false
+    geometryDetachmentsRef.current.clear()
     clearCopiedMeasurements()
   }, [selectedDrawing?.id, clearCopiedMeasurements])
 
@@ -1253,7 +1483,9 @@ export default function DrawingsPage() {
         }
         const consolidation = await consolidateLegacyLinkedTakeoffRows(finalItems)
         finalItems = consolidation.items
-        const finalSummary = consolidation.changed
+        const normalization = await normalizeGroupedTakeoffRows(finalItems)
+        finalItems = normalization.items
+        const finalSummary = consolidation.changed || normalization.changed
           ? await takeoffService.getSummary(selectedDrawing.id).catch(() => sum)
           : sum
         setTakeoffItems(finalItems)
@@ -1321,6 +1553,7 @@ export default function DrawingsPage() {
     geometrySaveTimersRef.current.forEach(timer => clearTimeout(timer))
     geometrySaveTimersRef.current.clear()
     geometrySaveRevisionRef.current.clear()
+    geometryDetachmentsRef.current.clear()
     labelSizeSaveTimersRef.current.forEach(timer => clearTimeout(timer))
     labelSizeSaveTimersRef.current.clear()
 
@@ -1453,6 +1686,7 @@ export default function DrawingsPage() {
     geometrySaveTimersRef.current.forEach(t => clearTimeout(t))
     geometrySaveTimersRef.current.clear()
     geometrySaveRevisionRef.current.clear()
+    geometryDetachmentsRef.current.clear()
     labelSizeSaveTimersRef.current.forEach(t => clearTimeout(t))
     labelSizeSaveTimersRef.current.clear()
   }, [])
@@ -1725,19 +1959,30 @@ export default function DrawingsPage() {
           .filter(Boolean)
           .some(key => pastedMemberKeys.has(key))
       }
+      const isSamePastedDimension = item => {
+        if (!isSamePastedMember(item)) return false
+        const occurrences = buildTakeoffOccurrencesFromItem(item)
+        if (!occurrences.length) return false
+        const groupedLength = groupedTakeoffOccurrenceLength(occurrences, item.length)
+        const groupedUnit = occurrences[0]?.unit ?? item.unit
+        return groupedLength != null
+          && saveLength != null
+          && takeoffLengthsMatch(groupedLength, saveLength)
+          && takeoffUnitsMatch(groupedUnit, unit)
+      }
       const linkedRoot = isPaste && linkedRootItemId != null
         ? liveItems.find(item => Number(item.id) === Number(linkedRootItemId))
         : null
       const pasteGroup = isPaste
         ? (
-            (linkedRoot && isSamePastedMember(linkedRoot) ? linkedRoot : null)
-            ?? liveItems.find(item => isSamePastedMember(item))
+            (linkedRoot && isSamePastedDimension(linkedRoot) ? linkedRoot : null)
+            ?? liveItems.find(item => isSamePastedDimension(item))
             ?? null
           )
         : null
 
-      // One takeoff row represents the member group. Every pasted mark remains
-      // an independent occurrence with its own annotation UUID and geometry.
+      // Equal copies share one quantity row while retaining unique annotation
+      // UUIDs. A different length always starts its own independent row.
       let finalSaved
       if (pasteGroup && measurement.rawAnnotation && measurement.annotationId) {
         const appended = appendTakeoffOccurrence(pasteGroup, {
@@ -2299,7 +2544,18 @@ export default function DrawingsPage() {
 
   const handleMeasurementGeometryChange = useCallback((payload) => {
     const annotId = payload?.annotationId
-    const dbId = payload?.dbId ?? resolveMeasurementDbId(annotId)
+    const annotationKey = annotId == null ? null : String(annotId)
+    const trackedDetachment = annotationKey == null
+      ? null
+      : geometryDetachmentsRef.current.get(annotationKey)
+    if (trackedDetachment?.inFlight) {
+      trackedDetachment.latestPayload = payload
+      return
+    }
+
+    const dbId = trackedDetachment?.detachedId
+      ?? payload?.dbId
+      ?? resolveMeasurementDbId(annotId)
     if (dbId == null || !payload?.rawAnnotation) return
 
     const existingTimer = geometrySaveTimersRef.current.get(dbId)
@@ -2309,105 +2565,184 @@ export default function DrawingsPage() {
       recordUndoSnapshot('move or resize measurement', { groupKey: historyGroupKey })
     }
 
-    const item = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+    const item = (useAppStore.getState().takeoffItems ?? [])
+      .find(t => String(t.id) === String(dbId))
     if (!item?.pointsJson) return
 
     try {
       const previousRaw = JSON.parse(item.pointsJson)
-      const movedRaw = JSON.parse(JSON.stringify(payload.rawAnnotation))
-      const stableAnnotId = annotId ?? previousRaw.annotationId ?? previousRaw.AnnotName ?? previousRaw.name
-      const mergeGeometry = (baseRaw) => ({
-        ...baseRaw,
-        ...movedRaw,
-        annotationId: stableAnnotId,
-        AnnotName: stableAnnotId,
-        name: stableAnnotId,
-        strokeColor: baseRaw.strokeColor ?? baseRaw.StrokeColor ?? movedRaw.strokeColor,
-        StrokeColor: baseRaw.StrokeColor ?? baseRaw.strokeColor ?? movedRaw.StrokeColor,
-        thickness: baseRaw.thickness ?? baseRaw.Thickness ?? movedRaw.thickness,
-        Thickness: baseRaw.Thickness ?? baseRaw.thickness ?? movedRaw.Thickness,
-      })
-      let mergedRaw
-      if (Array.isArray(previousRaw.occurrences) && previousRaw.occurrences.length) {
-        let updatedOccurrence = false
-        const nextOccurrences = previousRaw.occurrences.map(occ => {
-          const geometry = stripOccurrenceContainer(occ?.geometry ?? occ?.rawAnnotation ?? occ)
-          const occurrenceAnnotId = occ?.annotationName ?? getRawAnnotationId(geometry)
-          if (String(occurrenceAnnotId) !== String(stableAnnotId)) return occ
-          updatedOccurrence = true
-          return {
-            ...occ,
-            annotationName: stableAnnotId,
-            pageNumber: payload.pageNumber ?? occ.pageNumber ?? geometry.pageNumber ?? 1,
-            rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occ.rotation ?? 0,
-            geometry: mergeGeometry(geometry),
-          }
-        })
-        mergedRaw = {
-          ...previousRaw,
-          occurrences: updatedOccurrence ? nextOccurrences : previousRaw.occurrences,
+      const occurrences = buildTakeoffOccurrencesFromItem(item)
+      const occurrence = occurrences.find(entry => (
+        String(entry.annotationName) === String(annotId)
+      ))
+
+      // A pasted occurrence shares its quantity row only until its geometry is
+      // edited. The first move/resize/endpoint change splits it into a new row;
+      // the in-flight map above ensures pointer-move events cannot split it twice.
+      if (annotationKey != null && occurrence && occurrences.length > 1) {
+        const detachment = {
+          sourceId: item.id,
+          detachedId: null,
+          inFlight: true,
+          latestPayload: payload,
         }
-      } else {
-        mergedRaw = mergeGeometry(previousRaw)
+        geometryDetachmentsRef.current.set(annotationKey, detachment)
+        if (existingTimer) {
+          clearTimeout(existingTimer)
+          geometrySaveTimersRef.current.delete(dbId)
+        }
+
+        void (async () => {
+          let created = null
+          try {
+            const liveSource = (useAppStore.getState().takeoffItems ?? [])
+              .find(entry => String(entry.id) === String(detachment.sourceId))
+            const liveOccurrences = buildTakeoffOccurrencesFromItem(liveSource)
+            const liveOccurrence = liveOccurrences.find(entry => (
+              String(entry.annotationName) === annotationKey
+            ))
+            if (!liveSource || !liveOccurrence || liveOccurrences.length <= 1) {
+              throw new Error('Copied measurement is no longer grouped')
+            }
+
+            const detachPayload = detachment.latestPayload
+            const detachedTemplate = buildIndependentGeometryItem(
+              { ...liveSource, quantity: 1 },
+              liveOccurrence,
+              detachPayload,
+              annotationKey,
+              activeUnit,
+            ).item
+            const removal = removeTakeoffOccurrence(liveSource, annotationKey)
+            if (!removal?.item) throw new Error('Could not remove copied occurrence from its group')
+
+            created = await takeoffService.create({
+              drawingId: liveSource.drawingId,
+              itemType: liveSource.itemType || 'Line',
+              mark: liveSource.mark,
+              description: detachedTemplate.description,
+              quantity: 1,
+              unit: detachedTemplate.unit,
+              material: liveSource.material,
+              notes: withoutLegacyOccurrenceLinkNotes(liveSource.notes),
+              length: detachedTemplate.length,
+              area: liveSource.area,
+              unitWeight: liveSource.unitWeight,
+              totalWeight: detachedTemplate.totalWeight,
+              color: liveSource.color,
+              category: liveSource.category,
+              pointsJson: detachedTemplate.pointsJson,
+              scaleRatioAtCreation: liveSource.scaleRatioAtCreation,
+              calibrationUnitAtCreation: liveSource.calibrationUnitAtCreation,
+            })
+
+            let savedSource
+            try {
+              savedSource = await takeoffService.update(removal.item)
+            } catch (error) {
+              await takeoffService.delete(created.id).catch(() => {})
+              created = null
+              throw error
+            }
+
+            updateTakeoffItem(savedSource)
+            addTakeoffItem(created)
+            detachment.detachedId = created.id
+            detachment.inFlight = false
+
+            // If the user kept dragging while the split requests were running,
+            // persist the newest geometry on the newly-created row.
+            if (detachment.latestPayload !== detachPayload) {
+              const latestDetached = buildIndependentGeometryItem(
+                created,
+                null,
+                detachment.latestPayload,
+                annotationKey,
+                activeUnit,
+              ).item
+              try {
+                created = await takeoffService.update(latestDetached)
+                updateTakeoffItem(created)
+              } catch (error) {
+                // The split itself is already committed. Keep the independent
+                // row and let the next geometry event retry its latest update.
+                console.warn('[BuildTakeoff] detached geometry follow-up save failed:', error)
+              }
+            }
+
+            const index = buildTakeoffAnnotationIndex(useAppStore.getState().takeoffItems ?? [])
+            annotationMapRef.current = index.map
+            persistedAnnotIdsRef.current = index.persistedIds
+            if (selectedOccurrenceAnnotIdRef.current === annotationKey
+                || selectedViewerAnnotIdsRef.current.has(annotationKey)) {
+              const remainingSelectedInSource = buildTakeoffOccurrencesFromItem(savedSource)
+                .some(entry => selectedViewerAnnotIdsRef.current.has(String(entry.annotationName)))
+              const nextSelectedRowIds = new Set(selectedAnnotIdsRef.current)
+              if (!remainingSelectedInSource) nextSelectedRowIds.delete(savedSource.id)
+              nextSelectedRowIds.add(created.id)
+              selectedAnnotIdsRef.current = nextSelectedRowIds
+              setSelectedAnnotIds(nextSelectedRowIds)
+              setSelectedAnnotId(created.id)
+              setSelectedViewerAnnotId(annotationKey)
+              selectedOccurrenceAnnotIdRef.current = annotationKey
+            }
+            if (pendingMeasurementRef.current?.annotationId != null
+                && String(pendingMeasurementRef.current.annotationId) === annotationKey) {
+              pendingMeasurementRef.current = {
+                ...pendingMeasurementRef.current,
+                dbId: created.id,
+                rawPointsJson: readTakeoffPointsJson(created.pointsJson),
+              }
+            }
+            if (Number(lastCopyTargetRef.current) === Number(savedSource.id)) {
+              lastCopyTargetRef.current = created.id
+            }
+            takeoffService.getSummary(liveSource.drawingId)
+              .then(sum => { setSummaryLocal(sum); setSummary(sum) })
+              .catch(() => {})
+            scheduleAnnotationBlobSave()
+          } catch (error) {
+            geometryDetachmentsRef.current.delete(annotationKey)
+            console.warn('[BuildTakeoff] copied measurement detachment failed:', error)
+            toast.error('Could not detach the edited copy — please try again')
+          }
+        })()
+        return
       }
 
-      const movedPoints = movedRaw.vertexPoints ?? movedRaw.VertexPoints ?? []
-      const firstPoint = movedPoints[0]
-      const lastPoint = movedPoints[movedPoints.length - 1]
-      const derivedPixelLength = firstPoint && lastPoint
-        ? Math.hypot(
-            Number(lastPoint.x ?? lastPoint.X) - Number(firstPoint.x ?? firstPoint.X),
-            Number(lastPoint.y ?? lastPoint.Y) - Number(firstPoint.y ?? firstPoint.Y),
-          )
-        : null
-      const pixelLength = Number.isFinite(Number(payload.pixelLength))
-        ? Number(payload.pixelLength)
-        : derivedPixelLength
-      const unit = payload.unit ?? item.unit ?? activeUnit
-      const nextLength = payload.length != null
-        && Number.isFinite(Number(payload.length))
-        && Number(payload.length) >= 0
-        ? Number(payload.length)
-        : item.length
-      const nextTotalWeight = item.unitWeight != null && nextLength != null
-        ? Number(item.unitWeight) * toMeters(nextLength, unit) * Number(item.quantity ?? 1)
-        : item.totalWeight
-      const occurrenceUpdate = updateTakeoffOccurrence(item, stableAnnotId, occurrence => ({
-        ...occurrence,
-        pageNumber: payload.pageNumber ?? occurrence.pageNumber ?? movedRaw.pageNumber ?? 1,
-        rotation: movedRaw.RotateAngle ?? movedRaw.rotateAngle ?? occurrence.rotation ?? 0,
-        length: nextLength,
-        unit,
-        geometry: mergeGeometry(occurrence.geometry),
+      if (Array.isArray(previousRaw.occurrences) && previousRaw.occurrences.length && !occurrence) {
+        return
+      }
+      const { change, item: independentUpdate } = buildIndependentGeometryItem(
+        item,
+        occurrence,
+        payload,
+        annotId,
+        activeUnit,
+      )
+      const occurrenceUpdate = updateTakeoffOccurrence(item, change.stableAnnotId, entry => ({
+        ...entry,
+        pageNumber: payload.pageNumber ?? entry.pageNumber ?? change.movedRaw.pageNumber ?? 1,
+        rotation: change.movedRaw.RotateAngle ?? change.movedRaw.rotateAngle ?? entry.rotation ?? 0,
+        length: change.nextLength,
+        unit: change.unit,
+        geometry: change.geometry,
       }))
       const next = occurrenceUpdate
         ? {
             ...occurrenceUpdate,
-            unit,
-            description: formatLineMeasureDescription(
-              pixelLength,
-              occurrenceUpdate.length,
-              unit,
-              getCalibratedDrawingFromStore(),
-            ),
+            unit: change.unit,
+            description: change.description,
           }
-        : {
-            ...item,
-            unit,
-            length: nextLength,
-            totalWeight: Number.isFinite(nextTotalWeight) ? nextTotalWeight : item.totalWeight,
-            description: formatLineMeasureDescription(pixelLength, nextLength, unit, getCalibratedDrawingFromStore()),
-            pointsJson: JSON.stringify(mergedRaw),
-          }
+        : independentUpdate
 
-      // Geometry, length, label, and the Measurements grid update together on
-      // every pointer move. Only the network write remains debounced.
       updateTakeoffItem(next)
       const revision = (geometrySaveRevisionRef.current.get(dbId) ?? 0) + 1
       geometrySaveRevisionRef.current.set(dbId, revision)
       const timer = setTimeout(async () => {
         geometrySaveTimersRef.current.delete(dbId)
-        const latest = (useAppStore.getState().takeoffItems ?? []).find(t => t.id === dbId)
+        const latest = (useAppStore.getState().takeoffItems ?? [])
+          .find(t => String(t.id) === String(dbId))
         if (!latest) return
         try {
           const saved = await takeoffService.update(latest)
@@ -2426,7 +2761,16 @@ export default function DrawingsPage() {
     } catch (err) {
       console.warn('[BuildTakeoff] measurement geometry update failed:', err)
     }
-  }, [resolveMeasurementDbId, activeUnit, updateTakeoffItem, selectedDrawing, setSummary, scheduleAnnotationBlobSave, recordUndoSnapshot])
+  }, [
+    activeUnit,
+    addTakeoffItem,
+    recordUndoSnapshot,
+    resolveMeasurementDbId,
+    scheduleAnnotationBlobSave,
+    selectedDrawing,
+    setSummary,
+    updateTakeoffItem,
+  ])
 
   const resolveCopyTargetId = useCallback(() => {
     const isValid = (item) => item && isValidLinearMeasurementForCopy(item)
@@ -2483,11 +2827,17 @@ export default function DrawingsPage() {
         )
         : null
       const copyRaw = selectedOccurrence?.geometry ?? stripOccurrenceContainer(raw)
+      const copyLength = takeoffOccurrenceLength(selectedOccurrence, item.length)
+      const copyUnit = selectedOccurrence?.unit ?? item.unit
+      const copyTotalWeight = item.unitWeight != null && copyLength != null
+        ? Number(item.unitWeight) * toMeters(copyLength, copyUnit)
+        : item.totalWeight
       return buildLinearMeasurementClipboard({
         ...item,
         occurrenceId: selectedOccurrenceId,
-        length: takeoffOccurrenceLength(selectedOccurrence, item.length),
+        length: copyLength,
         quantity: 1,
+        totalWeight: copyTotalWeight,
       }, copyRaw, pdfScale)
     } catch {
       return null
@@ -2667,7 +3017,16 @@ export default function DrawingsPage() {
               || item.mark
               || '',
           ).trim().toLowerCase()
+          const groupedOccurrences = buildTakeoffOccurrencesFromItem(item)
+          const groupedLength = groupedTakeoffOccurrenceLength(groupedOccurrences, item.length)
+          const occurrenceLength = takeoffOccurrenceLength(occurrence, source.length)
+          const groupedUnit = groupedOccurrences[0]?.unit ?? item.unit
+          const occurrenceUnit = occurrence.unit ?? source.unit
           return key === memberKey
+            && groupedLength != null
+            && occurrenceLength != null
+            && takeoffLengthsMatch(groupedLength, occurrenceLength)
+            && takeoffUnitsMatch(groupedUnit, occurrenceUnit)
         })
 
         if (sourceMemberKey === memberKey) {
