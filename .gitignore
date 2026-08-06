@@ -1,5 +1,9 @@
 bin/
 obj/
+
+# Serilog runtime output. These were tracked previously, which meant every run
+# produced spurious diffs and merge noise on an unrelated file.
+backend/ConstructionEstimation.API/Logs/
 .vs/
 node_modules/
 dist/
