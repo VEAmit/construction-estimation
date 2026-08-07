@@ -466,6 +466,7 @@ function PdfSvgOverlay({
       drawingMark: schedule?.mark ?? schedule?.Mark ?? '',
       memberType: schedule?.memberType ?? schedule?.MemberType ?? '',
       memberScheduleId: schedule?.id,
+      manualMemberSelected: Boolean(schedule),
       material: schedule?.mark ?? schedule?.Mark ?? '',
       category: measureCategory,
       rawAnnotation,
@@ -541,6 +542,13 @@ function PdfSvgOverlay({
       placePaste(point)
       return
     }
+    if (['line', 'calibrate'].includes(activeTool)) {
+      // Keep a manually selected schedule member armed between the first and
+      // second placement clicks. Clearing it here preserved only its toolbar
+      // color and allowed PDF label auto-detect to replace its metadata.
+      event.stopPropagation()
+      return
+    }
     if (shapeInteractedRef.current) {
       // A shape's own pointerdown already selected it and captured the
       // pointer (needed for dragging in Select tool), which retargets this
@@ -562,7 +570,7 @@ function PdfSvgOverlay({
     // MeasurementLabel/PdfSvgOverlay's wheel handling) even after clicking
     // elsewhere on the drawing while in Linear/Area/etc.
     onClearSelection?.()
-  }, [onClearSelection, pageSize, pasteClipboard, placePaste])
+  }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste])
 
   const handlePointerDown = useCallback((event) => {
     // Held-Space always means "pan", even over Line/Calibrate — bail without

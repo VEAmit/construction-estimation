@@ -48,6 +48,9 @@ export function nearestPdfLabel(textItems, point) {
 }
 
 export function attachDetectedLabel(measurement, textItems) {
+  // A manual schedule selection is authoritative. The overlay captures this
+  // flag with the measurement so auto-detect cannot overwrite it later.
+  if (measurement?.manualMemberSelected) return measurement
   if (measurement?.memberMark || measurement?.drawingMark) return measurement
   const points = measurement?.rawAnnotation?.vertexPoints ?? measurement?.rawAnnotation?.VertexPoints
   if (!Array.isArray(points) || points.length === 0) return measurement

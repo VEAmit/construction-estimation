@@ -598,7 +598,10 @@ export default function PdfJsViewer({
         // idempotent). A genuine shape click still selects correctly: any
         // element actually clicked (a shape's own <g>) calls stopPropagation
         // before a click event ever reaches this far up, in every tool.
-        onClearSelection?.()
+        // Keep an explicitly selected schedule member armed from the first
+        // placement click through the second. This safety-net deselection is
+        // only needed outside an active dimension command.
+        if (!['line', 'calibrate'].includes(activeTool)) onClearSelection?.()
       }}
       onKeyDown={event => {
         if (event.key !== 'Escape') return

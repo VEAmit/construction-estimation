@@ -1725,8 +1725,18 @@ export default function DrawingsPage() {
       selectedDrawing: drw, takeoffItems: current, measureColor: color,
       measureCategory: category, activeUnit,
       selectedMemberScheduleItem,
+      memberScheduleItems: liveScheduleItems,
     } = useAppStore.getState()
-    const linkedMember = selectedMemberScheduleItem
+    // Resolve the member captured at line finalization before consulting live
+    // selection state. This preserves the user's explicit mark, type, color,
+    // and schedule link even if another UI event clears selection while the
+    // asynchronous save is in flight.
+    const capturedMember = measurement.memberScheduleId == null
+      ? null
+      : liveScheduleItems.find(member => Number(member.id) === Number(measurement.memberScheduleId))
+    const linkedMember = isPaste
+      ? selectedMemberScheduleItem
+      : (capturedMember ?? selectedMemberScheduleItem)
     const payloadMemberMark = (
       (measurement.memberMark || '').trim()
       || (measurement.drawingMark || '').trim()
