@@ -1,5 +1,6 @@
 /** Drawing member marks on plan (PF7, CJ1, SF3, …) — same shape as backend extraction. */
 const MARK_TOKEN_RE = /\b([A-Z]{1,4}\d{0,3}[A-Z]?)\b/gi
+const STRUCTURAL_SECTION_TOKEN_RE = /\b(\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)|\d+(?:\.\d+)?\s*(?:UB|UC|WB|WC|PFC|TFC|CHS|SHS|RHS|EA|UA)\s*\d+(?:\.\d+)?)\b/gi
 
 const EXCLUDED_MARKS = new Set([
   'MM', 'CM', 'M', 'FT', 'IN', 'YD', 'KG', 'NO', 'YES', 'MAX', 'MIN', 'PDF',
@@ -92,6 +93,26 @@ function addMarkCandidatesFromText(text, dist, candidates, knownMarks) {
       inSchedule: knownUpper.has(token),
     })
   }
+
+  // Some drawings label a member directly with its structural section rather
+  // than a schedule mark (for example 139.7x3.5CHS). Keep the existing mark
+  // detector unchanged and add these as a second, tightly-scoped candidate
+  // type so an unmatched section can be offered to the user for schedule add.
+  for (const match of trimmed.matchAll(STRUCTURAL_SECTION_TOKEN_RE)) {
+    const token = match[1]
+      .replace(/\s+/g, '')
+      .replace(/×/g, 'X')
+      .toUpperCase()
+      .replace(/(\d)X(?=\d)/g, '$1x')
+    const tokenUpper = token.toUpperCase()
+    candidates.push({
+      mark: token,
+      dist,
+      exact: upper.replace(/\s+/g, '').replace(/×/g, 'X') === tokenUpper,
+      inSchedule: knownUpper.has(tokenUpper),
+      structuralSection: true,
+    })
+  }
 }
 
 function pickBestMark(candidates, knownMarks = []) {
@@ -103,13 +124,14 @@ function pickBestMark(candidates, knownMarks = []) {
   let bestScore = -1
   for (const c of candidates) {
     const u = String(c.mark).trim().toUpperCase()
-    if (!isPlausibleDrawingMark(u)) continue
+    if (!c.structuralSection && !isPlausibleDrawingMark(u)) continue
     let score = 120 - Math.min(c.dist, 119)
     if (c.exact) score += 35
     if (c.inSchedule) score += 15
+    if (c.structuralSection) score += 10
     if (score > bestScore) {
       bestScore = score
-      best = knownMap.get(u) ?? u
+      best = knownMap.get(u) ?? String(c.mark).trim()
     }
   }
   return best

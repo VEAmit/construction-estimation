@@ -11,6 +11,7 @@ public interface IMemberScheduleRepository : IRepository<MemberScheduleItem>
         int projectId,
         string mark,
         string memberSize);
+    Task<bool> DeleteWithLinkedMeasurementsAsync(int id);
     Task<bool> DeleteByProjectIdAsync(int projectId);
 
     // Reading through a drawing remains project-wide for backward-compatible

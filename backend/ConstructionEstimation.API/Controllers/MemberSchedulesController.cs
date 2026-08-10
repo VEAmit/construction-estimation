@@ -156,11 +156,11 @@ public class MemberSchedulesController : ControllerBase
     [HttpPost("{id}/delete")]
     public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
     {
-        var deleted = await _repo.DeleteAsync(id);
+        var deleted = await _repo.DeleteWithLinkedMeasurementsAsync(id);
         if (!deleted)
             return NotFound(ApiResponse<bool>.Fail("Member schedule item not found"));
 
-        return Ok(ApiResponse<bool>.Ok(true, "Member schedule item deleted"));
+        return Ok(ApiResponse<bool>.Ok(true, "Member schedule item and linked measurements deleted"));
     }
 
     [HttpGet("project/{projectId}/summary")]

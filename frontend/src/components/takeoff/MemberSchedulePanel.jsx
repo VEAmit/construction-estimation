@@ -53,7 +53,14 @@ async function patchTakeoffItemColor(item, color) {
   })
 }
 
-export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasurement, selectedAnnotIds, onAssignMemberToSelection }) {
+export default function MemberSchedulePanel({
+  drawing,
+  onExport,
+  onSelectMeasurement,
+  selectedAnnotIds,
+  onAssignMemberToSelection,
+  onDeleteMember,
+}) {
   const {
     memberScheduleItems, addMemberScheduleItem,
     updateMemberScheduleItem, removeMemberScheduleItem, takeoffItems,
@@ -67,13 +74,24 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
 
   const findLinkedMeasurements = useCallback((member) => {
     if (!member) return []
+    const memberId = Number(member.id)
+    const mark = String(member.mark ?? '').trim().toLocaleLowerCase()
+    const sameMarkMembers = mark
+      ? memberScheduleItems.filter(item =>
+          String(item.mark ?? '').trim().toLocaleLowerCase() === mark)
+      : []
+    const canUseLegacyMarkFallback = sameMarkMembers.length === 1
+
     return takeoffItems.filter((t) => {
       if ((t.itemType || 'Line') !== 'Line') return false
-      const mark = String(member.mark ?? '').trim()
-      if (mark && String(t.material ?? '').trim() === mark) return true
-      return parseMemberScheduleNoteId(t.notes) === member.id
+      const linkedMemberId = parseMemberScheduleNoteId(t.notes)
+      if (linkedMemberId != null) return Number(linkedMemberId) === memberId
+      if (Number(member.takeoffItemId) === Number(t.id)) return true
+      if (!canUseLegacyMarkFallback || !mark) return false
+      return [t.material, t.mark]
+        .some(value => String(value ?? '').trim().toLocaleLowerCase() === mark)
     })
-  }, [takeoffItems])
+  }, [memberScheduleItems, takeoffItems])
 
   const linkedMeasurements = findLinkedMeasurements(activeMeasureMember)
 
@@ -193,14 +211,28 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
     }
   }
 
-  const handleDelete = async (id, mark) => {
-    if (!confirm(`Delete member "${mark}" from schedule?`)) return
+  const handleDelete = async (item) => {
+    const linked = findLinkedMeasurements(item)
+    const linkedQuantity = linked.reduce(
+      (total, measurement) => total + Math.max(1, Number(measurement.quantity) || 1),
+      0,
+    )
+    const message = linkedQuantity > 0
+      ? `Delete member "${item.mark}" and its ${linkedQuantity} linked measurement(s) from the schedule, PDF and grid?`
+      : `Delete member "${item.mark}" from schedule?`
+    if (!confirm(message)) return
     try {
-      await memberScheduleService.delete(id)
-      removeMemberScheduleItem(id)
-      toast.success('Member removed')
+      if (onDeleteMember) {
+        await onDeleteMember(item, linked)
+      } else {
+        await memberScheduleService.delete(item.id)
+        removeMemberScheduleItem(item.id)
+      }
+      toast.success(linkedQuantity > 0
+        ? `Member and ${linkedQuantity} linked measurement(s) removed`
+        : 'Member removed')
     } catch {
-      toast.error('Failed to delete member')
+      toast.error('Failed to delete member and linked measurements')
     }
   }
 
@@ -656,7 +688,7 @@ export default function MemberSchedulePanel({ drawing, onExport, onSelectMeasure
                       ) : (
                         <span style={{ display: 'flex', gap: '3px' }} onClick={e => e.stopPropagation()}>
                           <button onClick={() => startEdit(item)} style={ab('#EF233C')} title="Edit">✎</button>
-                          <button onClick={() => handleDelete(item.id, item.mark)} style={ab('#f87171')} title="Delete">✕</button>
+                          <button onClick={() => handleDelete(item)} style={ab('#f87171')} title="Delete">✕</button>
                         </span>
                       )}
                     </td>

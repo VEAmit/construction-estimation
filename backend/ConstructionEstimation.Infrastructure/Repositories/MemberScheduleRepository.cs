@@ -109,6 +109,31 @@ public class MemberScheduleRepository : BaseRepository<MemberScheduleItem>, IMem
             : [];
     }
 
+    public async Task<bool> DeleteWithLinkedMeasurementsAsync(int id)
+    {
+        var member = await _context.MemberScheduleItems
+            .FirstOrDefaultAsync(item => item.Id == id);
+        if (member == null) return false;
+
+        // Measurements created or reassigned through the member schedule carry
+        // this stable link in Notes. Delete by that ID rather than by mark or
+        // length so members with similar labels remain independent.
+        var memberLink = $"msi:{id}";
+        var linkedMeasurements = await _context.TakeoffItems
+            .Where(item =>
+                item.Drawing.ProjectId == member.ProjectId &&
+                (item.Notes == memberLink ||
+                 (member.TakeoffItemId.HasValue && item.Id == member.TakeoffItemId.Value)))
+            .ToListAsync();
+
+        foreach (var measurement in linkedMeasurements)
+            measurement.IsDeleted = true;
+
+        member.IsDeleted = true;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteByProjectIdAsync(int projectId)
     {
         var items = await _context.MemberScheduleItems

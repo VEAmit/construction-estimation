@@ -12,6 +12,7 @@ import RightPanel from '../components/tools/RightPanel'
 import MeasurementTable from '../components/takeoff/TakeoffTable'
 import MemberSchedulePanel from '../components/takeoff/MemberSchedulePanel'
 import AddMeasurementModal from '../components/takeoff/AddTakeoffModal'
+import AddDetectedMemberModal from '../components/takeoff/AddDetectedMemberModal'
 import CalibrationModal from '../components/takeoff/CalibrationModal'
 import { exportToExcel, exportToPdf } from '../utils/exportUtils'
 import {
@@ -38,7 +39,7 @@ import {
   mapLinearArrowStyle,
 } from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
-import { getMeasurementMemberMark } from '../utils/memberMeasureLink'
+import { getMeasurementMemberMark, parseMemberScheduleNoteId } from '../utils/memberMeasureLink'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 import { Files, TableProperties } from 'lucide-react'
@@ -131,6 +132,25 @@ function assignMemberColors(members) {
   colored.filter(m => colorMap.has(m.id))
     .forEach(m => memberScheduleService.update(m).catch(() => {}))
   return colored
+}
+
+function normalizeMemberIdentityPart(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g, '')
+    .replace(/[xX×]/g, 'X')
+    .toUpperCase()
+}
+
+function getNextDefaultMemberColor(items) {
+  const used = new Set(
+    (items ?? [])
+      .map(item => String(item?.color ?? '').toUpperCase())
+      .filter(color => _MS_HEX.test(color)),
+  )
+  return _MS_PALETTE.find(color => !used.has(color.toUpperCase()))
+    ?? _MS_PALETTE[(items?.length ?? 0) % _MS_PALETTE.length]
 }
 
 function readTakeoffPointsJson(pointsJson) {
@@ -695,7 +715,7 @@ export default function DrawingsPage() {
     drawings: storeDrawings, setDrawings, selectedDrawing, setSelectedDrawing,
     takeoffItems, addTakeoffItem, setTakeoffItems, updateTakeoffItem,
     setSummary, activeTool, setActiveTool, setActiveUnit, activeUnit, updateDrawingCalibration,
-    memberScheduleItems, setMemberScheduleItems, setMemberScheduleSummary, updateMemberScheduleItem,
+    memberScheduleItems, addMemberScheduleItem, setMemberScheduleItems, setMemberScheduleSummary, updateMemberScheduleItem, removeMemberScheduleItem,
     setSelectedMemberScheduleItem,
     triggerPdfCommand,
     _hydrated,
@@ -839,6 +859,9 @@ export default function DrawingsPage() {
   // Keep both so the grid and SVG overlay can stay selected together.
   const [selectedViewerAnnotId, setSelectedViewerAnnotId] = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
+  const [detectedMemberPrompt, setDetectedMemberPrompt] = useState(null)
+  const [detectedMemberSaving, setDetectedMemberSaving] = useState(false)
+  const [detectedMemberError, setDetectedMemberError] = useState('')
   const [ctxMenu, setCtxMenu] = useState(null) // { x, y } | null — right-click context menu
   const closeCtxMenu = useCallback(() => setCtxMenu(null), [])
 
@@ -915,8 +938,102 @@ export default function DrawingsPage() {
   const undoStackRef = useRef([])
   const redoStackRef = useRef([])
   const historyBusyRef = useRef(false)
+  const detectedMemberResolverRef = useRef(null)
   const [undoDepth, setUndoDepth] = useState(0)
   const [redoDepth, setRedoDepth] = useState(0)
+
+  const finishDetectedMemberPrompt = useCallback((member = null) => {
+    const resolve = detectedMemberResolverRef.current
+    detectedMemberResolverRef.current = null
+    setDetectedMemberPrompt(null)
+    setDetectedMemberSaving(false)
+    setDetectedMemberError('')
+    resolve?.(member)
+  }, [])
+
+  const requestDetectedMemberConfirmation = useCallback(({ detectedValue, drawingId }) => {
+    if (detectedMemberResolverRef.current) {
+      detectedMemberResolverRef.current(null)
+      detectedMemberResolverRef.current = null
+    }
+
+    const currentItems = useAppStore.getState().memberScheduleItems ?? []
+    return new Promise(resolve => {
+      detectedMemberResolverRef.current = resolve
+      setDetectedMemberSaving(false)
+      setDetectedMemberError('')
+      setDetectedMemberPrompt({
+        detectedValue,
+        drawingId,
+        color: getNextDefaultMemberColor(currentItems),
+      })
+    })
+  }, [])
+
+  const handleAddDetectedMember = useCallback(async ({ mark, sectionSize }) => {
+    const projectId = useAppStore.getState().selectedProject?.id
+    if (!projectId || !detectedMemberPrompt) {
+      setDetectedMemberError('No project is selected. Cancel and try again.')
+      return
+    }
+
+    setDetectedMemberSaving(true)
+    setDetectedMemberError('')
+    try {
+      let member
+      try {
+        member = await memberScheduleService.createForProject(projectId, {
+          mark,
+          memberSize: sectionSize,
+          memberType: 'Other',
+          quantity: 0,
+          color: detectedMemberPrompt.color,
+        })
+        const liveItems = useAppStore.getState().memberScheduleItems ?? []
+        if (!liveItems.some(item => Number(item.id) === Number(member.id))) {
+          addMemberScheduleItem(member)
+        }
+      } catch (error) {
+        // Another request may have added this exact Mark + Section while the
+        // dialog was open. Reuse that project item instead of creating or
+        // displaying a second copy.
+        if (error?.response?.status !== 409) throw error
+        const members = await memberScheduleService.getByProject(projectId)
+        const markKey = normalizeMemberIdentityPart(mark)
+        const sectionKey = normalizeMemberIdentityPart(sectionSize)
+        const coloredMembers = assignMemberColors(members)
+        member = coloredMembers.find(item =>
+          normalizeMemberIdentityPart(item.mark) === markKey
+          && normalizeMemberIdentityPart(item.memberSize) === sectionKey)
+        if (!member) throw error
+        setMemberScheduleItems(coloredMembers)
+      }
+
+      memberScheduleService.getProjectSummary(projectId)
+        .then(setMemberScheduleSummary)
+        .catch(() => {})
+      setLeftPanelTab('members')
+      setLeftPanelOpen(true)
+      finishDetectedMemberPrompt(member)
+    } catch (error) {
+      setDetectedMemberSaving(false)
+      setDetectedMemberError(
+        error?.response?.data?.message
+        ?? 'Could not add this item to the schedule. Please try again.',
+      )
+    }
+  }, [
+    addMemberScheduleItem,
+    detectedMemberPrompt,
+    finishDetectedMemberPrompt,
+    setMemberScheduleItems,
+    setMemberScheduleSummary,
+  ])
+
+  useEffect(() => () => {
+    detectedMemberResolverRef.current?.(null)
+    detectedMemberResolverRef.current = null
+  }, [])
 
   const clearCopiedMeasurements = useCallback(() => {
     clearMeasurementClipboard()
@@ -1734,7 +1851,7 @@ export default function DrawingsPage() {
     const capturedMember = measurement.memberScheduleId == null
       ? null
       : liveScheduleItems.find(member => Number(member.id) === Number(measurement.memberScheduleId))
-    const linkedMember = isPaste
+    let linkedMember = isPaste
       ? selectedMemberScheduleItem
       : (capturedMember ?? selectedMemberScheduleItem)
     const payloadMemberMark = (
@@ -1743,7 +1860,19 @@ export default function DrawingsPage() {
       || (measurement.material || '').trim()
       || ''
     )
-    const linkedMemberMark = linkedMember?.mark?.trim() || linkedMember?.Mark?.trim() || ''
+    const detectedMemberValue = String(
+      measurement.drawingMark
+      || measurement.memberMark
+      || '',
+    ).trim()
+    const detectedMarkKey = normalizeMemberIdentityPart(detectedMemberValue)
+    const existingDetectedMember = !linkedMember && detectedMarkKey
+      ? liveScheduleItems.find(member =>
+          normalizeMemberIdentityPart(member.mark ?? member.Mark) === detectedMarkKey)
+      : null
+    if (existingDetectedMember) linkedMember = existingDetectedMember
+
+    let linkedMemberMark = linkedMember?.mark?.trim() || linkedMember?.Mark?.trim() || ''
     // Normal drawing: selected schedule member wins. Paste: copied measurement metadata wins.
     let memberMark = isPaste ? (payloadMemberMark || linkedMemberMark) : (linkedMemberMark || payloadMemberMark)
     if (!drw?.id) {
@@ -1758,6 +1887,22 @@ export default function DrawingsPage() {
         return extractTakeoffAnnotationIds(t.pointsJson).includes(measurement.annotationId)
       })
       if (dup) return true
+    }
+
+    const shouldOfferDetectedMember = !isPaste
+      && (measurement.measureType ?? 'Line') === 'Line'
+      && !linkedMember
+      && !!detectedMemberValue
+    if (shouldOfferDetectedMember) {
+      const addedMember = await requestDetectedMemberConfirmation({
+        detectedValue: detectedMemberValue,
+        drawingId: drw.id,
+      })
+      if (addedMember) {
+        linkedMember = addedMember
+        linkedMemberMark = addedMember.mark?.trim() || addedMember.Mark?.trim() || ''
+        memberMark = linkedMemberMark || detectedMemberValue
+      }
     }
 
     const normDrwGuard = calibratedDrawing ? normalizeDrawing(calibratedDrawing) : getCalibratedDrawingFromStore()
@@ -2132,6 +2277,7 @@ export default function DrawingsPage() {
     countLinkedOccurrences,
     discardUndoSnapshot,
     recordUndoSnapshot,
+    requestDetectedMemberConfirmation,
   ])
 
   const handleMeasure = useCallback((measurement, opts = {}) => {
@@ -3168,7 +3314,7 @@ export default function DrawingsPage() {
 
   const handleRowDelete = useCallback(async (
     id,
-    { annotationId = null, deleteGroup = false } = {},
+    { annotationId = null, deleteGroup = false, skipUndo = false } = {},
   ) => {
     const annot = annotationMapRef.current[id]
     const beforeDeleteItems = useAppStore.getState().takeoffItems ?? []
@@ -3182,7 +3328,7 @@ export default function DrawingsPage() {
       ...extractTakeoffAnnotationIds(itemBeingDeleted?.pointsJson),
     ].filter(Boolean)))
     const linkedRootBeforeDelete = parseLinkedItemId(itemBeingDeleted?.notes)
-    const undoToken = recordUndoSnapshot('delete measurement')
+    const undoToken = skipUndo ? null : recordUndoSnapshot('delete measurement')
     try {
       if (occurrenceRemoval?.item) {
         const saved = await takeoffService.update(occurrenceRemoval.item)
@@ -3323,6 +3469,50 @@ export default function DrawingsPage() {
     }
     clearAllSelection()
   }, [clearAllSelection, handleRowDelete, selectedAnnotId])
+
+  const handleMemberScheduleDelete = useCallback(async (member, linkedMeasurements = []) => {
+    const liveItems = useAppStore.getState().takeoffItems ?? []
+    const linkedIds = new Set(linkedMeasurements.map(item => Number(item.id)))
+    const memberId = Number(member.id)
+    const targets = liveItems.filter(item =>
+      linkedIds.has(Number(item.id))
+      || Number(parseMemberScheduleNoteId(item.notes)) === memberId
+      || Number(member.takeoffItemId) === Number(item.id))
+
+    // Reuse the normal measurement deletion workflow. It already handles
+    // grouped copy/paste occurrences, PDF annotations, grid state, selections,
+    // quantities and the current drawing summary.
+    for (const item of targets) {
+      // Member deletion is not an undoable schedule operation. Do not leave a
+      // measurement-only undo entry that could restore an orphaned row after
+      // its schedule member has already been removed.
+      await handleRowDelete(item.id, { deleteGroup: true, skipUndo: true })
+    }
+
+    // The backend also removes the stable member link from other drawings in
+    // this project, preventing orphaned measurements when the user switches PDF.
+    await memberScheduleService.delete(member.id)
+    removeMemberScheduleItem(member.id)
+    clearAllSelection()
+
+    const { selectedMemberScheduleItem, lastMeasureMember } = useAppStore.getState()
+    if ([selectedMemberScheduleItem, lastMeasureMember]
+      .some(selected => Number(selected?.id) === Number(member.id))) {
+      useAppStore.getState().clearSelectedMemberScheduleItem?.()
+    }
+
+    if (selectedProject?.id) {
+      memberScheduleService.getProjectSummary(selectedProject.id)
+        .then(setMemberScheduleSummary)
+        .catch(() => {})
+    }
+  }, [
+    clearAllSelection,
+    handleRowDelete,
+    removeMemberScheduleItem,
+    selectedProject?.id,
+    setMemberScheduleSummary,
+  ])
 
   const handlePdfAreaContextMenu = useCallback((e) => {
     e.preventDefault()
@@ -3970,7 +4160,7 @@ export default function DrawingsPage() {
                   onDeleted={handleDrawingDeleted}
                 />
               ) : (
-                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} />
+                <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} onDeleteMember={handleMemberScheduleDelete} />
               )}
             </div>
           </div>
@@ -4017,7 +4207,7 @@ export default function DrawingsPage() {
                 onDeleted={handleDrawingDeleted}
               />
             ) : (
-              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} />
+              <MemberSchedulePanel drawing={activeDrawing} onExport={handleExport} onSelectMeasurement={handleRowSelect} selectedAnnotIds={selectedAnnotIds} onAssignMemberToSelection={handleAssignMemberToSelection} onDeleteMember={handleMemberScheduleDelete} />
             )}
           </SideDock>
         )}
@@ -4272,6 +4462,18 @@ export default function DrawingsPage() {
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────── */}
+      {detectedMemberPrompt && (
+        <AddDetectedMemberModal
+          key={`${detectedMemberPrompt.drawingId}:${detectedMemberPrompt.detectedValue}`}
+          detectedValue={detectedMemberPrompt.detectedValue}
+          color={detectedMemberPrompt.color}
+          saving={detectedMemberSaving}
+          error={detectedMemberError}
+          onAdd={handleAddDetectedMember}
+          onCancel={() => finishDetectedMemberPrompt(null)}
+        />
+      )}
+
       {showCalModal && (
         <CalibrationModal
           key={`cal-${lastMeasurement?.annotationId ?? 'x'}`}
