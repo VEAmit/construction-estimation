@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import toast, { Toaster } from 'react-hot-toast'
 import { useAppStore } from './store/useAppStore'
@@ -17,11 +17,24 @@ function StartupLicenseGuard({ children }) {
   const clearAuth = useAppStore(state => state.clearAuth)
   const [checking, setChecking] = useState(true)
   const [licenseValid, setLicenseValid] = useState(false)
+  const configuredSettingsAccess = useRef(false)
 
   useEffect(() => {
     let active = true
     let recheckTimer = null
     let validating = false
+
+    if (location.pathname === '/system-settings') {
+      if (location.state?.allowConfiguredSettings) {
+        // The Login-page button grants access for this mounted session only.
+        // Remove the persisted history state so a browser refresh/application
+        // restart with a valid license returns to Login as expected.
+        configuredSettingsAccess.current = true
+        navigate('/system-settings', { replace: true })
+      }
+    } else {
+      configuredSettingsAccess.current = false
+    }
 
     const rejectLicense = message => {
       if (!active) return
@@ -64,7 +77,7 @@ function StartupLicenseGuard({ children }) {
         setLicenseValid(true)
         if (
           location.pathname === '/system-settings' &&
-          !location.state?.allowConfiguredSettings
+          !configuredSettingsAccess.current
         ) {
           navigate('/login', { replace: true })
         }
@@ -95,7 +108,7 @@ function StartupLicenseGuard({ children }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (recheckTimer) window.clearTimeout(recheckTimer)
     }
-  }, [clearAuth, location.pathname, location.state, navigate])
+  }, [clearAuth, location.pathname, navigate])
 
   if (checking) return null
   if (!licenseValid && location.pathname !== '/system-settings') {
