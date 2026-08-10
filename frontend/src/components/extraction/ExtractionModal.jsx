@@ -143,6 +143,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
   const [rows, setRows] = useState([])
   const [error, setError] = useState(null)
   const [showRaw, setShowRaw] = useState(false)
+  const [saveResult, setSaveResult] = useState(null)
   const extractionStartedRef = useRef(false)
 
   const runExtraction = useCallback(async () => {
@@ -150,6 +151,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     extractionStartedRef.current = true
     setPhase('scanning')
     setError(null)
+    setSaveResult(null)
     try {
       const data = await extractionService.extract(drawingId)
       const initialRows = sortMembersByMark(data.members ?? []).map((m, idx) => ({
@@ -185,6 +187,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     try {
       const payload = rows.map(({ _id, ...r }) => r)
       const saved = await extractionService.confirm(drawingId, payload)
+      setSaveResult(saved)
       setPhase('done')
       onSaved(saved)
     } catch (err) {
@@ -368,7 +371,7 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
               <div style={{ color: '#4ade80', fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-                {rows.length} member(s) saved to Member Schedule
+                {saveResult?.savedCount ?? rows.length} member(s) saved to Member Schedule
               </div>
               <div style={{ color: '#64748b', fontSize: 13 }}>
                 Add length, qty and unit weight in the Member Schedule panel below.

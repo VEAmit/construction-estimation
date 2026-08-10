@@ -6,6 +6,8 @@ using ConstructionEstimation.Infrastructure;
 using ConstructionEstimation.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.IIS;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -15,6 +17,16 @@ using System.Text;
 SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQxAR8/V1NNaF5cXmBCf1FpRmJGdld5fUVHYVZUTXxaS00DNHVRdkdmWXpedHZWQ2BeVEdwXUdWYUA=");
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Keep the application-side upload limit aligned with DrawingsController and the
+// IIS requestFiltering limit in web.config.  IIS can reject a multipart request
+// before the controller runs, so configuring both layers makes large (35 MB+)
+// construction PDFs behave the same in local hosting and IIS.
+const long MaxUploadBytes = 100_000_000;
+builder.Services.Configure<IISServerOptions>(options =>
+    options.MaxRequestBodySize = MaxUploadBytes);
+builder.Services.Configure<FormOptions>(options =>
+    options.MultipartBodyLengthLimit = MaxUploadBytes);
 
 // Serilog
 Log.Logger = new LoggerConfiguration()
@@ -32,8 +44,41 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ConstructionEstimation.API.Services.ExtractionService>();
 builder.Services.Configure<LicensingOptions>(
     builder.Configuration.GetSection(LicensingOptions.SectionName));
-builder.Services.AddDataProtection()
+
+// License keys are protected with ASP.NET Core Data Protection before they are
+// stored in LicenseConfigurations.  The default key-ring location is not
+// reliable for an IIS application pool (it can be temporary or tied to a
+// different worker-process identity), which makes a valid stored license look
+// like InvalidConfiguration after an app-pool recycle.  Keep the ring in the
+// application data directory so it survives restarts and deployments that
+// preserve the application's data folder.  A configured path can still be
+// supplied by an administrator when the site runs from a read-only folder.
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtectionKeysPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        "App_Data",
+        "DataProtection-Keys");
+}
+else if (!Path.IsPathRooted(dataProtectionKeysPath))
+{
+    dataProtectionKeysPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        dataProtectionKeysPath);
+}
+
+Directory.CreateDirectory(dataProtectionKeysPath);
+var dataProtectionBuilder = builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
     .SetApplicationName("BuildTakeoffPro");
+if (OperatingSystem.IsWindows())
+{
+    // Keep the persisted key ring protected at rest on IIS/Windows.  The
+    // application-pool identity that created it must be retained across
+    // restarts so the stored license can be decrypted.
+    dataProtectionBuilder.ProtectKeysWithDpapi();
+}
 builder.Services.AddHttpClient("LicenseApi", client =>
 {
     var timeoutSeconds = Math.Clamp(

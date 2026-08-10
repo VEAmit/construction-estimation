@@ -27,6 +27,12 @@ public record BulkCreateMemberScheduleRequest(
     List<CreateMemberScheduleItemRequest> Items
 );
 
+public record ExtractionSaveResultDto(
+    int SavedCount,
+    int AddedCount,
+    int UpdatedCount
+);
+
 public record MarkDetectionPointDto(
     double X,
     double Y

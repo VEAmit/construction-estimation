@@ -379,7 +379,9 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => navigate('/system-settings')}
+            onClick={() => navigate('/system-settings', {
+              state: { allowConfiguredSettings: true },
+            })}
             style={{
               width: '100%',
               marginTop: '12px',

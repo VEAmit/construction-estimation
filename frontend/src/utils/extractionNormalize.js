@@ -68,6 +68,32 @@ export function dedupeUniqueByMark(members) {
   return [...best.values()]
 }
 
+function normalizeIdentityPart(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g, '')
+    .replace(/[xX×]/g, 'X')
+    .toUpperCase()
+}
+
+/**
+ * Project schedule identity: Mark + Section. This removes an exact duplicate
+ * extracted from another drawing while preserving a same-mark/different-section
+ * row because that is a distinct project schedule item.
+ */
+export function dedupeUniqueByMarkAndSection(members) {
+  const best = new Map()
+  for (const member of members) {
+    const mark = normalizeIdentityPart(member.mark)
+    if (!mark) continue
+    const key = `${mark}|${normalizeIdentityPart(member.memberSize)}`
+    const existing = best.get(key)
+    best.set(key, existing ? preferExtractedMember(member, existing) : member)
+  }
+  return [...best.values()]
+}
+
 /** Same A → B1 → B10 order as Member Schedule grid (repository OrderBy Mark). */
 export function sortMembersByMark(members) {
   return [...members].sort((a, b) =>

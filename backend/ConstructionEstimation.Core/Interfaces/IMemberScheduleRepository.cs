@@ -5,7 +5,12 @@ namespace ConstructionEstimation.Core.Interfaces;
 public interface IMemberScheduleRepository : IRepository<MemberScheduleItem>
 {
     Task<IEnumerable<MemberScheduleItem>> GetByProjectIdAsync(int projectId);
+    Task<int> ConsolidateExactDuplicatesAsync(int projectId);
     Task<MemberScheduleItem?> GetByProjectAndMarkAsync(int projectId, string mark);
+    Task<MemberScheduleItem?> GetByProjectMarkAndSectionAsync(
+        int projectId,
+        string mark,
+        string memberSize);
     Task<bool> DeleteByProjectIdAsync(int projectId);
 
     // Reading through a drawing remains project-wide for backward-compatible

@@ -3631,8 +3631,11 @@ export default function DrawingsPage() {
     } catch { /* ignore */ }
   }
 
-  const handleExtractionSaved = useCallback(async (count) => {
+  const handleExtractionSaved = useCallback(async (saveResult) => {
     if (!selectedProject?.id) return
+    const count = typeof saveResult === 'number'
+      ? saveResult
+      : Number(saveResult?.savedCount ?? 0)
     try {
       const [members, memberSum] = await Promise.all([
         memberScheduleService.getByProject(selectedProject.id),
@@ -3643,7 +3646,9 @@ export default function DrawingsPage() {
       setLeftPanelTab('members')
       setLeftPanelOpen(true)
       setLeftHovered(true)
-      toast.success(`${count} member(s) saved — project schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
+      if (count > 0) {
+        toast.success(`${count} member(s) saved — project schedule updated from PDF extraction`, { duration: 3000, icon: '🔩' })
+      }
     } catch { /* ignore */ }
     setShowExtractModal(false)
   }, [selectedProject?.id, setMemberScheduleItems, setMemberScheduleSummary])
@@ -4318,6 +4323,7 @@ export default function DrawingsPage() {
           onSaved={handleExtractionSaved}
         />
       )}
+
     </div>
   )
 }
