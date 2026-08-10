@@ -6,6 +6,9 @@ using ConstructionEstimation.Infrastructure;
 using ConstructionEstimation.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.IIS;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -24,6 +27,36 @@ builder.Host.UseSerilog();
 
 // Infrastructure (EF Core + Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// ── Upload size limits ───────────────────────────────────────────────────
+// A drawing PDF has to clear four independent ceilings, each rejecting with a
+// different status, which is why raising only one of them looks like it did
+// nothing:
+//   1. IIS request filtering (web.config maxAllowedContentLength) -> 404.13
+//   2. IIS in-process server                                      -> 413
+//   3. Kestrel, when not hosted behind IIS                        -> 413
+//   4. Multipart form binding                                     -> 400
+//
+// Number 2 was never configured and defaults to only ~28.6 MB, so a PDF that
+// IIS itself accepted was still rejected with 413 by the in-process server.
+// The action-level [RequestSizeLimit] does not raise that ceiling.
+//
+// Keep web.config's maxAllowedContentLength >= this value, or IIS rejects
+// first with 404.13 and this setting never comes into play.
+var maxUploadBytes = builder.Configuration.GetValue<long?>("Uploads:MaxBytes") ?? 209_715_200; // 200 MB
+
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = maxUploadBytes;
+});
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = maxUploadBytes;
+});
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadBytes;
+});
 
 // App services
 builder.Services.AddScoped<TokenService>();

@@ -16,6 +16,12 @@ public class ExtractionService
     private const int MarkDetectionDpi = 320;
     private static readonly ConcurrentDictionary<string, byte[]> RenderedPagePngCache = new();
 
+    // Insertion order for eviction, and a running byte total, so the cache
+    // above stays bounded. Without this it grew for the life of the process.
+    private static readonly ConcurrentQueue<string> RenderedPageCacheKeys = new();
+    private static long _renderedPageCacheBytes;
+    private const long MaxRenderedPageCacheBytes = 192L * 1024 * 1024; // 192 MB
+
     // Shared "mark shape" fragment — an optional 1-2 digit level/storey prefix (e.g. the "1" in
     // "1FB1", "2C3" — common on multi-level structural drawings) followed by the usual
     // letters+digits+letter mark shape. Used everywhere a mark is matched or validated so a
@@ -374,6 +380,12 @@ public class ExtractionService
 
         foreach (var bitmap in pageImages)
         {
+            // SKBitmap holds unmanaged memory that the GC does not account for.
+            // A rendered drawing sheet is tens of MB, so leaving a whole
+            // document's worth undisposed exhausted the process on large
+            // multi-page PDFs long before collection kicked in.
+            using var pageBitmap = bitmap;
+
             pageCount++;
 
             // Encode SKBitmap → PNG bytes → Tesseract Pix
@@ -412,72 +424,150 @@ public class ExtractionService
                 "Please ensure tessdata/eng.traineddata exists in the API root.");
         }
 
-        using var engine = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
-        engine.SetVariable("tessedit_char_whitelist", "");
-        engine.SetVariable("preserve_interword_spaces", "1");
+        // Pages are OCR'd in small parallel batches. Each page costs roughly a
+        // dozen Tesseract passes at 320 DPI, so a 40-page drawing set took
+        // several minutes running one page at a time while most cores idled.
+        //
+        // What is deliberately NOT changed: the per-page analysis itself, the
+        // order results are appended in, and the set of pages examined. Each
+        // page's lines are written into its own slot and concatenated in page
+        // order afterwards, so the output is byte-for-byte what the sequential
+        // version produced.
+        //
+        // Batch size is capped rather than using every core: a batch holds that
+        // many full-page 320 DPI bitmaps in memory at once, and unbounded
+        // memory here is what made the worker die on large documents.
+        var parallelism = Math.Clamp(Environment.ProcessorCount - 1, 1, 3);
 
-        using var pdfStream = File.OpenRead(pdfPath);
-        var renderOptions = new RenderOptions(Dpi: MarkDetectionDpi);
-        var pageImages = Conversion.ToImages(pdfStream, options: renderOptions);
-
-        foreach (var bitmap in pageImages)
+        // Tesseract engines are not thread-safe, so each slot in a batch owns
+        // one for the whole run. Slot i is only ever touched by one task at a
+        // time, so no locking is needed.
+        var engines = new TesseractEngine[parallelism];
+        try
         {
-            pageCount++;
-            CacheRenderedPageBitmap(pdfPath, pageCount - 1, MarkDetectionDpi, bitmap);
-
-            var detectedTableRows = ExtractDynamicScheduleTableLines(engine, bitmap);
-            if (detectedTableRows.Count >= 3)
+            for (var i = 0; i < parallelism; i++)
             {
-                _logger.LogInformation(
-                    "Schedule OCR page {Page}: dynamically detected {Rows} schedule line(s): {Sample}",
-                    pageCount, detectedTableRows.Count,
-                    string.Join(" | ", detectedTableRows.Take(40)));
-                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
-                lines.AddRange(detectedTableRows);
-                bitmap.Dispose();
-                continue;
+                engines[i] = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
+                engines[i].SetVariable("tessedit_char_whitelist", "");
+                engines[i].SetVariable("preserve_interword_spaces", "1");
             }
 
-            var gridRows = ExtractGridScheduleRows(engine, bitmap);
-            if (ScoreScheduleOcrLines(gridRows) >= 5)
+            using var pdfStream = File.OpenRead(pdfPath);
+            var renderOptions = new RenderOptions(Dpi: MarkDetectionDpi);
+            var pageImages = Conversion.ToImages(pdfStream, options: renderOptions);
+
+            var batch = new List<SKBitmap>(parallelism);
+            var firstPageInBatch = 1;
+
+            void RunBatch()
             {
-                _logger.LogInformation(
-                    "Schedule OCR page {Page}: row-level grid OCR returned {Rows} line(s)",
-                    pageCount, gridRows.Count);
-                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
-                lines.AddRange(gridRows);
-                bitmap.Dispose();
-                continue;
+                if (batch.Count == 0) return;
+
+                var batchLines = new List<string>[batch.Count];
+
+                Parallel.For(0, batch.Count, new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = parallelism
+                }, slot =>
+                {
+                    var pageNumber = firstPageInBatch + slot;
+                    CacheRenderedPageBitmap(pdfPath, pageNumber - 1, MarkDetectionDpi, batch[slot]);
+                    batchLines[slot] = ExtractScheduleLinesForPage(
+                        engines[slot], batch[slot], pageNumber);
+                });
+
+                // Page order preserved regardless of completion order.
+                foreach (var pageLines in batchLines)
+                    lines.AddRange(pageLines);
+
+                foreach (var used in batch)
+                    used.Dispose();
+
+                firstPageInBatch += batch.Count;
+                batch.Clear();
             }
 
-            var scoredCandidates = new List<(int Score, List<string> Lines)>();
-
-            foreach (var crop in BuildTargetedScheduleCrops(bitmap.Width, bitmap.Height))
+            foreach (var bitmap in pageImages)
             {
-                var cropLines = OcrScheduleTableRegion(engine, bitmap, crop);
-                var score = ScoreScheduleOcrLines(cropLines);
-                if (score > 0 && cropLines.Count > 0)
-                    scoredCandidates.Add((score, cropLines));
+                pageCount++;
+                batch.Add(bitmap);
+
+                if (batch.Count == parallelism)
+                    RunBatch();
             }
 
-            if (scoredCandidates.Count > 0)
-            {
-                var selected = scoredCandidates
-                    .OrderByDescending(c => c.Score)
-                    .Take(3)
-                    .ToList();
+            RunBatch();
+        }
+        finally
+        {
+            foreach (var engine in engines)
+                engine?.Dispose();
+        }
 
-                _logger.LogInformation(
-                    "Schedule OCR page {Page}: selected {Candidates} candidate(s), best score={Score}",
-                    pageCount, selected.Count, selected[0].Score);
+        return lines;
+    }
 
-                lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
-                lines.AddRange(selected
-                    .SelectMany(c => c.Lines)
-                    .Distinct(StringComparer.OrdinalIgnoreCase));
-            }
+    /// <summary>
+    /// The per-page schedule OCR analysis, lifted verbatim out of
+    /// <see cref="ExtractScheduleViaOcr"/> so pages can be processed in
+    /// parallel. Returns the lines this page contributes, in the same order the
+    /// sequential version appended them.
+    /// </summary>
+    private List<string> ExtractScheduleLinesForPage(
+        TesseractEngine engine,
+        SKBitmap bitmap,
+        int pageNumber)
+    {
+        var lines = new List<string>();
 
-            bitmap.Dispose();
+        var detectedTableRows = ExtractDynamicScheduleTableLines(engine, bitmap);
+        if (detectedTableRows.Count >= 3)
+        {
+            _logger.LogInformation(
+                "Schedule OCR page {Page}: dynamically detected {Rows} schedule line(s): {Sample}",
+                pageNumber, detectedTableRows.Count,
+                string.Join(" | ", detectedTableRows.Take(40)));
+            lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+            lines.AddRange(detectedTableRows);
+            return lines;
+        }
+
+        var gridRows = ExtractGridScheduleRows(engine, bitmap);
+        if (ScoreScheduleOcrLines(gridRows) >= 5)
+        {
+            _logger.LogInformation(
+                "Schedule OCR page {Page}: row-level grid OCR returned {Rows} line(s)",
+                pageNumber, gridRows.Count);
+            lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+            lines.AddRange(gridRows);
+            return lines;
+        }
+
+        var scoredCandidates = new List<(int Score, List<string> Lines)>();
+
+        foreach (var crop in BuildTargetedScheduleCrops(bitmap.Width, bitmap.Height))
+        {
+            var cropLines = OcrScheduleTableRegion(engine, bitmap, crop);
+            var score = ScoreScheduleOcrLines(cropLines);
+            if (score > 0 && cropLines.Count > 0)
+                scoredCandidates.Add((score, cropLines));
+        }
+
+        if (scoredCandidates.Count > 0)
+        {
+            var selected = scoredCandidates
+                .OrderByDescending(c => c.Score)
+                .Take(3)
+                .ToList();
+
+            _logger.LogInformation(
+                "Schedule OCR page {Page}: selected {Candidates} candidate(s), best score={Score}",
+                pageNumber, selected.Count, selected[0].Score);
+
+            lines.Add("MEMBER SCHEDULE ITEM MEMBER SECTION TYPE DESCRIPTION");
+            lines.AddRange(selected
+                .SelectMany(c => c.Lines)
+                .Distinct(StringComparer.OrdinalIgnoreCase));
         }
 
         return lines;
@@ -1064,7 +1154,38 @@ public class ExtractionService
         if (RenderedPagePngCache.ContainsKey(key)) return;
 
         using var png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
-        RenderedPagePngCache.TryAdd(key, png.ToArray());
+        var bytes = png.ToArray();
+
+        // A single page can be larger than the whole budget on a big sheet.
+        // Caching it would immediately evict everything else for no benefit.
+        if (bytes.LongLength > MaxRenderedPageCacheBytes) return;
+
+        if (RenderedPagePngCache.TryAdd(key, bytes))
+        {
+            RenderedPageCacheKeys.Enqueue(key);
+            Interlocked.Add(ref _renderedPageCacheBytes, bytes.LongLength);
+            TrimRenderedPageCache();
+        }
+    }
+
+    /// <summary>
+    /// Evicts oldest entries until the cache is back inside its budget.
+    ///
+    /// This cache is static and previously had no bound at all: a schedule OCR
+    /// pass caches every page of the document at 320 DPI, so one large
+    /// multi-page drawing set could retain hundreds of megabytes for the
+    /// lifetime of the process — and never release it, because nothing ever
+    /// removed entries. Under IIS that exhausted the worker and the request
+    /// came back as a 502 rather than a diagnosable error.
+    /// </summary>
+    private static void TrimRenderedPageCache()
+    {
+        while (Interlocked.Read(ref _renderedPageCacheBytes) > MaxRenderedPageCacheBytes
+               && RenderedPageCacheKeys.TryDequeue(out var oldestKey))
+        {
+            if (RenderedPagePngCache.TryRemove(oldestKey, out var removed))
+                Interlocked.Add(ref _renderedPageCacheBytes, -removed.LongLength);
+        }
     }
 
     private static string BuildRenderedPageCacheKey(string pdfPath, int pageIndex, int dpi)

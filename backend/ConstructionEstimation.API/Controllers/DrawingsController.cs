@@ -47,8 +47,12 @@ public class DrawingsController : ControllerBase
         return Ok(ApiResponse<DrawingResponse>.Ok(MapToResponse(drawing)));
     }
 
+    // No [RequestSizeLimit] here on purpose: it would re-impose its own ceiling
+    // and cap the configurable server-wide limit set in Program.cs from
+    // Uploads:MaxBytes. The size ceiling is owned by that single setting so all
+    // four layers (IIS filtering, IIS in-process, Kestrel, form binding) stay
+    // in agreement instead of silently disagreeing.
     [HttpPost("upload/{projectId}")]
-    [RequestSizeLimit(100_000_000)] // 100 MB
     public async Task<ActionResult<ApiResponse<DrawingResponse>>> Upload(int projectId, IFormFile file)
     {
         if (file == null || file.Length == 0)
