@@ -32,6 +32,7 @@ public class MemberSchedulesController : ControllerBase
         if (!await _projectRepo.ExistsAsync(projectId))
             return NotFound(ApiResponse<IEnumerable<MemberScheduleItemResponse>>.Fail("Project not found"));
 
+        await _repo.ConsolidateExactDuplicatesAsync(projectId);
         var items = await _repo.GetByProjectIdAsync(projectId);
         return Ok(ApiResponse<IEnumerable<MemberScheduleItemResponse>>.Ok(items.Select(MapToResponse)));
     }
@@ -44,6 +45,7 @@ public class MemberSchedulesController : ControllerBase
         if (drawing == null)
             return NotFound(ApiResponse<IEnumerable<MemberScheduleItemResponse>>.Fail("Drawing not found"));
 
+        await _repo.ConsolidateExactDuplicatesAsync(drawing.ProjectId);
         var items = await _repo.GetByProjectIdAsync(drawing.ProjectId);
         return Ok(ApiResponse<IEnumerable<MemberScheduleItemResponse>>.Ok(items.Select(MapToResponse)));
     }
@@ -89,9 +91,9 @@ public class MemberSchedulesController : ControllerBase
         if (string.IsNullOrWhiteSpace(mark))
             return BadRequest(ApiResponse<MemberScheduleItemResponse>.Fail("Member mark is required"));
 
-        if (await _repo.GetByProjectAndMarkAsync(projectId, mark) != null)
+        if (await _repo.GetByProjectMarkAndSectionAsync(projectId, mark, request.MemberSize) != null)
             return Conflict(ApiResponse<MemberScheduleItemResponse>.Fail(
-                $"Member '{mark}' already exists in this project's schedule"));
+                $"Member '{mark}' with section '{request.MemberSize}' already exists in this project's schedule"));
 
         var totalWeight = request.UnitWeight * request.Length * request.Quantity;
 
@@ -127,10 +129,13 @@ public class MemberSchedulesController : ControllerBase
         if (string.IsNullOrWhiteSpace(mark))
             return BadRequest(ApiResponse<MemberScheduleItemResponse>.Fail("Member mark is required"));
 
-        var duplicate = await _repo.GetByProjectAndMarkAsync(item.ProjectId, mark);
+        var duplicate = await _repo.GetByProjectMarkAndSectionAsync(
+            item.ProjectId,
+            mark,
+            request.MemberSize);
         if (duplicate != null && duplicate.Id != item.Id)
             return Conflict(ApiResponse<MemberScheduleItemResponse>.Fail(
-                $"Member '{mark}' already exists in this project's schedule"));
+                $"Member '{mark}' with section '{request.MemberSize}' already exists in this project's schedule"));
 
         item.Mark = mark;
         item.MemberSize = request.MemberSize;
@@ -151,11 +156,11 @@ public class MemberSchedulesController : ControllerBase
     [HttpPost("{id}/delete")]
     public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
     {
-        var deleted = await _repo.DeleteAsync(id);
+        var deleted = await _repo.DeleteWithLinkedMeasurementsAsync(id);
         if (!deleted)
             return NotFound(ApiResponse<bool>.Fail("Member schedule item not found"));
 
-        return Ok(ApiResponse<bool>.Ok(true, "Member schedule item deleted"));
+        return Ok(ApiResponse<bool>.Ok(true, "Member schedule item and linked measurements deleted"));
     }
 
     [HttpGet("project/{projectId}/summary")]
@@ -164,6 +169,7 @@ public class MemberSchedulesController : ControllerBase
         if (!await _projectRepo.ExistsAsync(projectId))
             return NotFound(ApiResponse<MemberScheduleSummaryResponse>.Fail("Project not found"));
 
+        await _repo.ConsolidateExactDuplicatesAsync(projectId);
         var items = await _repo.GetByProjectIdAsync(projectId);
         return Ok(ApiResponse<MemberScheduleSummaryResponse>.Ok(BuildSummary(items)));
     }
@@ -176,6 +182,7 @@ public class MemberSchedulesController : ControllerBase
         if (drawing == null)
             return NotFound(ApiResponse<MemberScheduleSummaryResponse>.Fail("Drawing not found"));
 
+        await _repo.ConsolidateExactDuplicatesAsync(drawing.ProjectId);
         var items = await _repo.GetByProjectIdAsync(drawing.ProjectId);
         return Ok(ApiResponse<MemberScheduleSummaryResponse>.Ok(BuildSummary(items)));
     }

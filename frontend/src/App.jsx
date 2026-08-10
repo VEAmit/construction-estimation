@@ -62,6 +62,12 @@ function StartupLicenseGuard({ children }) {
         }
 
         setLicenseValid(true)
+        if (
+          location.pathname === '/system-settings' &&
+          !location.state?.allowConfiguredSettings
+        ) {
+          navigate('/login', { replace: true })
+        }
         scheduleRecheck(result.expiresAt)
       } catch (error) {
         if (!active) return
@@ -89,7 +95,7 @@ function StartupLicenseGuard({ children }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (recheckTimer) window.clearTimeout(recheckTimer)
     }
-  }, [clearAuth, navigate])
+  }, [clearAuth, location.pathname, location.state, navigate])
 
   if (checking) return null
   if (!licenseValid && location.pathname !== '/system-settings') {

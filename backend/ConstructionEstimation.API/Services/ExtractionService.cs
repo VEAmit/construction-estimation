@@ -69,6 +69,16 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    // Cold-formed Z purlins in schedule tables are commonly written as
+    // "Z20024 AT 600 CTS" (or "Z20024 AT 1200CTS").  They do not use the
+    // C20019 lipped-channel notation above, so keep a separate, narrow pattern
+    // that recognises the complete member size without treating note text as a
+    // schedule row.
+    private static readonly Regex ZPurlinSectionPattern = new(
+        @"\bZ\d{3,5}\s*(?:AT|@)\s*\d{2,4}\s*(?:CTS|C\s*/\s*C|CENT(?:RE|ER)?S)?\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
     // Rod bracing — "16# ROD", "12mm ROD WITH TURNBUCKLE"
     private static readonly Regex RodBracingPattern = new(
         @"\b\d{1,3}\s*(?:#|mm)\s*ROD\b",
@@ -708,6 +718,7 @@ public class ExtractionService
             var hasMemberSignal = SteelSectionPattern.IsMatch(remainder)
                 || HollowSectionPattern.IsMatch(remainder)
                 || PurlinSectionPattern.IsMatch(remainder)
+                || ZPurlinSectionPattern.IsMatch(remainder)
                 || RodBracingPattern.IsMatch(remainder)
                 || Regex.IsMatch(remainder,
                     @"^(?:\d+\s*/\s*)?\d|EXISTING|FASCIA|REFER",
@@ -735,6 +746,7 @@ public class ExtractionService
             var firstHasSection = SteelSectionPattern.IsMatch(firstDescription)
                 || HollowSectionPattern.IsMatch(firstDescription)
                 || PurlinSectionPattern.IsMatch(firstDescription)
+                || ZPurlinSectionPattern.IsMatch(firstDescription)
                 || RodBracingPattern.IsMatch(firstDescription);
             var baseHasNoMark = !Regex.IsMatch(baseDescription,
                 @"^[A-Z]{1,4}\d{0,3}[A-Z]?\s*[-:]",
@@ -762,6 +774,7 @@ public class ExtractionService
             return SteelSectionPattern.IsMatch(member)
                 || HollowSectionPattern.IsMatch(member)
                 || PurlinSectionPattern.IsMatch(member)
+                || ZPurlinSectionPattern.IsMatch(member)
                 || RodBracingPattern.IsMatch(member);
         });
 
@@ -1356,6 +1369,7 @@ public class ExtractionService
         if (SteelSectionPattern.IsMatch(line)
             || HollowSectionPattern.IsMatch(line)
             || PurlinSectionPattern.IsMatch(line)
+            || ZPurlinSectionPattern.IsMatch(line)
             || RodBracingPattern.IsMatch(line))
             score += 12;
         if (Regex.IsMatch(line, @"\b(MARK|SIZE|MEMBER|RAFTERS|BEAMS|PURLINS|BRACING)\b",
@@ -2073,6 +2087,7 @@ public class ExtractionService
             var hasMemberSection = SteelSectionPattern.IsMatch(value)
                 || HollowSectionPattern.IsMatch(value)
                 || PurlinSectionPattern.IsMatch(value)
+                || ZPurlinSectionPattern.IsMatch(value)
                 || RodBracingPattern.IsMatch(value);
             var hasMemberDescription = Regex.IsMatch(value,
                 @"\b(STRUT|BRACE|MEMBER)\b");
@@ -2428,7 +2443,8 @@ public class ExtractionService
 
     /// <summary>
     /// Reads ordinary two-column schedules when their native PDF text exposes aligned
-    /// MARK/SIZE or ITEM/MEMBER headers. Geometry keeps adjacent schedule columns separate.
+    /// MARK/SIZE, ITEM/MEMBER, or TAG/MEMBER headers. Geometry keeps adjacent schedule
+    /// columns separate (the TAG/MEMBER form is used by the HV purlin schedule).
     /// </summary>
     private static List<ExtractedMemberDto> ExtractColumnScheduleRows(List<Word> pageWords)
     {
@@ -2441,9 +2457,18 @@ public class ExtractionService
         foreach (var (markHeaderText, valueHeaderText) in new[]
         {
             ("MARK", "SIZE"),
-            ("ITEM", "MEMBER")
+            ("ITEM", "MEMBER"),
+            ("TAG", "MEMBER")
         })
         {
+            // TAG/MEMBER is intentionally limited to an actual PURLIN SCHEDULE
+            // header.  Other drawing tables can contain a generic TAG column, and
+            // treating those as member schedules would change the existing parser's
+            // source-selection behaviour.
+            if (markHeaderText.Equals("TAG", StringComparison.OrdinalIgnoreCase)
+                && !HasNearbyPurlinScheduleHeader(pageWords))
+                continue;
+
             var markHeaders = pageWords
                 .Where(w => w.Text.Equals(markHeaderText, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(w => w.BoundingBox.Bottom)
@@ -2548,7 +2573,7 @@ public class ExtractionService
                 if (previousY.HasValue && previousY.Value - row.Y > 60) break;
                 previousY = row.Y;
 
-                if (row.Mark is "MARK" or "ITEM" or "SIZE" or "MEMBER"
+                if (row.Mark is "MARK" or "ITEM" or "TAG" or "SIZE" or "MEMBER"
                     or "STEEL" or "STRUCTURAL" or "COMMENTS") continue;
                 var section = NormalizeSection(row.Value);
                 results.Add(new ExtractedMemberDto(
@@ -2562,6 +2587,17 @@ public class ExtractionService
         }
 
         return results;
+    }
+
+    private static bool HasNearbyPurlinScheduleHeader(List<Word> pageWords)
+    {
+        var purlinHeaders = pageWords
+            .Where(w => w.Text.Equals("PURLIN", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return purlinHeaders.Any(p => pageWords.Any(s =>
+            s.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(s.BoundingBox.Bottom - p.BoundingBox.Bottom) < 80
+            && Math.Abs(s.BoundingBox.Left - p.BoundingBox.Right) < 120));
     }
 
     /// <summary>
@@ -2624,6 +2660,7 @@ public class ExtractionService
             var hasRecognizedSection = SteelSectionPattern.IsMatch(r.MemberSize)
                 || HollowSectionPattern.IsMatch(r.MemberSize)
                 || PurlinSectionPattern.IsMatch(r.MemberSize)
+                || ZPurlinSectionPattern.IsMatch(r.MemberSize)
                 || RodBracingPattern.IsMatch(r.MemberSize);
             var hasTextMemberEvidence = Regex.IsMatch(r.MemberSize,
                 @"\b(EXISTING|FASCIA|REFER\s+SECTION)\b",
@@ -2649,6 +2686,7 @@ public class ExtractionService
             || ReidBarPattern.IsMatch(r.MemberSize)
             || ConcreteDimPattern.IsMatch(r.MemberSize)
             || PurlinSectionPattern.IsMatch(r.MemberSize)
+            || ZPurlinSectionPattern.IsMatch(r.MemberSize)
             || RodBracingPattern.IsMatch(r.MemberSize)
             || (r.Confidence >= 0.95 && r.MemberSize.Length >= 2);
     }
@@ -2722,6 +2760,8 @@ public class ExtractionService
             {
                 var hasSpec = SteelSectionPattern.IsMatch(line)
                     || HollowSectionPattern.IsMatch(line)
+                    || PurlinSectionPattern.IsMatch(line)
+                    || ZPurlinSectionPattern.IsMatch(line)
                     || ConcreteDimPattern.IsMatch(line)
                     || ReidBarPattern.IsMatch(line);
                 if (hasSpec)
@@ -2979,6 +3019,7 @@ public class ExtractionService
             if (pendingMark != null)
             {
                 var hasSpec = SteelSectionPattern.IsMatch(line) || HollowSectionPattern.IsMatch(line)
+                           || PurlinSectionPattern.IsMatch(line) || ZPurlinSectionPattern.IsMatch(line)
                            || ConcreteDimPattern.IsMatch(line) || ReidBarPattern.IsMatch(line);
                 if (hasSpec)
                 {
@@ -3040,6 +3081,7 @@ public class ExtractionService
         var sectionMatch = SteelSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(line);
+        if (!sectionMatch.Success) sectionMatch = ZPurlinSectionPattern.Match(line);
         if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(line);
 
         if (sectionMatch.Success)
@@ -3125,6 +3167,7 @@ public class ExtractionService
         var sectionMatch = SteelSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = ZPurlinSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(rest);
         if (sectionMatch.Success) return NormalizeSection(sectionMatch.Value.Trim());
 
@@ -3185,6 +3228,12 @@ public class ExtractionService
             {
                 if (IsNoisePatternLine(line, pm)) continue;
                 TryAddPatternRow(results, line, pm);
+            }
+
+            foreach (Match zpm in ZPurlinSectionPattern.Matches(line))
+            {
+                if (IsNoisePatternLine(line, zpm)) continue;
+                TryAddPatternRow(results, line, zpm);
             }
 
             foreach (Match rm in RodBracingPattern.Matches(line))

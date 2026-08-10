@@ -65,8 +65,41 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ConstructionEstimation.API.Services.ExtractionService>();
 builder.Services.Configure<LicensingOptions>(
     builder.Configuration.GetSection(LicensingOptions.SectionName));
-builder.Services.AddDataProtection()
+
+// License keys are protected with ASP.NET Core Data Protection before they are
+// stored in LicenseConfigurations.  The default key-ring location is not
+// reliable for an IIS application pool (it can be temporary or tied to a
+// different worker-process identity), which makes a valid stored license look
+// like InvalidConfiguration after an app-pool recycle.  Keep the ring in the
+// application data directory so it survives restarts and deployments that
+// preserve the application's data folder.  A configured path can still be
+// supplied by an administrator when the site runs from a read-only folder.
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtectionKeysPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        "App_Data",
+        "DataProtection-Keys");
+}
+else if (!Path.IsPathRooted(dataProtectionKeysPath))
+{
+    dataProtectionKeysPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        dataProtectionKeysPath);
+}
+
+Directory.CreateDirectory(dataProtectionKeysPath);
+var dataProtectionBuilder = builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
     .SetApplicationName("BuildTakeoffPro");
+if (OperatingSystem.IsWindows())
+{
+    // Keep the persisted key ring protected at rest on IIS/Windows.  The
+    // application-pool identity that created it must be retained across
+    // restarts so the stored license can be decrypted.
+    dataProtectionBuilder.ProtectKeysWithDpapi();
+}
 builder.Services.AddHttpClient("LicenseApi", client =>
 {
     var timeoutSeconds = Math.Clamp(

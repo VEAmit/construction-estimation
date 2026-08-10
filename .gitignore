@@ -4,6 +4,9 @@ obj/
 # Serilog runtime output. These were tracked previously, which meant every run
 # produced spurious diffs and merge noise on an unrelated file.
 backend/ConstructionEstimation.API/Logs/
+# Data Protection keys protect stored license/API secrets and must remain
+# machine-local; never commit the generated key ring.
+backend/ConstructionEstimation.API/App_Data/DataProtection-Keys/
 .vs/
 node_modules/
 dist/

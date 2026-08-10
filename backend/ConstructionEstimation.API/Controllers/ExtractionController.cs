@@ -5,6 +5,8 @@ using ConstructionEstimation.Core.Entities;
 using ConstructionEstimation.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
+using System.Text;
 
 namespace ConstructionEstimation.API.Controllers;
 
@@ -75,48 +77,88 @@ public class ExtractionController : ControllerBase
 
     /// <summary>
     /// Confirm and save extracted members to the member schedule.
-    /// Client sends the confirmed/edited list; upserts by mark (update existing, add new).
+    /// Client sends the confirmed/edited list. Exact mark + section matches are
+    /// shared project-wide; the same mark with a different section remains a
+    /// valid independent schedule item.
     /// </summary>
     [HttpPost("drawing/{drawingId}/confirm")]
-    public async Task<ActionResult<ApiResponse<int>>> ConfirmExtraction(
+    public async Task<ActionResult<ApiResponse<ExtractionSaveResultDto>>> ConfirmExtraction(
         int drawingId,
         [FromBody] BulkCreateMemberScheduleRequest request)
     {
         var drawing = await _drawingRepo.GetWithTakeoffItemsAsync(drawingId);
         if (drawing == null)
-            return NotFound(ApiResponse<int>.Fail("Drawing not found"));
+            return NotFound(ApiResponse<ExtractionSaveResultDto>.Fail("Drawing not found"));
 
-        var items = DeduplicateByMark(request.Items);
-        // Scoped to this drawing. A mark such as "SC1" is only unique within a
-        // sheet - two drawings in the same project routinely use the same mark
-        // for different members (SC1 = 610UB113 on one sheet, 400WC270 on
-        // another). Matching project-wide made the second drawing's save
-        // overwrite the first drawing's section size, and the duplicate-merge
-        // below then deleted the other sheet's row outright. The schedule stays
-        // project-wide for display; only the upsert/merge/prune key is per
-        // drawing.
-        var existing = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId))
-            .Where(e => e.DrawingId == drawingId)
-            .ToList();
-        var byMark = new Dictionary<string, MemberScheduleItem>(StringComparer.OrdinalIgnoreCase);
-        foreach (var g in existing.GroupBy(e => e.Mark.Trim(), StringComparer.OrdinalIgnoreCase))
+        var submittedItems = request.Items ?? [];
+        var items = DeduplicateByMarkAndSection(submittedItems);
+        var submittedCount = submittedItems.Count(item => !string.IsNullOrWhiteSpace(item.Mark));
+        var duplicateCount = Math.Max(0, submittedCount - items.Count);
+        duplicateCount += await _scheduleRepo.ConsolidateExactDuplicatesAsync(drawing.ProjectId);
+        var projectItems = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId)).ToList();
+        var currentDrawingItems = projectItems.Where(e => e.DrawingId == drawingId).ToList();
+        var byIdentity = new Dictionary<string, MemberScheduleItem>(StringComparer.Ordinal);
+        var sharedIdentities = new HashSet<string>(StringComparer.Ordinal);
+
+        // Repair exact duplicates left by older builds. A duplicate is only an
+        // exact normalized Mark + Section pair; equal marks with different
+        // sections are distinct schedule items and are intentionally kept.
+        foreach (var group in projectItems.GroupBy(BuildIdentityKey, StringComparer.Ordinal))
         {
-            var keeper = g.OrderByDescending(x => x.Id).First();
-            byMark[g.Key] = keeper;
-            foreach (var dup in g.Where(x => x.Id != keeper.Id))
-                await _scheduleRepo.DeleteAsync(dup.Id);
-        }
-        var incomingMarks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var members = group.ToList();
+            var keeper = members
+                .OrderByDescending(x => x.DrawingId == null)
+                .ThenByDescending(x => x.DrawingId == drawingId)
+                .ThenByDescending(x => x.Id)
+                .First();
 
-        int saved = 0;
+            byIdentity[group.Key] = keeper;
+            var distinctSources = members
+                .Where(x => x.DrawingId.HasValue)
+                .Select(x => x.DrawingId!.Value)
+                .Distinct()
+                .Count();
+            if (members.Any(x => x.DrawingId == null) || distinctSources > 1)
+                sharedIdentities.Add(group.Key);
+
+            foreach (var duplicate in members.Where(x => x.Id != keeper.Id))
+                await _scheduleRepo.DeleteAsync(duplicate.Id);
+
+            if (sharedIdentities.Contains(group.Key) && keeper.DrawingId.HasValue)
+            {
+                keeper.DrawingId = null;
+                await _scheduleRepo.UpdateAsync(keeper);
+            }
+        }
+
+        var incomingIdentities = new HashSet<string>(StringComparer.Ordinal);
+        var added = 0;
+        var updated = 0;
+
         foreach (var item in items)
         {
             var mark = item.Mark.Trim();
             if (string.IsNullOrEmpty(mark)) continue;
-            incomingMarks.Add(mark);
+            var identity = BuildIdentityKey(mark, item.MemberSize);
+            incomingIdentities.Add(identity);
 
-            if (byMark.TryGetValue(mark, out var existingItem))
+            if (byIdentity.TryGetValue(identity, out var existingItem))
             {
+                var belongsToCurrentDrawing = existingItem.DrawingId == drawingId;
+                if (!belongsToCurrentDrawing)
+                {
+                    // This exact Mark + Section already exists in the shared
+                    // project schedule. Keep the original row unchanged and do
+                    // not save a second copy from this drawing.
+                    if (existingItem.DrawingId.HasValue)
+                    {
+                        existingItem.DrawingId = null;
+                        await _scheduleRepo.UpdateAsync(existingItem);
+                    }
+                    duplicateCount++;
+                    continue;
+                }
+
                 existingItem.MemberSize = item.MemberSize;
                 existingItem.MemberType = item.MemberType;
                 existingItem.Description = item.Description;
@@ -128,7 +170,18 @@ public class ExtractionController : ControllerBase
                 if (item.Quantity > 0) existingItem.Quantity = item.Quantity;
                 existingItem.TotalWeight = existingItem.UnitWeight * existingItem.Length * existingItem.Quantity;
                 if (!string.IsNullOrEmpty(item.Color)) existingItem.Color = item.Color;
+
+                // The identical schedule item is now known to occur on more
+                // than one drawing, so retain it as a project-owned row rather
+                // than tying its lifetime to either source drawing.
+                if (sharedIdentities.Contains(identity) ||
+                    (existingItem.DrawingId.HasValue && existingItem.DrawingId != drawingId))
+                {
+                    existingItem.DrawingId = null;
+                }
+
                 await _scheduleRepo.UpdateAsync(existingItem);
+                updated++;
             }
             else
             {
@@ -148,8 +201,9 @@ public class ExtractionController : ControllerBase
                     DrawingId = drawingId
                 };
                 await _scheduleRepo.AddAsync(entity);
+                byIdentity[identity] = entity;
+                added++;
             }
-            saved++;
         }
 
         // Drop members no longer found in this extraction pass.
@@ -157,21 +211,30 @@ public class ExtractionController : ControllerBase
         // members contributed by other drawings must survive this pass. Without
         // the DrawingId check, extracting one drawing wipes every other
         // drawing's members out of the shared schedule.
-        foreach (var old in existing)
+        foreach (var old in currentDrawingItems)
         {
-            if (old.DrawingId == drawingId && !incomingMarks.Contains(old.Mark.Trim()))
+            if (old.DrawingId == drawingId && !incomingIdentities.Contains(BuildIdentityKey(old)))
                 await _scheduleRepo.DeleteAsync(old.Id);
         }
 
+        var saved = added + updated;
+
         _logger.LogInformation(
-            "Upserted {Count} extracted members into project {ProjectId} schedule from drawing {DrawingId}",
+            "Upserted {Count} extracted members ({Added} added, {Updated} updated); skipped or consolidated {DuplicateCount} exact duplicate(s) in project {ProjectId} from drawing {DrawingId}",
             saved,
+            added,
+            updated,
+            duplicateCount,
             drawing.ProjectId,
             drawingId);
-        return Ok(ApiResponse<int>.Ok(saved, $"{saved} member(s) saved to the project schedule"));
+
+        var response = new ExtractionSaveResultDto(saved, added, updated);
+        return Ok(ApiResponse<ExtractionSaveResultDto>.Ok(
+            response,
+            $"{saved} member(s) saved to the project schedule"));
     }
 
-    private static List<CreateMemberScheduleItemRequest> DeduplicateByMark(
+    private static List<CreateMemberScheduleItemRequest> DeduplicateByMarkAndSection(
         List<CreateMemberScheduleItemRequest> items)
     {
         var best = new Dictionary<string, CreateMemberScheduleItemRequest>(StringComparer.OrdinalIgnoreCase);
@@ -179,8 +242,27 @@ public class ExtractionController : ControllerBase
         {
             var mark = item.Mark?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(mark)) continue;
-            best[mark] = item;
+            best[BuildIdentityKey(mark, item.MemberSize)] = item;
         }
         return best.Values.ToList();
     }
+
+    private static string BuildIdentityKey(MemberScheduleItem item) =>
+        BuildIdentityKey(item.Mark, item.MemberSize);
+
+    private static string BuildIdentityKey(string? mark, string? memberSize) =>
+        $"{NormalizeIdentityPart(mark)}|{NormalizeIdentityPart(memberSize)}";
+
+    private static string NormalizeIdentityPart(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormKC);
+        return string.Concat(normalized.Where(character =>
+                !char.IsWhiteSpace(character) &&
+                CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.Format))
+            .Replace('×', 'X')
+            .ToUpperInvariant();
+    }
+
 }
