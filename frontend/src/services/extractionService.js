@@ -1,18 +1,22 @@
 import api from './api'
-import { normalizeExtractedMember, dedupeUniqueByMark, sortMembersByMark } from '../utils/extractionNormalize'
+import {
+  normalizeExtractedMember,
+  dedupeUniqueByMarkAndSection,
+  sortMembersByMark,
+} from '../utils/extractionNormalize'
 
 export const extractionService = {
   async extract(drawingId) {
     const res = await api.post(`/extraction/drawing/${drawingId}`)
     const data = res.data.data
     const members = sortMembersByMark(
-      dedupeUniqueByMark((data?.members ?? data?.Members ?? []).map(normalizeExtractedMember))
+      dedupeUniqueByMarkAndSection((data?.members ?? data?.Members ?? []).map(normalizeExtractedMember))
     )
     return { ...data, members }
   },
 
   async confirm(drawingId, members) {
-    const items = sortMembersByMark(dedupeUniqueByMark(members)).map(m => ({
+    const items = sortMembersByMark(dedupeUniqueByMarkAndSection(members)).map(m => ({
       mark: m.mark ?? '',
       memberSize: m.memberSize ?? '',
       memberType: m.memberType ?? 'Other',
@@ -24,7 +28,15 @@ export const extractionService = {
       color: m.color ?? null,
     }))
     const res = await api.post(`/extraction/drawing/${drawingId}/confirm`, { items })
-    return res.data.data
+    const data = res.data.data
+    // Keep compatibility with an older API build that returned only a count.
+    return typeof data === 'number'
+      ? { savedCount: data, addedCount: data, updatedCount: 0 }
+      : {
+          savedCount: Number(data?.savedCount ?? data?.SavedCount ?? 0),
+          addedCount: Number(data?.addedCount ?? data?.AddedCount ?? 0),
+          updatedCount: Number(data?.updatedCount ?? data?.UpdatedCount ?? 0),
+        }
   },
 
   async detectMark(drawingId, payload) {
