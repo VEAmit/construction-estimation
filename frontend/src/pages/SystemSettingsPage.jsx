@@ -72,6 +72,10 @@ export default function SystemSettingsPage() {
           ? (form.licenseKey.trim() || null)
           : null,
       })
+      // A missing/invalid license message may have sent the user to this page.
+      // Once configuration succeeds it is stale, so do not show it again when
+      // the full-page redirect mounts LoginPage.
+      sessionStorage.removeItem('buildtakeoff-license-message')
       toast.success('License validated and settings saved.')
       window.location.replace('/login')
     } catch (error) {

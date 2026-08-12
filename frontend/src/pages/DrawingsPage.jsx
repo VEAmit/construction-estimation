@@ -3731,7 +3731,10 @@ export default function DrawingsPage() {
     const norm = normalizeDrawing(drawing)
     setSelectedDrawing(norm)
     setTakeoffItems([])
-    setMemberScheduleItems([])
+    // The member schedule is shared by the project, not owned by the newly
+    // uploaded drawing. Keep the existing project schedule visible while the
+    // new drawing becomes active; the project has not changed and upload does
+    // not add or remove schedule rows.
     setSummaryLocal(null)
     annotationMapRef.current = {}
     persistedAnnotIdsRef.current = new Set()
