@@ -75,8 +75,29 @@ export default function SystemSettingsPage() {
       toast.success('License validated and settings saved.')
       window.location.replace('/login')
     } catch (error) {
+      const errorCode = error?.response?.data?.code
+      const savedForRetry = errorCode === 'LICENSE_API_UNREACHABLE' ||
+        errorCode === 'LICENSE_API_INVALID_RESPONSE'
+
+      if (savedForRetry) {
+        try {
+          const latestStatus = await licenseService.getStatus()
+          if (latestStatus?.isConfigured) {
+            setStatus(latestStatus)
+            setForm({ licenseKey: latestStatus.maskedLicenseKey ?? '' })
+            setReplacingLicenseKey(false)
+            setShowLicense(false)
+          }
+        } catch {
+          // Keep the validation error as the primary message. The saved
+          // configuration will be loaded normally on the next page visit.
+        }
+      }
+
       toast.error(
-        error?.response?.data?.message ??
+        (savedForRetry
+          ? 'License key saved securely, but the license service is currently unavailable. Please try validation again.'
+          : error?.response?.data?.message) ??
         'Unable to save license settings. Please verify the values and try again.',
         { duration: 6000 },
       )

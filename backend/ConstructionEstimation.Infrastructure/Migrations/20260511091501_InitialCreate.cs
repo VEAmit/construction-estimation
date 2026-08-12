@@ -125,7 +125,7 @@ namespace ConstructionEstimation.Infrastructure.Migrations
             migrationBuilder.InsertData(
                 table: "Users",
                 columns: new[] { "Id", "CreatedAt", "Email", "FirstName", "IsDeleted", "LastName", "PasswordHash", "Role", "UpdatedAt" },
-                values: new object[] { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin@buildtakeoff.com", "Amit", false, "Kumar", "$2a$11$rTzW3eSgkqkbVmMpGXqWZ.hKgMJJJsVzf2QJsqVTJyPpzX1X1fRYm", "Admin", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
+                values: new object[] { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin@buildtakeoff.com", "Amit", false, "Kumar", "$2a$11$yAsWoZ4a/pmZIu6lhZrxLORpVXrp.pR1K0FsFqvk03tHtsUQewUD6", "Admin", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
 
             migrationBuilder.InsertData(
                 table: "Projects",

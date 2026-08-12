@@ -13,3 +13,8 @@ dist/
 publish/
 publish.zip
 *.zip
+
+# Inno Setup build artifacts. Source scripts under installer/ remain tracked.
+installer/staging/
+installer/Output/
+installer/CompilerOutput/

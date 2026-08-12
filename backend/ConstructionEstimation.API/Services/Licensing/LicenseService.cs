@@ -254,7 +254,16 @@ public sealed class LicenseService : ILicenseService
                     validationUrl),
                 cancellationToken);
 
-            if (!result.IsValid)
+            // A temporary provider/network failure must not force an installer
+            // user to type the administrator-provided key again. Persist the
+            // encrypted configuration so startup/manual validation can retry,
+            // but keep the result non-valid so login and licensed APIs remain
+            // blocked. Definitively invalid/expired/revoked/not-found keys are
+            // still rejected without replacing the stored configuration.
+            var canPersistForRetry = result.Status is
+                LicenseValidationStatus.ApiUnreachable or
+                LicenseValidationStatus.InvalidResponse;
+            if (!result.IsValid && !canPersistForRetry)
             {
                 _logger.LogWarning(
                     "License configuration was not saved because validation returned {LicenseStatus}",
@@ -279,7 +288,16 @@ public sealed class LicenseService : ILicenseService
 
             await _repository.SaveAsync(configuration, cancellationToken);
             Cache(result);
-            _logger.LogInformation("License configuration saved after successful validation");
+            if (result.IsValid)
+            {
+                _logger.LogInformation("License configuration saved after successful validation");
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "License configuration saved securely for retry after {LicenseStatus}",
+                    result.Status);
+            }
             return result;
         }
         catch (Exception exception) when (

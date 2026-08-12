@@ -75,8 +75,8 @@ public class AppDbContext : DbContext
             Id = 1,
             FirstName = "Amit",
             LastName = "Kumar",
-            Email = "admin@buildtakeoff.com",
-            PasswordHash = "$2a$11$rTzW3eSgkqkbVmMpGXqWZ.hKgMJJJsVzf2QJsqVTJyPpzX1X1fRYm",
+            Email = DefaultAdminAccount.Email,
+            PasswordHash = DefaultAdminAccount.PasswordHash,
             Role = "Admin",
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -88,7 +88,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.MemberSize).HasMaxLength(100);
             entity.Property(e => e.MemberType).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-            entity.HasIndex(e => new { e.ProjectId, e.Mark })
+            // A mark can legitimately refer to different sections in one
+            // project. Only an exact project + mark + section is a duplicate.
+            entity.HasIndex(e => new { e.ProjectId, e.Mark, e.MemberSize })
                   .IsUnique()
                   .HasFilter("[IsDeleted] = 0 AND [Mark] <> N''");
             entity.HasOne(m => m.Project)

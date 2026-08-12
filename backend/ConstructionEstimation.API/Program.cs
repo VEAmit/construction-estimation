@@ -155,9 +155,29 @@ using (var scope = app.Services.CreateScope())
         Log.Warning(ex, "Database migration failed — will attempt EnsureCreated");
         db.Database.EnsureCreated();
     }
+
+    var defaultAdminResult = await DefaultAdminAccount.EnsureAvailableAsync(db);
+    if (defaultAdminResult == DefaultAdminSeedResult.Created)
+    {
+        Log.Information(
+            "Created the default administrator because the Users table was empty ({AdminEmail})",
+            DefaultAdminAccount.Email);
+    }
+    else if (defaultAdminResult == DefaultAdminSeedResult.LegacyPasswordRepaired)
+    {
+        Log.Information(
+            "Repaired the legacy built-in administrator password hash ({AdminEmail})",
+            DefaultAdminAccount.Email);
+    }
 }
 
 app.UseSerilogRequestLogging();
+
+// The normal IIS deployment and the installer both publish the React bundle
+// below wwwroot. Serving it from the API site keeps /api same-origin and avoids
+// a machine-specific reverse-proxy URL in the installed application.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 var enableSwagger = app.Configuration.GetValue("EnableSwagger", app.Environment.IsDevelopment());
 if (enableSwagger)
@@ -173,8 +193,26 @@ app.UseMiddleware<LicenseMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
-// Serve uploaded files
-app.UseStaticFiles();
+// React Router routes (for example /login and /drawings) must return the SPA.
+// Preserve normal 404 responses for unknown API routes.
+app.MapFallback(async context =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
+    if (!File.Exists(indexPath))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(indexPath);
+});
 
 // Port is not hardcoded here — it comes from:
 //   IIS site binding (e.g. 202, 203), ASPNETCORE_URLS env var, or launchSettings.json

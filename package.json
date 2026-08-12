@@ -6,6 +6,7 @@
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "dotnet publish backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj -c Release -o ./publish/backend",
+    "build:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File ./installer/Build-Installer.ps1",
     "dev": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "dotnet run --project backend/ConstructionEstimation.API/ConstructionEstimation.API.csproj",
