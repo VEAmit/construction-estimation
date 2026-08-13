@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../../store/useAppStore'
 import { computeRealLengthFromDrawing } from '../../../utils/measureCalibration'
-import { createRawLine, translateRawLine } from './pdfGeometryAdapter'
+import { createRawLine, findNearestLineEndpoint, translateRawLine } from './pdfGeometryAdapter'
 import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE } from '../../../utils/measureLabel'
 
 // Minimum on-screen distance (CSS px) between a Linear/Calibrate line's two
@@ -9,6 +9,10 @@ import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_S
 // click/double-click. See finalizeLine, where this is converted to PDF page
 // units via the current zoom.
 const MIN_LINE_SCREEN_PIXELS = 6
+// Bluebeam-style endpoint acquisition range. This is intentionally expressed
+// in CSS pixels (not PDF units), so it feels identical at every zoom level.
+const ENDPOINT_SNAP_SCREEN_PIXELS = 12
+const ENDPOINT_SNAP_INDICATOR_PIXELS = 5
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -275,6 +279,7 @@ function PdfSvgOverlay({
   pageSize,
   viewerScale,
   annotations,
+  pdfLineEndpoints,
   selectedAnnotationId,
   selectedAnnotationIds,
   pasteClipboard,
@@ -301,6 +306,7 @@ function PdfSvgOverlay({
   const [draftStart, setDraftStart] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [dragged, setDragged] = useState(null)
+  const [endpointSnap, setEndpointSnap] = useState(null)
 
   const {
     activeTool,
@@ -318,6 +324,7 @@ function PdfSvgOverlay({
     draftStartRef.current = null
     setDraftStart(null)
     setCursor(null)
+    setEndpointSnap(null)
   }, [activeTool, pageNumber])
 
   // Every paste session (a fresh copy → Paste) gets a brand-new clipboard
@@ -330,12 +337,57 @@ function PdfSvgOverlay({
   // the mouse again.
   useEffect(() => {
     setCursor(null)
+    setEndpointSnap(null)
   }, [pasteClipboard])
 
   const pageAnnotations = useMemo(() => annotations.map(annotation => {
     if (dragged?.id !== annotation.id) return annotation
     return { ...annotation, points: dragged.points }
   }), [annotations, dragged])
+
+  const pdfEndpointGrid = useMemo(() => {
+    const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+    const cellSize = ENDPOINT_SNAP_SCREEN_PIXELS / pageScale
+    const cells = new Map()
+    for (const endpoint of pdfLineEndpoints ?? []) {
+      const x = Number(endpoint?.x)
+      const y = Number(endpoint?.y)
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+      const key = `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`
+      const cell = cells.get(key)
+      if (cell) cell.push(endpoint)
+      else cells.set(key, [endpoint])
+    }
+    return { cellSize, cells }
+  }, [pdfLineEndpoints, viewerScale])
+
+  const nearbyPdfEndpoints = useCallback((point) => {
+    const { cellSize, cells } = pdfEndpointGrid
+    const centerX = Math.floor(point.x / cellSize)
+    const centerY = Math.floor(point.y / cellSize)
+    const candidates = []
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const cell = cells.get(`${centerX + offsetX}:${centerY + offsetY}`)
+        if (cell) candidates.push(...cell)
+      }
+    }
+    return candidates
+  }, [pdfEndpointGrid])
+
+  const resolveEndpointSnap = useCallback((point) => {
+    const svg = svgRef.current
+    if (!svg || !['line', 'calibrate'].includes(activeTool) || pasteClipboard || spaceHeld) return null
+    const rect = svg.getBoundingClientRect()
+    return findNearestLineEndpoint(
+      point,
+      pageAnnotations,
+      nearbyPdfEndpoints(point),
+      pageSize,
+      { width: rect.width, height: rect.height },
+      ENDPOINT_SNAP_SCREEN_PIXELS,
+    )
+  }, [activeTool, nearbyPdfEndpoints, pageAnnotations, pageSize, pasteClipboard, spaceHeld])
 
   // Once a measurement is selected (by click, or the first tick of hovering
   // its own label), scrolling ANYWHERE on this page resizes its label instead
@@ -581,7 +633,10 @@ function PdfSvgOverlay({
     if (!svgRef.current) return
     event.preventDefault()
     event.stopPropagation()
-    const point = toPdfPoint(event, svgRef.current, pageSize)
+    const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
+    const snap = resolveEndpointSnap(rawPoint)
+    const point = snap?.point ?? rawPoint
+    setEndpointSnap(snap)
     const start = draftStartRef.current
     if (start) {
       finalizeLine(point, start)
@@ -596,7 +651,7 @@ function PdfSvgOverlay({
     // draft remains active while the user pans (Space/ middle mouse), zooms,
     // scrolls, or otherwise navigates. The next left click above is the only
     // action that finalizes the line through the existing finalizeLine path.
-  }, [activeTool, finalizeLine, pageSize, pasteClipboard, spaceHeld])
+  }, [activeTool, finalizeLine, pageSize, pasteClipboard, resolveEndpointSnap, spaceHeld])
 
   const publishGeometryChange = useCallback((drag, points) => {
     if (!drag || !Array.isArray(points) || points.length < 2) return
@@ -626,9 +681,12 @@ function PdfSvgOverlay({
 
   const handleMove = useCallback((event) => {
     if (!svgRef.current) return
-    const point = toPdfPoint(event, svgRef.current, pageSize)
-    setCursor(point)
+    const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
     const drag = dragRef.current
+    const snap = !drag ? resolveEndpointSnap(rawPoint) : null
+    const point = snap?.point ?? rawPoint
+    setEndpointSnap(snap)
+    setCursor(point)
     if (!drag || drag.pointerId !== event.pointerId) return
     let points
     if (drag.mode === 'endpoint') {
@@ -643,7 +701,7 @@ function PdfSvgOverlay({
     drag.latestPoints = points
     setDragged({ id: drag.annotation.id, points })
     publishGeometryChange(drag, points)
-  }, [pageSize, publishGeometryChange])
+  }, [pageSize, publishGeometryChange, resolveEndpointSnap])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (spaceHeld || event.button !== 0) return
@@ -751,7 +809,10 @@ function PdfSvgOverlay({
       onPointerMove={handleMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onPointerLeave={() => { if (!dragRef.current && !draftStartRef.current) setCursor(null) }}
+      onPointerLeave={() => {
+        setEndpointSnap(null)
+        if (!dragRef.current && !draftStartRef.current) setCursor(null)
+      }}
     >
       {/*
         Let both placement clicks reach the SVG drawing surface even when the
@@ -788,6 +849,24 @@ function PdfSvgOverlay({
           stroke={measureColor} strokeWidth={lineThickness} strokeDasharray={dashArray(lineStyle)}
           strokeLinecap="round" pointerEvents="none" />
       )}
+      {endpointSnap && dimensionCommandActive && (() => {
+        const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        const size = ENDPOINT_SNAP_INDICATOR_PIXELS / pageScale
+        return (
+          <rect
+            className="pdfjs-endpoint-snap-indicator"
+            x={endpointSnap.point.x - size / 2}
+            y={endpointSnap.point.y - size / 2}
+            width={size}
+            height={size}
+            fill="rgba(255,255,255,.92)"
+            stroke="#1473E6"
+            strokeWidth={1 / pageScale}
+            vectorEffect="none"
+            pointerEvents="none"
+          />
+        )
+      })()}
       {previewAnnotations.map(preview => (
         <g key={preview.id} opacity=".58" pointerEvents="none">
           <AnnotationShape

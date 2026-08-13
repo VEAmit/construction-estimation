@@ -66,6 +66,88 @@ function occurrenceEntries(root) {
     .filter(entry => entry.raw)
 }
 
+/**
+ * Find the nearest visible line endpoint using a screen-pixel tolerance.
+ *
+ * Annotation geometry is stored in PDF-page coordinates, while the user
+ * expects the snap range to stay the same size on screen at every zoom level.
+ * Converting each axis through the rendered viewport keeps that behaviour
+ * stable even if a page is rendered with slightly different X/Y scales.
+ */
+export function findNearestLineEndpoint(
+  cursorPoint,
+  annotations,
+  pdfLineEndpoints,
+  pageSize,
+  viewportSize,
+  maxScreenDistance = 12,
+) {
+  const cursorX = Number(cursorPoint?.x)
+  const cursorY = Number(cursorPoint?.y)
+  const pageWidth = Number(pageSize?.width)
+  const pageHeight = Number(pageSize?.height)
+  const viewportWidth = Number(viewportSize?.width)
+  const viewportHeight = Number(viewportSize?.height)
+  const tolerance = Number(maxScreenDistance)
+
+  if (![cursorX, cursorY, pageWidth, pageHeight, viewportWidth, viewportHeight, tolerance]
+    .every(Number.isFinite)
+    || pageWidth <= 0 || pageHeight <= 0
+    || viewportWidth <= 0 || viewportHeight <= 0
+    || tolerance <= 0) return null
+
+  const scaleX = viewportWidth / pageWidth
+  const scaleY = viewportHeight / pageHeight
+  let nearest = null
+
+  for (const annotation of annotations ?? []) {
+    if (String(annotation?.type ?? '').toLowerCase() !== 'line') continue
+    const points = Array.isArray(annotation?.points) ? annotation.points : []
+    if (points.length < 2) continue
+
+    const endpointIndexes = [0, points.length - 1]
+    for (const endpointIndex of endpointIndexes) {
+      const endpoint = points[endpointIndex]
+      const endpointX = Number(endpoint?.x)
+      const endpointY = Number(endpoint?.y)
+      if (!Number.isFinite(endpointX) || !Number.isFinite(endpointY)) continue
+
+      const screenDistance = Math.hypot(
+        (endpointX - cursorX) * scaleX,
+        (endpointY - cursorY) * scaleY,
+      )
+      if (screenDistance > tolerance || (nearest && screenDistance >= nearest.screenDistance)) continue
+
+      nearest = {
+        point: { x: endpointX, y: endpointY },
+        annotationId: annotation.id,
+        endpointIndex,
+        screenDistance,
+      }
+    }
+  }
+
+  for (const endpoint of pdfLineEndpoints ?? []) {
+    const endpointX = Number(endpoint?.x)
+    const endpointY = Number(endpoint?.y)
+    if (!Number.isFinite(endpointX) || !Number.isFinite(endpointY)) continue
+    const screenDistance = Math.hypot(
+      (endpointX - cursorX) * scaleX,
+      (endpointY - cursorY) * scaleY,
+    )
+    if (screenDistance > tolerance || (nearest && screenDistance >= nearest.screenDistance)) continue
+    nearest = {
+      point: { x: endpointX, y: endpointY },
+      annotationId: null,
+      endpointIndex: null,
+      source: 'pdf',
+      screenDistance,
+    }
+  }
+
+  return nearest
+}
+
 export function normalizeAnnotations(items, pageMetrics) {
   const result = []
   for (const item of items ?? []) {

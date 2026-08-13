@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import PdfSvgOverlay from './PdfSvgOverlay'
 import { attachDetectedLabel, mergePdfTextItems } from './detectPdfLabel'
+import { extractPdfLineEndpoints } from './pdfLineEndpoints'
 
 const MAX_OUTPUT_SCALE = 2
 const MAX_CACHE_ENTRIES = 18
@@ -112,14 +113,23 @@ function PdfJsPage({
   const renderedOnceRef = useRef(false)
   const pageTextItemsRef = useRef([])
   const textItemsFetchedForRef = useRef(null)
+  const snapPointsFetchedForRef = useRef(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1 || forceRender)
   const [isIntersecting, setIsIntersecting] = useState(false)
   const [renderedOnce, setRenderedOnce] = useState(false)
   const [renderError, setRenderError] = useState(null)
+  const [pdfLineEndpoints, setPdfLineEndpoints] = useState([])
 
   const pageSize = initialSize ?? { width: 612, height: 792 }
   const width = Math.max(1, pageSize.width * scale)
   const height = Math.max(1, pageSize.height * scale)
+
+  useEffect(() => {
+    // Do not expose the previous document's vector endpoints while a page with
+    // the same page number is loading after the user switches drawings.
+    snapPointsFetchedForRef.current = null
+    setPdfLineEndpoints([])
+  }, [documentKey, pageNumber])
 
   useEffect(() => {
     if (forceRender) setShouldRender(true)
@@ -184,6 +194,20 @@ function PdfJsPage({
       const baseViewport = page.getViewport({ scale: 1 })
       onMetric?.(pageNumber, { width: baseViewport.width, height: baseViewport.height, rotation: baseViewport.rotation })
       const viewport = page.getViewport({ scale })
+
+      const snapPointsKey = `${documentKey}|${pageNumber}`
+      if (snapPointsFetchedForRef.current !== snapPointsKey) {
+        page.getOperatorList().then(operatorList => {
+          if (cancelled) return
+          setPdfLineEndpoints(extractPdfLineEndpoints(operatorList, baseViewport))
+          snapPointsFetchedForRef.current = snapPointsKey
+        }).catch(error => {
+          console.warn(`[PDF.js] Vector endpoint extraction failed on page ${pageNumber}`, error)
+          // Annotation-to-annotation snapping remains available even when a
+          // particular PDF's vector operator list cannot be inspected.
+          setPdfLineEndpoints([])
+        })
+      }
 
       const textItemsKey = `${documentKey}|${pageNumber}`
       if (textItemsFetchedForRef.current !== textItemsKey) {
@@ -283,6 +307,7 @@ function PdfJsPage({
         pageSize={pageSize}
         viewerScale={scale}
         annotations={annotations}
+        pdfLineEndpoints={pdfLineEndpoints}
         selectedAnnotationId={selectedAnnotationId}
         selectedAnnotationIds={selectedAnnotationIds}
         pasteClipboard={pasteClipboard}
