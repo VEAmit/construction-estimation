@@ -13,6 +13,9 @@ const MIN_LINE_SCREEN_PIXELS = 6
 // in CSS pixels (not PDF units), so it feels identical at every zoom level.
 const ENDPOINT_SNAP_SCREEN_PIXELS = 12
 const ENDPOINT_SNAP_INDICATOR_PIXELS = 8
+// Keep collision clearance stable on screen regardless of PDF zoom.
+const LABEL_COLLISION_PADDING_PIXELS = 3
+const LABEL_COLLISION_MAX_LANES = 5
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -99,6 +102,161 @@ function labelGeometry(annotation, viewerScale) {
   }
 }
 
+function rotateAround(point, pivot, angleRadians) {
+  const cos = Math.cos(angleRadians)
+  const sin = Math.sin(angleRadians)
+  const dx = point.x - pivot.x
+  const dy = point.y - pivot.y
+  return {
+    x: pivot.x + dx * cos - dy * sin,
+    y: pivot.y + dx * sin + dy * cos,
+  }
+}
+
+// Match the label's real rotated SVG rectangle so crossing/angled labels are
+// moved only when their visible boxes genuinely overlap (an axis-aligned box
+// would produce false positives around the corners of diagonal labels).
+function labelCollisionPolygon(label, viewerScale) {
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const padding = LABEL_COLLISION_PADDING_PIXELS / pageScale
+  const pivot = { x: label.x, y: label.y }
+  const corners = [
+    { x: label.x - label.width / 2 - padding, y: label.y - label.height - padding },
+    { x: label.x + label.width / 2 + padding, y: label.y - label.height - padding },
+    { x: label.x + label.width / 2 + padding, y: label.y + padding },
+    { x: label.x - label.width / 2 - padding, y: label.y + padding },
+  ]
+  const radians = (Number(label.angle) || 0) * (Math.PI / 180)
+  return corners.map(corner => rotateAround(corner, pivot, radians))
+}
+
+function polygonsOverlap(first, second) {
+  for (const polygon of [first, second]) {
+    for (let index = 0; index < polygon.length; index += 1) {
+      const current = polygon[index]
+      const next = polygon[(index + 1) % polygon.length]
+      const axis = { x: -(next.y - current.y), y: next.x - current.x }
+      const firstProjection = first.map(point => point.x * axis.x + point.y * axis.y)
+      const secondProjection = second.map(point => point.x * axis.x + point.y * axis.y)
+      const firstMin = Math.min(...firstProjection)
+      const firstMax = Math.max(...firstProjection)
+      const secondMin = Math.min(...secondProjection)
+      const secondMax = Math.max(...secondProjection)
+      if (firstMax <= secondMin || secondMax <= firstMin) return false
+    }
+  }
+  return true
+}
+
+function polygonBounds(polygon) {
+  const xs = polygon.map(point => point.x)
+  const ys = polygon.map(point => point.y)
+  return {
+    left: Math.min(...xs),
+    right: Math.max(...xs),
+    top: Math.min(...ys),
+    bottom: Math.max(...ys),
+  }
+}
+
+function collisionGridKeys(polygon, cellSize) {
+  const bounds = polygonBounds(polygon)
+  const keys = []
+  const fromX = Math.floor(bounds.left / cellSize)
+  const toX = Math.floor(bounds.right / cellSize)
+  const fromY = Math.floor(bounds.top / cellSize)
+  const toY = Math.floor(bounds.bottom / cellSize)
+  for (let x = fromX; x <= toX; x += 1) {
+    for (let y = fromY; y <= toY; y += 1) keys.push(`${x}:${y}`)
+  }
+  return keys
+}
+
+function labelPlacementCandidates(annotation, baseLabel, viewerScale) {
+  const start = annotation.points[0]
+  const end = annotation.points[annotation.points.length - 1]
+  if (!start || !end) return [baseLabel]
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lineLength = Math.hypot(dx, dy)
+  if (lineLength <= 0.001) return [baseLabel]
+
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+  const tangent = { x: dx / lineLength, y: dy / lineLength }
+  const fromLine = { x: baseLabel.x - midpoint.x, y: baseLabel.y - midpoint.y }
+  const fromLineLength = Math.hypot(fromLine.x, fromLine.y)
+  const normal = fromLineLength > 0.001
+    ? { x: fromLine.x / fromLineLength, y: fromLine.y / fromLineLength }
+    : { x: -tangent.y, y: tangent.x }
+
+  // Search close to the midpoint first. The tangent step is based on the
+  // rendered label width, so the result stays useful for both short and long
+  // marks without changing the line itself or its measured length.
+  const alongStep = baseLabel.width * 0.7 + LABEL_COLLISION_PADDING_PIXELS / pageScale
+  const maxAlong = Math.max(0, lineLength / 2 - Math.min(baseLabel.width / 2, lineLength / 2))
+  const rawOffsets = [0, -alongStep, alongStep, -alongStep * 2, alongStep * 2]
+  const alongOffsets = []
+  const seenOffsets = new Set()
+  rawOffsets.forEach(rawOffset => {
+    const offset = Math.max(-maxAlong, Math.min(maxAlong, rawOffset))
+    const key = offset.toFixed(4)
+    if (seenOffsets.has(key)) return
+    seenOffsets.add(key)
+    alongOffsets.push(offset)
+  })
+
+  const laneStep = baseLabel.height + (LABEL_COLLISION_PADDING_PIXELS * 2) / pageScale
+  const candidates = []
+  for (let lane = 0; lane <= LABEL_COLLISION_MAX_LANES; lane += 1) {
+    for (const along of alongOffsets) {
+      candidates.push({
+        ...baseLabel,
+        x: baseLabel.x + tangent.x * along + normal.x * laneStep * lane,
+        y: baseLabel.y + tangent.y * along + normal.y * laneStep * lane,
+      })
+    }
+  }
+  return candidates
+}
+
+function layoutMeasurementLabels(annotations, viewerScale) {
+  const layouts = new Map()
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const cellSize = 80 / pageScale
+  const collisionGrid = new Map()
+  for (const annotation of annotations) {
+    if (annotation.type === 'count') continue
+    const baseLabel = labelGeometry(annotation, viewerScale)
+    if (!baseLabel || (!baseLabel.mark && !baseLabel.value)) continue
+    const candidates = labelPlacementCandidates(annotation, baseLabel, viewerScale)
+    let chosen = candidates[candidates.length - 1]
+    let chosenPolygon = labelCollisionPolygon(chosen, viewerScale)
+    let fewestOverlaps = Number.POSITIVE_INFINITY
+    for (const candidate of candidates) {
+      const polygon = labelCollisionPolygon(candidate, viewerScale)
+      const nearby = new Set()
+      collisionGridKeys(polygon, cellSize).forEach(key => {
+        collisionGrid.get(key)?.forEach(existing => nearby.add(existing))
+      })
+      const overlapCount = [...nearby].filter(existing => polygonsOverlap(polygon, existing)).length
+      if (overlapCount < fewestOverlaps) {
+        chosen = candidate
+        chosenPolygon = polygon
+        fewestOverlaps = overlapCount
+      }
+      if (overlapCount === 0) break
+    }
+    layouts.set(String(annotation.id), chosen)
+    collisionGridKeys(chosenPolygon, cellSize).forEach(key => {
+      const cell = collisionGrid.get(key)
+      if (cell) cell.push(chosenPolygon)
+      else collisionGrid.set(key, [chosenPolygon])
+    })
+  }
+  return layouts
+}
+
 // Shared by both ways to wheel-resize a label's font size: hovering the
 // label itself (MeasurementLabel, below) and scrolling anywhere on the page
 // once something is already selected (PdfSvgOverlay's own listener further
@@ -128,10 +286,10 @@ function applyLabelWheelResize(annotation, event, onLabelSizeChange) {
   })
 }
 
-function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected, forceVisible }) {
+function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected, forceVisible, labelLayout }) {
   const groupRef = useRef(null)
   const showMeasurementLabels = useAppStore(s => s.showMeasurementLabels)
-  const label = labelGeometry(annotation, viewerScale)
+  const label = labelLayout ?? labelGeometry(annotation, viewerScale)
 
   // Hover a label + scroll to resize it in place, even before it's selected —
   // this is just the quick-access path; once selected, PdfSvgOverlay's own
@@ -215,6 +373,7 @@ function AnnotationShape({
   viewerScale,
   onLabelSizeChange,
   forceLabelVisible,
+  labelLayout,
 }) {
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
@@ -269,7 +428,8 @@ function AnnotationShape({
         )
       })}
       <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
-        selected={selected} anySelected={anySelected} onSelect={onSelect} forceVisible={forceLabelVisible} />
+        selected={selected} anySelected={anySelected} onSelect={onSelect} forceVisible={forceLabelVisible}
+        labelLayout={labelLayout} />
     </g>
   )
 }
@@ -344,6 +504,15 @@ function PdfSvgOverlay({
     if (dragged?.id !== annotation.id) return annotation
     return { ...annotation, points: dragged.points }
   }), [annotations, dragged])
+
+  // Preserve the established midpoint placement unless two visible label
+  // boxes collide. Since saved annotations are rendered before the newly
+  // pending one, an existing label stays put and only the new conflicting
+  // label takes the nearest available position along its own measurement.
+  const labelLayouts = useMemo(
+    () => layoutMeasurementLabels(pageAnnotations, viewerScale),
+    [pageAnnotations, viewerScale],
+  )
 
   const pdfEndpointGrid = useMemo(() => {
     const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
@@ -888,6 +1057,7 @@ function PdfSvgOverlay({
             onSelect={onSelect}
             onContextMenu={handleShapeContextMenu}
             onLabelSizeChange={onLabelSizeChange}
+            labelLayout={labelLayouts.get(String(annotation.id))}
           />
         ))}
       </g>
