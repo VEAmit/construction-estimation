@@ -400,7 +400,12 @@ function PdfSvgOverlay({
   // handling needed here for that.
   useEffect(() => {
     const svg = svgRef.current
-    if (!svg || selectedAnnotationId == null) return undefined
+    // While positioning paste previews, the wheel belongs to navigation/pan.
+    // A pasted occurrence may remain selected after placement, but that must
+    // not make ordinary wheel movement resize its label in the middle of the
+    // paste workflow. Ending paste mode restores the existing selected-label
+    // wheel resize behaviour automatically.
+    if (!svg || pasteClipboard || selectedAnnotationId == null) return undefined
     const selected = pageAnnotations.find(a => [a.id, a.dbId].some(
       id => id != null && String(id) === String(selectedAnnotationId)
     ))
@@ -411,7 +416,7 @@ function PdfSvgOverlay({
     }
     svg.addEventListener('wheel', handleWheel, { passive: false })
     return () => svg.removeEventListener('wheel', handleWheel)
-  }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber])
+  }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber, pasteClipboard])
 
   // Bluebeam-style paste uses the final endpoint of the first copied line as
   // its cursor/reference point. translateRawLine accepts a target centre, so

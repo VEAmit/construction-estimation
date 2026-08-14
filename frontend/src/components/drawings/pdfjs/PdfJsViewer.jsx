@@ -523,10 +523,16 @@ export default function PdfJsViewer({
     // this div instead of wherever the pointer visually is — so the SVG
     // overlay's own onClick (the one that actually places the paste) never
     // received the click at all, and paste silently did nothing.
-    if (pasteClipboard) return
+    // Middle-button drag is the permanent pan override, including while a
+    // paste stamp is active. It is checked before the paste guard so button 1
+    // pans without placing/cancelling the preview, while button 0 still flows
+    // to the overlay and places the copy exactly as before.
+    const middleButtonPan = event.button === 1
+    if (pasteClipboard && !middleButtonPan) return
     // Held-Space always pans, regardless of tool — see spaceHeld's store comment.
-    const canPan = spaceHeld
-      || (PAN_TOOLS.has(activeTool) ? event.button === 0 : event.button === 1)
+    const canPan = middleButtonPan
+      || spaceHeld
+      || (PAN_TOOLS.has(activeTool) && event.button === 0)
     if (!canPan) return
     const container = containerRef.current
     if (!container) return
@@ -588,6 +594,11 @@ export default function PdfJsViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={endPan}
       onPointerCancel={endPan}
+      onAuxClick={event => {
+        // Prevent the browser's native middle-click auto-scroll/action after
+        // completing a viewer pan. The pointer handlers above own button 1.
+        if (event.button === 1) event.preventDefault()
+      }}
       onClick={() => {
         // Safety net for Pan tool specifically: the page SVG is deliberately
         // pointer-events:none there (so panning isn't blocked by hit-testing
