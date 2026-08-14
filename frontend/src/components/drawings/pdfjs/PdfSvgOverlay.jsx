@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../../store/useAppStore'
 import { computeRealLengthFromDrawing } from '../../../utils/measureCalibration'
-import { createRawLine, findNearestLineEndpoint, translateRawLine } from './pdfGeometryAdapter'
+import { annotationPoints, createRawLine, findNearestLineEndpoint, translateRawLine } from './pdfGeometryAdapter'
 import { DEFAULT_MEASURE_LABEL_SIZE, MIN_MEASURE_LABEL_SIZE, MAX_MEASURE_LABEL_SIZE } from '../../../utils/measureLabel'
 
 // Minimum on-screen distance (CSS px) between a Linear/Calibrate line's two
@@ -377,7 +377,8 @@ function PdfSvgOverlay({
 
   const resolveEndpointSnap = useCallback((point) => {
     const svg = svgRef.current
-    if (!svg || !['line', 'calibrate'].includes(activeTool) || pasteClipboard || spaceHeld) return null
+    const snapCommandActive = Boolean(pasteClipboard) || ['line', 'calibrate'].includes(activeTool)
+    if (!svg || !snapCommandActive || spaceHeld) return null
     const rect = svg.getBoundingClientRect()
     return findNearestLineEndpoint(
       point,
@@ -412,24 +413,60 @@ function PdfSvgOverlay({
     return () => svg.removeEventListener('wheel', handleWheel)
   }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber])
 
-  // pasteClipboard.items is always an array (even a single copy is a
-  // 1-length array) — the anchor is whichever item was copied first, and
-  // every other item's fixed offset from it (captured at copy time, via
-  // each item's own label midpoint) is what lets a multi-item paste move as
-  // one rigid group to wherever the user clicks, while preserving each
-  // item's position relative to the others. For a single-item clipboard,
-  // every offset is (0,0) — identical to today's single-preview behavior.
-  const anchorItem = pasteClipboard?.items?.[0] ?? null
+  // Bluebeam-style paste uses the final endpoint of the first copied line as
+  // its cursor/reference point. translateRawLine accepts a target centre, so
+  // keep each copied line's original centre and final-endpoint offsets from
+  // that anchor. Every item receives exactly the same translation, preserving
+  // its vector, length, and position relative to the other copied measurements.
   const itemOffsets = useMemo(() => {
     if (!pasteClipboard?.items?.length) return []
-    const anchorMid = anchorItem?.labelAnchor ?? { x: 0, y: 0 }
-    return pasteClipboard.items.map(item => ({
+    const geometries = pasteClipboard.items.map(item => {
+      const raw = item.copyJson ?? item.raw
+      const points = raw ? annotationPoints(raw, pageSize) : []
+      const start = points[0]
+      const end = points[points.length - 1]
+      const center = start && end
+        ? { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+        : null
+      return { item, center, end }
+    })
+    const anchor = geometries[0]
+    const anchorReference = anchor?.end ?? anchor?.center
+    if (!anchorReference) return []
+    return geometries.map(({ item, center, end }) => ({
       item,
-      dx: (item.labelAnchor?.x ?? 0) - anchorMid.x,
-      dy: (item.labelAnchor?.y ?? 0) - anchorMid.y,
+      dx: (center?.x ?? anchorReference.x) - anchorReference.x,
+      dy: (center?.y ?? anchorReference.y) - anchorReference.y,
+      endpointDx: (end?.x ?? anchorReference.x) - anchorReference.x,
+      endpointDy: (end?.y ?? anchorReference.y) - anchorReference.y,
     }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pasteClipboard])
+  }, [pageSize, pasteClipboard])
+
+  // In a multi-copy paste, every copied line's final endpoint is a valid snap
+  // probe. Whichever one is closest to a PDF/measurement endpoint adjusts the
+  // shared anchor point, so the whole selection moves as one rigid group while
+  // the endpoint that acquired the target lands exactly on it.
+  const resolvePasteGroupSnap = useCallback((anchorPoint) => {
+    if (!pasteClipboard || !itemOffsets.length) return null
+    let nearest = null
+    for (const offset of itemOffsets) {
+      const endpoint = {
+        x: anchorPoint.x + offset.endpointDx,
+        y: anchorPoint.y + offset.endpointDy,
+      }
+      const snap = resolveEndpointSnap(endpoint)
+      if (!snap || (nearest && snap.screenDistance >= nearest.screenDistance)) continue
+      nearest = {
+        ...snap,
+        anchorPoint: {
+          x: snap.point.x - offset.endpointDx,
+          y: snap.point.y - offset.endpointDy,
+        },
+        clipboardItemId: offset.item.clipboardItemId,
+      }
+    }
+    return nearest
+  }, [itemOffsets, pasteClipboard, resolveEndpointSnap])
 
   const previewAnnotations = useMemo(() => {
     if (!cursor || !itemOffsets.length) return []
@@ -588,9 +625,12 @@ function PdfSvgOverlay({
 
   const handleClick = useCallback((event) => {
     if (!svgRef.current) return
-    const point = toPdfPoint(event, svgRef.current, pageSize)
+    const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
     if (pasteClipboard) {
       event.stopPropagation()
+      const snap = resolvePasteGroupSnap(rawPoint)
+      const point = snap?.anchorPoint ?? rawPoint
+      setEndpointSnap(snap)
       placePaste(point)
       return
     }
@@ -622,7 +662,7 @@ function PdfSvgOverlay({
     // MeasurementLabel/PdfSvgOverlay's wheel handling) even after clicking
     // elsewhere on the drawing while in Linear/Area/etc.
     onClearSelection?.()
-  }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste])
+  }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste, resolvePasteGroupSnap])
 
   const handlePointerDown = useCallback((event) => {
     // Held-Space always means "pan", even over Line/Calibrate — bail without
@@ -683,8 +723,10 @@ function PdfSvgOverlay({
     if (!svgRef.current) return
     const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
     const drag = dragRef.current
-    const snap = !drag ? resolveEndpointSnap(rawPoint) : null
-    const point = snap?.point ?? rawPoint
+    const snap = !drag
+      ? (pasteClipboard ? resolvePasteGroupSnap(rawPoint) : resolveEndpointSnap(rawPoint))
+      : null
+    const point = pasteClipboard ? (snap?.anchorPoint ?? rawPoint) : (snap?.point ?? rawPoint)
     setEndpointSnap(snap)
     setCursor(point)
     if (!drag || drag.pointerId !== event.pointerId) return
@@ -701,7 +743,7 @@ function PdfSvgOverlay({
     drag.latestPoints = points
     setDragged({ id: drag.annotation.id, points })
     publishGeometryChange(drag, points)
-  }, [pageSize, publishGeometryChange, resolveEndpointSnap])
+  }, [pageSize, pasteClipboard, publishGeometryChange, resolveEndpointSnap, resolvePasteGroupSnap])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (spaceHeld || event.button !== 0) return
@@ -849,7 +891,7 @@ function PdfSvgOverlay({
           stroke={measureColor} strokeWidth={lineThickness} strokeDasharray={dashArray(lineStyle)}
           strokeLinecap="round" pointerEvents="none" />
       )}
-      {endpointSnap && dimensionCommandActive && (() => {
+      {endpointSnap && (dimensionCommandActive || pasteClipboard) && (() => {
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
         const size = ENDPOINT_SNAP_INDICATOR_PIXELS / pageScale
         return (

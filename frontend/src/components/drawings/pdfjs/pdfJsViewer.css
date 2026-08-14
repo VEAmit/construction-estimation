@@ -85,39 +85,6 @@
   cursor: copy;
 }
 
-.pdfjs-paste-hint {
-  position: sticky;
-  top: 10px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: max-content;
-  margin: 0 auto -32px;
-  padding: 7px 12px;
-  border: 1px solid #365474;
-  border-radius: 6px;
-  background: #10233a;
-  color: #dbeafe;
-  font-size: 12px;
-  font-weight: 600;
-  pointer-events: auto;
-}
-
-.pdfjs-paste-done {
-  border: 1px solid #53789d;
-  border-radius: 4px;
-  padding: 3px 8px;
-  background: #173553;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-}
-
-.pdfjs-paste-done:hover {
-  background: #214b74;
-}
-
 .pdfjs-page-placeholder {
   z-index: 0;
   background: #fff;

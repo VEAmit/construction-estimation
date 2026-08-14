@@ -612,14 +612,6 @@ export default function PdfJsViewer({
     >
       {loading && <div className="pdfjs-document-status">Preparing drawing...</div>}
       {error && <div className="pdfjs-document-error">{error}</div>}
-      {pasteClipboard && (
-        <div className="pdfjs-paste-hint">
-          <span>Move preview and click to place copies. Esc or Done finishes.</span>
-          <button type="button" className="pdfjs-paste-done" onClick={() => setPasteClipboard(null)}>
-            Done
-          </button>
-        </div>
-      )}
       {pdfDocument && (
         <div className="pdfjs-page-stack" style={{ gap: PAGE_GAP }}>
           {pageLayout.map(({ pageNumber, width, height }) => (
