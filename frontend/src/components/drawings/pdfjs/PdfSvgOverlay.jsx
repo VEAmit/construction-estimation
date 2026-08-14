@@ -12,7 +12,7 @@ const MIN_LINE_SCREEN_PIXELS = 6
 // Bluebeam-style endpoint acquisition range. This is intentionally expressed
 // in CSS pixels (not PDF units), so it feels identical at every zoom level.
 const ENDPOINT_SNAP_SCREEN_PIXELS = 12
-const ENDPOINT_SNAP_INDICATOR_PIXELS = 5
+const ENDPOINT_SNAP_INDICATOR_PIXELS = 8
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -860,7 +860,7 @@ function PdfSvgOverlay({
             width={size}
             height={size}
             fill="rgba(255,255,255,.92)"
-            stroke="#1473E6"
+            stroke="#EF233C"
             strokeWidth={1 / pageScale}
             vectorEffect="none"
             pointerEvents="none"
