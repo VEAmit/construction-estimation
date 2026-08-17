@@ -246,11 +246,15 @@ function collectOuterLineEndpoints(segments) {
 }
 
 /**
- * Extract endpoints of straight stroked PDF vector segments in the same
- * unscaled viewport coordinates used by PdfSvgOverlay.
+ * Extract straight stroked PDF vector geometry in the same unscaled viewport
+ * coordinates used by PdfSvgOverlay. Keeping the segment pairs as well as the
+ * existing outer endpoint list lets the Linear tool identify a complete PDF
+ * line from one click without changing endpoint snapping.
  */
-export function extractPdfLineEndpoints(operatorList, viewport) {
-  if (!operatorList || !viewport?.convertToViewportPoint) return []
+export function extractPdfLineGeometry(operatorList, viewport) {
+  if (!operatorList || !viewport?.convertToViewportPoint) {
+    return { endpoints: [], segments: [] }
+  }
   const functions = operatorList.fnArray ?? []
   const argumentsList = operatorList.argsArray ?? []
   const matrixStack = []
@@ -285,5 +289,16 @@ export function extractPdfLineEndpoints(operatorList, viewport) {
     }
   }
 
-  return collectOuterLineEndpoints(segments)
+  return {
+    endpoints: collectOuterLineEndpoints(segments),
+    segments,
+  }
+}
+
+/**
+ * Backwards-compatible endpoint-only API retained for any callers that do
+ * not need the paired line geometry.
+ */
+export function extractPdfLineEndpoints(operatorList, viewport) {
+  return extractPdfLineGeometry(operatorList, viewport).endpoints
 }

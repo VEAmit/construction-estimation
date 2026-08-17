@@ -42,6 +42,13 @@ public class DrawingRepository : BaseRepository<Drawing>, IDrawingRepository
             .Include(d => d.TakeoffItems.Where(t => !t.IsDeleted))
             .FirstOrDefaultAsync(d => d.Id == drawingId);
 
+    public async Task<bool> IsFilePathReferencedByAnotherDrawingAsync(
+        string filePath,
+        int drawingId) =>
+        await _dbSet.AnyAsync(d =>
+            d.Id != drawingId &&
+            d.FilePath == filePath);
+
     public async Task<bool> UpdateScaleAsync(int drawingId, double scaleRatio, string unit)
     {
         if (scaleRatio <= 0 || string.IsNullOrWhiteSpace(unit))

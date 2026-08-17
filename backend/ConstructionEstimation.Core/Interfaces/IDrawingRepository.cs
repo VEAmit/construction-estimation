@@ -6,6 +6,7 @@ public interface IDrawingRepository : IRepository<Drawing>
 {
     Task<IEnumerable<Drawing>> GetByProjectIdAsync(int projectId);
     Task<Drawing?> GetWithTakeoffItemsAsync(int drawingId);
+    Task<bool> IsFilePathReferencedByAnotherDrawingAsync(string filePath, int drawingId);
     Task<bool> UpdateScaleAsync(int drawingId, double scaleRatio, string unit);
     Task<bool> ResetCalibrationAsync(int drawingId);
     Task<bool> UpdateAnnotationsAsync(int drawingId, string annotationData);

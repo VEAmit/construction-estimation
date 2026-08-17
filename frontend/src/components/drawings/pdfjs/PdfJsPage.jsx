@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import PdfSvgOverlay from './PdfSvgOverlay'
 import { attachDetectedLabel, mergePdfTextItems } from './detectPdfLabel'
-import { extractPdfLineEndpoints } from './pdfLineEndpoints'
+import { extractPdfLineGeometry } from './pdfLineEndpoints'
 
 const MAX_OUTPUT_SCALE = 2
 const MAX_CACHE_ENTRIES = 18
@@ -119,6 +119,7 @@ function PdfJsPage({
   const [renderedOnce, setRenderedOnce] = useState(false)
   const [renderError, setRenderError] = useState(null)
   const [pdfLineEndpoints, setPdfLineEndpoints] = useState([])
+  const [pdfLineSegments, setPdfLineSegments] = useState([])
 
   const pageSize = initialSize ?? { width: 612, height: 792 }
   const width = Math.max(1, pageSize.width * scale)
@@ -129,6 +130,7 @@ function PdfJsPage({
     // the same page number is loading after the user switches drawings.
     snapPointsFetchedForRef.current = null
     setPdfLineEndpoints([])
+    setPdfLineSegments([])
   }, [documentKey, pageNumber])
 
   useEffect(() => {
@@ -199,13 +201,16 @@ function PdfJsPage({
       if (snapPointsFetchedForRef.current !== snapPointsKey) {
         page.getOperatorList().then(operatorList => {
           if (cancelled) return
-          setPdfLineEndpoints(extractPdfLineEndpoints(operatorList, baseViewport))
+          const geometry = extractPdfLineGeometry(operatorList, baseViewport)
+          setPdfLineEndpoints(geometry.endpoints)
+          setPdfLineSegments(geometry.segments)
           snapPointsFetchedForRef.current = snapPointsKey
         }).catch(error => {
           console.warn(`[PDF.js] Vector endpoint extraction failed on page ${pageNumber}`, error)
           // Annotation-to-annotation snapping remains available even when a
           // particular PDF's vector operator list cannot be inspected.
           setPdfLineEndpoints([])
+          setPdfLineSegments([])
         })
       }
 
@@ -308,6 +313,7 @@ function PdfJsPage({
         viewerScale={scale}
         annotations={annotations}
         pdfLineEndpoints={pdfLineEndpoints}
+        pdfLineSegments={pdfLineSegments}
         selectedAnnotationId={selectedAnnotationId}
         selectedAnnotationIds={selectedAnnotationIds}
         pasteClipboard={pasteClipboard}

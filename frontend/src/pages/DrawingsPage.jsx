@@ -1814,15 +1814,14 @@ export default function DrawingsPage() {
     } else if (toolId !== 'line') {
       calibrationDrawPendingRef.current = false
     }
-    // Bluebeam: clicking Linear on an uncalibrated drawing auto-redirects to calibrate mode.
-    // Catches both toolbar clicks and keyboard shortcut (L key) via Toolbar's pickTool().
+    // Linear must stay visibly active whenever the user selects it. On an
+    // uncalibrated drawing we arm the one-shot calibration flow separately;
+    // the completed line still opens the scale dialog, but the toolbar does
+    // not misleadingly switch the active command to Calibrate.
     if (toolId === 'line') {
       const drw = normalizeDrawing(useAppStore.getState().selectedDrawing)
       if (drw && !drw.isCalibrated) {
         calibrationDrawPendingRef.current = true
-        setActiveTool('calibrate')
-        triggerPdfCommand('ensureMeasureMode')
-        return
       }
       // Reset the thickness override to its default (2) each time Linear is picked, rather
       // than carrying over whatever value was last manually set — the override button row

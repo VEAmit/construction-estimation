@@ -13,9 +13,17 @@ const MIN_LINE_SCREEN_PIXELS = 6
 // in CSS pixels (not PDF units), so it feels identical at every zoom level.
 const ENDPOINT_SNAP_SCREEN_PIXELS = 12
 const ENDPOINT_SNAP_INDICATOR_PIXELS = 8
+// A single Linear-tool click this close to a native PDF vector line measures
+// that complete segment. The tolerance is screen-based so detection remains
+// predictable at every zoom level.
+const PDF_LINE_HIT_SCREEN_PIXELS = 7
+const PDF_LINE_GRID_SCREEN_PIXELS = 28
 // Keep collision clearance stable on screen regardless of PDF zoom.
 const LABEL_COLLISION_PADDING_PIXELS = 3
 const LABEL_COLLISION_MAX_LANES = 5
+const PARALLEL_LABEL_DIRECTION_COSINE = Math.cos((8 * Math.PI) / 180)
+const PARALLEL_LABEL_EXTRA_CLEARANCE_PIXELS = 16
+const PARALLEL_LABEL_MIN_OVERLAP_PIXELS = 12
 
 function toPdfPoint(event, svg, pageSize) {
   const rect = svg.getBoundingClientRect()
@@ -172,7 +180,75 @@ function collisionGridKeys(polygon, cellSize) {
   return keys
 }
 
-function labelPlacementCandidates(annotation, baseLabel, viewerScale) {
+function preferredParallelLabelSide(annotation, annotationIndex, annotations, baseLabel, viewerScale) {
+  const start = annotation.points?.[0]
+  const end = annotation.points?.[annotation.points.length - 1]
+  if (!start || !end) return 1
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lineLength = Math.hypot(dx, dy)
+  if (lineLength <= 0.001) return 1
+
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const tangent = { x: dx / lineLength, y: dy / lineLength }
+  const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+  const fromLine = { x: baseLabel.x - midpoint.x, y: baseLabel.y - midpoint.y }
+  const fromLineLength = Math.hypot(fromLine.x, fromLine.y)
+  const normal = fromLineLength > 0.001
+    ? { x: fromLine.x / fromLineLength, y: fromLine.y / fromLineLength }
+    : { x: -tangent.y, y: tangent.x }
+  const maxSeparation = (baseLabel.height * pageScale + PARALLEL_LABEL_EXTRA_CLEARANCE_PIXELS) / pageScale
+  const minOverlap = PARALLEL_LABEL_MIN_OVERLAP_PIXELS / pageScale
+  let nearest = null
+
+  annotations.forEach((candidate, candidateIndex) => {
+    if (candidateIndex === annotationIndex || candidate.type === 'count') return
+    const candidateStart = candidate.points?.[0]
+    const candidateEnd = candidate.points?.[candidate.points.length - 1]
+    if (!candidateStart || !candidateEnd) return
+    const candidateDx = candidateEnd.x - candidateStart.x
+    const candidateDy = candidateEnd.y - candidateStart.y
+    const candidateLength = Math.hypot(candidateDx, candidateDy)
+    if (candidateLength <= 0.001) return
+    const directionDot = Math.abs(
+      tangent.x * (candidateDx / candidateLength) + tangent.y * (candidateDy / candidateLength),
+    )
+    if (directionDot < PARALLEL_LABEL_DIRECTION_COSINE) return
+
+    const candidateMidpoint = {
+      x: (candidateStart.x + candidateEnd.x) / 2,
+      y: (candidateStart.y + candidateEnd.y) / 2,
+    }
+    const betweenMidpoints = {
+      x: candidateMidpoint.x - midpoint.x,
+      y: candidateMidpoint.y - midpoint.y,
+    }
+    const signedSeparation = betweenMidpoints.x * normal.x + betweenMidpoints.y * normal.y
+    const separation = Math.abs(signedSeparation)
+    if (separation > maxSeparation) return
+
+    const candidateProjectionA = (candidateStart.x - midpoint.x) * tangent.x
+      + (candidateStart.y - midpoint.y) * tangent.y
+    const candidateProjectionB = (candidateEnd.x - midpoint.x) * tangent.x
+      + (candidateEnd.y - midpoint.y) * tangent.y
+    const overlap = Math.min(lineLength / 2, Math.max(candidateProjectionA, candidateProjectionB))
+      - Math.max(-lineLength / 2, Math.min(candidateProjectionA, candidateProjectionB))
+    if (overlap < minOverlap) return
+
+    if (!nearest || separation < nearest.separation) nearest = { separation, signedSeparation }
+  })
+
+  if (!nearest) return 1
+  // Coincident lines have no geometric outer side. Alternate deterministically
+  // so their labels are still distinguishable instead of occupying one box.
+  if (nearest.separation < 0.5 / pageScale) return annotationIndex % 2 === 0 ? 1 : -1
+  // If the neighbouring line is on the normal/top side, place this label on
+  // the opposite side. The neighbour performs the symmetric calculation, so
+  // a close parallel pair naturally receives one label above and one below.
+  return nearest.signedSeparation > 0 ? -1 : 1
+}
+
+function labelPlacementCandidates(annotation, baseLabel, viewerScale, preferredSide = 1) {
   const start = annotation.points[0]
   const end = annotation.points[annotation.points.length - 1]
   if (!start || !end) return [baseLabel]
@@ -207,13 +283,39 @@ function labelPlacementCandidates(annotation, baseLabel, viewerScale) {
   })
 
   const laneStep = baseLabel.height + (LABEL_COLLISION_PADDING_PIXELS * 2) / pageScale
-  const candidates = []
+  const baseNormalDistance = Math.max(fromLineLength, 0.001)
+  const positiveOffsets = []
+  const negativeOffsets = []
   for (let lane = 0; lane <= LABEL_COLLISION_MAX_LANES; lane += 1) {
+    const distance = baseNormalDistance + laneStep * lane
+    // Keep the first label in its established position. If it collides, try
+    // the matching position on the other side of this annotation before
+    // moving along the line. Nearby parallel measurements therefore read as
+    // one label above and one below their respective lines, rather than a
+    // label drifting onto its neighbour and becoming visually ambiguous.
+    // The SVG label anchor is its near/bottom edge rather than its centre.
+    // Include the label height when crossing the line so the mirrored box is
+    // wholly on the opposite side instead of straddling the measurement.
+    positiveOffsets.push(distance)
+    negativeOffsets.push(-(distance + baseLabel.height))
+  }
+  // Exhaust the geometrically preferred side first. If another label already
+  // occupies the nearest lower/upper lane, move farther on that same side
+  // instead of immediately crossing back over the measurement and becoming
+  // ambiguous with its parallel neighbour.
+  const normalOffsets = preferredSide < 0
+    ? [...negativeOffsets, ...positiveOffsets]
+    : [...positiveOffsets, ...negativeOffsets]
+  const candidates = []
+  // Stay visually attached to the measurement: exhaust the small midpoint/
+  // along-line adjustments in the nearest lane before trying a lane farther
+  // away. This keeps ownership obvious even in a dense group of dimensions.
+  for (const normalOffset of normalOffsets) {
     for (const along of alongOffsets) {
       candidates.push({
         ...baseLabel,
-        x: baseLabel.x + tangent.x * along + normal.x * laneStep * lane,
-        y: baseLabel.y + tangent.y * along + normal.y * laneStep * lane,
+        x: midpoint.x + tangent.x * along + normal.x * normalOffset,
+        y: midpoint.y + tangent.y * along + normal.y * normalOffset,
       })
     }
   }
@@ -225,11 +327,18 @@ function layoutMeasurementLabels(annotations, viewerScale) {
   const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
   const cellSize = 80 / pageScale
   const collisionGrid = new Map()
-  for (const annotation of annotations) {
-    if (annotation.type === 'count') continue
+  annotations.forEach((annotation, annotationIndex) => {
+    if (annotation.type === 'count') return
     const baseLabel = labelGeometry(annotation, viewerScale)
-    if (!baseLabel || (!baseLabel.mark && !baseLabel.value)) continue
-    const candidates = labelPlacementCandidates(annotation, baseLabel, viewerScale)
+    if (!baseLabel || (!baseLabel.mark && !baseLabel.value)) return
+    const preferredSide = preferredParallelLabelSide(
+      annotation,
+      annotationIndex,
+      annotations,
+      baseLabel,
+      viewerScale,
+    )
+    const candidates = labelPlacementCandidates(annotation, baseLabel, viewerScale, preferredSide)
     let chosen = candidates[candidates.length - 1]
     let chosenPolygon = labelCollisionPolygon(chosen, viewerScale)
     let fewestOverlaps = Number.POSITIVE_INFINITY
@@ -253,7 +362,7 @@ function layoutMeasurementLabels(annotations, viewerScale) {
       if (cell) cell.push(chosenPolygon)
       else collisionGrid.set(key, [chosenPolygon])
     })
-  }
+  })
   return layouts
 }
 
@@ -440,6 +549,7 @@ function PdfSvgOverlay({
   viewerScale,
   annotations,
   pdfLineEndpoints,
+  pdfLineSegments,
   selectedAnnotationId,
   selectedAnnotationIds,
   pasteClipboard,
@@ -543,6 +653,69 @@ function PdfSvgOverlay({
     }
     return candidates
   }, [pdfEndpointGrid])
+
+  const pdfSegmentGrid = useMemo(() => {
+    const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+    const cellSize = PDF_LINE_GRID_SCREEN_PIXELS / pageScale
+    const cells = new Map()
+    for (let segmentIndex = 0; segmentIndex < (pdfLineSegments?.length ?? 0); segmentIndex += 1) {
+      const segment = pdfLineSegments[segmentIndex]
+      const start = { x: Number(segment?.start?.x), y: Number(segment?.start?.y) }
+      const end = { x: Number(segment?.end?.x), y: Number(segment?.end?.y) }
+      if (![start.x, start.y, end.x, end.y].every(Number.isFinite)) continue
+      const dx = end.x - start.x
+      const dy = end.y - start.y
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / cellSize))
+      const visited = new Set()
+      for (let step = 0; step <= steps; step += 1) {
+        const ratio = step / steps
+        const key = `${Math.floor((start.x + dx * ratio) / cellSize)}:${Math.floor((start.y + dy * ratio) / cellSize)}`
+        if (visited.has(key)) continue
+        visited.add(key)
+        const entry = { start, end, segmentIndex }
+        const cell = cells.get(key)
+        if (cell) cell.push(entry)
+        else cells.set(key, [entry])
+      }
+    }
+    return { cellSize, cells, pageScale }
+  }, [pdfLineSegments, viewerScale])
+
+  const findClickedPdfLine = useCallback((point) => {
+    const { cellSize, cells, pageScale } = pdfSegmentGrid
+    if (!cells.size) return null
+    const centerX = Math.floor(point.x / cellSize)
+    const centerY = Math.floor(point.y / cellSize)
+    const seen = new Set()
+    let nearest = null
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const candidates = cells.get(`${centerX + offsetX}:${centerY + offsetY}`) ?? []
+        for (const segment of candidates) {
+          if (seen.has(segment.segmentIndex)) continue
+          seen.add(segment.segmentIndex)
+          const dx = segment.end.x - segment.start.x
+          const dy = segment.end.y - segment.start.y
+          const lengthSquared = dx * dx + dy * dy
+          if (lengthSquared <= 0.0001) continue
+          if (Math.sqrt(lengthSquared) * pageScale < MIN_LINE_SCREEN_PIXELS) continue
+          const projection = Math.max(0, Math.min(1,
+            (((point.x - segment.start.x) * dx) + ((point.y - segment.start.y) * dy)) / lengthSquared,
+          ))
+          const closest = {
+            x: segment.start.x + dx * projection,
+            y: segment.start.y + dy * projection,
+          }
+          const screenDistance = Math.hypot(point.x - closest.x, point.y - closest.y) * pageScale
+          if (screenDistance > PDF_LINE_HIT_SCREEN_PIXELS) continue
+          if (!nearest || screenDistance < nearest.screenDistance) {
+            nearest = { ...segment, screenDistance }
+          }
+        }
+      }
+    }
+    return nearest
+  }, [pdfSegmentGrid])
 
   const resolveEndpointSnap = useCallback((point) => {
     const svg = svgRef.current
@@ -852,6 +1025,9 @@ function PdfSvgOverlay({
     const point = snap?.point ?? rawPoint
     setEndpointSnap(snap)
     const start = draftStartRef.current
+
+    // Single clicks always retain the established manual workflow: the first
+    // chooses the start point and the next chooses the end point.
     if (start) {
       finalizeLine(point, start)
       return
@@ -866,6 +1042,17 @@ function PdfSvgOverlay({
     // scrolls, or otherwise navigates. The next left click above is the only
     // action that finalizes the line through the existing finalizeLine path.
   }, [activeTool, finalizeLine, pageSize, pasteClipboard, resolveEndpointSnap, spaceHeld])
+
+  const handleDoubleClick = useCallback((event) => {
+    if (spaceHeld || pasteClipboard || activeTool !== 'line' || event.button !== 0) return
+    if (!svgRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
+    const detectedLine = findClickedPdfLine(rawPoint)
+    if (!detectedLine) return
+    finalizeLine(detectedLine.end, detectedLine.start)
+  }, [activeTool, finalizeLine, findClickedPdfLine, pageSize, pasteClipboard, spaceHeld])
 
   const publishGeometryChange = useCallback((drag, points) => {
     if (!drag || !Array.isArray(points) || points.length < 2) return
@@ -1021,6 +1208,7 @@ function PdfSvgOverlay({
       viewBox={`0 0 ${pageSize.width} ${pageSize.height}`}
       preserveAspectRatio="none"
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handleMove}
       onPointerUp={endDrag}

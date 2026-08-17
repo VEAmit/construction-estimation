@@ -155,10 +155,27 @@ public class DrawingsController : ControllerBase
             return NotFound(ApiResponse<bool>.Fail("Drawing not found"));
 
         var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
-        if (System.IO.File.Exists(filePath))
-            System.IO.File.Delete(filePath);
+        // New uploads always have a GUID filename, so drawings are normally
+        // fully independent. Keep this reference check for older deployments
+        // where two database rows may still point at the same physical file:
+        // deleting one drawing must never break the other drawing.
+        var usedByAnotherDrawing =
+            await _drawingRepo.IsFilePathReferencedByAnotherDrawingAsync(
+                drawing.FilePath,
+                drawing.Id);
 
-        await _drawingRepo.DeleteAsync(id);
+        // Commit the database deletion first. If the database operation fails,
+        // the PDF must remain available to the still-active drawing record.
+        var deleted = await _drawingRepo.DeleteAsync(id);
+        if (!deleted)
+            return BadRequest(ApiResponse<bool>.Fail("Could not delete drawing"));
+
+        if (!usedByAnotherDrawing && System.IO.File.Exists(filePath))
+            System.IO.File.Delete(filePath);
+        else if (usedByAnotherDrawing)
+            _logger.LogInformation(
+                "Preserved shared PDF file while deleting drawing {DrawingId}",
+                drawing.Id);
         return Ok(ApiResponse<bool>.Ok(true, "Drawing deleted"));
     }
 
