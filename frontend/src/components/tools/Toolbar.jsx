@@ -39,6 +39,13 @@ const MEASURE_TOOLS = [
     </svg>,
   },
   {
+    id: 'section', label: 'Section Measurements', shortcut: 'G', color: '#EF233C',
+    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="16" rx="1" strokeDasharray="3 2"/>
+      <path d="M7 9h10M7 13h7M7 17h5"/>
+    </svg>,
+  },
+  {
     id: 'calibrate', label: 'Calibrate', shortcut: 'C', color: '#F59E0B',
     icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
@@ -46,6 +53,10 @@ const MEASURE_TOOLS = [
     </svg>,
   },
 ]
+
+// Temporarily keep unfinished measurement tools out of the header without
+// removing their underlying implementation or any previously saved data.
+const HIDDEN_HEADER_MEASURE_TOOL_IDS = new Set(['area', 'perimeter', 'count'])
 
 // ── Navigation tools ─────────────────────────────────────────────────────
 const NAV_TOOLS = [
@@ -160,8 +171,9 @@ export default function Toolbar({
   const isMeasure = ALL_MEASURE_IDS.includes(activeTool)
   const isMarkup  = ALL_MARKUP_IDS.includes(activeTool)
   const isCount   = activeTool === 'count'
+  const isSection = activeTool === 'section'
   const isLine    = activeTool === 'line' || activeTool === 'perimeter' || activeTool === 'calibrate'
-  const showStyleBar = isMeasure || isMarkup
+  const showStyleBar = (isMeasure && !isSection) || isMarkup
 
   const pickTool = (toolId) => {
     if (onPickMeasureTool && ALL_MEASURE_IDS.includes(toolId)) {
@@ -178,7 +190,10 @@ export default function Toolbar({
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
 
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      const all = [...NAV_TOOLS, ...MEASURE_TOOLS]
+      const all = [
+        ...NAV_TOOLS,
+        ...MEASURE_TOOLS.filter(tool => !HIDDEN_HEADER_MEASURE_TOOL_IDS.has(tool.id)),
+      ]
       const tool = all.find(t => t.shortcut && t.shortcut === e.key.toUpperCase())
       if (tool) { pickTool(tool.id); return }
       if (e.key === '=' || e.key === '+') { e.preventDefault(); setPdfScale(s => Math.min(5, +(s + 0.1).toFixed(2))) }
@@ -188,6 +203,13 @@ export default function Toolbar({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [setActiveTool, setPdfScale, triggerPdfCommand, onPickMeasureTool])
+
+  // A hot reload can leave the formerly active Count tool selected even after
+  // its controls are hidden. Return to Select so no invisible count session can
+  // keep handling PDF clicks.
+  useEffect(() => {
+    if (activeTool === 'count') setActiveTool('select')
+  }, [activeTool, setActiveTool])
 
   // ── Auto-color from category ───────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -235,7 +257,7 @@ export default function Toolbar({
 
           {/* ── Measure group ── */}
           <GroupLabel label="Measure" />
-          {MEASURE_TOOLS.map(tool => (
+          {MEASURE_TOOLS.filter(tool => !HIDDEN_HEADER_MEASURE_TOOL_IDS.has(tool.id)).map(tool => (
             <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
               compact={compact}
               titleHint={
@@ -332,24 +354,7 @@ export default function Toolbar({
           <Sep />
 
           {/* ── Action buttons ── */}
-          {isCount ? (
-            /* Count: save button shows running count and calls saveCount */
-            <button onClick={() => triggerPdfCommand('saveCount')} title="Save count markers"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '4px',
-                padding: '4px 10px', borderRadius: '6px',
-                border: '1px solid rgba(245,158,11,.5)',
-                background: 'rgba(245,158,11,.18)',
-                color: '#f59e0b',
-                fontSize: '11px', fontWeight: 700, cursor: 'pointer',
-                whiteSpace: 'nowrap', flexShrink: 0, touchAction: 'manipulation',
-              }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              {compact ? `${countSession}` : `Save Count (${countSession})`}
-            </button>
-          ) : (isMeasure || isMarkup) ? (
+          {isCount ? null : ((isMeasure && !isSection) || isMarkup) ? (
             <button
               onClick={() => (activeTool === 'calibrate' ? onSaveCalib?.() : triggerPdfCommand('captureAnnotations'))}
               title={activeTool === 'calibrate' ? 'Enter real-world length for calibration line' : 'Save drawn annotations'}
@@ -755,7 +760,7 @@ export default function Toolbar({
                 )}
 
                 {/* Category — only for measure tools (not count) */}
-                {isMeasure && !isCount && (
+                {isMeasure && !isCount && !isSection && (
                   <>
                     <StyleSep />
                     <span style={{ fontSize: '10px', color: '#334155' }}>Category:</span>

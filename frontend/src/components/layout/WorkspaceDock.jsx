@@ -374,6 +374,7 @@ export function SideDock({
 }
 
 export function BottomDock({
+  title = 'Measurements',
   height,
   minHeight,
   maxHeight,
@@ -478,7 +479,7 @@ export function BottomDock({
           }}
         >
           <span style={{ width: 2, height: 15, borderRadius: 1, background: '#EF233C' }} />
-          Measurements
+          {title}
           {count > 0 && (
             <span style={{
               minWidth: 18,
@@ -510,7 +511,7 @@ export function BottomDock({
           {pinned ? <Pin size={14} /> : <PinOff size={14} />}
         </IconButton>
         <IconButton
-          title={visible ? 'Collapse measurements' : 'Expand measurements'}
+          title={visible ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
           onClick={() => {
             if (!pinned) {
               onPinnedChange(true)

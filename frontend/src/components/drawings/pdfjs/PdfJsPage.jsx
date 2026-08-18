@@ -97,7 +97,14 @@ function PdfJsPage({
   selectedAnnotationId,
   selectedAnnotationIds,
   pasteClipboard,
+  sectionPlacementMode,
+  sectionPlacements,
+  sectionFocus,
+  sectionEditMode,
+  onSectionEditRequest,
   onMeasure,
+  onSectionSelection,
+  onSectionPlacement,
   onSelect,
   onContextMenu,
   onClearSelection,
@@ -140,17 +147,36 @@ function PdfJsPage({
   useEffect(() => {
     const host = hostRef.current
     if (!host || !root) return undefined
-    const observer = new IntersectionObserver(([entry]) => {
+
+    // Page rendering deliberately looks several thousand pixels ahead so a
+    // long PDF is ready before the user reaches the next sheet. That expanded
+    // root must not also drive the current-page indicator: with a 3000px
+    // margin, page 1 can still report an intersectionRatio of 1 while the
+    // viewport is already on page 3. The viewer would then select page 1 and
+    // scroll back to the top. Track real visibility with an unexpanded root,
+    // while keeping the existing pre-render window unchanged.
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
       onVisibility?.(pageNumber, entry.intersectionRatio)
+    }, {
+      root,
+      rootMargin: '0px',
+      threshold: [0, 0.01, 0.25, 0.5, 0.75, 1],
+    })
+
+    const renderObserver = new IntersectionObserver(([entry]) => {
       setIsIntersecting(entry.isIntersecting)
       if (entry.isIntersecting) setShouldRender(true)
     }, {
       root,
       rootMargin: '3000px 0px',
-      threshold: [0, 0.01, 0.25, 0.5, 0.75, 1],
+      threshold: 0,
     })
-    observer.observe(host)
-    return () => observer.disconnect()
+    visibilityObserver.observe(host)
+    renderObserver.observe(host)
+    return () => {
+      visibilityObserver.disconnect()
+      renderObserver.disconnect()
+    }
   }, [onVisibility, pageNumber, root])
 
   useEffect(() => {
@@ -317,7 +343,14 @@ function PdfJsPage({
         selectedAnnotationId={selectedAnnotationId}
         selectedAnnotationIds={selectedAnnotationIds}
         pasteClipboard={pasteClipboard}
+        sectionPlacementMode={sectionPlacementMode}
+        sectionPlacements={sectionPlacements}
+        sectionFocus={sectionFocus}
+        sectionEditMode={sectionEditMode}
+        onSectionEditRequest={onSectionEditRequest}
         onMeasure={handleMeasure}
+        onSectionSelection={onSectionSelection}
+        onSectionPlacement={onSectionPlacement}
         onSelect={onSelect}
         onAnnotationContextMenu={onContextMenu}
         onClearSelection={onClearSelection}

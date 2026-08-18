@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ITakeoffItemRepository, TakeoffItemRepository>();
         services.AddScoped<IMemberScheduleRepository, MemberScheduleRepository>();
         services.AddScoped<ILicenseRepository, LicenseRepository>();
+        services.AddScoped<IMeasurementSectionRepository, MeasurementSectionRepository>();
 
         return services;
     }

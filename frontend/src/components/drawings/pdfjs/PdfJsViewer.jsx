@@ -70,6 +70,13 @@ export default function PdfJsViewer({
   onClearSelection,
   onMeasurementGeometryChange,
   onMeasurementLabelSizeChange,
+  sectionPlacementMode,
+  sectionPlacements = [],
+  sectionFocus,
+  sectionEditMode,
+  onSectionEditRequest,
+  onSectionSelection,
+  onSectionPlacement,
   measureReleaseRef,
 }) {
   const containerRef = useRef(null)
@@ -80,6 +87,7 @@ export default function PdfJsViewer({
   const initialFitAppliedRef = useRef(false)
   const zoomAnchorRef = useRef(null)
   const visibilityCommitRef = useRef(null)
+  const scrollTrackedPageRef = useRef(null)
   const previousToolRef = useRef(null)
 
   const {
@@ -190,6 +198,7 @@ export default function PdfJsViewer({
     setPendingAnnotations([])
     initialFitAppliedRef.current = false
     visibilityRef.current.clear()
+    scrollTrackedPageRef.current = null
 
     const loadingTask = pdfjsLib.getDocument({
       url: drawingUrl,
@@ -307,12 +316,30 @@ export default function PdfJsViewer({
   useEffect(() => {
     const container = containerRef.current
     if (!container || !pdfDocument || programmaticPageRef.current === pdfPage) return
+
+    // A current-page change reported by IntersectionObserver already reflects
+    // where the user manually scrolled. Do not turn that state update back
+    // into scrollIntoView: doing so creates a feedback loop that can snap a
+    // long document to an earlier page. Explicit toolbar/grid/section page
+    // changes still follow the existing programmatic navigation path below.
+    if (scrollTrackedPageRef.current === pdfPage) {
+      scrollTrackedPageRef.current = null
+      return
+    }
     const page = container.querySelector(`[data-page-number="${pdfPage}"]`)
     if (!page) return
     programmaticPageRef.current = pdfPage
     page.scrollIntoView({ block: 'start', behavior: 'smooth' })
     window.setTimeout(() => { programmaticPageRef.current = null }, 350)
   }, [pdfDocument, pdfPage])
+
+  useEffect(() => {
+    if (!pdfDocument || !sectionFocus) return
+    const pageNumber = Number(sectionFocus.pageNumber)
+    if (Number.isFinite(pageNumber) && pageNumber > 0 && pageNumber <= pdfDocument.numPages) {
+      setPdfPage(pageNumber)
+    }
+  }, [pdfDocument, sectionFocus, setPdfPage])
 
   useEffect(() => {
     const anchor = zoomAnchorRef.current
@@ -347,7 +374,10 @@ export default function PdfJsViewer({
           visibleRatio = candidateRatio
         }
       })
-      if (visiblePage != null && visiblePage !== useAppStore.getState().pdfPage) setPdfPage(visiblePage)
+      if (visiblePage != null && visiblePage !== useAppStore.getState().pdfPage) {
+        scrollTrackedPageRef.current = visiblePage
+        setPdfPage(visiblePage)
+      }
     }, 120)
   }, [setPdfPage])
 
@@ -642,7 +672,14 @@ export default function PdfJsViewer({
                 selectedAnnotationId={selectedAnnotationId}
                 selectedAnnotationIds={selectedAnnotationIds}
                 pasteClipboard={pasteClipboard}
+                sectionPlacementMode={sectionPlacementMode}
+                sectionPlacements={sectionPlacements}
+                sectionFocus={sectionFocus}
+                sectionEditMode={sectionEditMode}
+                onSectionEditRequest={onSectionEditRequest}
                 onMeasure={handleMeasure}
+                onSectionSelection={onSectionSelection}
+                onSectionPlacement={onSectionPlacement}
                 onSelect={onAnnotationSelect}
                 onContextMenu={onAnnotationContextMenu}
                 onClearSelection={onClearSelection}

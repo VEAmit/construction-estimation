@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<TakeoffItem> TakeoffItems => Set<TakeoffItem>();
     public DbSet<MemberScheduleItem> MemberScheduleItems => Set<MemberScheduleItem>();
     public DbSet<LicenseConfiguration> LicenseConfigurations => Set<LicenseConfiguration>();
+    public DbSet<MeasurementSection> MeasurementSections => Set<MeasurementSection>();
+    public DbSet<MeasurementSectionPlacement> MeasurementSectionPlacements => Set<MeasurementSectionPlacement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +27,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TakeoffItem>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<MemberScheduleItem>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<LicenseConfiguration>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<MeasurementSection>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<MeasurementSectionPlacement>().HasQueryFilter(e => !e.IsDeleted);
 
         modelBuilder.Entity<User>(entity =>
         {
@@ -114,6 +118,32 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CompanyName).HasMaxLength(200);
             entity.Property(e => e.LastValidationStatus).HasMaxLength(50);
             entity.HasIndex(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<MeasurementSection>(entity =>
+        {
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.TemplateJson).IsRequired();
+            entity.HasIndex(e => new { e.ProjectId, e.Name })
+                  .IsUnique()
+                  .HasFilter("[IsDeleted] = 0");
+            entity.HasOne(e => e.Project)
+                  .WithMany(project => project.MeasurementSections)
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.Placements)
+                  .WithOne(placement => placement.MeasurementSection)
+                  .HasForeignKey(placement => placement.MeasurementSectionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MeasurementSectionPlacement>(entity =>
+        {
+            entity.HasIndex(e => new { e.MeasurementSectionId, e.DrawingId, e.PageNumber });
+            entity.HasOne(e => e.Drawing)
+                  .WithMany()
+                  .HasForeignKey(e => e.DrawingId)
+                  .OnDelete(DeleteBehavior.NoAction);
         });
 
         // Seed a default project

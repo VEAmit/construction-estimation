@@ -110,6 +110,58 @@ function labelGeometry(annotation, viewerScale) {
   }
 }
 
+function selectionBounds(start, end) {
+  return {
+    left: Math.min(start.x, end.x),
+    right: Math.max(start.x, end.x),
+    top: Math.min(start.y, end.y),
+    bottom: Math.max(start.y, end.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  }
+}
+
+function sectionBoundsFromFocus(focus, pageSize, viewerScale = 1) {
+  if (!focus || !pageSize?.width || !pageSize?.height) return null
+  const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+  const width = Math.min(
+    pageSize.width,
+    Math.max(18 / pageScale, Number(focus.widthRatio) * pageSize.width),
+  )
+  const height = Math.min(
+    pageSize.height,
+    Math.max(18 / pageScale, Number(focus.heightRatio) * pageSize.height),
+  )
+  const centerX = Number(focus.xRatio) * pageSize.width
+  const centerY = Number(focus.yRatio) * pageSize.height
+  const left = Math.max(0, Math.min(pageSize.width - width, centerX - width / 2))
+  const top = Math.max(0, Math.min(pageSize.height - height, centerY - height / 2))
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+  }
+}
+
+function annotationIntersectsBounds(annotation, bounds) {
+  const points = annotation?.points ?? []
+  if (!points.length) return false
+  const xs = points.map(point => Number(point.x)).filter(Number.isFinite)
+  const ys = points.map(point => Number(point.y)).filter(Number.isFinite)
+  if (!xs.length || !ys.length) return false
+  const annotationBounds = {
+    left: Math.min(...xs), right: Math.max(...xs),
+    top: Math.min(...ys), bottom: Math.max(...ys),
+  }
+  return annotationBounds.right >= bounds.left
+    && annotationBounds.left <= bounds.right
+    && annotationBounds.bottom >= bounds.top
+    && annotationBounds.top <= bounds.bottom
+}
+
 function rotateAround(point, pivot, angleRadians) {
   const cos = Math.cos(angleRadians)
   const sin = Math.sin(angleRadians)
@@ -553,7 +605,14 @@ function PdfSvgOverlay({
   selectedAnnotationId,
   selectedAnnotationIds,
   pasteClipboard,
+  sectionPlacementMode,
+  sectionPlacements,
+  sectionFocus,
+  sectionEditMode,
+  onSectionEditRequest,
   onMeasure,
+  onSectionSelection,
+  onSectionPlacement,
   onSelect,
   onAnnotationContextMenu,
   onClearSelection,
@@ -563,6 +622,8 @@ function PdfSvgOverlay({
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const draftStartRef = useRef(null)
+  const sectionStartRef = useRef(null)
+  const sectionResizeRef = useRef(null)
   const pasteInFlightRef = useRef(false)
   // A shape's pointerdown calls setPointerCapture on the SVG root (needed so
   // dragging keeps tracking even if the pointer leaves the shape). That has
@@ -577,6 +638,9 @@ function PdfSvgOverlay({
   const [cursor, setCursor] = useState(null)
   const [dragged, setDragged] = useState(null)
   const [endpointSnap, setEndpointSnap] = useState(null)
+  const [sectionStart, setSectionStart] = useState(null)
+  const [sectionCursor, setSectionCursor] = useState(null)
+  const [sectionResizeBounds, setSectionResizeBounds] = useState(null)
 
   const {
     activeTool,
@@ -595,7 +659,19 @@ function PdfSvgOverlay({
     setDraftStart(null)
     setCursor(null)
     setEndpointSnap(null)
+    sectionStartRef.current = null
+    setSectionStart(null)
+    setSectionCursor(null)
   }, [activeTool, pageNumber])
+
+  useEffect(() => {
+    sectionResizeRef.current = null
+    setSectionResizeBounds(
+      sectionEditMode && Number(sectionEditMode.pageNumber) === Number(pageNumber)
+        ? sectionBoundsFromFocus(sectionEditMode, pageSize, viewerScale)
+        : null,
+    )
+  }, [pageNumber, pageSize.height, pageSize.width, sectionEditMode, viewerScale])
 
   // Every paste session (a fresh copy → Paste) gets a brand-new clipboard
   // object, and ending one (Esc/Done/cancel) sets it back to null — either
@@ -1011,11 +1087,50 @@ function PdfSvgOverlay({
     onClearSelection?.()
   }, [activeTool, onClearSelection, pageSize, pasteClipboard, placePaste, resolvePasteGroupSnap])
 
+  const handleSectionResizePointerDown = useCallback((event, handle) => {
+    if (event.button !== 0 || !svgRef.current || !sectionEditMode) return
+    const bounds = sectionResizeBounds
+      ?? sectionBoundsFromFocus(sectionEditMode, pageSize, viewerScale)
+    if (!bounds) return
+    event.preventDefault()
+    event.stopPropagation()
+    svgRef.current.setPointerCapture?.(event.pointerId)
+    sectionResizeRef.current = {
+      pointerId: event.pointerId,
+      handle,
+      initialBounds: bounds,
+      latestBounds: bounds,
+    }
+  }, [pageSize, sectionEditMode, sectionResizeBounds, viewerScale])
+
   const handlePointerDown = useCallback((event) => {
     // Held-Space always means "pan", even over Line/Calibrate — bail without
     // capturing so the gesture bubbles up to the viewer's own pan handler
     // instead of starting/finalizing a draw.
     if (spaceHeld) return
+    if (activeTool === 'section' && event.button === 0 && !pasteClipboard) {
+      // While editing a saved section, only its visible resize handles should
+      // change the boundary. Clicking elsewhere must not start a second group.
+      if (sectionEditMode?.id) return
+      if (!svgRef.current) return
+      event.preventDefault()
+      event.stopPropagation()
+      const point = toPdfPoint(event, svgRef.current, pageSize)
+      if (sectionPlacementMode?.id) {
+        onSectionPlacement?.({
+          sectionId: sectionPlacementMode.id,
+          pageNumber,
+          xRatio: point.x / Math.max(1, pageSize.width),
+          yRatio: point.y / Math.max(1, pageSize.height),
+        })
+        return
+      }
+      sectionStartRef.current = point
+      setSectionStart(point)
+      setSectionCursor(point)
+      svgRef.current.setPointerCapture?.(event.pointerId)
+      return
+    }
     if (pasteClipboard || !['line', 'calibrate'].includes(activeTool) || event.button !== 0) return
     if (!svgRef.current) return
     event.preventDefault()
@@ -1041,7 +1156,7 @@ function PdfSvgOverlay({
     // draft remains active while the user pans (Space/ middle mouse), zooms,
     // scrolls, or otherwise navigates. The next left click above is the only
     // action that finalizes the line through the existing finalizeLine path.
-  }, [activeTool, finalizeLine, pageSize, pasteClipboard, resolveEndpointSnap, spaceHeld])
+  }, [activeTool, finalizeLine, onSectionPlacement, pageNumber, pageSize, pasteClipboard, resolveEndpointSnap, sectionEditMode, sectionPlacementMode, spaceHeld])
 
   const handleDoubleClick = useCallback((event) => {
     if (spaceHeld || pasteClipboard || activeTool !== 'line' || event.button !== 0) return
@@ -1083,6 +1198,38 @@ function PdfSvgOverlay({
   const handleMove = useCallback((event) => {
     if (!svgRef.current) return
     const rawPoint = toPdfPoint(event, svgRef.current, pageSize)
+    const sectionResize = sectionResizeRef.current
+    if (sectionResize && sectionResize.pointerId === event.pointerId) {
+      const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+      const minimum = 18 / pageScale
+      const point = {
+        x: Math.max(0, Math.min(pageSize.width, rawPoint.x)),
+        y: Math.max(0, Math.min(pageSize.height, rawPoint.y)),
+      }
+      let {
+        left, right, top, bottom,
+      } = sectionResize.initialBounds
+      if (sectionResize.handle.includes('w')) left = Math.min(point.x, right - minimum)
+      if (sectionResize.handle.includes('e')) right = Math.max(point.x, left + minimum)
+      if (sectionResize.handle.includes('n')) top = Math.min(point.y, bottom - minimum)
+      if (sectionResize.handle.includes('s')) bottom = Math.max(point.y, top + minimum)
+      left = Math.max(0, left)
+      right = Math.min(pageSize.width, right)
+      top = Math.max(0, top)
+      bottom = Math.min(pageSize.height, bottom)
+      const bounds = {
+        left, right, top, bottom,
+        width: right - left,
+        height: bottom - top,
+      }
+      sectionResize.latestBounds = bounds
+      setSectionResizeBounds(bounds)
+      return
+    }
+    if (sectionStartRef.current && activeTool === 'section' && !sectionPlacementMode?.id) {
+      setSectionCursor(rawPoint)
+      return
+    }
     const drag = dragRef.current
     const snap = !drag
       ? (pasteClipboard ? resolvePasteGroupSnap(rawPoint) : resolveEndpointSnap(rawPoint))
@@ -1104,7 +1251,7 @@ function PdfSvgOverlay({
     drag.latestPoints = points
     setDragged({ id: drag.annotation.id, points })
     publishGeometryChange(drag, points)
-  }, [pageSize, pasteClipboard, publishGeometryChange, resolveEndpointSnap, resolvePasteGroupSnap])
+  }, [activeTool, pageSize, pasteClipboard, publishGeometryChange, resolveEndpointSnap, resolvePasteGroupSnap, sectionPlacementMode, viewerScale])
 
   const handleShapePointerDown = useCallback((event, annotation) => {
     if (spaceHeld || event.button !== 0) return
@@ -1199,8 +1346,71 @@ function PdfSvgOverlay({
     setDragged(null)
   }, [publishGeometryChange])
 
+  const handlePointerUp = useCallback((event) => {
+    const sectionResize = sectionResizeRef.current
+    if (sectionResize && sectionResize.pointerId === event.pointerId) {
+      const bounds = sectionResize.latestBounds ?? sectionResize.initialBounds
+      sectionResizeRef.current = null
+      svgRef.current?.releasePointerCapture?.(event.pointerId)
+      const selected = pageAnnotations.filter(annotation => annotationIntersectsBounds(annotation, bounds))
+      onSectionSelection?.({
+        pageNumber,
+        pageSize: { ...pageSize },
+        bounds,
+        center: {
+          x: (bounds.left + bounds.right) / 2,
+          y: (bounds.top + bounds.bottom) / 2,
+        },
+        annotations: selected,
+      })
+      return
+    }
+    const start = sectionStartRef.current
+    if (start && activeTool === 'section' && !sectionPlacementMode?.id && svgRef.current) {
+      const end = toPdfPoint(event, svgRef.current, pageSize)
+      sectionStartRef.current = null
+      setSectionStart(null)
+      setSectionCursor(null)
+      svgRef.current.releasePointerCapture?.(event.pointerId)
+      const bounds = selectionBounds(start, end)
+      const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+      if (bounds.width * pageScale < 8 || bounds.height * pageScale < 8) return
+      const selected = pageAnnotations.filter(annotation => annotationIntersectsBounds(annotation, bounds))
+      onSectionSelection?.({
+        pageNumber,
+        pageSize: { ...pageSize },
+        bounds,
+        center: {
+          x: (bounds.left + bounds.right) / 2,
+          y: (bounds.top + bounds.bottom) / 2,
+        },
+        annotations: selected,
+      })
+      return
+    }
+    endDrag(event)
+  }, [activeTool, endDrag, onSectionSelection, pageAnnotations, pageNumber, pageSize, sectionPlacementMode, viewerScale])
+
+  const handlePointerCancel = useCallback((event) => {
+    if (sectionResizeRef.current?.pointerId === event.pointerId) {
+      sectionResizeRef.current = null
+      setSectionResizeBounds(sectionBoundsFromFocus(sectionEditMode, pageSize, viewerScale))
+      svgRef.current?.releasePointerCapture?.(event.pointerId)
+      return
+    }
+    if (sectionStartRef.current) {
+      sectionStartRef.current = null
+      setSectionStart(null)
+      setSectionCursor(null)
+      svgRef.current?.releasePointerCapture?.(event.pointerId)
+      return
+    }
+    endDrag(event)
+  }, [endDrag, pageSize, sectionEditMode, viewerScale])
+
   const dimensionCommandActive = ['line', 'calibrate'].includes(activeTool)
-  const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive
+  const sectionCommandActive = activeTool === 'section'
+  const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive || sectionCommandActive
   return (
     <svg
       ref={svgRef}
@@ -1211,8 +1421,8 @@ function PdfSvgOverlay({
       onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handleMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onPointerLeave={() => {
         setEndpointSnap(null)
         if (!dragRef.current && !draftStartRef.current) setCursor(null)
@@ -1224,7 +1434,7 @@ function PdfSvgOverlay({
         restored automatically as soon as the user leaves the dimension tool,
         so normal Select-mode editing remains unchanged.
       */}
-      <g pointerEvents={pasteClipboard || dimensionCommandActive ? 'none' : 'auto'}>
+      <g pointerEvents={pasteClipboard || dimensionCommandActive || sectionCommandActive ? 'none' : 'auto'}>
         {pageAnnotations.map(annotation => (
           <AnnotationShape
             key={annotation.id}
@@ -1254,6 +1464,128 @@ function PdfSvgOverlay({
           stroke={measureColor} strokeWidth={lineThickness} strokeDasharray={dashArray(lineStyle)}
           strokeLinecap="round" pointerEvents="none" />
       )}
+      {sectionStart && sectionCursor && !sectionPlacementMode?.id && (() => {
+        const bounds = selectionBounds(sectionStart, sectionCursor)
+        const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        return (
+          <rect
+            x={bounds.left}
+            y={bounds.top}
+            width={bounds.width}
+            height={bounds.height}
+            fill="rgba(239,35,60,.08)"
+            stroke="#EF233C"
+            strokeWidth={1.5 / pageScale}
+            strokeDasharray={`${6 / pageScale} ${4 / pageScale}`}
+            pointerEvents="none"
+          />
+        )
+      })()}
+      {sectionFocus && Number(sectionFocus.pageNumber) === Number(pageNumber) && (() => {
+        const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        const editing = Boolean(sectionEditMode?.id)
+          && Number(sectionEditMode.id) === Number(sectionFocus.id)
+        const bounds = editing && sectionResizeBounds
+          ? sectionResizeBounds
+          : sectionBoundsFromFocus(sectionFocus, pageSize, viewerScale)
+        if (!bounds) return null
+        const { left, top, right, bottom, width, height } = bounds
+        const label = editing
+          ? `Resize ${sectionFocus.name} · drag a handle`
+          : `${sectionFocus.name} · ${sectionFocus.measurementCount} measurement${Number(sectionFocus.measurementCount) === 1 ? '' : 's'} · click border to resize`
+        const labelWidth = Math.max(86, label.length * 5.4) / pageScale
+        const labelHeight = 17 / pageScale
+        const labelY = Math.max(0, top - labelHeight - 3 / pageScale)
+        const handleSize = 9 / pageScale
+        const handles = [
+          { id: 'nw', x: left, y: top, cursor: 'nwse-resize' },
+          { id: 'n', x: (left + right) / 2, y: top, cursor: 'ns-resize' },
+          { id: 'ne', x: right, y: top, cursor: 'nesw-resize' },
+          { id: 'e', x: right, y: (top + bottom) / 2, cursor: 'ew-resize' },
+          { id: 'se', x: right, y: bottom, cursor: 'nwse-resize' },
+          { id: 's', x: (left + right) / 2, y: bottom, cursor: 'ns-resize' },
+          { id: 'sw', x: left, y: bottom, cursor: 'nesw-resize' },
+          { id: 'w', x: left, y: (top + bottom) / 2, cursor: 'ew-resize' },
+        ]
+        const requestEdit = (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onSectionEditRequest?.(sectionFocus.id)
+        }
+        return (
+          <g className="pdfjs-section-focus">
+            {!editing && (
+              <rect
+                x={left}
+                y={top}
+                width={width}
+                height={height}
+                fill="none"
+                stroke="rgba(245,158,11,.001)"
+                strokeWidth={14 / pageScale}
+                pointerEvents="stroke"
+                style={{ cursor: 'pointer' }}
+                onPointerDown={event => event.stopPropagation()}
+                onClick={requestEdit}
+              >
+                <title>Click the section border to resize it</title>
+              </rect>
+            )}
+            <rect x={left} y={top} width={width} height={height} rx={3 / pageScale}
+              fill="rgba(245,158,11,.12)" stroke="#F59E0B" strokeWidth={2 / pageScale}
+              strokeDasharray={`${7 / pageScale} ${4 / pageScale}`} pointerEvents="none" />
+            <rect x={left} y={labelY} width={labelWidth} height={labelHeight} rx={3 / pageScale}
+              fill="rgba(13,21,38,.96)" stroke="#F59E0B" strokeWidth={1 / pageScale}
+              pointerEvents={editing ? 'none' : 'all'} style={{ cursor: editing ? 'default' : 'pointer' }}
+              onPointerDown={editing ? undefined : event => event.stopPropagation()}
+              onClick={editing ? undefined : requestEdit} />
+            <text x={left + 5 / pageScale} y={labelY + 11.5 / pageScale}
+              fill="#FBBF24" fontSize={8 / pageScale} fontWeight="800" pointerEvents="none">
+              {label}
+            </text>
+            {editing && handles.map(handle => (
+              <rect
+                key={`section-resize-${handle.id}`}
+                x={handle.x - handleSize / 2}
+                y={handle.y - handleSize / 2}
+                width={handleSize}
+                height={handleSize}
+                rx={1.5 / pageScale}
+                fill="#fff"
+                stroke="#F59E0B"
+                strokeWidth={2 / pageScale}
+                pointerEvents="all"
+                style={{ cursor: handle.cursor }}
+                onPointerDown={event => handleSectionResizePointerDown(event, handle.id)}
+              />
+            ))}
+          </g>
+        )
+      })()}
+      {(sectionPlacements ?? []).filter(placement => Number(placement.pageNumber) === Number(pageNumber)).map((placement) => {
+        const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        const x = Number(placement.xRatio) * pageSize.width
+        const y = Number(placement.yRatio) * pageSize.height
+        const source = Boolean(placement.isSource)
+        const placeNumber = Number(placement.placeNumber) || 1
+        const placeCount = Number(placement.placeCount) || 1
+        const markerText = `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}${source ? ' · Source' : ''}`
+        return (
+          <g key={`section-placement-${placement.id}`} pointerEvents="none">
+            <circle cx={x} cy={y} r={5 / pageScale}
+              fill={source ? 'rgba(239,35,60,.28)' : '#EF233C'} stroke="#fff" strokeWidth={1 / pageScale} />
+            <path d={`M ${x - 2 / pageScale} ${y} L ${x + 2 / pageScale} ${y} M ${x} ${y - 2 / pageScale} L ${x} ${y + 2 / pageScale}`}
+              stroke="#fff" strokeWidth={1 / pageScale} />
+            <g transform={`translate(${x + 8 / pageScale} ${y - 7 / pageScale})`}>
+              <rect x={0} y={0} width={Math.max(58, markerText.length * 5.2) / pageScale}
+                height={15 / pageScale} rx={3 / pageScale} fill="rgba(13,21,38,.94)" stroke="#EF233C" strokeWidth={.8 / pageScale} />
+              <text x={5 / pageScale} y={10.5 / pageScale} fill="#fff" fontSize={8 / pageScale} fontWeight="700">
+                {markerText}
+              </text>
+            </g>
+          </g>
+        )
+      })}
       {endpointSnap && (dimensionCommandActive || pasteClipboard) && (() => {
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
         const size = ENDPOINT_SNAP_INDICATOR_PIXELS / pageScale
