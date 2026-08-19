@@ -916,6 +916,10 @@ export default function DrawingsPage() {
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [bottomView, setBottomView] = useState('measurements')
   const sectionPlacementSavingRef = useRef(false)
+  // Project resources load in parallel. Track when the drawing request has
+  // completed so a slower schedule/section response can never repopulate
+  // orphaned data after the project is confirmed to contain zero PDFs.
+  const projectDrawingLoadRef = useRef({ projectId: null, loaded: false, count: 0 })
   const [detectedMemberPrompt, setDetectedMemberPrompt] = useState(null)
   const [detectedMemberSaving, setDetectedMemberSaving] = useState(false)
   const [detectedMemberError, setDetectedMemberError] = useState('')
@@ -1555,6 +1559,8 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (!selectedProject) return
     let cancelled = false
+    const projectId = Number(selectedProject.id)
+    projectDrawingLoadRef.current = { projectId, loaded: false, count: 0 }
     setSelectedDrawing(null)
     setDrawings([])
     setMemberScheduleItems([])
@@ -1571,8 +1577,24 @@ export default function DrawingsPage() {
         if (cancelled) return
         const list = Array.isArray(data) ? data : (data ? [data] : [])
         const normalized = list.map(normalizeDrawing).filter(Boolean)
+        projectDrawingLoadRef.current = { projectId, loaded: true, count: normalized.length }
         setDrawings(normalized)
-        if (normalized.length > 0) setSelectedDrawing(normalized[0])
+        if (normalized.length > 0) {
+          setSelectedDrawing(normalized[0])
+        } else {
+          // A project with no PDFs cannot own visible measurements, schedule
+          // members, or reusable sections. This also protects the UI while an
+          // older backend deployment is being upgraded and still returns
+          // legacy orphan rows.
+          setMemberScheduleItems([])
+          setMemberScheduleSummary(null)
+          setMeasurementSections([])
+          setSectionSelection(null)
+          setActiveSectionId(null)
+          setFocusedSectionId(null)
+          setEditingSectionId(null)
+          persistSectionReview(selectedProject.id, null)
+        }
       })
       .catch(() => { if (!cancelled) toast.error('Failed to load drawings') })
     return () => { cancelled = true }
@@ -1590,6 +1612,12 @@ export default function DrawingsPage() {
     measurementSectionService.getByProject(selectedProject.id)
       .then(sections => {
         if (cancelled) return
+        const drawingState = projectDrawingLoadRef.current
+        if (drawingState.projectId === Number(selectedProject.id) &&
+            drawingState.loaded && drawingState.count === 0) {
+          setMeasurementSections([])
+          return
+        }
         const list = Array.isArray(sections) ? sections : []
         setMeasurementSections(list)
         const persistedSectionId = readPersistedSectionReview(selectedProject.id)
@@ -1621,6 +1649,13 @@ export default function DrawingsPage() {
     ])
       .then(([members, memberSum]) => {
         if (cancelled) return
+        const drawingState = projectDrawingLoadRef.current
+        if (drawingState.projectId === Number(selectedProject.id) &&
+            drawingState.loaded && drawingState.count === 0) {
+          setMemberScheduleItems([])
+          setMemberScheduleSummary(null)
+          return
+        }
         setMemberScheduleItems(assignMemberColors(members))
         setMemberScheduleSummary(memberSum)
       })
@@ -3965,7 +4000,25 @@ export default function DrawingsPage() {
     setCtxMenu({ x: e.clientX, y: e.clientY })
   }, [])
 
+  const dismissFocusedSectionReview = useCallback(() => {
+    // Eye is only a temporary review/highlight mode. A normal PDF click
+    // should leave that review without forcing the user to return to the
+    // Eye button. Do not interfere with section placement or resize/edit.
+    if (focusedSectionId == null
+      || activeSectionId != null
+      || editingSectionId != null
+      || activeTool === 'section') return false
+
+    setFocusedSectionId(null)
+    persistSectionReview(useAppStore.getState().selectedProject?.id, null)
+    return true
+  }, [activeSectionId, activeTool, editingSectionId, focusedSectionId])
+
   const handleAnnotationSelect = useCallback((annotUuid, annotation = null, event = null) => {
+    // Clicking a measurement after reviewing a section should first clear
+    // the Eye-selected group. The clicked measurement is then selected by
+    // the unchanged logic below, instead of remaining part of that group.
+    if (dismissFocusedSectionReview()) clearAllSelection()
     // Selecting a different measurement ends any in-progress paste "stamp"
     // session (same mechanism handleCopyMeasurement uses for a fresh Copy) —
     // otherwise the moving preview/ghost and "Move preview..." banner stay
@@ -4050,7 +4103,7 @@ export default function DrawingsPage() {
         primaryViewerId,
       )
     }
-  }, [resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
+  }, [clearAllSelection, dismissFocusedSectionReview, resolveMeasurementDbId, syncToolbarFromTakeoffItem, takeoffItems, triggerPdfCommand])
 
   const handleAnnotationContextMenu = useCallback((event, annotUuid, annotation = null) => {
     event.preventDefault()
@@ -4094,6 +4147,8 @@ export default function DrawingsPage() {
         clearCopiedMeasurements()
         setSectionSelection(null)
         setActiveSectionId(null)
+        setFocusedSectionId(null)
+        persistSectionReview(useAppStore.getState().selectedProject?.id, null)
         setEditingSectionId(null)
         resetDrawingInteraction()
         clearAllSelection()
@@ -4223,14 +4278,47 @@ export default function DrawingsPage() {
 
   const handleDrawingDeleted = async (id) => {
     const rest = (Array.isArray(useAppStore.getState().drawings) ? useAppStore.getState().drawings : []).filter(d => d.id !== id)
+    projectDrawingLoadRef.current = {
+      projectId: Number(selectedProject?.id),
+      loaded: true,
+      count: rest.length,
+    }
     setDrawings(rest)
+
+    // A reusable section belongs to the PDF it was created from. Remove those
+    // groups immediately when their source drawing is deleted, and remove any
+    // counted placements that pointed at the deleted PDF. The server reload
+    // below remains authoritative and also reconciles legacy orphaned groups.
+    const removedSectionIds = new Set(measurementSections
+      .filter(section => rest.length === 0 || Number(section.sourceDrawingId) === Number(id))
+      .map(section => Number(section.id)))
+    const remainingSections = rest.length === 0
+      ? []
+      : measurementSections
+        .filter(section => !removedSectionIds.has(Number(section.id)))
+        .map(section => {
+          const placements = (section.placements ?? [])
+            .filter(placement => Number(placement.drawingId) !== Number(id))
+          return { ...section, placements, usedPlaces: placements.length }
+        })
+    setMeasurementSections(remainingSections)
+    if (rest.length === 0 || removedSectionIds.has(Number(activeSectionId))) setActiveSectionId(null)
+    if (rest.length === 0 || removedSectionIds.has(Number(focusedSectionId))) {
+      setFocusedSectionId(null)
+      persistSectionReview(selectedProject?.id, null)
+    }
+    if (rest.length === 0 || removedSectionIds.has(Number(editingSectionId))) setEditingSectionId(null)
+    if (rest.length === 0) setSectionSelection(null)
 
     // The project schedule is shared, but extracted rows retain their source
     // DrawingId. Remove those rows immediately, then reload from the server so
     // counts/summary stay authoritative after the drawing's soft-delete cascade.
-    const remainingMembers = (useAppStore.getState().memberScheduleItems ?? [])
-      .filter(member => Number(member.drawingId) !== Number(id))
+    const remainingMembers = rest.length === 0
+      ? []
+      : (useAppStore.getState().memberScheduleItems ?? [])
+        .filter(member => Number(member.drawingId) !== Number(id))
     setMemberScheduleItems(remainingMembers)
+    if (rest.length === 0) setMemberScheduleSummary(null)
 
     const { selectedMemberScheduleItem, lastMeasureMember } = useAppStore.getState()
     const removedSelectedMember = [selectedMemberScheduleItem, lastMeasureMember]
@@ -4247,16 +4335,27 @@ export default function DrawingsPage() {
 
     if (!selectedProject?.id) return
     try {
-      const [members, memberSum] = await Promise.all([
+      const [members, memberSum, sections] = await Promise.all([
         memberScheduleService.getByProject(selectedProject.id),
         memberScheduleService.getProjectSummary(selectedProject.id),
+        measurementSectionService.getByProject(selectedProject.id),
       ])
-      setMemberScheduleItems(assignMemberColors(members))
-      setMemberScheduleSummary(memberSum)
+      if (rest.length === 0) {
+        // Keep the zero-drawing invariant even if an older running API still
+        // returns orphan rows. The updated API call above cleans those rows in
+        // the database; the UI must never show them in the meantime.
+        setMemberScheduleItems([])
+        setMemberScheduleSummary(null)
+        setMeasurementSections([])
+      } else {
+        setMemberScheduleItems(assignMemberColors(members))
+        setMemberScheduleSummary(memberSum)
+        setMeasurementSections(Array.isArray(sections) ? sections : [])
+      }
     } catch {
       // The drawing has already been deleted successfully. Keep the safe
-      // optimistic schedule state; the normal project reload will reconcile it.
-      toast.error('Drawing deleted, but the member schedule could not be refreshed')
+      // optimistic state; the normal project reload will reconcile it.
+      toast.error('Drawing deleted, but related project data could not be refreshed')
     }
   }
 
@@ -4730,6 +4829,7 @@ export default function DrawingsPage() {
               onAnnotationContextMenu={handleAnnotationContextMenu}
               onClearSelection={() => {
                 clearAllSelection()
+                dismissFocusedSectionReview()
                 // Selecting a measurement mirrors it into selectedMemberScheduleItem
                 // (see syncToolbarFromTakeoffItem) so the Member Schedule panel and
                 // the right panel's "Selected: X" banner highlight along with it —

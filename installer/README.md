@@ -10,7 +10,7 @@ required. Frontend and `/api` requests stay on the same local origin.
 Generated content is intentionally not committed:
 
 - `staging/App/` - validated `dotnet publish` output used as installer input.
-- `Output/` - clean output containing one final installer EXE.
+- `Output/` - versioned final installer EXEs; previous versions are preserved.
 
 The repository-level `publish/` and frontend `dist/` folders remain compatible
 with the existing build commands. The installer does not consume, delete, or
@@ -45,7 +45,7 @@ validates required runtime/OCR/frontend files, and compiles Inno Setup.
 Final output:
 
 ```text
-installer\Output\BuildTakeoffPro-Setup-1.0.5.2.exe
+installer\Output\BuildTakeoffPro-Setup-5.8.9.1.exe
 ```
 
 To use a non-default Inno compiler location:
@@ -124,7 +124,7 @@ selected, and restarts the standalone application task.
 3. Ensure the test SQL Server permits the selected credentials and firewall
    access. The login must be able to create/migrate the target database, or the
    empty database must already exist with suitable permissions.
-4. Run `BuildTakeoffPro-Setup-1.0.5.2.exe` as Administrator. When upgrading
+4. Run `BuildTakeoffPro-Setup-5.8.9.1.exe` as Administrator. When upgrading
    an existing installation, setup stops its scheduled task and any remaining
    child API process before replacing application files; uninstalling the old
    version first is not required.

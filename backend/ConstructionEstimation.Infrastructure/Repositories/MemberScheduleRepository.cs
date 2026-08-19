@@ -18,6 +18,31 @@ public class MemberScheduleRepository : BaseRepository<MemberScheduleItem>, IMem
 
     public async Task<IEnumerable<MemberScheduleItem>> GetByProjectIdAsync(int projectId)
     {
+        // Reconcile projects that reached zero drawings in an older build.
+        // Project-owned/consolidated rows have DrawingId = null, so the normal
+        // source-drawing filter cannot identify them as orphaned. Once no
+        // active drawing remains, the shared schedule has no valid source and
+        // must be cleared permanently rather than reappearing after refresh or
+        // after a later PDF upload.
+        var hasActiveDrawings = await _context.Drawings
+            .AnyAsync(drawing => drawing.ProjectId == projectId);
+        if (!hasActiveDrawings)
+        {
+            var orphanedItems = await _context.MemberScheduleItems
+                .Where(item => item.ProjectId == projectId)
+                .ToListAsync();
+            if (orphanedItems.Count > 0)
+            {
+                foreach (var item in orphanedItems)
+                {
+                    item.IsDeleted = true;
+                    item.UpdatedAt = DateTime.UtcNow;
+                }
+                await _context.SaveChangesAsync();
+            }
+            return [];
+        }
+
         // Older builds could soft-delete a drawing without soft-deleting the
         // schedule rows extracted from it. The Drawings query filter makes the
         // Any() check consider active drawings only, so those legacy orphaned

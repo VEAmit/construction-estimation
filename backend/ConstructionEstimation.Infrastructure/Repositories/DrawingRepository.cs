@@ -15,16 +15,40 @@ public class DrawingRepository : BaseRepository<Drawing>, IDrawingRepository
         if (drawing == null) return false;
 
         // Drawings use soft deletion, so the database FK cascade is never
-        // triggered. Soft-delete only schedule rows extracted from this
-        // drawing in the same SaveChanges call. Project-created rows have a
-        // null DrawingId, and rows from every other drawing remain untouched.
-        var sourcedScheduleItems = await _context.MemberScheduleItems
-            .Where(item => item.DrawingId == id)
+        // triggered. While other drawings remain, remove only schedule rows
+        // sourced from this drawing. When this is the project's last active
+        // drawing, remove the complete shared schedule as well: consolidated
+        // and manually-created project rows intentionally have DrawingId =
+        // null and would otherwise remain as orphaned members.
+        var hasOtherActiveDrawings = await _context.Drawings.AnyAsync(item =>
+            item.ProjectId == drawing.ProjectId && item.Id != drawing.Id);
+        var scheduleItemsToDelete = await _context.MemberScheduleItems
+            .Where(item => item.ProjectId == drawing.ProjectId &&
+                (!hasOtherActiveDrawings || item.DrawingId == id))
+            .ToListAsync();
+
+        // Section groups cannot exist without their source PDF. Unlike the
+        // drawing itself, permanently remove these dependent records instead
+        // of soft-deleting them. This prevents an old group from reappearing
+        // after another PDF is uploaded to the same project. Ignore query
+        // filters so records left by older builds are cleaned at the same time.
+        var sectionsToDelete = await _context.MeasurementSections
+            .IgnoreQueryFilters()
+            .Where(section => section.ProjectId == drawing.ProjectId &&
+                (!hasOtherActiveDrawings || section.SourceDrawingId == id))
+            .ToListAsync();
+        var sectionIdsToDelete = sectionsToDelete.Select(section => section.Id).ToList();
+        var sectionPlacementsToDelete = await _context.MeasurementSectionPlacements
+            .IgnoreQueryFilters()
+            .Where(placement => placement.DrawingId == id ||
+                sectionIdsToDelete.Contains(placement.MeasurementSectionId))
             .ToListAsync();
 
         drawing.IsDeleted = true;
-        foreach (var item in sourcedScheduleItems)
+        foreach (var item in scheduleItemsToDelete)
             item.IsDeleted = true;
+        _context.MeasurementSectionPlacements.RemoveRange(sectionPlacementsToDelete);
+        _context.MeasurementSections.RemoveRange(sectionsToDelete);
 
         await _context.SaveChangesAsync();
         return true;

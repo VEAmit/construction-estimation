@@ -2,7 +2,7 @@
 #define MyAppPublisher "BuildTakeoff Pro"
 #define MyTaskName "BuildTakeoffPro"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.5.2"
+  #define MyAppVersion "5.8.9.1"
 #endif
 
 [Setup]

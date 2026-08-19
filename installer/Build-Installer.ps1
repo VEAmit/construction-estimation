@@ -4,7 +4,7 @@ param(
     [string]$Configuration = 'Release',
 
     [ValidatePattern('^\d+\.\d+\.\d+(\.\d+)?$')]
-    [string]$Version = '1.0.5.2',
+    [string]$Version = '5.8.9.1',
 
     [string]$InnoCompiler
 )
@@ -58,18 +58,8 @@ function Reset-InstallerOutputDirectory {
         return
     }
 
-    foreach ($item in @(Get-ChildItem -LiteralPath $resolved -Force)) {
-        try {
-            Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction Stop
-        }
-        catch [System.IO.IOException] {
-            # A developer may have launched the previous generated setup EXE
-            # directly from Output. Preserve only that locked EXE so a new
-            # version can still be built; a later build removes it normally.
-            if ($item.PSIsContainer -or $item.Extension -ne '.exe') { throw }
-            Write-Warning "Previous installer is currently open and will be preserved: $($item.FullName)"
-        }
-    }
+    # Keep earlier versioned installers available for rollback and client
+    # testing. The final Move-Item below replaces only the same version/name.
 }
 
 function Resolve-InnoCompiler {
@@ -104,7 +94,7 @@ Then run this build command again.
 '@
 }
 
-Write-Host "Cleaning installer staging and Output folders..."
+Write-Host "Cleaning installer staging/compiler folders and preserving previous installer versions..."
 Reset-GeneratedDirectory -Path $stagingRoot
 Reset-InstallerOutputDirectory -Path $outputRoot
 Reset-GeneratedDirectory -Path $compilerOutputRoot
