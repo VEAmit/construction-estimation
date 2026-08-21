@@ -8,6 +8,7 @@ namespace ConstructionEstimation.Core.Entities;
 public class MeasurementSection : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
+    public string Color { get; set; } = "#3B82F6";
     public string TemplateJson { get; set; } = "{}";
     public int MeasurementCount { get; set; }
     public int SourceDrawingId { get; set; }

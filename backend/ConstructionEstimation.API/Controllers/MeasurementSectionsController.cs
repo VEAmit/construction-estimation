@@ -13,6 +13,13 @@ namespace ConstructionEstimation.API.Controllers;
 [Authorize]
 public class MeasurementSectionsController : ControllerBase
 {
+    private static readonly string[] SectionColors =
+    {
+        "#3B82F6", "#22C55E", "#F97316", "#A855F7",
+        "#06B6D4", "#EAB308", "#EC4899", "#EF4444",
+        "#14B8A6", "#F59E0B", "#6366F1", "#84CC16",
+    };
+
     private readonly IMeasurementSectionRepository _sections;
     private readonly IProjectRepository _projects;
     private readonly IDrawingRepository _drawings;
@@ -67,10 +74,21 @@ public class MeasurementSectionsController : ControllerBase
             return Conflict(ApiResponse<MeasurementSectionResponse>.Fail(
                 $"A section named '{name}' already exists in this project"));
 
+        var projectSections = await _sections.GetByProjectIdAsync(projectId);
+        var usedColors = projectSections
+            .Select(item => item.Color)
+            .Where(IsHexColor)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var requestedColor = request.Color?.Trim().ToUpperInvariant();
+        var sectionColor = IsHexColor(requestedColor) && !usedColors.Contains(requestedColor!)
+            ? requestedColor!
+            : GetNextSectionColor(projectSections);
+
         var section = new MeasurementSection
         {
             ProjectId = projectId,
             Name = name,
+            Color = sectionColor,
             TemplateJson = request.TemplateJson,
             MeasurementCount = request.MeasurementCount,
             SourceDrawingId = request.SourceDrawingId,
@@ -237,6 +255,37 @@ public class MeasurementSectionsController : ControllerBase
     private static bool IsRatio(double value) =>
         double.IsFinite(value) && value >= 0 && value <= 1;
 
+    private static bool IsHexColor(string? value) =>
+        value?.Length == 7
+        && value[0] == '#'
+        && value.Skip(1).All(Uri.IsHexDigit);
+
+    private static string GetNextSectionColor(IReadOnlyCollection<MeasurementSection> sections)
+    {
+        var usedColors = sections
+            .Select(item => item.Color)
+            .Where(IsHexColor)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var paletteColor = SectionColors.FirstOrDefault(color => !usedColors.Contains(color));
+        if (paletteColor != null) return paletteColor;
+
+        // Continue beyond the curated palette without repeating a project
+        // color. The golden-ratio sequence spreads RGB values evenly, while
+        // constraining every channel keeps the generated colors readable.
+        for (var attempt = 0; attempt < 4096; attempt++)
+        {
+            var ordinal = (uint)(sections.Count + attempt + 1);
+            var value = ordinal * 2654435761u;
+            var red = 64 + (int)(value & 0x7F);
+            var green = 64 + (int)((value >> 8) & 0x7F);
+            var blue = 64 + (int)((value >> 16) & 0x7F);
+            var candidate = $"#{red:X2}{green:X2}{blue:X2}";
+            if (!usedColors.Contains(candidate)) return candidate;
+        }
+
+        throw new InvalidOperationException("Could not allocate a unique section color");
+    }
+
     private static MeasurementSectionResponse Map(MeasurementSection section)
     {
         var placements = section.Placements
@@ -256,6 +305,7 @@ public class MeasurementSectionsController : ControllerBase
             section.Id,
             section.ProjectId,
             section.Name,
+            IsHexColor(section.Color) ? section.Color.ToUpperInvariant() : SectionColors[0],
             section.TemplateJson,
             section.MeasurementCount,
             section.SourceDrawingId,

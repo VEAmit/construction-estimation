@@ -7,7 +7,8 @@ public record CreateMeasurementSectionRequest(
     int SourceDrawingId,
     int SourcePageNumber,
     double SourceXRatio,
-    double SourceYRatio
+    double SourceYRatio,
+    string? Color = null
 );
 
 public record UpdateMeasurementSectionRequest(string Name);
@@ -42,6 +43,7 @@ public record MeasurementSectionResponse(
     int Id,
     int ProjectId,
     string Name,
+    string Color,
     string TemplateJson,
     int MeasurementCount,
     int SourceDrawingId,

@@ -165,6 +165,11 @@ namespace ConstructionEstimation.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 

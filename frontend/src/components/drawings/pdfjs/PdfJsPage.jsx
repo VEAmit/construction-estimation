@@ -100,6 +100,9 @@ function PdfJsPage({
   sectionPlacementMode,
   sectionPlacements,
   sectionFocus,
+  sectionFocuses,
+  sectionMeasurementColors,
+  sectionDraftColor,
   sectionEditMode,
   onSectionEditRequest,
   onMeasure,
@@ -346,6 +349,9 @@ function PdfJsPage({
         sectionPlacementMode={sectionPlacementMode}
         sectionPlacements={sectionPlacements}
         sectionFocus={sectionFocus}
+        sectionFocuses={sectionFocuses}
+        sectionMeasurementColors={sectionMeasurementColors}
+        sectionDraftColor={sectionDraftColor}
         sectionEditMode={sectionEditMode}
         onSectionEditRequest={onSectionEditRequest}
         onMeasure={handleMeasure}

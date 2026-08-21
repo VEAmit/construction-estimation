@@ -123,6 +123,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MeasurementSection>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Color).HasMaxLength(7).IsRequired();
             entity.Property(e => e.TemplateJson).IsRequired();
             entity.HasIndex(e => new { e.ProjectId, e.Name })
                   .IsUnique()

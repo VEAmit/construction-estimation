@@ -43,6 +43,7 @@ import {
 } from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark, parseMemberScheduleNoteId } from '../utils/memberMeasureLink'
+import { buildSectionQuantityByTakeoffItem } from '../utils/sectionQuantity'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 import { Files, Layers3, TableProperties } from 'lucide-react'
@@ -50,9 +51,9 @@ import { BottomDock, SideDock } from '../components/layout/WorkspaceDock'
 
 const _MS_PALETTE = ['#3B82F6','#22C55E','#F97316','#A855F7','#06B6D4','#EAB308','#EC4899','#EF4444','#14B8A6','#F59E0B','#6366F1','#84CC16']
 const _MS_HEX = /^#[0-9A-Fa-f]{6}$/
+const SECTION_GROUP_DEFAULT_COLOR = '#3B82F6'
 const DOCK_LAYOUT_VERSION = 2
 const LEGACY_DOCK_LAYOUT_VERSION = 1
-const SECTION_REVIEW_STORAGE_PREFIX = 'buildtakeoff:section-review:'
 const LEFT_DOCK_MIN_WIDTH = 250
 const LEFT_DOCK_DEFAULT_WIDTH = 290
 const LEFT_DOCK_MIGRATION_WIDTH = 300
@@ -81,25 +82,42 @@ function readMeasurementSectionTemplate(section) {
   }
 }
 
-function readPersistedSectionReview(projectId) {
-  if (!projectId || typeof window === 'undefined') return null
-  try {
-    const sectionId = Number(localStorage.getItem(`${SECTION_REVIEW_STORAGE_PREFIX}${projectId}`))
-    return Number.isFinite(sectionId) && sectionId > 0 ? sectionId : null
-  } catch {
-    return null
+function buildMeasurementSectionFocus(section, editingSectionId = null) {
+  if (!section) return null
+  const template = readMeasurementSectionTemplate(section)
+  const sourcePlacement = (section.placements ?? []).find(placement => placement.isSource)
+  return {
+    id: section.id,
+    name: section.name,
+    color: _MS_HEX.test(section.color ?? '') ? section.color.toUpperCase() : SECTION_GROUP_DEFAULT_COLOR,
+    pageNumber: Number(section.sourcePageNumber ?? sourcePlacement?.pageNumber ?? 1) || 1,
+    xRatio: Number(sourcePlacement?.xRatio ?? .5),
+    yRatio: Number(sourcePlacement?.yRatio ?? .5),
+    widthRatio: Number(template?.bounds?.widthRatio ?? 0),
+    heightRatio: Number(template?.bounds?.heightRatio ?? 0),
+    measurementCount: Number(section.measurementCount ?? template?.measurements?.length ?? 0),
+    editing: Number(section.id) === Number(editingSectionId),
   }
 }
 
-function persistSectionReview(projectId, sectionId) {
-  if (!projectId || typeof window === 'undefined') return
-  try {
-    const key = `${SECTION_REVIEW_STORAGE_PREFIX}${projectId}`
-    if (sectionId) localStorage.setItem(key, String(sectionId))
-    else localStorage.removeItem(key)
-  } catch {
-    // Storage can be unavailable in restricted/private browser contexts.
+function getNextMeasurementSectionColor(sections) {
+  const usedColors = new Set((sections ?? [])
+    .map(section => String(section?.color ?? '').toUpperCase())
+    .filter(color => _MS_HEX.test(color)))
+  const paletteColor = _MS_PALETTE.find(color => !usedColors.has(color))
+  if (paletteColor) return paletteColor
+
+  for (let attempt = 0; attempt < 4096; attempt += 1) {
+    const ordinal = (sections?.length ?? 0) + attempt + 1
+    const value = Math.imul(ordinal, 2654435761) >>> 0
+    const red = 64 + (value & 0x7F)
+    const green = 64 + ((value >>> 8) & 0x7F)
+    const blue = 64 + ((value >>> 16) & 0x7F)
+    const candidate = `#${[red, green, blue].map(channel => channel.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+    if (!usedColors.has(candidate)) return candidate
   }
+
+  return SECTION_GROUP_DEFAULT_COLOR
 }
 
 function clampDockSize(value, min, max, fallback) {
@@ -913,9 +931,12 @@ export default function DrawingsPage() {
   const [sectionError, setSectionError] = useState('')
   const [activeSectionId, setActiveSectionId] = useState(null)
   const [focusedSectionId, setFocusedSectionId] = useState(null)
+  const [hiddenSectionIds, setHiddenSectionIds] = useState(() => new Set())
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [bottomView, setBottomView] = useState('measurements')
   const sectionPlacementSavingRef = useRef(false)
+  const previousSectionDrawingIdRef = useRef(null)
+  const sectionDrawingNavigationRef = useRef(null)
   // Project resources load in parallel. Track when the drawing request has
   // completed so a slower schedule/section response can never repopulate
   // orphaned data after the project is confirmed to contain zero PDFs.
@@ -1110,6 +1131,33 @@ export default function DrawingsPage() {
     geometryDetachmentsRef.current.clear()
     clearCopiedMeasurements()
   }, [selectedDrawing?.id, clearCopiedMeasurements])
+
+  // Section placement and review are scoped to the active PDF. A normal PDF
+  // change must never carry an armed group, selection rectangle, edit handle,
+  // or Eye highlight onto the next drawing. Eye/Edit actions may deliberately
+  // navigate to a group's source PDF; those actions set a one-shot intent so
+  // their explicit review still opens without restoring anything on refresh.
+  useEffect(() => {
+    const drawingId = Number(selectedDrawing?.id) || null
+    const previousDrawingId = previousSectionDrawingIdRef.current
+    previousSectionDrawingIdRef.current = drawingId
+
+    const navigationIntent = sectionDrawingNavigationRef.current
+    sectionDrawingNavigationRef.current = null
+    if (!previousDrawingId || !drawingId || previousDrawingId === drawingId) return
+
+    const intentionalSectionNavigation = Number(navigationIntent?.drawingId) === drawingId
+    setSectionSelection(null)
+    setActiveSectionId(null)
+    setHiddenSectionIds(new Set())
+    sectionPlacementSavingRef.current = false
+
+    if (!intentionalSectionNavigation) {
+      setFocusedSectionId(null)
+      setEditingSectionId(null)
+      if (useAppStore.getState().activeTool === 'section') setActiveTool('select')
+    }
+  }, [selectedDrawing?.id, setActiveTool])
 
   useEffect(() => {
     if (!['line', 'calibrate'].includes(activeTool)) {
@@ -1568,6 +1616,7 @@ export default function DrawingsPage() {
     setMeasurementSections([])
     setSectionSelection(null)
     setActiveSectionId(null)
+    setHiddenSectionIds(new Set())
     setFocusedSectionId(null)
     setEditingSectionId(null)
     setBottomView('measurements')
@@ -1593,16 +1642,15 @@ export default function DrawingsPage() {
           setActiveSectionId(null)
           setFocusedSectionId(null)
           setEditingSectionId(null)
-          persistSectionReview(selectedProject.id, null)
         }
       })
       .catch(() => { if (!cancelled) toast.error('Failed to load drawings') })
     return () => { cancelled = true }
   }, [selectedProject?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Section Measurement groups are project-level. Loading them independently
-  // keeps the existing drawing/takeoff/member-schedule requests unchanged and
-  // lets a saved group remain available as the user moves between PDFs.
+  // Load the project's durable Section Groups once, then scope their display
+  // to PDFs that own a saved placement. The full collection stays in memory so
+  // existing placement totals and project-level name uniqueness remain intact.
   useEffect(() => {
     if (!selectedProject?.id) {
       setMeasurementSections([])
@@ -1620,12 +1668,6 @@ export default function DrawingsPage() {
         }
         const list = Array.isArray(sections) ? sections : []
         setMeasurementSections(list)
-        const persistedSectionId = readPersistedSectionReview(selectedProject.id)
-        if (persistedSectionId && list.some(section => Number(section.id) === persistedSectionId)) {
-          setFocusedSectionId(persistedSectionId)
-        } else if (persistedSectionId) {
-          persistSectionReview(selectedProject.id, null)
-        }
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load project measurement sections')
@@ -1935,6 +1977,8 @@ export default function DrawingsPage() {
 
   const pickMeasureTool = useCallback((toolId) => {
     setEditingSectionId(null)
+    setFocusedSectionId(null)
+    sectionPlacementSavingRef.current = false
     if (toolId === 'section') {
       setActiveSectionId(null)
       setSectionSelection(null)
@@ -1945,6 +1989,7 @@ export default function DrawingsPage() {
       clearAllSelection()
     } else {
       setActiveSectionId(null)
+      setSectionSelection(null)
     }
     if (toolId === 'calibrate') {
       calibrationDrawPendingRef.current = true
@@ -1974,6 +2019,31 @@ export default function DrawingsPage() {
     [activeSectionId, measurementSections],
   )
 
+  const drawingMeasurementSections = useMemo(() => {
+    const drawingId = Number(selectedDrawing?.id)
+    if (!drawingId) return []
+    return measurementSections.filter(section =>
+      Number(section.sourceDrawingId) === drawingId
+      || (section.placements ?? []).some(placement => Number(placement.drawingId) === drawingId))
+  }, [measurementSections, selectedDrawing?.id])
+
+  // Section quantities are calculated for the source PDF only. They remain a
+  // display/export projection so the original TakeoffItem records stay intact.
+  const sectionQuantityByTakeoffItem = useMemo(
+    () => buildSectionQuantityByTakeoffItem(measurementSections, selectedDrawing?.id),
+    [measurementSections, selectedDrawing?.id],
+  )
+
+  const visibleDrawingMeasurementSections = useMemo(
+    () => drawingMeasurementSections.filter(section => !hiddenSectionIds.has(Number(section.id))),
+    [drawingMeasurementSections, hiddenSectionIds],
+  )
+
+  const visibleSectionIds = useMemo(
+    () => new Set(visibleDrawingMeasurementSections.map(section => Number(section.id))),
+    [visibleDrawingMeasurementSections],
+  )
+
   const focusedMeasurementSection = useMemo(
     () => measurementSections.find(section => Number(section.id) === Number(focusedSectionId)) ?? null,
     [focusedSectionId, measurementSections],
@@ -1984,24 +2054,25 @@ export default function DrawingsPage() {
     [editingSectionId, measurementSections],
   )
 
-  const visibleSectionFocus = useMemo(() => {
-    if (!focusedMeasurementSection
-      || Number(focusedMeasurementSection.sourceDrawingId) !== Number(selectedDrawing?.id)) return null
-    const template = readMeasurementSectionTemplate(focusedMeasurementSection)
-    const sourcePlacement = (focusedMeasurementSection.placements ?? [])
-      .find(placement => placement.isSource)
-    return {
-      id: focusedMeasurementSection.id,
-      name: focusedMeasurementSection.name,
-      pageNumber: Number(focusedMeasurementSection.sourcePageNumber ?? sourcePlacement?.pageNumber ?? 1) || 1,
-      xRatio: Number(sourcePlacement?.xRatio ?? .5),
-      yRatio: Number(sourcePlacement?.yRatio ?? .5),
-      widthRatio: Number(template?.bounds?.widthRatio ?? 0),
-      heightRatio: Number(template?.bounds?.heightRatio ?? 0),
-      measurementCount: Number(focusedMeasurementSection.measurementCount ?? template?.measurements?.length ?? 0),
-      editing: Number(focusedMeasurementSection.id) === Number(editingSectionId),
-    }
-  }, [editingSectionId, focusedMeasurementSection, selectedDrawing?.id])
+  const visibleSectionFocuses = useMemo(() => {
+    const drawingId = Number(selectedDrawing?.id)
+    return visibleDrawingMeasurementSections
+      .filter(section => Number(section.sourceDrawingId) === drawingId)
+      .map(section => buildMeasurementSectionFocus(section, editingSectionId))
+      .filter(Boolean)
+  }, [editingSectionId, selectedDrawing?.id, visibleDrawingMeasurementSections])
+
+  const visibleSectionFocus = useMemo(
+    () => visibleSectionFocuses.find(section => Number(section.id) === Number(focusedMeasurementSection?.id))
+      ?? visibleSectionFocuses.find(section => Number(section.id) === Number(editingSectionId))
+      ?? null,
+    [editingSectionId, focusedMeasurementSection?.id, visibleSectionFocuses],
+  )
+
+  const nextMeasurementSectionColor = useMemo(
+    () => getNextMeasurementSectionColor(measurementSections),
+    [measurementSections],
+  )
 
   useEffect(() => {
     if (activeTool !== 'section' && activeSectionId != null) setActiveSectionId(null)
@@ -2009,17 +2080,11 @@ export default function DrawingsPage() {
 
   const visibleSectionPlacements = useMemo(() => {
     const drawingId = Number(selectedDrawing?.id)
-    // Section markers are an interaction aid, not permanent PDF markup.
-    // Keep the drawing clean during normal viewing. Show counted locations
-    // either while placing the section or while the user explicitly reviews
-    // it with the Eye action. A second Eye click clears focusedSectionId and
-    // hides every marker again.
-    const visibleSectionId = activeTool === 'section'
-      ? activeSectionId
-      : focusedSectionId
-    if (!drawingId || !visibleSectionId) return []
-    return measurementSections
-      .filter(section => Number(section.id) === Number(visibleSectionId))
+    if (!drawingId) return []
+    // Saved markers are visible by default whenever their PDF is active. Eye
+    // toggles update hiddenSectionIds only for the current visit; returning to
+    // the PDF restores its durable, database-backed groups automatically.
+    return visibleDrawingMeasurementSections
       .flatMap(section => {
         const placements = section.placements ?? []
         return placements
@@ -2027,12 +2092,32 @@ export default function DrawingsPage() {
             ...placement,
             sectionId: section.id,
             sectionName: section.name,
+            color: _MS_HEX.test(section.color ?? '') ? section.color.toUpperCase() : SECTION_GROUP_DEFAULT_COLOR,
             placeNumber: index + 1,
             placeCount: placements.length,
           }))
           .filter(placement => Number(placement.drawingId) === drawingId)
       })
-  }, [activeSectionId, activeTool, focusedSectionId, measurementSections, selectedDrawing?.id])
+  }, [selectedDrawing?.id, visibleDrawingMeasurementSections])
+
+  // Section colors are display-only overrides for measurements belonging to
+  // a visible group. The TakeoffItem/annotation color itself is never changed,
+  // so hiding the group immediately restores normal measurement coloring.
+  const sectionMeasurementColors = useMemo(() => visibleDrawingMeasurementSections
+    .filter(section => Number(section.sourceDrawingId) === Number(selectedDrawing?.id))
+    .map(section => {
+      const template = readMeasurementSectionTemplate(section)
+      const annotationIds = (template?.measurements ?? [])
+        .flatMap(measurement => [measurement.sourceTakeoffItemId, measurement.sourceAnnotationId])
+        .filter(id => id != null && String(id).length > 0)
+        .map(String)
+      return {
+        sectionId: section.id,
+        pageNumber: Number(section.sourcePageNumber) || 1,
+        color: _MS_HEX.test(section.color ?? '') ? section.color.toUpperCase() : SECTION_GROUP_DEFAULT_COLOR,
+        annotationIds,
+      }
+    }), [selectedDrawing?.id, visibleDrawingMeasurementSections])
 
   const startSectionSelection = useCallback(() => {
     setActiveSectionId(null)
@@ -2129,6 +2214,7 @@ export default function DrawingsPage() {
       }
       const saved = await measurementSectionService.create(projectId, {
         name,
+        color: nextMeasurementSectionColor,
         templateJson: JSON.stringify(template),
         measurementCount: selection.annotations.length,
         sourceDrawingId: drawingId,
@@ -2152,7 +2238,7 @@ export default function DrawingsPage() {
     } finally {
       setSectionSaving(false)
     }
-  }, [editingSectionId, sectionSelection, setActiveTool])
+  }, [editingSectionId, nextMeasurementSectionColor, sectionSelection, setActiveTool])
 
   const handleSectionPlacement = useCallback(async (placement) => {
     const sectionId = Number(placement?.sectionId ?? activeSectionId)
@@ -2176,6 +2262,12 @@ export default function DrawingsPage() {
   }, [activeSectionId])
 
   const activateMeasurementSection = useCallback((section) => {
+    setHiddenSectionIds(current => {
+      if (!current.has(Number(section.id))) return current
+      const next = new Set(current)
+      next.delete(Number(section.id))
+      return next
+    })
     setSectionSelection(null)
     setEditingSectionId(null)
     setActiveSectionId(section.id)
@@ -2187,20 +2279,42 @@ export default function DrawingsPage() {
     setActiveTool('section')
   }, [clearAllSelection, setActiveTool])
 
-  const viewMeasurementSectionSource = useCallback((section) => {
-    // The Eye action is a real visibility toggle. If this section is already
-    // focused, a second click clears both the boundary focus and the grouped
-    // measurement selections without navigating or changing the PDF again.
-    if (Number(focusedSectionId) === Number(section?.id)) {
-      clearAllSelection()
-      setFocusedSectionId(null)
-      persistSectionReview(useAppStore.getState().selectedProject?.id, null)
-      setEditingSectionId(null)
-      setActiveSectionId(null)
-      setActiveTool('select')
+  const toggleMeasurementSectionVisibility = useCallback((section) => {
+    const sectionId = Number(section?.id)
+    if (!sectionId) return
+    const showing = hiddenSectionIds.has(sectionId)
+
+    setHiddenSectionIds(current => {
+      const next = new Set(current)
+      if (showing) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+
+    if (showing) {
+      setFocusedSectionId(sectionId)
       return
     }
 
+    if (Number(focusedSectionId) === sectionId) {
+      clearAllSelection()
+      setFocusedSectionId(null)
+    }
+    if (Number(editingSectionId) === sectionId) setEditingSectionId(null)
+    if (Number(activeSectionId) === sectionId) {
+      setActiveSectionId(null)
+      setActiveTool('select')
+    }
+  }, [
+    activeSectionId,
+    clearAllSelection,
+    editingSectionId,
+    focusedSectionId,
+    hiddenSectionIds,
+    setActiveTool,
+  ])
+
+  const viewMeasurementSectionSource = useCallback((section) => {
     const sourceDrawing = drawings.find(drawing => Number(drawing.id) === Number(section?.sourceDrawingId))
     if (!sourceDrawing) {
       toast.error('The source PDF for this section is no longer available in the project')
@@ -2217,15 +2331,23 @@ export default function DrawingsPage() {
       .map(measurement => Number(measurement?.sourceTakeoffItemId))
       .filter(id => Number.isFinite(id) && id > 0))
 
+    setHiddenSectionIds(current => {
+      if (!current.has(Number(section.id))) return current
+      const next = new Set(current)
+      next.delete(Number(section.id))
+      return next
+    })
     clearAllSelection()
     setEditingSectionId(null)
     setActiveSectionId(null)
     setFocusedSectionId(section.id)
-    persistSectionReview(useAppStore.getState().selectedProject?.id, section.id)
     setBottomView('sections')
     setShowBottom(true)
     setBottomPinned(true)
     setActiveTool('select')
+    if (Number(useAppStore.getState().selectedDrawing?.id) !== Number(sourceDrawing.id)) {
+      sectionDrawingNavigationRef.current = { drawingId: Number(sourceDrawing.id), sectionId: Number(section.id) }
+    }
     setSelectedDrawing(normalizeDrawing(sourceDrawing))
 
     selectedAnnotIdsRef.current = rowIds
@@ -2234,7 +2356,7 @@ export default function DrawingsPage() {
     setSelectedViewerAnnotIds(viewerIds)
     setSelectedAnnotId([...rowIds][0] ?? null)
     setSelectedViewerAnnotId([...viewerIds][0] ?? null)
-  }, [clearAllSelection, drawings, focusedSectionId, setActiveTool, setSelectedDrawing])
+  }, [clearAllSelection, drawings, setActiveTool, setSelectedDrawing])
 
   const editMeasurementSection = useCallback((section) => {
     // The Pencil action is a toggle. Clicking it again before saving exits
@@ -2257,6 +2379,12 @@ export default function DrawingsPage() {
       return
     }
 
+    setHiddenSectionIds(current => {
+      if (!current.has(Number(section.id))) return current
+      const next = new Set(current)
+      next.delete(Number(section.id))
+      return next
+    })
     setSectionSelection(null)
     setSectionError('')
     setActiveSectionId(null)
@@ -2266,6 +2394,9 @@ export default function DrawingsPage() {
     setShowBottom(true)
     setBottomPinned(true)
     clearAllSelection()
+    if (Number(useAppStore.getState().selectedDrawing?.id) !== Number(sourceDrawing.id)) {
+      sectionDrawingNavigationRef.current = { drawingId: Number(sourceDrawing.id), sectionId: Number(section.id) }
+    }
     setSelectedDrawing(normalizeDrawing(sourceDrawing))
     setActiveTool('section')
     toast('Drag any corner of the highlighted section, then release to review the updated members', { duration: 4200 })
@@ -2299,9 +2430,14 @@ export default function DrawingsPage() {
     try {
       await measurementSectionService.delete(section.id)
       setMeasurementSections(current => current.filter(item => Number(item.id) !== Number(section.id)))
+      setHiddenSectionIds(current => {
+        if (!current.has(Number(section.id))) return current
+        const next = new Set(current)
+        next.delete(Number(section.id))
+        return next
+      })
       if (Number(focusedSectionId) === Number(section.id)) {
         setFocusedSectionId(null)
-        persistSectionReview(useAppStore.getState().selectedProject?.id, null)
       }
       if (Number(editingSectionId) === Number(section.id)) setEditingSectionId(null)
       if (Number(activeSectionId) === Number(section.id)) {
@@ -4001,16 +4137,15 @@ export default function DrawingsPage() {
   }, [])
 
   const dismissFocusedSectionReview = useCallback(() => {
-    // Eye is only a temporary review/highlight mode. A normal PDF click
-    // should leave that review without forcing the user to return to the
-    // Eye button. Do not interfere with section placement or resize/edit.
+    // The focused measurement selection is temporary. A normal PDF click
+    // clears that selection, while saved section boundaries and markers stay
+    // visible until the user hides the group with its Eye button.
     if (focusedSectionId == null
       || activeSectionId != null
       || editingSectionId != null
       || activeTool === 'section') return false
 
     setFocusedSectionId(null)
-    persistSectionReview(useAppStore.getState().selectedProject?.id, null)
     return true
   }, [activeSectionId, activeTool, editingSectionId, focusedSectionId])
 
@@ -4148,7 +4283,6 @@ export default function DrawingsPage() {
         setSectionSelection(null)
         setActiveSectionId(null)
         setFocusedSectionId(null)
-        persistSectionReview(useAppStore.getState().selectedProject?.id, null)
         setEditingSectionId(null)
         resetDrawingInteraction()
         clearAllSelection()
@@ -4305,7 +4439,6 @@ export default function DrawingsPage() {
     if (rest.length === 0 || removedSectionIds.has(Number(activeSectionId))) setActiveSectionId(null)
     if (rest.length === 0 || removedSectionIds.has(Number(focusedSectionId))) {
       setFocusedSectionId(null)
-      persistSectionReview(selectedProject?.id, null)
     }
     if (rest.length === 0 || removedSectionIds.has(Number(editingSectionId))) setEditingSectionId(null)
     if (rest.length === 0) setSectionSelection(null)
@@ -4702,11 +4835,17 @@ export default function DrawingsPage() {
                   selectedDrawing={selectedDrawing}
                   onSelect={(d) => {
                     const norm = normalizeDrawing(d)
+                    const drawingChanged = Number(norm?.id) !== Number(selectedDrawing?.id)
                     setSelectedDrawing(norm)
-                    // Keep an Eye-enabled section visible while navigating
-                    // between PDFs. The same Eye/location toggle is the only
-                    // normal action that hides the saved section review.
-                    setEditingSectionId(null)
+                    if (drawingChanged) {
+                      setSectionSelection(null)
+                      setActiveSectionId(null)
+                      setHiddenSectionIds(new Set())
+                      setFocusedSectionId(null)
+                      setEditingSectionId(null)
+                      sectionPlacementSavingRef.current = false
+                      if (useAppStore.getState().activeTool === 'section') setActiveTool('select')
+                    }
                     clearAllSelection()
                     annotationMapRef.current = {}
                     setSidebarOpen(false)
@@ -4754,9 +4893,17 @@ export default function DrawingsPage() {
                 selectedDrawing={selectedDrawing}
                 onSelect={(d) => {
                   const norm = normalizeDrawing(d)
+                  const drawingChanged = Number(norm?.id) !== Number(selectedDrawing?.id)
                   setSelectedDrawing(norm)
-                  // Preserve section review visibility across PDF navigation.
-                  setEditingSectionId(null)
+                  if (drawingChanged) {
+                    setSectionSelection(null)
+                    setActiveSectionId(null)
+                    setHiddenSectionIds(new Set())
+                    setFocusedSectionId(null)
+                    setEditingSectionId(null)
+                    sectionPlacementSavingRef.current = false
+                    if (useAppStore.getState().activeTool === 'section') setActiveTool('select')
+                  }
                   clearAllSelection()
                   annotationMapRef.current = {}
                 }}
@@ -4844,6 +4991,9 @@ export default function DrawingsPage() {
               sectionPlacementMode={activeTool === 'section' ? activeMeasurementSection : null}
               sectionPlacements={visibleSectionPlacements}
               sectionFocus={visibleSectionFocus}
+              sectionFocuses={visibleSectionFocuses}
+              sectionMeasurementColors={sectionMeasurementColors}
+              sectionDraftColor={nextMeasurementSectionColor}
               sectionEditMode={editingSectionId ? visibleSectionFocus : null}
               onSectionEditRequest={editMeasurementSectionById}
               onSectionSelection={handleSectionSelection}
@@ -4938,10 +5088,10 @@ export default function DrawingsPage() {
             pinned={bottomPinned}
             hovered={bottomHovered}
             resizing={isDraggingBottom}
-            count={bottomView === 'sections' ? measurementSections.length : takeoffItems.length}
+            count={bottomView === 'sections' ? drawingMeasurementSections.length : takeoffItems.length}
             summary={bottomView === 'sections'
-              ? (measurementSections.length > 0
-                ? `${measurementSections.reduce((total, section) => total + Number(section.usedPlaces ?? section.placements?.length ?? 0), 0)} counted place(s)`
+              ? (drawingMeasurementSections.length > 0
+                ? `${drawingMeasurementSections.reduce((total, section) => total + Number(section.usedPlaces ?? section.placements?.length ?? 0), 0)} counted place(s)`
                 : null)
               : (takeoffItems.length > 0 ? `${takeoffItems.length} item${takeoffItems.length === 1 ? '' : 's'}` : null)}
             onOpenChange={setShowBottom}
@@ -4971,12 +5121,13 @@ export default function DrawingsPage() {
                   color: bottomView === 'sections' ? '#fff' : '#64748b',
                   background: bottomView === 'sections' ? 'rgba(239,35,60,.14)' : 'transparent',
                   borderColor: bottomView === 'sections' ? 'rgba(239,35,60,.35)' : 'transparent',
-                }}><Layers3 size={12} /> Sections <b>{measurementSections.length}</b></button>
+                }}><Layers3 size={12} /> Sections <b>{drawingMeasurementSections.length}</b></button>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 {bottomView === 'measurements' ? (
                   <MeasurementTable
                     drawing={activeDrawing}
+                    sectionQuantityByItem={sectionQuantityByTakeoffItem}
                     selectedId={selectedAnnotId}
                     selectedIds={selectedAnnotIds}
                     onRowSelect={handleRowSelect}
@@ -4988,7 +5139,7 @@ export default function DrawingsPage() {
                   />
                 ) : (
                   <SectionMeasurementsPanel
-                    sections={measurementSections}
+                    sections={drawingMeasurementSections}
                     activeSectionId={activeSectionId}
                     placing={activeTool === 'section' && Boolean(activeSectionId)}
                     onCreate={startSectionSelection}
@@ -4997,9 +5148,11 @@ export default function DrawingsPage() {
                     onDelete={deleteMeasurementSection}
                     onUndoLastPlacement={undoSectionPlacement}
                     onViewSource={viewMeasurementSectionSource}
+                    onToggleVisibility={toggleMeasurementSectionVisibility}
                     onEdit={editMeasurementSection}
                     drawings={drawings}
                     focusedSectionId={focusedSectionId}
+                    visibleSectionIds={visibleSectionIds}
                     editingSectionId={editingSectionId}
                   />
                 )}

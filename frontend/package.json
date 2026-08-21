@@ -19,7 +19,6 @@
     "@syncfusion/ej2-notifications": "~29.2.4",
     "@syncfusion/ej2-pdfviewer": "29.2.11",
     "@syncfusion/ej2-popups": "~29.2.8",
-    "@syncfusion/ej2-react-base": "29.2.11",
     "@syncfusion/ej2-react-pdfviewer": "29.2.11",
     "@syncfusion/ej2-splitbuttons": "~29.2.4",
     "@tailwindcss/vite": "^4.3.0",

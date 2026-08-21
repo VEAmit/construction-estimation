@@ -58,6 +58,17 @@ function getOccurrenceCount(item) {
   }
 }
 
+function getSectionQuantity(sectionQuantityByItem, itemId) {
+  const numericId = Number(itemId)
+  if (!Number.isFinite(numericId) || numericId <= 0) return null
+
+  const raw = sectionQuantityByItem instanceof Map
+    ? sectionQuantityByItem.get(numericId)
+    : sectionQuantityByItem?.[numericId]
+  const quantity = Number(raw)
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : null
+}
+
 function fmtScale(drawing) {
   if (!drawing?.isCalibrated || !drawing?.scaleRatio) return '—'
   return 'Set'
@@ -85,6 +96,7 @@ export default function MeasurementTable({
   onDelete,
   onBeforeUpdate,
   onUpdateFailed,
+  sectionQuantityByItem,
 }) {
   const { takeoffItems, memberScheduleItems, selectedProject, updateTakeoffItem, removeTakeoffItem } = useAppStore()
   const [page,    setPage]    = useState(1)
@@ -160,22 +172,27 @@ export default function MeasurementTable({
     } catch { toast.error('Failed to delete') }
   }
 
+  const effectiveTakeoffItems = takeoffItems.map(item => {
+    const sectionQuantity = getSectionQuantity(sectionQuantityByItem, item.id)
+    return sectionQuantity == null ? item : { ...item, quantity: sectionQuantity }
+  })
+
   const unit         = drawing?.calibrationUnit ?? 'Mm'
-  const lineItems    = takeoffItems.filter(i => !i.itemType || i.itemType === 'Line' || i.itemType === 'Perimeter')
-  const areaItems    = takeoffItems.filter(i => i.itemType === 'Area')
-  const countItems   = takeoffItems.filter(i => i.itemType === 'Count')
+  const lineItems    = effectiveTakeoffItems.filter(i => !i.itemType || i.itemType === 'Line' || i.itemType === 'Perimeter')
+  const areaItems    = effectiveTakeoffItems.filter(i => i.itemType === 'Area')
+  const countItems   = effectiveTakeoffItems.filter(i => i.itemType === 'Count')
   const totalCount   = countItems.reduce((s, i) => s + (i.quantity ?? 1), 0)
   const totalLength  = lineItems.reduce(
     (sum, item) => sum + ((item.length ?? 0) * Math.max(1, Number(item.quantity ?? 1))),
     0,
   )
   const totalArea    = areaItems.reduce((s, i) => s + (i.area ?? 0), 0)
-  const totalWeight  = takeoffItems.reduce((s, i) => s + (i.totalWeight ?? 0), 0)
-  const totalItems   = takeoffItems.length
-  const hasAnyWeight = takeoffItems.some(i => i.totalWeight != null && i.totalWeight > 0)
+  const totalWeight  = effectiveTakeoffItems.reduce((s, i) => s + (i.totalWeight ?? 0), 0)
+  const totalItems   = effectiveTakeoffItems.length
+  const hasAnyWeight = effectiveTakeoffItems.some(i => i.totalWeight != null && i.totalWeight > 0)
   const hasAnyArea   = areaItems.length > 0
 
-  const categoryGroups = takeoffItems.reduce((acc, i) => {
+  const categoryGroups = effectiveTakeoffItems.reduce((acc, i) => {
     const cat = i.category || 'General'
     if (!acc[cat]) acc[cat] = { color: i.color ?? '#EF233C', count: 0, length: 0 }
     acc[cat].count++
@@ -251,7 +268,7 @@ export default function MeasurementTable({
           Add
         </button>
 
-        <button onClick={() => exportToExcel(takeoffItems, memberScheduleItems, drawing, selectedProject)}
+        <button onClick={() => exportToExcel(effectiveTakeoffItems, memberScheduleItems, drawing, selectedProject)}
           disabled={!takeoffItems.length}
           style={{ ...iconBtn, color: '#22c55e', borderColor: 'rgba(34,197,94,.25)' }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -260,7 +277,7 @@ export default function MeasurementTable({
           </svg>
           XLS
         </button>
-        <button onClick={() => exportToPdf(takeoffItems, memberScheduleItems, drawing, selectedProject)}
+        <button onClick={() => exportToPdf(effectiveTakeoffItems, memberScheduleItems, drawing, selectedProject)}
           disabled={!takeoffItems.length}
           style={{ ...iconBtn, color: '#f87171', borderColor: 'rgba(239,35,60,.25)' }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -370,6 +387,8 @@ export default function MeasurementTable({
                 const rowNum     = (page - 1) * PAGE_SIZE + idx + 1
                 const hasAnnot   = !!item.pointsJson
                 const itemColor  = getEffectiveColor(item, memberScheduleItems)
+                const sectionQuantity = getSectionQuantity(sectionQuantityByItem, item.id)
+                const displayQuantity = sectionQuantity ?? item.quantity ?? 1
 
                 return (
                   <tr
@@ -456,7 +475,7 @@ export default function MeasurementTable({
                     </td>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>
                       {item.itemType === 'Count' ? (
-                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>× {item.quantity ?? 1}</span>
+                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>× {displayQuantity}</span>
                       ) : item.itemType === 'Area' ? (
                         item.area != null
                           ? <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(item.area)}</span>
@@ -487,9 +506,11 @@ export default function MeasurementTable({
                       {item.totalWeight != null ? `${item.totalWeight.toFixed(1)} kg` : '—'}
                     </td>
                     <td style={td}>
-                      {isEditing && getOccurrenceCount(item) == null
+                      {sectionQuantity != null
+                        ? <span title="Calculated from Section Group occurrences and placements">{displayQuantity}</span>
+                        : isEditing && getOccurrenceCount(item) == null
                         ? <input value={row.quantity ?? 1} type="number" min="1" onChange={e => setEditBuf(b => ({ ...b, quantity: +e.target.value }))} style={{ ...ei, width: '44px' }} />
-                        : item.quantity}
+                        : displayQuantity}
                     </td>
                     <td style={{ ...td, color: '#1e293b', fontSize: '10px', whiteSpace: 'nowrap' }}>
                       {fmtTime(item.createdAt)}

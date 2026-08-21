@@ -50,7 +50,7 @@ function SectionEmpty({ onCreate }) {
           width: 46, height: 46, display: 'inline-grid', placeItems: 'center', borderRadius: 10,
           color: '#EF233C', border: '1px solid rgba(239,35,60,.28)', background: 'rgba(239,35,60,.08)',
         }}><Layers3 size={23} /></span>
-        <div style={{ marginTop: 10, color: '#e2e8f0', fontSize: 13, fontWeight: 800 }}>No measurement sections yet</div>
+        <div style={{ marginTop: 10, color: '#e2e8f0', fontSize: 13, fontWeight: 800 }}>No section groups on this PDF</div>
         <div style={{ margin: '5px auto 13px', color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>
           Choose Section Measurements, draw a rectangle around existing measurements, then give the group a name.
         </div>
@@ -72,9 +72,11 @@ export default function SectionMeasurementsPanel({
   onDelete,
   onUndoLastPlacement,
   onViewSource,
+  onToggleVisibility,
   onEdit,
   drawings = [],
   focusedSectionId = null,
+  visibleSectionIds = new Set(),
   editingSectionId = null,
 }) {
   if (!sections.length) return <SectionEmpty onCreate={onCreate} />
@@ -86,7 +88,7 @@ export default function SectionMeasurementsPanel({
         borderBottom: '1px solid rgba(255,255,255,.07)', background: '#0B1320',
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 800 }}>PROJECT SECTIONS</div>
+          <div style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 800 }}>PDF SECTION GROUPS</div>
           <div style={{ color: '#64748b', fontSize: 9 }}>Counting groups never creates duplicate measurement rows</div>
         </div>
         {placing && activeSectionId ? (
@@ -111,10 +113,11 @@ export default function SectionMeasurementsPanel({
           <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: '#0D1526' }}>
             <tr>
               {[
-                ['SECTION NAME', '34%'],
-                ['MEASUREMENTS', '15%'],
-                ['USED', '15%'],
-                ['GROUP QTY', '16%'],
+                ['SECTION NAME', '33%'],
+                ['COLOR', '6%'],
+                ['MEASUREMENTS', '14%'],
+                ['USED', '14%'],
+                ['GROUP QTY', '13%'],
                 ['ACTIONS', '20%'],
               ].map(([label, width]) => (
                 <th key={label} style={{ ...thStyle, width }}>{label}</th>
@@ -125,6 +128,7 @@ export default function SectionMeasurementsPanel({
             {sections.map(section => {
               const active = Number(section.id) === Number(activeSectionId)
               const focused = Number(section.id) === Number(focusedSectionId)
+              const visible = visibleSectionIds.has(Number(section.id))
               const editing = Number(section.id) === Number(editingSectionId)
               const used = Number(section.usedPlaces ?? section.placements?.length ?? 0)
               const measurements = Number(section.measurementCount ?? 0)
@@ -136,12 +140,13 @@ export default function SectionMeasurementsPanel({
                 ? members.map(({ mark, count }) => `${mark}${count > 1 ? ` ×${count}` : ''}`).join(', ')
                 : 'No member marks stored'
               const placeSummary = readSectionPlaceSummary(section, drawings) || 'No saved locations'
+              const sectionColor = /^#[0-9A-Fa-f]{6}$/.test(section.color ?? '') ? section.color : '#3B82F6'
               return (
-                <tr key={section.id} style={{ background: active || focused ? 'rgba(239,35,60,.08)' : 'transparent' }}>
+                <tr key={section.id} style={{ background: active || focused ? `${sectionColor}14` : 'transparent' }}>
                   <td style={tdStyle}>
                     <button type="button" onClick={() => onViewSource?.(section)} title="Open the source PDF and highlight this section"
                       style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, width: '100%', padding: 0, textAlign: 'left', background: 'transparent', border: 0, cursor: 'pointer' }}>
-                      <span style={{ width: 4, height: 39, borderRadius: 2, background: active || focused ? '#EF233C' : '#3b82f6', flexShrink: 0 }} />
+                      <span title={`Section color ${sectionColor}`} style={{ width: 4, height: 39, borderRadius: 2, background: sectionColor, flexShrink: 0 }} />
                       <div style={{ minWidth: 0, lineHeight: 1.35 }}>
                         <div style={{ color: active ? '#fff' : '#e2e8f0', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.name}</div>
                         <div title={sourceName} style={{ color: '#60a5fa', fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -153,12 +158,16 @@ export default function SectionMeasurementsPanel({
                       </div>
                     </button>
                   </td>
+                  <td style={tdStyle}>
+                    <span title={`Section group color ${sectionColor}`} aria-label={`Section color ${sectionColor}`}
+                      style={{ display: 'inline-block', width: 17, height: 17, borderRadius: 4, background: sectionColor, border: '1px solid rgba(255,255,255,.45)', boxShadow: `0 0 0 2px ${sectionColor}22`, verticalAlign: 'middle' }} />
+                  </td>
                   <td style={tdStyle}><strong style={{ color: '#93c5fd' }}>{measurements}</strong></td>
                   <td style={tdStyle}>
-                    <button type="button" onClick={() => onViewSource?.(section)}
-                      aria-pressed={focused}
-                      title={focused ? 'Hide counted-place highlights' : `Show all ${used} counted place${used === 1 ? '' : 's'} on the PDF`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, color: focused ? '#fbbf24' : '#22c55e', background: 'transparent', border: 0, cursor: 'pointer', fontSize: 10, fontWeight: 800 }}>
+                    <button type="button" onClick={() => onToggleVisibility?.(section)}
+                      aria-pressed={visible}
+                      title={visible ? 'Hide this section on the current PDF' : `Show all ${used} counted place${used === 1 ? '' : 's'} on the PDF`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, color: visible ? '#fbbf24' : '#22c55e', background: 'transparent', border: 0, cursor: 'pointer', fontSize: 10, fontWeight: 800 }}>
                       <MapPin size={11} /> {used} {used === 1 ? 'Place' : 'Places'}
                     </button>
                     <div title={placeSummary} style={{ marginTop: 2, color: '#64748b', fontSize: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -172,10 +181,10 @@ export default function SectionMeasurementsPanel({
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <button type="button" onClick={() => onViewSource?.(section)}
-                        aria-pressed={focused}
-                        title={focused ? 'Hide section and counted-place highlights' : `Show all ${used} counted place${used === 1 ? '' : 's'} on the source PDF`}
-                        style={{ ...iconButton, color: focused ? '#fbbf24' : '#60a5fa', borderColor: focused ? 'rgba(245,158,11,.35)' : 'rgba(96,165,250,.28)' }}>
+                      <button type="button" onClick={() => onToggleVisibility?.(section)}
+                        aria-pressed={visible}
+                        title={visible ? 'Hide section and counted-place highlights' : `Show all ${used} counted place${used === 1 ? '' : 's'} on this PDF`}
+                        style={{ ...iconButton, color: visible ? '#fbbf24' : '#60a5fa', borderColor: visible ? 'rgba(245,158,11,.35)' : 'rgba(96,165,250,.28)' }}>
                         <Eye size={12} />
                       </button>
                       <button type="button" onClick={() => onEdit?.(section)}

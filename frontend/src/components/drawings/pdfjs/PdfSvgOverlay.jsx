@@ -39,6 +39,23 @@ function dashArray(style) {
   return undefined
 }
 
+function colorWithAlpha(color, alpha) {
+  const hex = /^#([0-9A-Fa-f]{6})$/.exec(color ?? '')
+  if (!hex) return `rgba(59,130,246,${alpha})`
+  const value = Number.parseInt(hex[1], 16)
+  return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`
+}
+
+function readableTextColor(backgroundColor) {
+  const hex = /^#([0-9A-Fa-f]{6})$/.exec(backgroundColor ?? '')
+  if (!hex) return '#fff'
+  const value = Number.parseInt(hex[1], 16)
+  const red = (value >> 16) & 255
+  const green = (value >> 8) & 255
+  const blue = value & 255
+  return (red * 299 + green * 587 + blue * 114) / 1000 > 155 ? '#0B1320' : '#fff'
+}
+
 function labelVisualScale(viewerScale) {
   const zoom = Number(viewerScale)
   if (!Number.isFinite(zoom) || zoom <= 0) return 1
@@ -447,7 +464,7 @@ function applyLabelWheelResize(annotation, event, onLabelSizeChange) {
   })
 }
 
-function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected, onSelect, anySelected, forceVisible, labelLayout }) {
+function MeasurementLabel({ annotation, colorOverride, viewerScale, onLabelSizeChange, selected, onSelect, anySelected, forceVisible, labelLayout }) {
   const groupRef = useRef(null)
   const showMeasurementLabels = useAppStore(s => s.showMeasurementLabels)
   const label = labelLayout ?? labelGeometry(annotation, viewerScale)
@@ -503,18 +520,18 @@ function MeasurementLabel({ annotation, viewerScale, onLabelSizeChange, selected
         height={label.height}
         rx={label.cornerRadius}
         fill="rgba(255,255,255,.94)"
-        stroke={annotation.color}
+        stroke={colorOverride ?? annotation.color}
         strokeWidth={label.borderWidth}
       />
       {label.mark && (
         <text x={label.x} y={label.y - label.height + label.fontSize * 1.05} textAnchor="middle"
-          fill={annotation.color} fontSize={label.fontSize} fontWeight="700">
+          fill={colorOverride ?? annotation.color} fontSize={label.fontSize} fontWeight="700">
           {label.mark}
         </text>
       )}
       {label.value && (
         <text x={label.x} y={label.y - label.fontSize * .35} textAnchor="middle"
-          fill={annotation.color} fontSize={label.fontSize} fontWeight="700">
+          fill={colorOverride ?? annotation.color} fontSize={label.fontSize} fontWeight="700">
           {label.value}
         </text>
       )}
@@ -535,11 +552,13 @@ function AnnotationShape({
   onLabelSizeChange,
   forceLabelVisible,
   labelLayout,
+  colorOverride,
 }) {
+  const displayColor = colorOverride ?? annotation.color
   const points = annotation.points.map(p => `${p.x},${p.y}`).join(' ')
   const common = {
-    fill: annotation.type === 'area' ? `${annotation.color}33` : 'none',
-    stroke: annotation.color,
+    fill: annotation.type === 'area' ? colorWithAlpha(displayColor, .2) : 'none',
+    stroke: displayColor,
     strokeWidth: annotation.thickness,
     strokeOpacity: annotation.opacity,
     strokeDasharray: dashArray(annotation.lineStyle),
@@ -548,7 +567,7 @@ function AnnotationShape({
 
   if (annotation.type === 'count') {
     const p = annotation.points[0]
-    return <circle cx={p.x} cy={p.y} r={5} {...common} fill={annotation.color} />
+    return <circle cx={p.x} cy={p.y} r={5} {...common} fill={displayColor} />
   }
 
   const closed = annotation.type === 'area'
@@ -569,7 +588,7 @@ function AnnotationShape({
       <polyline points={points} fill="none" stroke="transparent" strokeWidth={Math.max(12, annotation.thickness * 5)} />
       {selected && !editableEndpoints && annotation.points.map((p, index) => (
         <rect key={index} x={p.x - 3} y={p.y - 3} width={6} height={6}
-          fill="#fff" stroke={annotation.color} strokeWidth="1" pointerEvents="none" />
+          fill="#fff" stroke={displayColor} strokeWidth="1" pointerEvents="none" />
       ))}
       {editableEndpoints && [0, annotation.points.length - 1].map((pointIndex, handleIndex) => {
         const p = annotation.points[pointIndex]
@@ -580,7 +599,7 @@ function AnnotationShape({
             cy={p.y}
             r={handleRadius}
             fill="#fff"
-            stroke={annotation.color}
+            stroke={displayColor}
             strokeWidth={handleStrokeWidth}
             pointerEvents="all"
             style={{ cursor: 'crosshair' }}
@@ -588,7 +607,7 @@ function AnnotationShape({
           />
         )
       })}
-      <MeasurementLabel annotation={annotation} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
+      <MeasurementLabel annotation={annotation} colorOverride={colorOverride} viewerScale={viewerScale} onLabelSizeChange={onLabelSizeChange}
         selected={selected} anySelected={anySelected} onSelect={onSelect} forceVisible={forceLabelVisible}
         labelLayout={labelLayout} />
     </g>
@@ -608,6 +627,9 @@ function PdfSvgOverlay({
   sectionPlacementMode,
   sectionPlacements,
   sectionFocus,
+  sectionFocuses = [],
+  sectionMeasurementColors = [],
+  sectionDraftColor = '#3B82F6',
   sectionEditMode,
   onSectionEditRequest,
   onMeasure,
@@ -1411,6 +1433,14 @@ function PdfSvgOverlay({
   const dimensionCommandActive = ['line', 'calibrate'].includes(activeTool)
   const sectionCommandActive = activeTool === 'section'
   const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive || sectionCommandActive
+  const sectionColorByAnnotationId = new Map()
+  sectionMeasurementColors
+    .filter(section => Number(section.pageNumber) === Number(pageNumber))
+    .forEach(section => section.annotationIds?.forEach(id => {
+      if (!sectionColorByAnnotationId.has(String(id))) {
+        sectionColorByAnnotationId.set(String(id), section.color)
+      }
+    }))
   return (
     <svg
       ref={svgRef}
@@ -1439,6 +1469,9 @@ function PdfSvgOverlay({
           <AnnotationShape
             key={annotation.id}
             annotation={annotation}
+            colorOverride={[annotation.id, annotation.dbId]
+              .map(id => id == null ? null : sectionColorByAnnotationId.get(String(id)))
+              .find(Boolean)}
             viewerScale={viewerScale}
             endpointEditingEnabled={activeTool === 'select'}
             selected={
@@ -1473,15 +1506,17 @@ function PdfSvgOverlay({
             y={bounds.top}
             width={bounds.width}
             height={bounds.height}
-            fill="rgba(239,35,60,.08)"
-            stroke="#EF233C"
+            fill={colorWithAlpha(sectionDraftColor, .1)}
+            stroke={sectionDraftColor}
             strokeWidth={1.5 / pageScale}
             strokeDasharray={`${6 / pageScale} ${4 / pageScale}`}
             pointerEvents="none"
           />
         )
       })()}
-      {sectionFocus && Number(sectionFocus.pageNumber) === Number(pageNumber) && (() => {
+      {(sectionFocuses.length > 0 ? sectionFocuses : (sectionFocus ? [sectionFocus] : []))
+        .filter(section => Number(section.pageNumber) === Number(pageNumber))
+        .map(sectionFocus => {
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
         const editing = Boolean(sectionEditMode?.id)
           && Number(sectionEditMode.id) === Number(sectionFocus.id)
@@ -1512,8 +1547,9 @@ function PdfSvgOverlay({
           event.stopPropagation()
           onSectionEditRequest?.(sectionFocus.id)
         }
+        const sectionColor = sectionFocus.color ?? '#3B82F6'
         return (
-          <g className="pdfjs-section-focus">
+          <g key={`section-focus-${sectionFocus.id}`} className="pdfjs-section-focus">
             {!editing && (
               <rect
                 x={left}
@@ -1521,7 +1557,7 @@ function PdfSvgOverlay({
                 width={width}
                 height={height}
                 fill="none"
-                stroke="rgba(245,158,11,.001)"
+                stroke={colorWithAlpha(sectionColor, .001)}
                 strokeWidth={14 / pageScale}
                 pointerEvents="stroke"
                 style={{ cursor: 'pointer' }}
@@ -1532,15 +1568,15 @@ function PdfSvgOverlay({
               </rect>
             )}
             <rect x={left} y={top} width={width} height={height} rx={3 / pageScale}
-              fill="rgba(245,158,11,.12)" stroke="#F59E0B" strokeWidth={2 / pageScale}
+              fill={colorWithAlpha(sectionColor, .12)} stroke={sectionColor} strokeWidth={2 / pageScale}
               strokeDasharray={`${7 / pageScale} ${4 / pageScale}`} pointerEvents="none" />
             <rect x={left} y={labelY} width={labelWidth} height={labelHeight} rx={3 / pageScale}
-              fill="rgba(13,21,38,.96)" stroke="#F59E0B" strokeWidth={1 / pageScale}
+              fill="rgba(13,21,38,.96)" stroke={sectionColor} strokeWidth={1 / pageScale}
               pointerEvents={editing ? 'none' : 'all'} style={{ cursor: editing ? 'default' : 'pointer' }}
               onPointerDown={editing ? undefined : event => event.stopPropagation()}
               onClick={editing ? undefined : requestEdit} />
             <text x={left + 5 / pageScale} y={labelY + 11.5 / pageScale}
-              fill="#FBBF24" fontSize={8 / pageScale} fontWeight="800" pointerEvents="none">
+              fill={sectionColor} fontSize={8 / pageScale} fontWeight="800" pointerEvents="none">
               {label}
             </text>
             {editing && handles.map(handle => (
@@ -1552,7 +1588,7 @@ function PdfSvgOverlay({
                 height={handleSize}
                 rx={1.5 / pageScale}
                 fill="#fff"
-                stroke="#F59E0B"
+                stroke={sectionColor}
                 strokeWidth={2 / pageScale}
                 pointerEvents="all"
                 style={{ cursor: handle.cursor }}
@@ -1561,7 +1597,7 @@ function PdfSvgOverlay({
             ))}
           </g>
         )
-      })()}
+      })}
       {(sectionPlacements ?? []).filter(placement => Number(placement.pageNumber) === Number(pageNumber)).map((placement) => {
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
         const x = Number(placement.xRatio) * pageSize.width
@@ -1570,16 +1606,18 @@ function PdfSvgOverlay({
         const placeNumber = Number(placement.placeNumber) || 1
         const placeCount = Number(placement.placeCount) || 1
         const markerText = `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}${source ? ' · Source' : ''}`
+        const sectionColor = placement.color ?? '#3B82F6'
+        const markerTextColor = readableTextColor(sectionColor)
         return (
           <g key={`section-placement-${placement.id}`} pointerEvents="none">
             <circle cx={x} cy={y} r={5 / pageScale}
-              fill={source ? 'rgba(239,35,60,.28)' : '#EF233C'} stroke="#fff" strokeWidth={1 / pageScale} />
+              fill={source ? colorWithAlpha(sectionColor, .35) : sectionColor} stroke="#fff" strokeWidth={1 / pageScale} />
             <path d={`M ${x - 2 / pageScale} ${y} L ${x + 2 / pageScale} ${y} M ${x} ${y - 2 / pageScale} L ${x} ${y + 2 / pageScale}`}
               stroke="#fff" strokeWidth={1 / pageScale} />
             <g transform={`translate(${x + 8 / pageScale} ${y - 7 / pageScale})`}>
               <rect x={0} y={0} width={Math.max(58, markerText.length * 5.2) / pageScale}
-                height={15 / pageScale} rx={3 / pageScale} fill="rgba(13,21,38,.94)" stroke="#EF233C" strokeWidth={.8 / pageScale} />
-              <text x={5 / pageScale} y={10.5 / pageScale} fill="#fff" fontSize={8 / pageScale} fontWeight="700">
+                height={15 / pageScale} rx={3 / pageScale} fill={sectionColor} stroke="#fff" strokeWidth={.8 / pageScale} />
+              <text x={5 / pageScale} y={10.5 / pageScale} fill={markerTextColor} fontSize={8 / pageScale} fontWeight="800">
                 {markerText}
               </text>
             </g>

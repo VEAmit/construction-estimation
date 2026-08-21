@@ -73,6 +73,9 @@ export default function PdfJsViewer({
   sectionPlacementMode,
   sectionPlacements = [],
   sectionFocus,
+  sectionFocuses = [],
+  sectionMeasurementColors = [],
+  sectionDraftColor,
   sectionEditMode,
   onSectionEditRequest,
   onSectionSelection,
@@ -675,6 +678,9 @@ export default function PdfJsViewer({
                 sectionPlacementMode={sectionPlacementMode}
                 sectionPlacements={sectionPlacements}
                 sectionFocus={sectionFocus}
+                sectionFocuses={sectionFocuses}
+                sectionMeasurementColors={sectionMeasurementColors}
+                sectionDraftColor={sectionDraftColor}
                 sectionEditMode={sectionEditMode}
                 onSectionEditRequest={onSectionEditRequest}
                 onMeasure={handleMeasure}
