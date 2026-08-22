@@ -449,16 +449,20 @@ export default function MeasurementTable({
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: itemColor, flexShrink: 0, boxShadow: `0 0 3px ${itemColor}80` }} />
                         {isEditing
                           ? <input value={row.mark ?? ''} onChange={e => setEditBuf(b => ({ ...b, mark: e.target.value }))} style={{ ...ei, width: '56px' }} />
-                          : <span style={{ color: itemColor }}>{item.mark || '—'}</span>}
+                          : <span style={{ color: itemColor }}>
+                              {item.mark || (item.markDetectionPending ? 'Detecting…' : '—')}
+                            </span>}
                       </span>
                     </td>
                     <td style={{ ...td, color: '#22c55e', fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {isEditing
                         ? <input value={row.material ?? ''} onChange={e => setEditBuf(b => ({ ...b, material: e.target.value }))} placeholder="PF7" style={{ ...ei, width: '56px' }} />
-                        : getMeasurementMemberMark(item, memberScheduleItems) || '—'}
+                        : getMeasurementMemberMark(item, memberScheduleItems)
+                          || (item.markDetectionPending ? 'Detecting…' : '—')}
                     </td>
                     <td style={{ ...td, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                      {getEffectiveSectionSize(item, memberScheduleItems) || '—'}
+                      {getEffectiveSectionSize(item, memberScheduleItems)
+                        || (item.markDetectionPending ? 'Detecting…' : '—')}
                     </td>
                     <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {isEditing

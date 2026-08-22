@@ -66,13 +66,47 @@ public class ExtractionController : ControllerBase
             return NotFound(ApiResponse<DetectDrawingMarkResponse>.Fail("Drawing not found"));
 
         var filePath = Path.Combine(_env.ContentRootPath, "Uploads", drawing.FilePath);
+        var projectSchedule = (await _scheduleRepo.GetByProjectIdAsync(drawing.ProjectId)).ToList();
+        var scheduleDefinedMarks = projectSchedule
+            .Where(HasScheduleDefinition)
+            .Select(item => item.Mark?.Trim() ?? string.Empty)
+            .Where(mark => !string.IsNullOrWhiteSpace(mark))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        // Rows automatically offered from a previous OCR guess use the guessed
+        // mark as their placeholder section (RAB1/RAB1, OFG7/OFG7, and so on).
+        // Once a real schedule has been extracted, use its defined mark/section
+        // rows as the authoritative vocabulary so those guesses cannot reinforce
+        // themselves on the next manual measurement.
+        var detectionMarks = scheduleDefinedMarks.Count > 0
+            ? scheduleDefinedMarks
+            : request.KnownMarks ?? [];
         var result = _extractionService.DetectMarkNearMeasurement(
             filePath,
             request.PageNumber,
             request.Points ?? [],
-            request.KnownMarks ?? []);
+            detectionMarks);
+
+        _logger.LogInformation(
+            "Drawing mark detection for drawing {DrawingId}, page {PageNumber}, points {PointCount}: {Mark}",
+            drawingId,
+            request.PageNumber,
+            request.Points?.Count ?? 0,
+            string.IsNullOrWhiteSpace(result.Mark) ? "(none)" : result.Mark);
 
         return Ok(ApiResponse<DetectDrawingMarkResponse>.Ok(result));
+    }
+
+    private static bool HasScheduleDefinition(MemberScheduleItem item)
+    {
+        var mark = NormalizeIdentityPart(item.Mark);
+        var section = NormalizeIdentityPart(item.MemberSize);
+        if (!string.IsNullOrEmpty(section) && !section.Equals(mark, StringComparison.Ordinal))
+            return true;
+
+        var description = NormalizeIdentityPart(item.Description);
+        return !string.IsNullOrEmpty(description) &&
+               !description.Equals(mark, StringComparison.Ordinal);
     }
 
     /// <summary>

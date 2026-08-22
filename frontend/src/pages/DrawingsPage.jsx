@@ -4,6 +4,7 @@ import { drawingService } from '../services/drawingService'
 import { takeoffService } from '../services/takeoffService'
 import { memberScheduleService } from '../services/memberScheduleService'
 import { measurementSectionService } from '../services/measurementSectionService'
+import { extractionService } from '../services/extractionService'
 import { useAppStore } from '../store/useAppStore'
 import { useBreakpoint } from '../utils/useBreakpoint'
 import DrawingSidebar from '../components/drawings/DrawingSidebar'
@@ -44,6 +45,7 @@ import {
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark, parseMemberScheduleNoteId } from '../utils/memberMeasureLink'
 import { buildSectionQuantityByTakeoffItem } from '../utils/sectionQuantity'
+import { isPlausibleDrawingMark } from '../utils/drawingMarkDetect'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
 import { Files, Layers3, TableProperties } from 'lucide-react'
@@ -217,6 +219,37 @@ function getNextDefaultMemberColor(items) {
   )
   return _MS_PALETTE.find(color => !used.has(color.toUpperCase()))
     ?? _MS_PALETTE[(items?.length ?? 0) % _MS_PALETTE.length]
+}
+
+function isSafeDetectedMemberValue(value, knownMarks = []) {
+  const token = String(value ?? '').trim()
+  if (isPlausibleDrawingMark(token, knownMarks)) return true
+  return /^\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)$/i.test(token)
+}
+
+function getMeasurementMarkDetectionPoints(measurement) {
+  const raw = measurement?.rawAnnotation
+  if (!raw || typeof raw !== 'object') return []
+  // PDF.js stores normalized page points alongside absolute overlay points.
+  // Prefer normalized coordinates so the API can map them correctly across
+  // page sizes, zoom levels and PDF user-unit variants.
+  const sources = [
+    raw.labelPagePoints,
+    raw.LabelPagePoints,
+    raw.vertexPoints,
+    raw.VertexPoints,
+  ]
+  for (const source of sources) {
+    if (!Array.isArray(source) || source.length < 2) continue
+    const points = source
+      .map(point => ({
+        x: Number(point?.x ?? point?.X),
+        y: Number(point?.y ?? point?.Y),
+      }))
+      .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+    if (points.length >= 2) return points
+  }
+  return []
 }
 
 function readTakeoffPointsJson(pointsJson) {
@@ -1130,6 +1163,10 @@ export default function DrawingsPage() {
     calibrationDrawPendingRef.current = false
     geometryDetachmentsRef.current.clear()
     clearCopiedMeasurements()
+    // A member armed on one PDF must never silently relabel a line drawn on
+    // another PDF. The new drawing can still auto-detect its printed mark, or
+    // the user can deliberately pick a member again from the schedule.
+    useAppStore.getState().clearSelectedMemberScheduleItem?.()
   }, [selectedDrawing?.id, clearCopiedMeasurements])
 
   // Section placement and review are scoped to the active PDF. A normal PDF
@@ -2468,35 +2505,95 @@ export default function DrawingsPage() {
     const capturedMember = measurement.memberScheduleId == null
       ? null
       : liveScheduleItems.find(member => Number(member.id) === Number(measurement.memberScheduleId))
+    const manuallySelectedMember = measurement.manualMemberSelected === true
     let linkedMember = isPaste
       ? selectedMemberScheduleItem
-      : (capturedMember ?? selectedMemberScheduleItem)
-    const payloadMemberMark = (
-      (measurement.memberMark || '').trim()
-      || (measurement.drawingMark || '').trim()
-      || (measurement.material || '').trim()
-      || ''
-    )
-    const detectedMemberValue = String(
-      measurement.drawingMark
+      : (manuallySelectedMember ? (capturedMember ?? selectedMemberScheduleItem) : null)
+    const isLineMeasurement = (measurement.measureType ?? 'Line') === 'Line'
+    // A member explicitly selected in the schedule is authoritative for this
+    // line and must save immediately. Only a genuinely unselected/manual line
+    // is label-detected from the PDF. The previous implementation OCRed every
+    // line, overwrote an explicitly selected P4 with nearby FAB1, and delayed
+    // the database/grid save until slow OCR finished.
+    const shouldVerifyPrintedMark = !isPaste && isLineMeasurement && !manuallySelectedMember
+    const knownScheduleMarks = liveScheduleItems
+      .map(member => String(member.mark ?? member.Mark ?? '').trim())
+      .filter(Boolean)
+    let detectedMemberValue = String(
+      (manuallySelectedMember
+        ? (linkedMember?.mark ?? linkedMember?.Mark ?? measurement.memberMark)
+        : measurement.drawingMark)
       || measurement.memberMark
       || '',
     ).trim()
-    const detectedMarkKey = normalizeMemberIdentityPart(detectedMemberValue)
-    const existingDetectedMember = !linkedMember && detectedMarkKey
-      ? liveScheduleItems.find(member =>
-          normalizeMemberIdentityPart(member.mark ?? member.Mark) === detectedMarkKey)
-      : null
-    if (existingDetectedMember) linkedMember = existingDetectedMember
-
-    let linkedMemberMark = linkedMember?.mark?.trim() || linkedMember?.Mark?.trim() || ''
-    // Normal drawing: selected schedule member wins. Paste: copied measurement metadata wins.
-    let memberMark = isPaste ? (payloadMemberMark || linkedMemberMark) : (linkedMemberMark || payloadMemberMark)
+    let deferredMarkDetection = null
+    if (isLineMeasurement && !linkedMember
+      && detectedMemberValue
+      && !isSafeDetectedMemberValue(detectedMemberValue, knownScheduleMarks)) {
+      // Never turn nearby title-block/note text into a new member. This was the
+      // source of labels such as "AIQUA PTY LTD" and "BLACK".
+      detectedMemberValue = ''
+    }
     if (!drw?.id) {
       console.warn('[BT-Lifecycle] autoSave ABORTED — no drawing id in store')
       toast.error('Measurement was not saved — no drawing selected')
       return false
     }
+
+    if (shouldVerifyPrintedMark) {
+      const points = getMeasurementMarkDetectionPoints(measurement)
+      if (points.length >= 2) {
+        // Start server verification, but never make the measurement row wait
+        // for OCR. Dense CAD pages previously blocked the POST/grid update for
+        // 12-71 seconds. Give a fast/native-text result a very small window;
+        // otherwise create the row now and reconcile its label in background.
+        const detectionRequest = extractionService.detectMark(drw.id, {
+            pageNumber: measurement.pageNumber ?? 1,
+            points,
+            knownMarks: knownScheduleMarks,
+          })
+          .catch(error => {
+            console.warn('[BuildTakeoff] drawing mark OCR unavailable:', error)
+            return null
+          })
+        const quickDetection = await Promise.race([
+          detectionRequest.then(detected => ({ completed: true, detected })),
+          new Promise(resolve => setTimeout(() => resolve({ completed: false, detected: null }), 250)),
+        ])
+        if (quickDetection.completed) {
+          const ocrMark = String(
+            quickDetection.detected?.mark ?? quickDetection.detected?.Mark ?? '',
+          ).trim()
+          if (isSafeDetectedMemberValue(ocrMark, knownScheduleMarks)) {
+            detectedMemberValue = ocrMark
+            const detectedMember = liveScheduleItems.find(member =>
+              normalizeMemberIdentityPart(member.mark ?? member.Mark)
+                === normalizeMemberIdentityPart(ocrMark)) ?? null
+            // Link the detection to this measurement only. Never change the
+            // globally active schedule row here: doing so made one detected
+            // FAB1 silently become the member for every following line.
+            linkedMember = detectedMember
+          }
+        } else {
+          deferredMarkDetection = detectionRequest
+        }
+      }
+    }
+
+    const detectedMarkKey = normalizeMemberIdentityPart(detectedMemberValue)
+    const existingDetectedMember = detectedMarkKey
+      ? liveScheduleItems.find(member =>
+          normalizeMemberIdentityPart(member.mark ?? member.Mark) === detectedMarkKey)
+      : null
+    if (existingDetectedMember && !manuallySelectedMember && !deferredMarkDetection) {
+      linkedMember = existingDetectedMember
+    }
+
+    const payloadMemberMark = detectedMemberValue
+      || (!isLineMeasurement ? String(measurement.material ?? '').trim() : '')
+    let linkedMemberMark = linkedMember?.mark?.trim() || linkedMember?.Mark?.trim() || ''
+    // Normal drawing: selected schedule member wins. Paste: copied measurement metadata wins.
+    let memberMark = isPaste ? (payloadMemberMark || linkedMemberMark) : (linkedMemberMark || payloadMemberMark)
 
     if (isPaste && measurement.annotationId) {
       const items = useAppStore.getState().takeoffItems ?? []
@@ -2510,6 +2607,7 @@ export default function DrawingsPage() {
       && (measurement.measureType ?? 'Line') === 'Line'
       && !linkedMember
       && !!detectedMemberValue
+      && !deferredMarkDetection
     if (shouldOfferDetectedMember) {
       const addedMember = await requestDetectedMemberConfirmation({
         detectedValue: detectedMemberValue,
@@ -2548,13 +2646,11 @@ export default function DrawingsPage() {
     const annotKey = measurement.annotationId
       ?? `${measurement.pageNumber}-${measurement.pixelLength}-${measurement.length}`
     if (annotKey && savingAnnotIdsRef.current.has(annotKey)) {
-      // Previously silent (console.warn only) — a save that hits this guard
-      // vanishes with zero visible feedback: no grid row, no toast, nothing.
-      // Surface it so a stuck/duplicate save is at least visibly reported
-      // instead of looking like the draw was silently dropped.
+      // The viewer can report completion twice for the same annotation. The
+      // first call owns the database save; treat later calls as the same
+      // successful in-flight operation instead of showing a false failure.
       console.warn('[BT-Lifecycle] autoSave skipped — duplicate in flight:', annotKey)
-      toast.error('Measurement was not saved — please try drawing it again')
-      return false
+      return true
     }
     if (annotKey) savingAnnotIdsRef.current.add(annotKey)
 
@@ -2789,9 +2885,93 @@ export default function DrawingsPage() {
           scaleRatioAtCreation:      normDrw.scaleRatio,
           calibrationUnitAtCreation: normDrw.calibrationUnit,
         })
-        finalSaved = saved
+        finalSaved = deferredMarkDetection
+          ? { ...saved, markDetectionPending: true }
+          : saved
         addTakeoffItem(finalSaved)
       }
+
+      if (deferredMarkDetection && finalSaved?.id && !isPaste) {
+        // OCR is deliberately detached from the critical save path above. The
+        // grid row now exists immediately; when verification finishes, update
+        // that exact row (if it still exists) without changing global member
+        // selection or creating another measurement.
+        const savedItemId = finalSaved.id
+        void deferredMarkDetection.then(async detected => {
+          const ocrMark = String(detected?.mark ?? detected?.Mark ?? '').trim()
+          const liveState = useAppStore.getState()
+          const liveItem = (liveState.takeoffItems ?? [])
+            .find(item => Number(item.id) === Number(savedItemId))
+          if (!liveItem) return
+          if (!isSafeDetectedMemberValue(ocrMark, knownScheduleMarks)) {
+            updateTakeoffItem({ ...liveItem, markDetectionPending: false })
+            return
+          }
+
+          const detectedKey = normalizeMemberIdentityPart(ocrMark)
+          const detectedMember = (liveState.memberScheduleItems ?? []).find(member =>
+            normalizeMemberIdentityPart(member.mark ?? member.Mark) === detectedKey) ?? null
+          const correctedColor = detectedMember?.color
+            ?? detectedMember?.Color
+            ?? resolveDrawColorForMemberMark(
+              ocrMark,
+              liveItem.color,
+              liveState.takeoffItems,
+              liveState.memberScheduleItems,
+            )
+            ?? liveItem.color
+
+          let correctedPointsJson = liveItem.pointsJson
+          if (correctedColor && correctedPointsJson) {
+            try {
+              const raw = JSON.parse(correctedPointsJson)
+              correctedPointsJson = JSON.stringify({
+                ...raw,
+                strokeColor: correctedColor,
+                StrokeColor: correctedColor,
+              })
+            } catch (_) {}
+          }
+
+          const correctedItem = await takeoffService.update({
+            ...liveItem,
+            mark: ocrMark,
+            material: ocrMark,
+            notes: detectedMember?.id ? `msi:${detectedMember.id}` : liveItem.notes,
+            category: detectedMember?.memberType
+              ?? detectedMember?.MemberType
+              ?? liveItem.category,
+            color: correctedColor,
+            pointsJson: correctedPointsJson,
+          })
+          updateTakeoffItem(correctedItem)
+
+          if (detectedMember?.id) {
+            try {
+              const lengthM = saveLength != null
+                ? toMeters(saveLength, unit)
+                : (detectedMember.length ?? 0)
+              const updatedMember = await memberScheduleService.update({
+                ...detectedMember,
+                takeoffItemId: correctedItem.id,
+                length: Number.isFinite(lengthM) ? lengthM : (detectedMember.length ?? 0),
+                quantity: (detectedMember.quantity ?? 0) > 0 ? detectedMember.quantity : 1,
+              })
+              updateMemberScheduleItem(updatedMember)
+            } catch (error) {
+              console.warn('[BuildTakeoff] deferred member link failed:', error)
+            }
+          }
+
+          triggerPdfCommand('rehydrateMeasureLabels')
+        }).catch(error => {
+          console.warn('[BuildTakeoff] deferred drawing mark update failed:', error)
+          const liveItem = (useAppStore.getState().takeoffItems ?? [])
+            .find(item => Number(item.id) === Number(savedItemId))
+          if (liveItem) updateTakeoffItem({ ...liveItem, markDetectionPending: false })
+        })
+      }
+
       const latestThick = isPaste
         ? null
         : (pendingMeasurementRef.current?.pendingThickness ?? useAppStore.getState().lineThickness)
@@ -2800,7 +2980,10 @@ export default function DrawingsPage() {
           const raw = JSON.parse(pointsJson)
           if (Number(raw.thickness) !== Number(latestThick)) {
             const patchedJson = JSON.stringify({ ...raw, thickness: Number(latestThick), Thickness: Number(latestThick) })
-            finalSaved = await takeoffService.update({ ...finalSaved, pointsJson: patchedJson })
+            const thicknessUpdated = await takeoffService.update({ ...finalSaved, pointsJson: patchedJson })
+            finalSaved = deferredMarkDetection
+              ? { ...thicknessUpdated, markDetectionPending: true }
+              : thicknessUpdated
             updateTakeoffItem(finalSaved)
           }
         } catch (_) {}
@@ -2895,6 +3078,7 @@ export default function DrawingsPage() {
     discardUndoSnapshot,
     recordUndoSnapshot,
     requestDetectedMemberConfirmation,
+    triggerPdfCommand,
   ])
 
   const handleMeasure = useCallback((measurement, opts = {}) => {

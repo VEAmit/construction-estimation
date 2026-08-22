@@ -11,10 +11,14 @@ namespace ConstructionEstimation.API.Services;
 
 public class ExtractionService
 {
+    private sealed record CachedOcrWord(string Text, double XRatio, double YRatio);
+
     private readonly ILogger<ExtractionService> _logger;
     private readonly string _tessDataPath;
     private const int MarkDetectionDpi = 320;
     private static readonly ConcurrentDictionary<string, byte[]> RenderedPagePngCache = new();
+    private static readonly ConcurrentDictionary<string, List<CachedOcrWord>> DrawingMarkOcrCache = new();
+    private static readonly object DrawingMarkDetectionLock = new();
 
     // Shared "mark shape" fragment — an optional 1-2 digit level/storey prefix (e.g. the "1" in
     // "1FB1", "2C3" — common on multi-level structural drawings) followed by the usual
@@ -173,6 +177,7 @@ public class ExtractionService
             var allLines = new List<string>();
             var variantScheduleMembers = new List<ExtractedMemberDto>();
             var columnScheduleMembers = new List<ExtractedMemberDto>();
+            var headerlessScheduleMembers = new List<ExtractedMemberDto>();
             var coordinateDrawingListMembers = new List<ExtractedMemberDto>();
             int pageCount;
             string extractionMethod;
@@ -198,6 +203,11 @@ public class ExtractionService
                     // Conventional MARK/SIZE and ITEM/MEMBER schedule columns can also be
                     // resolved by coordinates without mixing them with plan annotations.
                     columnScheduleMembers.AddRange(ExtractColumnScheduleRows(words));
+                    // Some consultant drawings use a named, boxed schedule with no MARK/SIZE
+                    // column-heading row. Resolve those rows from their table geometry instead
+                    // of falling back to full-page Y bands that splice unrelated drawing text.
+                    headerlessScheduleMembers.AddRange(
+                        ExtractHeaderlessNamedScheduleRows(words));
                     // Drawing-list schedules often use two or more adjacent columns without
                     // MARK/SIZE headers. Resolve those columns independently so rows sharing
                     // the same Y coordinate cannot be spliced together.
@@ -245,7 +255,7 @@ public class ExtractionService
             var fullText = string.Join(" ", allLines);
             var members = ParseMembers(
                 allLines, fullText, variantScheduleMembers, columnScheduleMembers,
-                coordinateDrawingListMembers);
+                coordinateDrawingListMembers, headerlessScheduleMembers);
 
             if (ShouldRunScheduleOcr(allLines, members))
             {
@@ -262,7 +272,7 @@ public class ExtractionService
                     fullText = string.Join(" ", allLines);
                     members = ParseMembers(
                         allLines, fullText, variantScheduleMembers, columnScheduleMembers,
-                        coordinateDrawingListMembers);
+                        coordinateDrawingListMembers, headerlessScheduleMembers);
                 }
             }
 
@@ -293,20 +303,19 @@ public class ExtractionService
         List<MarkDetectionPointDto> points,
         List<string> knownMarks)
     {
-        if (!File.Exists(filePath) || points.Count < 2 || knownMarks.Count == 0)
+        if (!File.Exists(filePath) || points.Count < 2)
             return new DetectDrawingMarkResponse(string.Empty, string.Empty);
-
-        if (!Directory.Exists(_tessDataPath) ||
-            !File.Exists(Path.Combine(_tessDataPath, "eng.traineddata")))
-        {
-            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
-        }
 
         var known = knownMarks
-            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => m.Trim().ToUpperInvariant())
+            .Where(m => Regex.IsMatch(m, @"^[A-Z]{1,4}\d{0,3}[A-Z]?$"))
+            // Letter-only text on structural drawings is commonly a grid axis,
+            // elevation, or note reference (A/B/BE/BR...). It is too ambiguous
+            // to assign automatically. An explicitly selected schedule row is
+            // still authoritative and bypasses this detector entirely.
+            .Where(m => Regex.IsMatch(m, @"\d"))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (known.Count == 0) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
 
         using var pdf = PdfDocument.Open(filePath);
         var pageIndex = Math.Clamp(pageNumber, 1, pdf.NumberOfPages) - 1;
@@ -314,48 +323,182 @@ public class ExtractionService
         var pageWidth = pdfPage.Width;
         var pageHeight = pdfPage.Height;
 
-        using var engine = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
-        engine.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
-        engine.SetVariable("preserve_interword_spaces", "1");
+        // Vector PDFs already contain the authoritative text and coordinates.
+        // Prefer that text layer over OCR so a printed FAB1 is read exactly and
+        // immediately. Scanned/image-only PDFs continue into the OCR fallbacks.
+        var nativeMark = DetectMarkFromPdfText(
+            pdfPage, points, pageWidth, pageHeight, known);
+        if (!string.IsNullOrWhiteSpace(nativeMark.Mark))
+            return nativeMark;
 
-        var bitmap = GetRenderedPageBitmap(filePath, pageIndex, MarkDetectionDpi);
-        if (bitmap == null) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
-
-        try
+        if (!Directory.Exists(_tessDataPath) ||
+            !File.Exists(Path.Combine(_tessDataPath, "eng.traineddata")))
         {
-            var crops = BuildMeasurementMarkCropCandidates(points, pageWidth, pageHeight, bitmap.Width, bitmap.Height);
-            var rawLines = new List<string>();
-            var bestMark = string.Empty;
-            var bestScore = double.NegativeInfinity;
+            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+        }
 
-            for (var i = 0; i < crops.Count; i++)
+        // Tesseract engines are CPU-heavy. Parallel interactive requests used
+        // to compete for the same machine and turned a 3-5 second focused read
+        // into 70+ seconds. Serialize only the OCR fallback; native PDF text
+        // detection above remains fully concurrent and immediate.
+        lock (DrawingMarkDetectionLock)
+        {
+            using var engine = new TesseractEngine(_tessDataPath, "eng", EngineMode.Default);
+            engine.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+            engine.SetVariable("preserve_interword_spaces", "1");
+
+            using var bitmap = GetRenderedPageBitmap(filePath, pageIndex, MarkDetectionDpi);
+            if (bitmap == null) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+            // Read only the small area around the actual measurement. Whole-
+            // page OCR is both slow and spatially unsafe for repeated marks.
+            return DetectMarkFromFocusedCrops(
+                engine, bitmap, points, pageWidth, pageHeight, known);
+        }
+    }
+
+    private static DetectDrawingMarkResponse DetectMarkFromFocusedCrops(
+        TesseractEngine engine,
+        SKBitmap bitmap,
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight,
+        List<string> known)
+    {
+        var crops = BuildMeasurementMarkCropCandidates(
+            points, pageWidth, pageHeight, bitmap.Width, bitmap.Height);
+        var rawLines = new List<string>();
+        var bestMark = string.Empty;
+        var bestScore = double.NegativeInfinity;
+        var candidateHits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        DetectDrawingMarkResponse? EvaluateLines(
+            List<string> lines,
+            bool isLabelBand,
+            bool allowOcrNearMatch,
+            bool requireStandalone,
+            int priority)
+        {
+            rawLines.AddRange(lines);
+            foreach (var line in lines)
             {
-                var crop = crops[i];
-                var lines = OcrMeasurementMarkRegion(engine, bitmap, crop);
-                rawLines.AddRange(lines);
-                foreach (var line in lines)
+                foreach (var candidate in ExtractMarkCandidates(line, known))
                 {
-                    foreach (var candidate in ExtractKnownMarkCandidates(line, known))
+                    var resolvedKnown = ResolveKnownOcrMark(candidate, known, allowOcrNearMatch);
+                    // With an authoritative schedule vocabulary, an unrelated
+                    // OCR-shaped token must not become a new member. It can only
+                    // win if it is an exact/credible OCR match to a schedule mark.
+                    if (known.Count > 0 && string.IsNullOrWhiteSpace(resolvedKnown))
+                        continue;
+
+                    var effectiveCandidate = resolvedKnown ?? candidate;
+                    var isExactKnownCandidate = known.Any(mark =>
+                        NormalizeDetectedOcrMark(mark).Equals(
+                            NormalizeDetectedOcrMark(candidate),
+                            StringComparison.OrdinalIgnoreCase));
+                    var standaloneLabel = NormalizeDetectedOcrMark(line);
+                    var isStandaloneCandidate = standaloneLabel.Equals(
+                        NormalizeDetectedOcrMark(candidate),
+                        StringComparison.OrdinalIgnoreCase);
+                    if (requireStandalone && !isStandaloneCandidate && !isExactKnownCandidate)
+                        continue;
+                    if (isLabelBand && (isStandaloneCandidate || isExactKnownCandidate))
                     {
-                        var score = ScoreDetectedMark(candidate, line, known) + Math.Max(0, crops.Count - i);
-                        if (score > bestScore)
-                        {
-                            bestScore = score;
-                            bestMark = known.FirstOrDefault(m => m.Equals(candidate, StringComparison.OrdinalIgnoreCase)) ?? candidate;
-                        }
+                        return new DetectDrawingMarkResponse(
+                            effectiveCandidate,
+                            string.Join(" | ", rawLines.Distinct().Take(20)));
+                    }
+
+                    candidateHits[effectiveCandidate] =
+                        candidateHits.GetValueOrDefault(effectiveCandidate) + 1;
+                    var score = ScoreDetectedMark(effectiveCandidate, line, known)
+                        + priority
+                        + ((candidateHits[effectiveCandidate] - 1) * 35);
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestMark = effectiveCandidate;
                     }
                 }
-
-                if (!string.IsNullOrWhiteSpace(bestMark) && bestScore >= 145)
-                    return new DetectDrawingMarkResponse(bestMark, string.Join(" | ", rawLines.Distinct().Take(20)));
             }
 
-            return new DetectDrawingMarkResponse(bestMark, string.Join(" | ", rawLines.Distinct().Take(20)));
+            var hasReliableHit = candidateHits.GetValueOrDefault(bestMark) >= 2
+                && bestScore >= 175;
+            return !string.IsNullOrWhiteSpace(bestMark) && hasReliableHit
+                ? new DetectDrawingMarkResponse(
+                    bestMark, string.Join(" | ", rawLines.Distinct().Take(20)))
+                : null;
         }
-        finally
+
+        // Labels printed along a diagonal/vertical member must be rotated into
+        // reading orientation before OCR. Axis-aligned boxes frequently turn
+        // rbr1 into RAB1 (or miss it completely).
+        var alignedLines = OcrMeasurementAlignedLabelBand(
+            engine, bitmap, points, pageWidth, pageHeight);
+        var alignedResult = EvaluateLines(
+            alignedLines,
+            isLabelBand: true,
+            allowOcrNearMatch: false,
+            requireStandalone: true,
+            priority: crops.Count + 4);
+        if (alignedResult != null) return alignedResult;
+
+        var isNearlyHorizontal = IsMeasurementNearlyHorizontal(
+            points, pageWidth, pageHeight);
+
+        // Tight label bands are sufficient after the aligned pass and keep the
+        // interactive detector bounded. The old twelve-crop/two-mode loop ran
+        // up to 24 OCR operations for a single line.
+        var cropLimit = Math.Min(crops.Count, isNearlyHorizontal ? 4 : 2);
+        for (var i = 0; i < cropLimit; i++)
         {
-            bitmap.Dispose();
+            // The first two crops are narrow bands immediately beside the
+            // measured member. Keep the original vector letter shapes in those
+            // bands: line-removal preprocessing can erase parts of small marks
+            // such as FAB1. The remaining, wider crops still use the existing
+            // high-contrast cleanup to suppress drawing/grid linework.
+            var lines = i < 4
+                ? OcrMeasurementLabelBand(engine, bitmap, crops[i])
+                : OcrMeasurementMarkRegion(engine, bitmap, crops[i]);
+            var cropResult = EvaluateLines(
+                lines,
+                isLabelBand: i < 4,
+                // For a horizontal line, the isolated band is where PDF outline
+                // OCR commonly confuses one glyph (FAB1 -> RAB1). Prefer the
+                // same-length schedule mark at one edit; rotated labels require
+                // an exact known mark so RBR1 cannot be coerced to FAB1.
+                allowOcrNearMatch: isNearlyHorizontal && i < 4,
+                requireStandalone: false,
+                priority: Math.Max(0, crops.Count - i));
+            if (cropResult != null) return cropResult;
         }
+
+        return new DetectDrawingMarkResponse(
+            string.Empty, string.Join(" | ", rawLines.Distinct().Take(20)));
+    }
+
+    private static DetectDrawingMarkResponse DetectMarkFromPdfText(
+        UglyToad.PdfPig.Content.Page page,
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight,
+        List<string> knownMarks)
+    {
+        var words = page.GetWords()
+            .Where(word => !string.IsNullOrWhiteSpace(word.Text))
+            .Select(word => new CachedOcrWord(
+                word.Text,
+                Math.Clamp(
+                    ((word.BoundingBox.Left + word.BoundingBox.Right) / 2.0) / pageWidth,
+                    0,
+                    1),
+                Math.Clamp(
+                    1 - (((word.BoundingBox.Bottom + word.BoundingBox.Top) / 2.0) / pageHeight),
+                    0,
+                    1)))
+            .ToList();
+
+        return DetectMarkFromOcrWords(words, points, pageWidth, pageHeight, knownMarks);
     }
 
     // ── OCR pipeline ────────────────────────────────────────────────────────────
@@ -435,7 +578,8 @@ public class ExtractionService
             pageCount++;
             CacheRenderedPageBitmap(pdfPath, pageCount - 1, MarkDetectionDpi, bitmap);
 
-            var detectedTableRows = ExtractDynamicScheduleTableLines(engine, bitmap);
+            var detectedTableRows = ExtractDynamicScheduleTableLines(
+                engine, bitmap, pdfPath, pageCount - 1);
             if (detectedTableRows.Count >= 3)
             {
                 _logger.LogInformation(
@@ -503,7 +647,9 @@ public class ExtractionService
 
     private List<string> ExtractDynamicScheduleTableLines(
         TesseractEngine engine,
-        SKBitmap source)
+        SKBitmap source,
+        string pdfPath,
+        int pageIndex)
     {
         const int locatorWidth = 4600;
         var scale = Math.Min(1.0, locatorWidth / (double)source.Width);
@@ -517,6 +663,8 @@ public class ExtractionService
         }
 
         var locatorWords = OcrPositionedWords(engine, locator, PageSegMode.SparseText);
+        CacheDrawingMarkOcrWords(
+            pdfPath, pageIndex, locatorWords, locator.Width, locator.Height);
         var headers = FindMemberScheduleHeaders(locatorWords);
         _logger.LogInformation(
             "Dynamic schedule locator: {Words} word(s), {Headers} header(s), signals={Signals}",
@@ -711,6 +859,147 @@ public class ExtractionService
         while (iterator.Next(PageIteratorLevel.Word));
 
         return words;
+    }
+
+    private static List<CachedOcrWord> GetOrCreateDrawingMarkOcrWords(
+        TesseractEngine engine,
+        string pdfPath,
+        int pageIndex,
+        SKBitmap source)
+    {
+        var key = BuildDrawingMarkOcrCacheKey(pdfPath, pageIndex);
+        if (DrawingMarkOcrCache.TryGetValue(key, out var cached)) return cached;
+
+        const int locatorWidth = 4600;
+        var scale = Math.Min(1.0, locatorWidth / (double)source.Width);
+        using var locator = new SKBitmap(
+            Math.Max(1, (int)Math.Round(source.Width * scale)),
+            Math.Max(1, (int)Math.Round(source.Height * scale)));
+        using (var canvas = new SKCanvas(locator))
+        {
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(source, new SKRect(0, 0, locator.Width, locator.Height));
+        }
+
+        var words = OcrPositionedWords(engine, locator, PageSegMode.SparseText);
+        return CacheDrawingMarkOcrWords(
+            pdfPath, pageIndex, words, locator.Width, locator.Height);
+    }
+
+    private static List<CachedOcrWord> CacheDrawingMarkOcrWords(
+        string pdfPath,
+        int pageIndex,
+        List<OcrPositionedWord> words,
+        int width,
+        int height)
+    {
+        var key = BuildDrawingMarkOcrCacheKey(pdfPath, pageIndex);
+        var normalized = words
+            .Where(word => !string.IsNullOrWhiteSpace(word.Text))
+            .Select(word => new CachedOcrWord(
+                word.Text,
+                Math.Clamp(word.CenterX / (double)Math.Max(1, width), 0, 1),
+                Math.Clamp(word.CenterY / (double)Math.Max(1, height), 0, 1)))
+            .ToList();
+        DrawingMarkOcrCache.TryAdd(key, normalized);
+        return DrawingMarkOcrCache.TryGetValue(key, out var cached) ? cached : normalized;
+    }
+
+    private static string BuildDrawingMarkOcrCacheKey(string pdfPath, int pageIndex)
+        => BuildRenderedPageCacheKey(pdfPath, pageIndex, MarkDetectionDpi) + "|drawing-marks-v1";
+
+    private static DetectDrawingMarkResponse DetectMarkFromOcrWords(
+        List<CachedOcrWord> words,
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight,
+        List<string> knownMarks)
+    {
+        if (words.Count == 0 || points.Count < 2)
+            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        static double PageCoordinate(double value, double size)
+            => value >= 0 && value <= 1 ? value * size : value;
+        static double DistanceToSegment(
+            double px, double py, double ax, double ay, double bx, double by)
+        {
+            var dx = bx - ax;
+            var dy = by - ay;
+            if (Math.Abs(dx) < .000001 && Math.Abs(dy) < .000001)
+                return Math.Sqrt(Math.Pow(px - ax, 2) + Math.Pow(py - ay, 2));
+            var t = Math.Clamp(((px - ax) * dx + (py - ay) * dy) / ((dx * dx) + (dy * dy)), 0, 1);
+            var cx = ax + (t * dx);
+            var cy = ay + (t * dy);
+            return Math.Sqrt(Math.Pow(px - cx, 2) + Math.Pow(py - cy, 2));
+        }
+
+        var mapped = points
+            .Select(point => new
+            {
+                X = PageCoordinate(point.X, pageWidth),
+                Y = PageCoordinate(point.Y, pageHeight)
+            })
+            .Where(point => double.IsFinite(point.X) && double.IsFinite(point.Y))
+            .ToList();
+        if (mapped.Count < 2)
+            return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        var first = mapped.First();
+        var last = mapped.Last();
+        var candidates = new Dictionary<string, (int Hits, double MinDistance, List<string> Raw)>(
+            StringComparer.OrdinalIgnoreCase);
+        var maxDistance = Math.Clamp(
+            Math.Sqrt(Math.Pow(last.X - first.X, 2) + Math.Pow(last.Y - first.Y, 2)) * .24,
+            45,
+            180);
+
+        foreach (var word in words)
+        {
+            var x = word.XRatio * pageWidth;
+            var y = word.YRatio * pageHeight;
+            var distance = DistanceToSegment(x, y, first.X, first.Y, last.X, last.Y);
+            if (distance > maxDistance) continue;
+
+            foreach (var candidate in ExtractMarkCandidates(word.Text, knownMarks)
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!candidates.TryGetValue(candidate, out var current))
+                    current = (0, double.PositiveInfinity, []);
+                current.Raw.Add(word.Text);
+                candidates[candidate] = (
+                    current.Hits + 1,
+                    Math.Min(current.MinDistance, distance),
+                    current.Raw);
+            }
+        }
+
+        var best = candidates
+            .Select(pair => new
+            {
+                Mark = pair.Key,
+                pair.Value.Hits,
+                pair.Value.MinDistance,
+                pair.Value.Raw,
+                Known = knownMarks.Any(mark => mark.Equals(pair.Key, StringComparison.OrdinalIgnoreCase)),
+                Score = (knownMarks.Any(mark => mark.Equals(pair.Key, StringComparison.OrdinalIgnoreCase)) ? 160 : 0)
+                    + (pair.Value.Hits * 30)
+                    - (pair.Value.MinDistance * 2.5)
+            })
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.MinDistance)
+            .FirstOrDefault();
+
+        if (best == null) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+        var reliable = best.Known
+            ? best.Score >= 145
+            : best.Hits >= 2 || best.MinDistance <= Math.Min(35, maxDistance * .35);
+        if (!reliable) return new DetectDrawingMarkResponse(string.Empty, string.Empty);
+
+        var preferred = knownMarks.FirstOrDefault(mark =>
+            mark.Equals(best.Mark, StringComparison.OrdinalIgnoreCase)) ?? best.Mark;
+        return new DetectDrawingMarkResponse(
+            preferred,
+            string.Join(" | ", best.Raw.Distinct(StringComparer.OrdinalIgnoreCase).Take(20)));
     }
 
     private static List<string> ExtractScheduleColumnRows(
@@ -1287,7 +1576,11 @@ public class ExtractionService
     private static List<string> OcrMeasurementMarkRegion(TesseractEngine engine, SKBitmap source, SKRectI crop)
     {
         var lines = new List<string>();
-        foreach (var mode in new[] { PageSegMode.SingleWord, PageSegMode.SingleLine, PageSegMode.SparseText })
+        // A measurement crop is deliberately narrow. SingleLine handles the
+        // common label-above-member case; SparseText recovers labels offset by
+        // leader/dimension graphics. Avoid the old three-mode scan across a
+        // large crop list, which made every manual line wait unnecessarily.
+        foreach (var mode in new[] { PageSegMode.SingleLine, PageSegMode.SparseText })
         {
             lines.AddRange(OcrMeasurementMarkRegion(engine, source, crop, mode, highContrast: true));
         }
@@ -1297,6 +1590,117 @@ public class ExtractionService
             .Where(l => l.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static List<string> OcrMeasurementLabelBand(
+        TesseractEngine engine,
+        SKBitmap source,
+        SKRectI crop)
+    {
+        // These are narrow, line-aligned label bands. One SingleLine pass is
+        // enough; running SingleWord as well doubled every interactive wait.
+        return OcrMeasurementMarkRegion(
+                engine, source, crop, PageSegMode.SingleLine, highContrast: false)
+            .Select(l => Regex.Replace(l.Trim(), @"\s+", " "))
+            .Where(l => l.Length > 0)
+            .ToList();
+    }
+
+    private static List<string> OcrMeasurementAlignedLabelBand(
+        TesseractEngine engine,
+        SKBitmap source,
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight)
+    {
+        static double N(double value, double size) =>
+            value >= 0 && value <= 1 ? value * size : value;
+
+        var mapped = points
+            .Select(point => new SKPoint(
+                (float)(N(point.X, pageWidth) / pageWidth * source.Width),
+                (float)(N(point.Y, pageHeight) / pageHeight * source.Height)))
+            .Where(point => float.IsFinite(point.X) && float.IsFinite(point.Y))
+            .ToList();
+        if (mapped.Count < 2) return [];
+
+        var first = mapped.First();
+        var last = mapped.Last();
+        var dx = last.X - first.X;
+        var dy = last.Y - first.Y;
+        var length = Math.Sqrt((dx * dx) + (dy * dy));
+        if (length < 20) return [];
+
+        var angle = Math.Atan2(dy, dx) * 180.0 / Math.PI;
+        while (angle > 90) angle -= 180;
+        while (angle < -90) angle += 180;
+        if (Math.Abs(angle) < 12) return [];
+
+        var centerX = (first.X + last.X) / 2f;
+        var centerY = (first.Y + last.Y) / 2f;
+        var normalX = (float)(-dy / length);
+        var normalY = (float)(dx / length);
+        var labelOffset = (float)Math.Clamp(length * .08, 36, 60);
+        var height = (int)Math.Round(Math.Clamp(length * .12, 66, 82));
+        var lines = new List<string>();
+
+        // Printed marks are normally just to one side of the member centreline.
+        // Centre a narrow crop on each side after rotation; this keeps the mark
+        // while moving the dashed/solid member line outside the OCR image.
+        foreach (var side in new[] { -1f, 1f })
+        {
+            var width = (int)Math.Round(Math.Clamp(length, 300, 820));
+            var alignedCenterX = centerX + (normalX * labelOffset * side);
+            var alignedCenterY = centerY + (normalY * labelOffset * side);
+            using var aligned = new SKBitmap(width, height);
+            using (var canvas = new SKCanvas(aligned))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.Translate(width / 2f, height / 2f);
+                canvas.RotateDegrees((float)-angle);
+                canvas.Translate(-alignedCenterX, -alignedCenterY);
+                canvas.DrawBitmap(source, 0, 0);
+            }
+
+            // The pale structural grid survives ordinary grayscale OCR and
+            // competes with the small rotated label. Keep only genuinely
+            // dark ink; the mark remains while gray gridlines disappear.
+            for (var y = 0; y < aligned.Height; y++)
+            {
+                for (var x = 0; x < aligned.Width; x++)
+                {
+                    var color = aligned.GetPixel(x, y);
+                    var luminance = (color.Red * .299) +
+                                    (color.Green * .587) +
+                                    (color.Blue * .114);
+                    aligned.SetPixel(x, y, luminance < 125 ? SKColors.Black : SKColors.White);
+                }
+            }
+
+            lines.AddRange(OcrMeasurementLabelBand(
+                engine, aligned, new SKRectI(0, 0, aligned.Width, aligned.Height)));
+        }
+
+        return lines
+            .Select(line => Regex.Replace(line.Trim(), @"\s+", " "))
+            .Where(line => line.Length > 0)
+            .ToList();
+    }
+
+    private static bool IsMeasurementNearlyHorizontal(
+        List<MarkDetectionPointDto> points,
+        double pageWidth,
+        double pageHeight)
+    {
+        if (points.Count < 2) return true;
+        static double N(double value, double size) =>
+            value >= 0 && value <= 1 ? value * size : value;
+        var first = points.First();
+        var last = points.Last();
+        var dx = N(last.X, pageWidth) - N(first.X, pageWidth);
+        var dy = N(last.Y, pageHeight) - N(first.Y, pageHeight);
+        return Math.Abs(Math.Atan2(dy, dx) * 180.0 / Math.PI) <= 12 ||
+               Math.Abs(Math.Abs(Math.Atan2(dy, dx) * 180.0 / Math.PI) - 180) <= 12;
     }
 
     private static List<string> OcrMeasurementMarkRegion(
@@ -1314,7 +1718,10 @@ public class ExtractionService
         }
 
         var maxCropSide = Math.Max(cropped.Width, cropped.Height);
-        var upscale = Math.Clamp((int)Math.Floor(2200.0 / Math.Max(maxCropSide, 1)), 3, 8);
+        // The source page is already rendered at 320 DPI. Capping the working
+        // image near 1400 px retains glyph detail while avoiding multi-megapixel
+        // OCR inputs for each tiny label crop.
+        var upscale = Math.Clamp((int)Math.Floor(1400.0 / Math.Max(maxCropSide, 1)), 2, 4);
         using var scaled = new SKBitmap(cropped.Width * upscale, cropped.Height * upscale);
         using (var canvas = new SKCanvas(scaled))
         {
@@ -1500,6 +1907,20 @@ public class ExtractionService
         var ny = len > 0 ? (last.X - first.X) / len : -1;
         var midX = (first.X + last.X) / 2;
         var midY = (first.Y + last.Y) / 2;
+        // Member marks are commonly printed in a narrow band immediately above
+        // or below their line. Isolating that band avoids grid/leader linework
+        // that made Tesseract read FAB1 as unrelated marks such as A3.
+        // Keep this band close to the measured line. On dense drawings a
+        // farther, symmetric crop includes note text from the row above and
+        // Tesseract ignores the small member mark directly over the line.
+        var labelOffset = Math.Clamp(lineLen * 0.075, 45, 65);
+        var labelX = Math.Clamp(lineLen * 0.55, 180, 420);
+        // Include the full height of outlined PDF glyphs. The previous maximum
+        // ended just above their baseline and turned FAB1 into an unreadable
+        // half-word on this drawing.
+        var labelY = Math.Clamp(lineLen * 0.07, 44, 56);
+        var centeredLabelX = Math.Clamp(lineLen * 0.20, 130, 180);
+        var centeredLabelY = Math.Clamp(lineLen * 0.065, 44, 50);
 
         SKRectI RectAround(double cx, double cy, double rx, double ry)
         {
@@ -1512,17 +1933,17 @@ public class ExtractionService
 
         return new List<SKRectI>
         {
+            // Try a tight center crop first. It contains the printed member mark
+            // without the bay/grid lines that otherwise dominate SingleWord OCR.
+            RectAround(midX - nx * labelOffset, midY - ny * labelOffset, centeredLabelX, centeredLabelY),
+            RectAround(midX + nx * labelOffset, midY + ny * labelOffset, centeredLabelX, centeredLabelY),
+            RectAround(midX - nx * labelOffset, midY - ny * labelOffset, labelX, labelY),
+            RectAround(midX + nx * labelOffset, midY + ny * labelOffset, labelX, labelY),
             RectAround(midX, midY, stripX, stripY),
-            RectAround(midX + nx * 24, midY + ny * 24, stripX, stripY),
-            RectAround(midX - nx * 24, midY - ny * 24, stripX, stripY),
-            RectAround(midX + nx * 48, midY + ny * 48, stripX, stripY),
-            RectAround(midX - nx * 48, midY - ny * 48, stripX, stripY),
-            RectAround(midX + nx * 72, midY + ny * 72, stripX, stripY),
-            RectAround(midX - nx * 72, midY - ny * 72, stripX, stripY),
-            RectAround(first.X, first.Y, stripX, stripY),
-            RectAround(last.X, last.Y, stripX, stripY),
             RectAround(first.X, first.Y, endpointX, endpointY),
             RectAround(last.X, last.Y, endpointX, endpointY),
+            RectAround(midX + nx * 24, midY + ny * 24, stripX, stripY),
+            RectAround(midX - nx * 24, midY - ny * 24, stripX, stripY),
             RectAround(midX, midY, looseX, looseY),
             RectAround(midX + nx * 42, midY + ny * 42, looseX, looseY),
             RectAround(midX - nx * 42, midY - ny * 42, looseX, looseY),
@@ -1532,22 +1953,110 @@ public class ExtractionService
             .ToList();
     }
 
-    private static IEnumerable<string> ExtractKnownMarkCandidates(string text, List<string> knownMarks)
+    private static IEnumerable<string> ExtractMarkCandidates(string text, List<string> knownMarks)
     {
-        var compact = Regex.Replace(text.ToUpperInvariant(), @"[^A-Z0-9]", "");
+        var normalizedTokens = Regex.Matches(text.ToUpperInvariant(), @"[A-Z0-9]+")
+            .Select(match => match.Value)
+            .Where(token => !string.IsNullOrWhiteSpace(token))
+            .ToList();
         foreach (var mark in knownMarks)
         {
             var upper = mark.Trim().ToUpperInvariant();
             if (string.IsNullOrEmpty(upper)) continue;
-            if (BuildMarkOcrVariants(upper).Any(compact.Contains)) yield return upper;
+            var variants = BuildMarkOcrVariants(upper)
+                .Where(variant => !string.IsNullOrWhiteSpace(variant))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // Match a complete OCR token, never a substring of a paragraph or
+            // another member mark. Substring matching made R4 win from prose
+            // containing "...RA...", PM4 win from PM42, and A/BE win near FAB1.
+            // OCR-shaped variants still handle isolated glyph ambiguity.
+            var matches = normalizedTokens.Any(token => variants.Any(variant =>
+                token.Equals(variant, StringComparison.OrdinalIgnoreCase)));
+            if (matches) yield return upper;
         }
 
+        // Also keep a tightly-shaped unknown mark candidate. Project schedules
+        // are shared across PDFs and can legitimately omit the label printed
+        // on the current drawing; known marks receive a strong score bonus,
+        // but must not suppress an exact nearby label such as FAB1.
         foreach (Match match in Regex.Matches(text.ToUpperInvariant(), @"\b[A-Z]{1,4}\d{1,3}[A-Z]?\b"))
         {
-            var token = match.Value.Trim().ToUpperInvariant();
-            if (knownMarks.Any(m => m.Equals(token, StringComparison.OrdinalIgnoreCase)))
-                yield return token;
+            var token = NormalizeDetectedOcrMark(match.Value);
+            if (IsPlausibleDetectedMark(token)) yield return token;
         }
+
+    }
+
+    private static string NormalizeDetectedOcrMark(string value)
+        => Regex.Replace(value.ToUpperInvariant(), @"[^A-Z0-9]", "");
+
+    private static string? ResolveKnownOcrMark(
+        string candidate,
+        List<string> knownMarks,
+        bool allowNearMatch)
+    {
+        var normalized = NormalizeDetectedOcrMark(candidate);
+        var exact = knownMarks.FirstOrDefault(mark =>
+            NormalizeDetectedOcrMark(mark).Equals(normalized, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(exact)) return exact;
+        if (!allowNearMatch || normalized.Length < 2) return null;
+
+        // Outlined vector glyphs occasionally make a single character ambiguous
+        // (FAB1 is commonly read as RAB1). Correct only one-edit candidates and
+        // strongly prefer the same token length, so RA1 cannot beat FAB1 merely
+        // because deleting one OCR glyph also has edit distance one.
+        return knownMarks
+            .Select(mark => new
+            {
+                Mark = mark,
+                Normalized = NormalizeDetectedOcrMark(mark),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Normalized))
+            .Select(item => new
+            {
+                item.Mark,
+                LengthDifference = Math.Abs(item.Normalized.Length - normalized.Length),
+                Distance = LevenshteinDistance(normalized, item.Normalized),
+            })
+            .Where(item => item.Distance <= 1)
+            .OrderBy(item => item.Distance)
+            .ThenBy(item => item.LengthDifference)
+            .ThenByDescending(item => item.Mark.Length)
+            .Select(item => item.Mark)
+            .FirstOrDefault();
+    }
+
+    private static int LevenshteinDistance(string left, string right)
+    {
+        if (left.Length == 0) return right.Length;
+        if (right.Length == 0) return left.Length;
+
+        var previous = Enumerable.Range(0, right.Length + 1).ToArray();
+        var current = new int[right.Length + 1];
+        for (var i = 1; i <= left.Length; i++)
+        {
+            current[0] = i;
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var substitution = previous[j - 1] + (left[i - 1] == right[j - 1] ? 0 : 1);
+                current[j] = Math.Min(
+                    Math.Min(previous[j] + 1, current[j - 1] + 1),
+                    substitution);
+            }
+            (previous, current) = (current, previous);
+        }
+        return previous[right.Length];
+    }
+
+    private static bool IsPlausibleDetectedMark(string token)
+    {
+        if (!Regex.IsMatch(token, @"^[A-Z]{1,4}\d{1,3}[A-Z]?$")) return false;
+        if (Regex.IsMatch(token, @"^(MM|CM|KG|NO|PDF|UB|UC|PFC|TFC|RHS|SHS|CHS|EA|UA)\d*$",
+                RegexOptions.IgnoreCase))
+            return false;
+        return true;
     }
 
     private static IEnumerable<string> BuildMarkOcrVariants(string mark)
@@ -1563,6 +2072,7 @@ public class ExtractionService
         yield return compact.Replace('Z', '2');
         yield return compact.Replace('9', 'O');
         yield return compact.Replace('4', 'A');
+        yield return compact.Replace('4', 'T');
         yield return compact.Replace('6', 'G');
         yield return compact.Replace("1", "I");
         yield return compact.Replace("1", "L");
@@ -1577,8 +2087,11 @@ public class ExtractionService
     {
         static char[] Alternatives(char c) => c switch
         {
-            'B' => ['B', '8', 'P', 'R'],
+            // Small outlined B glyphs can close into D during raster OCR
+            // (FAB1 -> FADI), especially directly beside a measurement line.
+            'B' => ['B', '8', 'P', 'R', 'D'],
             '8' => ['8', 'B'],
+            'D' => ['D', 'B'],
             '9' => ['9', 'O', '0', 'G', 'Q'],
             '6' => ['6', 'G'],
             '0' => ['0', 'O'],
@@ -1590,6 +2103,10 @@ public class ExtractionService
             'S' => ['S', '5'],
             '2' => ['2', 'Z'],
             'Z' => ['Z', '2'],
+            // Small outlined 4 glyphs on structural drawings are frequently
+            // read as T (R4 -> RT), especially after rotating a vertical mark.
+            '4' => ['4', 'A', 'T'],
+            'T' => ['T', '4'],
             _ => [c],
         };
 
@@ -1670,7 +2187,8 @@ public class ExtractionService
     {
         var lower = line.ToLowerInvariant();
         return MetadataNoiseTokens.Any(lower.Contains)
-            || Regex.IsMatch(lower, @"\b(ph\.|www\.|\.com|@|drawing no|drawn|checked|approved)\b");
+            || Regex.IsMatch(lower, @"\b(ph\.|www\.|\.com|@|drawing no|drawn|checked|approved)\b")
+            || Regex.IsMatch(lower, @"\b(pty\s+ltd|limited|llc|incorporated|corporation|company)\b");
     }
 
     private static List<string> ReconstructLines(List<Word> words)
@@ -2058,7 +2576,8 @@ public class ExtractionService
         string fullText,
         List<ExtractedMemberDto>? variantScheduleMembers = null,
         List<ExtractedMemberDto>? columnScheduleMembers = null,
-        List<ExtractedMemberDto>? coordinateDrawingListMembers = null)
+        List<ExtractedMemberDto>? coordinateDrawingListMembers = null,
+        List<ExtractedMemberDto>? headerlessScheduleMembers = null)
     {
         // Merge split mark tokens produced by CAD PDFs: "PF 2" → "PF2", "C 1" → "C1"
         var mergedLines = lines.Select(MergeMarkFragments).ToList();
@@ -2078,6 +2597,17 @@ public class ExtractionService
             _logger.LogInformation(
                 "Extraction: using {Count} coordinate-resolved multi-variant schedule cells",
                 variantScheduleMembers.Count);
+        }
+        else if (headerlessScheduleMembers != null
+            && headerlessScheduleMembers
+                .Select(row => row.Mark)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() >= 10)
+        {
+            results.AddRange(headerlessScheduleMembers);
+            _logger.LogInformation(
+                "Extraction: using {Count} rows from named headerless schedule tables",
+                headerlessScheduleMembers.Count);
         }
         else if (columnScheduleMembers is { Count: >= 5 })
         {
@@ -2320,6 +2850,273 @@ public class ExtractionService
         double Middle,
         double Right);
 
+    private enum NamedScheduleKind
+    {
+        SteelMember,
+        ConcreteColumn,
+        Purlin,
+        ConcreteBeam,
+        Footing,
+    }
+
+    private sealed record HeaderlessNamedScheduleTable(
+        double HeaderBottom,
+        double Left,
+        double Right,
+        NamedScheduleKind Kind);
+
+    /// <summary>
+    /// Reads boxed, named schedules that contain only data rows beneath the title
+    /// (for example STEEL MEMBER SCHEDULE followed immediately by CH083 / 88.9 x
+    /// 4.0 CHS). These tables have no MARK/SIZE header row, so the ordinary column
+    /// parser cannot discover them. The title and native PDF coordinates keep this
+    /// path isolated from drawing callouts elsewhere on the same sheet.
+    /// </summary>
+    private static List<ExtractedMemberDto> ExtractHeaderlessNamedScheduleRows(
+        List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        const double rowTolerance = 4.0;
+        const double maximumHeaderLookLeft = 400.0;
+        var tables = new List<HeaderlessNamedScheduleTable>();
+
+        foreach (var scheduleWord in pageWords.Where(word =>
+                     word.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase)))
+        {
+            var headerRow = pageWords
+                .Where(word =>
+                    Math.Abs(word.BoundingBox.Bottom - scheduleWord.BoundingBox.Bottom)
+                        < rowTolerance
+                    && word.BoundingBox.Left >= scheduleWord.BoundingBox.Left - maximumHeaderLookLeft
+                    && word.BoundingBox.Right <= scheduleWord.BoundingBox.Right + 20)
+                .OrderBy(word => word.BoundingBox.Left)
+                .ToList();
+            var headerText = string.Join(" ", headerRow.Select(word => word.Text))
+                .ToUpperInvariant();
+
+            // A few detail notes contain phrases such as "FOOTING SCHEDULE FOR SIZE".
+            // They are not schedule-table titles and otherwise leave the parser free to
+            // scan the drawing/title block below them. A genuine boxed schedule title
+            // ends at SCHEDULE on these consultant sheets.
+            var hasTrailingHeaderText = headerRow.Any(word =>
+                word.BoundingBox.Left > scheduleWord.BoundingBox.Right + 2
+                && word.BoundingBox.Left < scheduleWord.BoundingBox.Right + 100);
+            if (hasTrailingHeaderText) continue;
+
+            NamedScheduleKind? kind = headerText switch
+            {
+                var text when text.Contains("STEEL MEMBER SCHEDULE")
+                    => NamedScheduleKind.SteelMember,
+                var text when text.Contains("CONCRETE COLUMN SCHEDULE")
+                    => NamedScheduleKind.ConcreteColumn,
+                var text when text.Contains("PURLIN SCHEDULE")
+                    => NamedScheduleKind.Purlin,
+                var text when text.Contains("CONCRETE BEAM SCHEDULE")
+                    => NamedScheduleKind.ConcreteBeam,
+                var text when text.Contains("FOOTING SCHEDULE")
+                    => NamedScheduleKind.Footing,
+                _ => null,
+            };
+            if (kind == null) continue;
+
+            var requiredHeaderWords = kind.Value switch
+            {
+                NamedScheduleKind.SteelMember => new[] { "STEEL", "MEMBER", "SCHEDULE" },
+                NamedScheduleKind.ConcreteColumn => new[] { "CONCRETE", "COLUMN", "SCHEDULE" },
+                NamedScheduleKind.Purlin => new[] { "PURLIN", "SCHEDULE" },
+                NamedScheduleKind.ConcreteBeam => new[] { "CONCRETE", "BEAM", "SCHEDULE" },
+                _ => new[] { "FOOTING", "SCHEDULE" },
+            };
+            var titleWords = headerRow
+                .Where(word => requiredHeaderWords.Contains(
+                    word.Text.ToUpperInvariant(), StringComparer.OrdinalIgnoreCase))
+                .ToList();
+            if (titleWords.Count < requiredHeaderWords.Distinct().Count()) continue;
+
+            var headerLeft = titleWords.Min(word => word.BoundingBox.Left);
+            var headerRight = titleWords.Max(word => word.BoundingBox.Right);
+            var tableLeft = Math.Max(0, headerLeft - 100);
+            var tableRight = headerRight + 220;
+
+            // Keep existing MARK/SIZE, ITEM/MEMBER, and TAG/MEMBER schedules on
+            // their established parser. This new path is only for missing headers.
+            var hasExplicitColumnHeader = pageWords
+                .Where(word =>
+                    word.BoundingBox.Bottom < scheduleWord.BoundingBox.Bottom - rowTolerance
+                    && word.BoundingBox.Bottom > scheduleWord.BoundingBox.Bottom - 70
+                    && word.BoundingBox.Left >= tableLeft
+                    && word.BoundingBox.Right <= tableRight)
+                .GroupBy(word => (int)Math.Round(word.BoundingBox.Bottom / rowTolerance))
+                .Select(group => string.Join(" ", group
+                    .OrderBy(word => word.BoundingBox.Left)
+                    .Select(word => word.Text)).ToUpperInvariant())
+                .Any(text =>
+                    (text.Contains("MARK") && text.Contains("SIZE"))
+                    || (text.Contains("ITEM") && text.Contains("MEMBER"))
+                    || (text.Contains("TAG") && text.Contains("MEMBER")));
+            if (hasExplicitColumnHeader) continue;
+
+            tables.Add(new HeaderlessNamedScheduleTable(
+                scheduleWord.BoundingBox.Bottom,
+                tableLeft,
+                tableRight,
+                kind.Value));
+        }
+
+        var results = new List<ExtractedMemberDto>();
+        foreach (var table in tables)
+        {
+            var lowerBoundary = tables
+                .Where(candidate =>
+                    candidate.HeaderBottom < table.HeaderBottom - rowTolerance
+                    && Math.Min(candidate.Right, table.Right)
+                        - Math.Max(candidate.Left, table.Left) > 40)
+                .Select(candidate => candidate.HeaderBottom)
+                .DefaultIfEmpty(double.MinValue)
+                .Max();
+
+            var rows = pageWords
+                .Where(word =>
+                    word.BoundingBox.Bottom < table.HeaderBottom - rowTolerance
+                    && word.BoundingBox.Bottom > lowerBoundary + rowTolerance
+                    && word.BoundingBox.Bottom > table.HeaderBottom - 800
+                    && word.BoundingBox.Left >= table.Left
+                    && word.BoundingBox.Right <= table.Right)
+                .GroupBy(word => (int)Math.Round(word.BoundingBox.Bottom / rowTolerance))
+                .Select(group => group.OrderBy(word => word.BoundingBox.Left).ToList())
+                .OrderByDescending(row => row.Max(word => word.BoundingBox.Bottom))
+                .ToList();
+
+            // Schedule marks form a stable vertical column. Some reviewed PDFs also
+            // contain blue/red markup text over the schedule, including strings that
+            // look exactly like member marks. Anchor to the dominant mark-column X so
+            // those overlay labels cannot steal the value from the neighbouring row.
+            var markColumnCandidates = rows
+                .SelectMany(row => row)
+                .Where(word => IsHeaderlessNamedScheduleMark(
+                    table.Kind, word.Text.Trim().ToUpperInvariant()))
+                .Where(word => word.BoundingBox.Left <= table.Left + 170)
+                .ToList();
+            if (markColumnCandidates.Count == 0) continue;
+
+            var dominantMarkColumnX = markColumnCandidates
+                .GroupBy(word => (int)Math.Round(word.BoundingBox.Left / 10.0))
+                .OrderByDescending(group => group.Count())
+                .First()
+                .Average(word => word.BoundingBox.Left);
+
+            foreach (var row in rows)
+            {
+                var markWord = row
+                    .Where(word => word.BoundingBox.Left <= table.Left + 170)
+                    .Where(word => Math.Abs(word.BoundingBox.Left - dominantMarkColumnX) <= 25)
+                    .Where(word => IsHeaderlessNamedScheduleMark(
+                        table.Kind, word.Text.Trim().ToUpperInvariant()))
+                    .OrderBy(word => word.BoundingBox.Left)
+                    .FirstOrDefault();
+                if (markWord == null) continue;
+
+                var value = string.Join(" ", row
+                    .Where(word => word.BoundingBox.Left > markWord.BoundingBox.Right + 5)
+                    .OrderBy(word => word.BoundingBox.Left)
+                    .Select(word => word.Text))
+                    .Trim()
+                    .Replace('\uFFFD', 'Ø');
+                if (value.Length < 2) continue;
+
+                var mark = markWord.Text.Trim().ToUpperInvariant();
+                if (!HasHeaderlessNamedScheduleValueEvidence(table.Kind, value)) continue;
+
+                var diameterSection = Regex.Match(value, @"Ø\s*\d{3,4}\b");
+                var section = table.Kind == NamedScheduleKind.ConcreteColumn
+                    && diameterSection.Success
+                    ? NormalizeSection(diameterSection.Value)
+                    : NormalizeSection(ExtractGenericScheduleSection(value));
+                if (string.IsNullOrWhiteSpace(section)) continue;
+
+                var memberType = table.Kind switch
+                {
+                    NamedScheduleKind.ConcreteColumn => "Column",
+                    NamedScheduleKind.Purlin when mark.StartsWith("G", StringComparison.Ordinal)
+                        => "Girt",
+                    NamedScheduleKind.Purlin => "Purlin",
+                    NamedScheduleKind.ConcreteBeam => "Beam",
+                    NamedScheduleKind.Footing => "Footing",
+                    NamedScheduleKind.SteelMember when mark.Equals(
+                        "FB", StringComparison.OrdinalIgnoreCase) => "Brace",
+                    _ => DetectScheduleMemberType(mark, value),
+                };
+
+                results.Add(new ExtractedMemberDto(
+                    mark,
+                    section,
+                    memberType,
+                    0, 0, 0,
+                    $"Schedule row: {mark} = {value}",
+                    0.99));
+            }
+        }
+
+        return results;
+    }
+
+    private static bool IsHeaderlessNamedScheduleMark(NamedScheduleKind kind, string mark)
+    {
+        // The named tables use distinct, conventional mark families. Keeping that
+        // knowledge local to this additive parser prevents nearby drawing callouts
+        // (A1, C3, REV, JOB, etc.) from being imported as schedule members.
+        return kind switch
+        {
+            NamedScheduleKind.SteelMember => mark.Equals("FB", StringComparison.OrdinalIgnoreCase)
+                || Regex.IsMatch(mark,
+                    "^" + MarkPrefix + @"[A-Z]{1,4}\d{1,3}[A-Z]?"
+                        + CompoundMarkSuffix + @"\*?$",
+                    RegexOptions.IgnoreCase),
+            NamedScheduleKind.ConcreteColumn => Regex.IsMatch(mark,
+                @"^\d{0,2}(?:CC|C)\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase),
+            NamedScheduleKind.Purlin => Regex.IsMatch(mark,
+                @"^\d{0,2}(?:CJ|FP|G|P)\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase),
+            NamedScheduleKind.ConcreteBeam => Regex.IsMatch(mark,
+                @"^\d{0,2}(?:CB|B)\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase),
+            NamedScheduleKind.Footing => Regex.IsMatch(mark,
+                @"^\d{0,2}(?:PF|SF)\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase),
+            _ => false,
+        };
+    }
+
+    private static bool HasHeaderlessNamedScheduleValueEvidence(
+        NamedScheduleKind kind,
+        string value)
+    {
+        var hasSteelSection = SteelSectionPattern.IsMatch(value)
+            || HollowSectionPattern.IsMatch(value)
+            || PurlinSectionPattern.IsMatch(value)
+            || ZPurlinSectionPattern.IsMatch(value)
+            || RodBracingPattern.IsMatch(value);
+        var hasCircularHollowSection = Regex.IsMatch(value,
+            @"\b\d{2,4}(?:\.\d+)?\s*[xX×]\s*\d{1,2}(?:\.\d+)?\s*CHS\b",
+            RegexOptions.IgnoreCase);
+        var hasConcreteSize = ConcreteDimPattern.IsMatch(value)
+            || Regex.IsMatch(value,
+                @"(?:\b\d{3,4}\s*(?:DIA|Ø)\b|(?:Ø|�)\s*\d{3,4}\b)",
+                RegexOptions.IgnoreCase);
+        var hasSpacedPurlinSection = Regex.IsMatch(value,
+            @"\b[CZ]\s*\d{3}\s*\d{1,2}\b", RegexOptions.IgnoreCase);
+
+        return kind switch
+        {
+            NamedScheduleKind.SteelMember => hasSteelSection
+                || hasCircularHollowSection
+                || value.Contains("FLY BRACE", StringComparison.OrdinalIgnoreCase),
+            NamedScheduleKind.ConcreteColumn => hasConcreteSize,
+            NamedScheduleKind.Purlin => hasSteelSection || hasSpacedPurlinSection,
+            NamedScheduleKind.ConcreteBeam => hasConcreteSize,
+            NamedScheduleKind.Footing => hasConcreteSize,
+            _ => false,
+        };
+    }
+
     /// <summary>
     /// Reads ordinary two-column schedules when their native PDF text exposes aligned
     /// MARK/SIZE, ITEM/MEMBER, or TAG/MEMBER headers. Geometry keeps adjacent schedule
@@ -2341,11 +3138,13 @@ public class ExtractionService
         })
         {
             // TAG/MEMBER is intentionally limited to an actual PURLIN SCHEDULE
-            // header.  Other drawing tables can contain a generic TAG column, and
-            // treating those as member schedules would change the existing parser's
-            // source-selection behaviour.
+            // or GIRT SCHEDULE header. Other drawing tables can contain a generic TAG
+            // column, and treating those as member schedules would change the existing
+            // parser's source-selection behaviour. The existing PURLIN check remains
+            // unchanged; GIRT is an additive equivalent for the same table layout.
             if (markHeaderText.Equals("TAG", StringComparison.OrdinalIgnoreCase)
-                && !HasNearbyPurlinScheduleHeader(pageWords))
+                && !HasNearbyPurlinScheduleHeader(pageWords)
+                && !HasNearbyGirtScheduleHeader(pageWords))
                 continue;
 
             var markHeaders = pageWords
@@ -2477,6 +3276,17 @@ public class ExtractionService
             s.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase)
             && Math.Abs(s.BoundingBox.Bottom - p.BoundingBox.Bottom) < 80
             && Math.Abs(s.BoundingBox.Left - p.BoundingBox.Right) < 120));
+    }
+
+    private static bool HasNearbyGirtScheduleHeader(List<Word> pageWords)
+    {
+        var girtHeaders = pageWords
+            .Where(w => w.Text.Equals("GIRT", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return girtHeaders.Any(g => pageWords.Any(s =>
+            s.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(s.BoundingBox.Bottom - g.BoundingBox.Bottom) < 80
+            && Math.Abs(s.BoundingBox.Left - g.BoundingBox.Right) < 120));
     }
 
     /// <summary>

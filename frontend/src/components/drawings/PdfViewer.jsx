@@ -5032,6 +5032,10 @@ export default function PdfViewer({
       memberMark,
       drawingMark,
       memberScheduleId: selectedMember?.id ?? matchedMember?.id ?? null,
+      // Capture whether the user actually chose a schedule row. A locally
+      // inferred PDF label can also have a memberScheduleId, so the id alone
+      // cannot safely distinguish explicit selection from auto-detection.
+      manualMemberSelected: Boolean(selectedMember),
       rawAnnotation: (() => {
         const vm = viewerRef.current
         const id = annotationId

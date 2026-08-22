@@ -7,13 +7,21 @@ const EXCLUDED_MARKS = new Set([
   'UB', 'UC', 'PFC', 'TFC', 'RHS', 'SHS', 'CHS', 'EA', 'UA', 'RSJ', 'RB',
 ])
 
-export function isPlausibleDrawingMark(token) {
+export function isPlausibleDrawingMark(token, knownMarks = []) {
   const u = String(token ?? '').trim().toUpperCase()
   if (!u || u.length > 8) return false
   if (EXCLUDED_MARKS.has(u)) return false
   if (!/^[A-Z]{1,4}\d{0,3}[A-Z]?$/.test(u)) return false
   if (!/[A-Z]/.test(u)) return false
   if (/^\d+[A-Z]?$/.test(u)) return false
+  // Free-form all-letter text is usually title-block/company/note text (for
+  // example "BLACK", "PTY" or "LTD"), not a drawing member mark. Preserve
+  // legitimate letter-only schedule marks only when the schedule already
+  // identifies them explicitly.
+  if (!/\d/.test(u)) {
+    const known = new Set(knownMarks.map(mark => String(mark ?? '').trim().toUpperCase()))
+    if (!known.has(u)) return false
+  }
   return true
 }
 
@@ -74,7 +82,7 @@ function addMarkCandidatesFromText(text, dist, candidates, knownMarks) {
   const knownUpper = new Set(knownMarks.map(m => String(m).trim().toUpperCase()))
   const upper = trimmed.toUpperCase()
 
-  if (isPlausibleDrawingMark(upper)) {
+  if (isPlausibleDrawingMark(upper, knownMarks)) {
     candidates.push({
       mark: upper,
       dist,
@@ -85,7 +93,7 @@ function addMarkCandidatesFromText(text, dist, candidates, knownMarks) {
 
   for (const m of trimmed.matchAll(MARK_TOKEN_RE)) {
     const token = m[1].toUpperCase()
-    if (!isPlausibleDrawingMark(token)) continue
+    if (!isPlausibleDrawingMark(token, knownMarks)) continue
     candidates.push({
       mark: token,
       dist,
@@ -124,7 +132,7 @@ function pickBestMark(candidates, knownMarks = []) {
   let bestScore = -1
   for (const c of candidates) {
     const u = String(c.mark).trim().toUpperCase()
-    if (!c.structuralSection && !isPlausibleDrawingMark(u)) continue
+    if (!c.structuralSection && !isPlausibleDrawingMark(u, knownMarks)) continue
     let score = 120 - Math.min(c.dist, 119)
     if (c.exact) score += 35
     if (c.inSchedule) score += 15

@@ -2,7 +2,10 @@
 // nearest text token on the PDF page itself, for when the user draws without
 // first picking a mark from the Member Schedule panel.
 
-const MAX_LABEL_LENGTH = 20
+import { isPlausibleDrawingMark } from '../../../utils/drawingMarkDetect'
+
+const MAX_LABEL_LENGTH = 32
+const MARK_TOKEN_RE = /\b[A-Z]{1,4}\d{1,3}[A-Z]?\b/gi
 
 // CAD-exported PDFs commonly place every glyph as its own text-showing
 // operation (e.g. "PF1" arrives from pdf.js as three separate items: "P",
@@ -39,9 +42,13 @@ export function nearestPdfLabel(textItems, point) {
   for (const item of textItems) {
     if (!item?.str || item.str.length > MAX_LABEL_LENGTH) continue
     const dist = Math.hypot(item.x - point.x, item.y - point.y)
-    if (dist < bestDist) {
-      bestDist = dist
-      best = item.str
+    const candidates = String(item.str).toUpperCase().match(MARK_TOKEN_RE) ?? []
+    for (const candidate of candidates) {
+      if (!isPlausibleDrawingMark(candidate)) continue
+      if (dist < bestDist) {
+        bestDist = dist
+        best = candidate
+      }
     }
   }
   return best
