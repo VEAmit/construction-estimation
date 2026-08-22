@@ -225,10 +225,16 @@ function getNextDefaultMemberColor(items) {
     ?? _MS_PALETTE[(items?.length ?? 0) % _MS_PALETTE.length]
 }
 
+const STRUCTURAL_SECTION_DETECTED_VALUE_RE = /^\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)$/i
+
+function isStructuralSectionDetectedValue(value) {
+  return STRUCTURAL_SECTION_DETECTED_VALUE_RE.test(String(value ?? '').trim())
+}
+
 function isSafeDetectedMemberValue(value, knownMarks = []) {
   const token = String(value ?? '').trim()
   if (isPlausibleDrawingMark(token, knownMarks)) return true
-  return /^\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)$/i.test(token)
+  return isStructuralSectionDetectedValue(token)
 }
 
 function getMeasurementMarkDetectionPoints(measurement) {
@@ -2521,7 +2527,6 @@ export default function DrawingsPage() {
     // is label-detected from the PDF. The previous implementation OCRed every
     // line, overwrote an explicitly selected P4 with nearby FAB1, and delayed
     // the database/grid save until slow OCR finished.
-    const shouldVerifyPrintedMark = !isPaste && isLineMeasurement && !manuallySelectedMember
     const knownScheduleMarks = liveScheduleItems
       .map(member => String(member.mark ?? member.Mark ?? '').trim())
       .filter(Boolean)
@@ -2540,6 +2545,14 @@ export default function DrawingsPage() {
       // source of labels such as "AIQUA PTY LTD" and "BLACK".
       detectedMemberValue = ''
     }
+    const shouldVerifyPrintedMark = !isPaste
+      && isLineMeasurement
+      && !manuallySelectedMember
+      // PDF.js has already read this complete structural section directly
+      // from the vector text beside the line. The server verifier is designed
+      // for short marks (FAB1, R4, etc.) and must not replace a safe section
+      // with a nearby column/grid mark such as C1.
+      && !isStructuralSectionDetectedValue(detectedMemberValue)
     if (!drw?.id) {
       console.warn('[BT-Lifecycle] autoSave ABORTED — no drawing id in store')
       toast.error('Measurement was not saved — no drawing selected')

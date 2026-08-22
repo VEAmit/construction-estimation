@@ -2,10 +2,21 @@
 // nearest text token on the PDF page itself, for when the user draws without
 // first picking a mark from the Member Schedule panel.
 
-import { isPlausibleDrawingMark } from '../../../utils/drawingMarkDetect'
+import { isPlausibleDrawingMark } from '../../../utils/drawingMarkDetect.js'
 
 const MAX_LABEL_LENGTH = 32
 const MARK_TOKEN_RE = /\b[A-Z]{1,4}\d{1,3}[A-Z]?\b/gi
+const STRUCTURAL_SECTION_TOKEN_RE = /\b(?:\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)|\d+(?:\.\d+)?\s*(?:UB|UC|WB|WC|PFC|TFC|CHS|SHS|RHS|EA|UA)\s*\d+(?:\.\d+)?)\b/gi
+
+function normalizeStructuralSection(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/×/g, 'x')
+    .replace(/(\d)X(?=\d)/gi, '$1x')
+    .toUpperCase()
+    .replace(/(\d)X(?=\d)/g, '$1x')
+}
 
 // CAD-exported PDFs commonly place every glyph as its own text-showing
 // operation (e.g. "PF1" arrives from pdf.js as three separate items: "P",
@@ -42,9 +53,16 @@ export function nearestPdfLabel(textItems, point) {
   for (const item of textItems) {
     if (!item?.str || item.str.length > MAX_LABEL_LENGTH) continue
     const dist = Math.hypot(item.x - point.x, item.y - point.y)
-    const candidates = String(item.str).toUpperCase().match(MARK_TOKEN_RE) ?? []
+    const text = String(item.str).toUpperCase()
+    const structuralSections = text.match(STRUCTURAL_SECTION_TOKEN_RE) ?? []
+    // An exact section printed along the measured member is a complete label,
+    // not a source of partial mark tokens (for example X3 from 114.3x3.6CHS).
+    // Keep it intact and only use the mark-token fallback when no section is
+    // present in that PDF text item.
+    const candidates = structuralSections.length
+      ? structuralSections.map(normalizeStructuralSection)
+      : (text.match(MARK_TOKEN_RE) ?? []).filter(isPlausibleDrawingMark)
     for (const candidate of candidates) {
-      if (!isPlausibleDrawingMark(candidate)) continue
       if (dist < bestDist) {
         bestDist = dist
         best = candidate
