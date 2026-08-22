@@ -1605,7 +1605,9 @@ function PdfSvgOverlay({
         const source = Boolean(placement.isSource)
         const placeNumber = Number(placement.placeNumber) || 1
         const placeCount = Number(placement.placeCount) || 1
-        const markerText = `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}${source ? ' · Source' : ''}`
+        const markerText = source
+          ? `${placement.sectionName ?? 'Section'} · Source`
+          : `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}`
         const sectionColor = placement.color ?? '#3B82F6'
         const markerTextColor = readableTextColor(sectionColor)
         return (

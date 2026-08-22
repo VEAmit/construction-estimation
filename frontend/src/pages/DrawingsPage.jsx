@@ -44,7 +44,11 @@ import {
 } from '../utils/measureLabel'
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark, parseMemberScheduleNoteId } from '../utils/memberMeasureLink'
-import { buildSectionQuantityByTakeoffItem } from '../utils/sectionQuantity'
+import {
+  buildSectionQuantityByTakeoffItem,
+  getCountedSectionPlacements,
+  getSectionPlacementCount,
+} from '../utils/sectionQuantity'
 import { isPlausibleDrawingMark } from '../utils/drawingMarkDetect'
 import ExtractionModal from '../components/extraction/ExtractionModal'
 import toast from 'react-hot-toast'
@@ -2124,14 +2128,16 @@ export default function DrawingsPage() {
     return visibleDrawingMeasurementSections
       .flatMap(section => {
         const placements = section.placements ?? []
+        const countedPlacements = getCountedSectionPlacements(section)
+        const countedPlaceNumberById = new Map(countedPlacements.map((placement, index) => [String(placement.id), index + 1]))
         return placements
-          .map((placement, index) => ({
+          .map(placement => ({
             ...placement,
             sectionId: section.id,
             sectionName: section.name,
             color: _MS_HEX.test(section.color ?? '') ? section.color.toUpperCase() : SECTION_GROUP_DEFAULT_COLOR,
-            placeNumber: index + 1,
-            placeCount: placements.length,
+            placeNumber: placement.isSource ? null : countedPlaceNumberById.get(String(placement.id)),
+            placeCount: countedPlacements.length,
           }))
           .filter(placement => Number(placement.drawingId) === drawingId)
       })
@@ -4617,7 +4623,11 @@ export default function DrawingsPage() {
         .map(section => {
           const placements = (section.placements ?? [])
             .filter(placement => Number(placement.drawingId) !== Number(id))
-          return { ...section, placements, usedPlaces: placements.length }
+          return {
+            ...section,
+            placements,
+            usedPlaces: getSectionPlacementCount({ ...section, placements }),
+          }
         })
     setMeasurementSections(remainingSections)
     if (rest.length === 0 || removedSectionIds.has(Number(activeSectionId))) setActiveSectionId(null)
@@ -5275,7 +5285,7 @@ export default function DrawingsPage() {
             count={bottomView === 'sections' ? drawingMeasurementSections.length : takeoffItems.length}
             summary={bottomView === 'sections'
               ? (drawingMeasurementSections.length > 0
-                ? `${drawingMeasurementSections.reduce((total, section) => total + Number(section.usedPlaces ?? section.placements?.length ?? 0), 0)} counted place(s)`
+                ? `${drawingMeasurementSections.reduce((total, section) => total + getSectionPlacementCount(section), 0)} counted place(s)`
                 : null)
               : (takeoffItems.length > 0 ? `${takeoffItems.length} item${takeoffItems.length === 1 ? '' : 's'}` : null)}
             onOpenChange={setShowBottom}

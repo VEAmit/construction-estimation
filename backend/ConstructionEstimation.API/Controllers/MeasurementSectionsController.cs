@@ -161,7 +161,7 @@ public class MeasurementSectionsController : ControllerBase
         };
         await _sections.AddPlacementAsync(placement);
         return Ok(ApiResponse<MeasurementSectionResponse>.Ok(
-            Map(section), $"{section.Name} counted at {section.Placements.Count(p => !p.IsDeleted)} places"));
+            Map(section), $"{section.Name} counted at {section.Placements.Count(p => !p.IsDeleted && !p.IsSource)} places"));
     }
 
     [HttpPut("{id:int}/template")]
@@ -310,7 +310,7 @@ public class MeasurementSectionsController : ControllerBase
             section.MeasurementCount,
             section.SourceDrawingId,
             section.SourcePageNumber,
-            placements.Count,
+            placements.Count(placement => !placement.IsSource),
             placements,
             section.CreatedAt,
             section.UpdatedAt);

@@ -1,4 +1,9 @@
 import { Eye, Layers3, MapPin, MousePointer2, Pencil, Play, Square, Trash2, Undo2 } from 'lucide-react'
+import {
+  getCountedSectionPlacements,
+  getSectionGroupQuantity,
+  getSectionPlacementCount,
+} from '../../utils/sectionQuantity'
 
 function readSectionMembers(section) {
   try {
@@ -24,7 +29,7 @@ function readSectionMembers(section) {
 
 function readSectionPlaceSummary(section, drawings) {
   const grouped = new Map()
-  ;(section?.placements ?? []).forEach(placement => {
+  getCountedSectionPlacements(section).forEach(placement => {
     const drawingId = Number(placement?.drawingId)
     const pageNumber = Number(placement?.pageNumber) || 1
     const drawing = drawings.find(item => Number(item.id) === drawingId)
@@ -130,16 +135,17 @@ export default function SectionMeasurementsPanel({
               const focused = Number(section.id) === Number(focusedSectionId)
               const visible = visibleSectionIds.has(Number(section.id))
               const editing = Number(section.id) === Number(editingSectionId)
-              const used = Number(section.usedPlaces ?? section.placements?.length ?? 0)
+              const used = getSectionPlacementCount(section)
               const measurements = Number(section.measurementCount ?? 0)
-              const removable = [...(section.placements ?? [])].reverse().find(item => !item.isSource)
+              const groupQuantity = getSectionGroupQuantity(section)
+              const removable = [...getCountedSectionPlacements(section)].reverse()[0]
               const sourceDrawing = drawings.find(drawing => Number(drawing.id) === Number(section.sourceDrawingId))
               const sourceName = sourceDrawing?.name ?? sourceDrawing?.fileName ?? `Drawing #${section.sourceDrawingId}`
               const members = readSectionMembers(section)
               const memberSummary = members.length
                 ? members.map(({ mark, count }) => `${mark}${count > 1 ? ` ×${count}` : ''}`).join(', ')
                 : 'No member marks stored'
-              const placeSummary = readSectionPlaceSummary(section, drawings) || 'No saved locations'
+              const placeSummary = readSectionPlaceSummary(section, drawings) || 'No counted locations'
               const sectionColor = /^#[0-9A-Fa-f]{6}$/.test(section.color ?? '') ? section.color : '#3B82F6'
               return (
                 <tr key={section.id} style={{ background: active || focused ? `${sectionColor}14` : 'transparent' }}>
@@ -175,8 +181,8 @@ export default function SectionMeasurementsPanel({
                     </div>
                   </td>
                   <td style={tdStyle}>
-                    <span title="Measurements in group × places used" style={{ color: '#fbbf24', fontSize: 11, fontWeight: 800 }}>
-                      {measurements * used}
+                    <span title="Source measurements plus every counted placement" style={{ color: '#fbbf24', fontSize: 11, fontWeight: 800 }}>
+                      {groupQuantity}
                     </span>
                   </td>
                   <td style={tdStyle}>

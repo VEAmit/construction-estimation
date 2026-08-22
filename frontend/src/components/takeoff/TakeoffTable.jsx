@@ -58,7 +58,7 @@ function getOccurrenceCount(item) {
   }
 }
 
-function getSectionQuantity(sectionQuantityByItem, itemId) {
+function getSectionQuantityIncrease(sectionQuantityByItem, itemId) {
   const numericId = Number(itemId)
   if (!Number.isFinite(numericId) || numericId <= 0) return null
 
@@ -67,6 +67,11 @@ function getSectionQuantity(sectionQuantityByItem, itemId) {
     : sectionQuantityByItem?.[numericId]
   const quantity = Number(raw)
   return Number.isFinite(quantity) && quantity > 0 ? quantity : null
+}
+
+function getBaseQuantity(item) {
+  const quantity = Number(item?.quantity)
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
 }
 
 function fmtScale(drawing) {
@@ -173,8 +178,10 @@ export default function MeasurementTable({
   }
 
   const effectiveTakeoffItems = takeoffItems.map(item => {
-    const sectionQuantity = getSectionQuantity(sectionQuantityByItem, item.id)
-    return sectionQuantity == null ? item : { ...item, quantity: sectionQuantity }
+    const sectionQuantityIncrease = getSectionQuantityIncrease(sectionQuantityByItem, item.id)
+    return sectionQuantityIncrease == null
+      ? item
+      : { ...item, quantity: getBaseQuantity(item) + sectionQuantityIncrease }
   })
 
   const unit         = drawing?.calibrationUnit ?? 'Mm'
@@ -387,8 +394,8 @@ export default function MeasurementTable({
                 const rowNum     = (page - 1) * PAGE_SIZE + idx + 1
                 const hasAnnot   = !!item.pointsJson
                 const itemColor  = getEffectiveColor(item, memberScheduleItems)
-                const sectionQuantity = getSectionQuantity(sectionQuantityByItem, item.id)
-                const displayQuantity = sectionQuantity ?? item.quantity ?? 1
+                const sectionQuantityIncrease = getSectionQuantityIncrease(sectionQuantityByItem, item.id)
+                const displayQuantity = getBaseQuantity(item) + (sectionQuantityIncrease ?? 0)
 
                 return (
                   <tr
@@ -510,8 +517,8 @@ export default function MeasurementTable({
                       {item.totalWeight != null ? `${item.totalWeight.toFixed(1)} kg` : '—'}
                     </td>
                     <td style={td}>
-                      {sectionQuantity != null
-                        ? <span title="Calculated from Section Group occurrences and placements">{displayQuantity}</span>
+                      {sectionQuantityIncrease != null
+                        ? <span title="Base quantity plus counted Section Group placements">{displayQuantity}</span>
                         : isEditing && getOccurrenceCount(item) == null
                         ? <input value={row.quantity ?? 1} type="number" min="1" onChange={e => setEditBuf(b => ({ ...b, quantity: +e.target.value }))} style={{ ...ei, width: '44px' }} />
                         : displayQuantity}
