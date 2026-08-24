@@ -80,6 +80,7 @@ export default function PdfJsViewer({
   onSectionEditRequest,
   onSectionSelection,
   onSectionPlacement,
+  onSectionPlacementContextMenu,
   measureReleaseRef,
 }) {
   const containerRef = useRef(null)
@@ -686,6 +687,7 @@ export default function PdfJsViewer({
                 onMeasure={handleMeasure}
                 onSectionSelection={onSectionSelection}
                 onSectionPlacement={onSectionPlacement}
+                onSectionPlacementContextMenu={onSectionPlacementContextMenu}
                 onSelect={onAnnotationSelect}
                 onContextMenu={onAnnotationContextMenu}
                 onClearSelection={onClearSelection}

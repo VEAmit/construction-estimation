@@ -55,9 +55,9 @@ function SectionEmpty({ onCreate }) {
           width: 46, height: 46, display: 'inline-grid', placeItems: 'center', borderRadius: 10,
           color: '#EF233C', border: '1px solid rgba(239,35,60,.28)', background: 'rgba(239,35,60,.08)',
         }}><Layers3 size={23} /></span>
-        <div style={{ marginTop: 10, color: '#e2e8f0', fontSize: 13, fontWeight: 800 }}>No section groups on this PDF</div>
+        <div style={{ marginTop: 10, color: '#e2e8f0', fontSize: 13, fontWeight: 800 }}>No section groups in this project</div>
         <div style={{ margin: '5px auto 13px', color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>
-          Choose Section Measurements, draw a rectangle around existing measurements, then give the group a name.
+          On any PDF, choose Section Measurements, draw around existing measurements, then give the reusable group a name.
         </div>
         <button type="button" onClick={onCreate} style={primaryButton}>
           <Square size={13} /> Create First Section
@@ -93,8 +93,8 @@ export default function SectionMeasurementsPanel({
         borderBottom: '1px solid rgba(255,255,255,.07)', background: '#0B1320',
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 800 }}>PDF SECTION GROUPS</div>
-          <div style={{ color: '#64748b', fontSize: 9 }}>Counting groups never creates duplicate measurement rows</div>
+          <div style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 800 }}>PROJECT SECTION GROUPS</div>
+          <div style={{ color: '#64748b', fontSize: 9 }}>Reusable on every project PDF; each counter keeps its drawing and page</div>
         </div>
         {placing && activeSectionId ? (
           <button type="button" onClick={onStop} style={stopButton}>Finish Placement</button>

@@ -635,6 +635,7 @@ function PdfSvgOverlay({
   onMeasure,
   onSectionSelection,
   onSectionPlacement,
+  onSectionPlacementContextMenu,
   onSelect,
   onAnnotationContextMenu,
   onClearSelection,
@@ -1144,6 +1145,7 @@ function PdfSvgOverlay({
           pageNumber,
           xRatio: point.x / Math.max(1, pageSize.width),
           yRatio: point.y / Math.max(1, pageSize.height),
+          clickCount: Number(event.detail) || 1,
         })
         return
       }
@@ -1441,6 +1443,11 @@ function PdfSvgOverlay({
         sectionColorByAnnotationId.set(String(id), section.color)
       }
     }))
+  const visiblePageSectionFocuses = (sectionFocuses.length > 0 ? sectionFocuses : (sectionFocus ? [sectionFocus] : []))
+    .filter(section => Number(section.pageNumber) === Number(pageNumber))
+  const sourcePlacementBySectionId = new Map((sectionPlacements ?? [])
+    .filter(placement => placement.isSource && Number(placement.pageNumber) === Number(pageNumber))
+    .map(placement => [Number(placement.sectionId), placement]))
   return (
     <svg
       ref={svgRef}
@@ -1464,6 +1471,33 @@ function PdfSvgOverlay({
         restored automatically as soon as the user leaves the dimension tool,
         so normal Select-mode editing remains unchanged.
       */}
+      {activeTool === 'select' && visiblePageSectionFocuses.map(focus => {
+        const sourcePlacement = sourcePlacementBySectionId.get(Number(focus.id))
+        const bounds = sectionBoundsFromFocus(focus, pageSize, viewerScale)
+        if (!sourcePlacement || !bounds) return null
+        return (
+          <rect
+            key={`section-select-area-${focus.id}`}
+            x={bounds.left}
+            y={bounds.top}
+            width={bounds.width}
+            height={bounds.height}
+            fill="transparent"
+            pointerEvents="all"
+            style={{ cursor: 'context-menu' }}
+            onContextMenu={event => {
+              event.preventDefault()
+              event.stopPropagation()
+              const counters = (sectionPlacements ?? []).filter(counter => (
+                !counter.isSource && Number(counter.sectionId) === Number(sourcePlacement.sectionId)
+              ))
+              onSectionPlacementContextMenu?.(event, sourcePlacement, counters)
+            }}
+          >
+            <title>Right-click to manage this section's counted locations</title>
+          </rect>
+        )
+      })}
       <g pointerEvents={pasteClipboard || dimensionCommandActive || sectionCommandActive ? 'none' : 'auto'}>
         {pageAnnotations.map(annotation => (
           <AnnotationShape
@@ -1514,9 +1548,7 @@ function PdfSvgOverlay({
           />
         )
       })()}
-      {(sectionFocuses.length > 0 ? sectionFocuses : (sectionFocus ? [sectionFocus] : []))
-        .filter(section => Number(section.pageNumber) === Number(pageNumber))
-        .map(sectionFocus => {
+      {visiblePageSectionFocuses.map(sectionFocus => {
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
         const editing = Boolean(sectionEditMode?.id)
           && Number(sectionEditMode.id) === Number(sectionFocus.id)
@@ -1547,9 +1579,18 @@ function PdfSvgOverlay({
           event.stopPropagation()
           onSectionEditRequest?.(sectionFocus.id)
         }
+        const sourcePlacement = sourcePlacementBySectionId.get(Number(sectionFocus.id))
+        const requestCounterMenu = sourcePlacement ? (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          const counters = (sectionPlacements ?? []).filter(counter => (
+            !counter.isSource && Number(counter.sectionId) === Number(sourcePlacement.sectionId)
+          ))
+          onSectionPlacementContextMenu?.(event, sourcePlacement, counters)
+        } : undefined
         const sectionColor = sectionFocus.color ?? '#3B82F6'
         return (
-          <g key={`section-focus-${sectionFocus.id}`} className="pdfjs-section-focus">
+          <g key={`section-focus-${sectionFocus.id}`} className="pdfjs-section-focus" onContextMenu={requestCounterMenu}>
             {!editing && (
               <rect
                 x={left}
@@ -1610,8 +1651,22 @@ function PdfSvgOverlay({
           : `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}`
         const sectionColor = placement.color ?? '#3B82F6'
         const markerTextColor = readableTextColor(sectionColor)
+        const sectionCounters = source
+          ? (sectionPlacements ?? [])
+            .filter(counter => !counter.isSource && Number(counter.sectionId) === Number(placement.sectionId))
+            .sort((left, right) => (Number(left.placeNumber) || 0) - (Number(right.placeNumber) || 0))
+          : []
         return (
-          <g key={`section-placement-${placement.id}`} pointerEvents="none">
+          <g
+            key={`section-placement-${placement.id}`}
+            pointerEvents={spaceHeld ? 'none' : 'all'}
+            style={activeTool === 'select' ? { cursor: 'context-menu' } : undefined}
+            onContextMenu={event => {
+              event.preventDefault()
+              event.stopPropagation()
+              onSectionPlacementContextMenu?.(event, placement, source ? sectionCounters : [placement])
+            }}
+          >
             <circle cx={x} cy={y} r={5 / pageScale}
               fill={source ? colorWithAlpha(sectionColor, .35) : sectionColor} stroke="#fff" strokeWidth={1 / pageScale} />
             <path d={`M ${x - 2 / pageScale} ${y} L ${x + 2 / pageScale} ${y} M ${x} ${y - 2 / pageScale} L ${x} ${y + 2 / pageScale}`}

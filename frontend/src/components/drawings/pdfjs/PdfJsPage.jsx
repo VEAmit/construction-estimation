@@ -108,6 +108,7 @@ function PdfJsPage({
   onMeasure,
   onSectionSelection,
   onSectionPlacement,
+  onSectionPlacementContextMenu,
   onSelect,
   onContextMenu,
   onClearSelection,
@@ -357,6 +358,7 @@ function PdfJsPage({
         onMeasure={handleMeasure}
         onSectionSelection={onSectionSelection}
         onSectionPlacement={onSectionPlacement}
+        onSectionPlacementContextMenu={onSectionPlacementContextMenu}
         onSelect={onSelect}
         onAnnotationContextMenu={onContextMenu}
         onClearSelection={onClearSelection}

@@ -978,6 +978,7 @@ export default function DrawingsPage() {
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [bottomView, setBottomView] = useState('measurements')
   const sectionPlacementSavingRef = useRef(false)
+  const lastSectionPlacementRef = useRef(null)
   const previousSectionDrawingIdRef = useRef(null)
   const sectionDrawingNavigationRef = useRef(null)
   // Project resources load in parallel. Track when the drawing request has
@@ -1695,9 +1696,9 @@ export default function DrawingsPage() {
     return () => { cancelled = true }
   }, [selectedProject?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load the project's durable Section Groups once, then scope their display
-  // to PDFs that own a saved placement. The full collection stays in memory so
-  // existing placement totals and project-level name uniqueness remain intact.
+  // Load the project's durable Section Groups once. Definitions remain
+  // available on every PDF in the project; drawing/page filtering is applied
+  // only when rendering source boundaries and counted placement markers.
   useEffect(() => {
     if (!selectedProject?.id) {
       setMeasurementSections([])
@@ -2066,13 +2067,10 @@ export default function DrawingsPage() {
     [activeSectionId, measurementSections],
   )
 
-  const drawingMeasurementSections = useMemo(() => {
-    const drawingId = Number(selectedDrawing?.id)
-    if (!drawingId) return []
-    return measurementSections.filter(section =>
-      Number(section.sourceDrawingId) === drawingId
-      || (section.placements ?? []).some(placement => Number(placement.drawingId) === drawingId))
-  }, [measurementSections, selectedDrawing?.id])
+  const projectMeasurementSections = useMemo(
+    () => Number(selectedDrawing?.id) ? measurementSections : [],
+    [measurementSections, selectedDrawing?.id],
+  )
 
   // Section quantities are calculated for the source PDF only. They remain a
   // display/export projection so the original TakeoffItem records stay intact.
@@ -2081,14 +2079,14 @@ export default function DrawingsPage() {
     [measurementSections, selectedDrawing?.id],
   )
 
-  const visibleDrawingMeasurementSections = useMemo(
-    () => drawingMeasurementSections.filter(section => !hiddenSectionIds.has(Number(section.id))),
-    [drawingMeasurementSections, hiddenSectionIds],
+  const visibleProjectMeasurementSections = useMemo(
+    () => projectMeasurementSections.filter(section => !hiddenSectionIds.has(Number(section.id))),
+    [projectMeasurementSections, hiddenSectionIds],
   )
 
   const visibleSectionIds = useMemo(
-    () => new Set(visibleDrawingMeasurementSections.map(section => Number(section.id))),
-    [visibleDrawingMeasurementSections],
+    () => new Set(visibleProjectMeasurementSections.map(section => Number(section.id))),
+    [visibleProjectMeasurementSections],
   )
 
   const focusedMeasurementSection = useMemo(
@@ -2103,11 +2101,11 @@ export default function DrawingsPage() {
 
   const visibleSectionFocuses = useMemo(() => {
     const drawingId = Number(selectedDrawing?.id)
-    return visibleDrawingMeasurementSections
+    return visibleProjectMeasurementSections
       .filter(section => Number(section.sourceDrawingId) === drawingId)
       .map(section => buildMeasurementSectionFocus(section, editingSectionId))
       .filter(Boolean)
-  }, [editingSectionId, selectedDrawing?.id, visibleDrawingMeasurementSections])
+  }, [editingSectionId, selectedDrawing?.id, visibleProjectMeasurementSections])
 
   const visibleSectionFocus = useMemo(
     () => visibleSectionFocuses.find(section => Number(section.id) === Number(focusedMeasurementSection?.id))
@@ -2131,7 +2129,7 @@ export default function DrawingsPage() {
     // Saved markers are visible by default whenever their PDF is active. Eye
     // toggles update hiddenSectionIds only for the current visit; returning to
     // the PDF restores its durable, database-backed groups automatically.
-    return visibleDrawingMeasurementSections
+    return visibleProjectMeasurementSections
       .flatMap(section => {
         const placements = section.placements ?? []
         const countedPlacements = getCountedSectionPlacements(section)
@@ -2147,12 +2145,12 @@ export default function DrawingsPage() {
           }))
           .filter(placement => Number(placement.drawingId) === drawingId)
       })
-  }, [selectedDrawing?.id, visibleDrawingMeasurementSections])
+  }, [selectedDrawing?.id, visibleProjectMeasurementSections])
 
   // Section colors are display-only overrides for measurements belonging to
   // a visible group. The TakeoffItem/annotation color itself is never changed,
   // so hiding the group immediately restores normal measurement coloring.
-  const sectionMeasurementColors = useMemo(() => visibleDrawingMeasurementSections
+  const sectionMeasurementColors = useMemo(() => visibleProjectMeasurementSections
     .filter(section => Number(section.sourceDrawingId) === Number(selectedDrawing?.id))
     .map(section => {
       const template = readMeasurementSectionTemplate(section)
@@ -2166,7 +2164,7 @@ export default function DrawingsPage() {
         color: _MS_HEX.test(section.color ?? '') ? section.color.toUpperCase() : SECTION_GROUP_DEFAULT_COLOR,
         annotationIds,
       }
-    }), [selectedDrawing?.id, visibleDrawingMeasurementSections])
+    }), [selectedDrawing?.id, visibleProjectMeasurementSections])
 
   const startSectionSelection = useCallback(() => {
     setActiveSectionId(null)
@@ -2292,18 +2290,43 @@ export default function DrawingsPage() {
   const handleSectionPlacement = useCallback(async (placement) => {
     const sectionId = Number(placement?.sectionId ?? activeSectionId)
     const drawingId = Number(useAppStore.getState().selectedDrawing?.id)
-    if (!sectionId || !drawingId || sectionPlacementSavingRef.current) return
+    const pageNumber = Number(placement?.pageNumber)
+    const xRatio = Number(placement?.xRatio)
+    const yRatio = Number(placement?.yRatio)
+    if (!sectionId || !drawingId || !Number.isFinite(pageNumber)
+      || !Number.isFinite(xRatio) || !Number.isFinite(yRatio)
+      || sectionPlacementSavingRef.current) return
+
+    // Pointer events normally expose the second press as clickCount 2. Keep a
+    // short position-based fallback as well so browsers that report 0/1 for
+    // both pointer presses still treat an accidental double-click as one use.
+    if (Number(placement?.clickCount) > 1) return
+    const now = Date.now()
+    const previous = lastSectionPlacementRef.current
+    const isRapidDuplicate = previous
+      && previous.sectionId === sectionId
+      && previous.drawingId === drawingId
+      && previous.pageNumber === pageNumber
+      && now - previous.savedAt < 500
+      && Math.hypot(previous.xRatio - xRatio, previous.yRatio - yRatio) < 0.012
+    if (isRapidDuplicate) return
+
+    const currentPlacement = { sectionId, drawingId, pageNumber, xRatio, yRatio, savedAt: now }
+    lastSectionPlacementRef.current = currentPlacement
     sectionPlacementSavingRef.current = true
     try {
       const updated = await measurementSectionService.addPlacement(sectionId, {
         drawingId,
-        pageNumber: placement.pageNumber,
-        xRatio: placement.xRatio,
-        yRatio: placement.yRatio,
+        pageNumber,
+        xRatio,
+        yRatio,
       })
       setMeasurementSections(current => current.map(section =>
         Number(section.id) === sectionId ? updated : section))
     } catch (error) {
+      if (lastSectionPlacementRef.current === currentPlacement) {
+        lastSectionPlacementRef.current = null
+      }
       toast.error(error?.response?.data?.message ?? 'Could not count this section location')
     } finally {
       sectionPlacementSavingRef.current = false
@@ -2462,17 +2485,33 @@ export default function DrawingsPage() {
     setActiveTool('select')
   }, [setActiveTool])
 
-  const undoSectionPlacement = useCallback(async (section, placement) => {
-    if (!placement?.id) return
+  const removeSectionPlacement = useCallback(async (sectionId, placementId, {
+    successMessage = 'Section counter removed',
+    errorMessage = 'Could not remove the section counter',
+  } = {}) => {
+    if (!sectionId || !placementId) return
     try {
-      const updated = await measurementSectionService.deletePlacement(section.id, placement.id)
+      const updated = await measurementSectionService.deletePlacement(sectionId, placementId)
       setMeasurementSections(current => current.map(item =>
-        Number(item.id) === Number(section.id) ? updated : item))
-      toast.success('Last counted section location removed')
+        Number(item.id) === Number(sectionId) ? updated : item))
+      toast.success(successMessage)
     } catch (error) {
-      toast.error(error?.response?.data?.message ?? 'Could not remove the last section location')
+      toast.error(error?.response?.data?.message ?? errorMessage)
     }
   }, [])
+
+  const undoSectionPlacement = useCallback((section, placement) => {
+    if (!placement?.id) return
+    return removeSectionPlacement(section.id, placement.id, {
+      successMessage: 'Last counted section location removed',
+      errorMessage: 'Could not remove the last section location',
+    })
+  }, [removeSectionPlacement])
+
+  const deleteSectionCounter = useCallback((placement) => {
+    if (!placement?.id || !placement?.sectionId || placement.isSource) return
+    return removeSectionPlacement(placement.sectionId, placement.id)
+  }, [removeSectionPlacement])
 
   const deleteMeasurementSection = useCallback(async (section) => {
     if (!window.confirm(`Delete section “${section.name}”? Original measurements will not be deleted.`)) return
@@ -4463,6 +4502,20 @@ export default function DrawingsPage() {
     setCtxMenu({ x: event.clientX, y: event.clientY })
   }, [handleAnnotationSelect, resolveMeasurementDbId])
 
+  const handleSectionPlacementContextMenu = useCallback((event, placement, counters = []) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const sectionCounters = (placement?.isSource ? counters : [placement])
+      .filter(counter => counter?.id && !counter?.isSource)
+    setCtxMenu({
+      x: event.clientX,
+      y: event.clientY,
+      kind: 'section',
+      sectionName: placement?.sectionName ?? 'Section',
+      sectionCounters,
+    })
+  }, [])
+
   useEffect(() => {
     if (!ctxMenu) return
     const onKey = (e) => { if (e.key === 'Escape') closeCtxMenu() }
@@ -5205,6 +5258,7 @@ export default function DrawingsPage() {
               onSectionEditRequest={editMeasurementSectionById}
               onSectionSelection={handleSectionSelection}
               onSectionPlacement={handleSectionPlacement}
+              onSectionPlacementContextMenu={handleSectionPlacementContextMenu}
               resolveMeasurementDbId={resolveMeasurementDbId}
               getProtectedAnnotIds={() => persistedAnnotIdsRef.current}
               measureReleaseRef={measureReleaseRef}
@@ -5236,12 +5290,37 @@ export default function DrawingsPage() {
                 }}
                 onClick={e => { e.stopPropagation(); closeCtxMenu() }}
               >
-                {selectedMeasurementCount > 1 && (
+                {ctxMenu.kind === 'section' && (
+                  <>
+                    <div style={{ padding: '7px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
+                      {ctxMenu.sectionName} counters
+                    </div>
+                    {ctxMenu.sectionCounters.length > 0 ? ctxMenu.sectionCounters.map((counter, index) => (
+                      <button
+                        key={counter.id}
+                        onClick={() => {
+                          deleteSectionCounter(counter).catch(() => {})
+                          closeCtxMenu()
+                        }}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#f87171', fontSize: 13, cursor: 'pointer' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        Delete Counter {Number(counter.placeNumber) || index + 1}
+                      </button>
+                    )) : (
+                      <div style={{ padding: '9px 16px', color: '#64748b', fontSize: 13 }}>
+                        No counted locations to delete
+                      </div>
+                    )}
+                  </>
+                )}
+                {ctxMenu.kind !== 'section' && selectedMeasurementCount > 1 && (
                   <div style={{ padding: '7px 16px', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
                     {selectedMeasurementCount} selected
                   </div>
                 )}
-                {canCopyMeasurement && (
+                {ctxMenu.kind !== 'section' && canCopyMeasurement && (
                   <button
                     onClick={() => { handleCopyMeasurement(); closeCtxMenu() }}
                     style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: 13, cursor: 'pointer' }}
@@ -5251,7 +5330,7 @@ export default function DrawingsPage() {
                     {selectedMeasurementCount > 1 ? `Copy ${selectedMeasurementCount} Measurements` : 'Copy Measurement'}
                   </button>
                 )}
-                {canPasteMeasurement && (
+                {ctxMenu.kind !== 'section' && canPasteMeasurement && (
                   <button
                     onClick={() => { handlePasteMeasurement(); closeCtxMenu() }}
                     style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 16px', background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: 13, cursor: 'pointer' }}
@@ -5261,12 +5340,12 @@ export default function DrawingsPage() {
                     {measurementClipboard?.items?.length > 1 ? `Paste ${measurementClipboard.items.length} Measurements` : 'Paste Measurement'}
                   </button>
                 )}
-                {!canCopyMeasurement && !canPasteMeasurement && (
+                {ctxMenu.kind !== 'section' && !canCopyMeasurement && !canPasteMeasurement && (
                   <div style={{ padding: '9px 16px', color: '#64748b', fontSize: 13 }}>
                     Select a measurement to copy
                   </div>
                 )}
-                {canCopyMeasurement && (
+                {ctxMenu.kind !== 'section' && canCopyMeasurement && (
                   <>
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '2px 0' }} />
                     <button
@@ -5295,10 +5374,10 @@ export default function DrawingsPage() {
             pinned={bottomPinned}
             hovered={bottomHovered}
             resizing={isDraggingBottom}
-            count={bottomView === 'sections' ? drawingMeasurementSections.length : takeoffItems.length}
+            count={bottomView === 'sections' ? projectMeasurementSections.length : takeoffItems.length}
             summary={bottomView === 'sections'
-              ? (drawingMeasurementSections.length > 0
-                ? `${drawingMeasurementSections.reduce((total, section) => total + getSectionPlacementCount(section), 0)} counted place(s)`
+              ? (projectMeasurementSections.length > 0
+                ? `${projectMeasurementSections.reduce((total, section) => total + getSectionPlacementCount(section), 0)} project place(s)`
                 : null)
               : (takeoffItems.length > 0 ? `${takeoffItems.length} item${takeoffItems.length === 1 ? '' : 's'}` : null)}
             onOpenChange={setShowBottom}
@@ -5328,7 +5407,7 @@ export default function DrawingsPage() {
                   color: bottomView === 'sections' ? '#fff' : '#64748b',
                   background: bottomView === 'sections' ? 'rgba(239,35,60,.14)' : 'transparent',
                   borderColor: bottomView === 'sections' ? 'rgba(239,35,60,.35)' : 'transparent',
-                }}><Layers3 size={12} /> Sections <b>{drawingMeasurementSections.length}</b></button>
+                }}><Layers3 size={12} /> Sections <b>{projectMeasurementSections.length}</b></button>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 {bottomView === 'measurements' ? (
@@ -5346,7 +5425,7 @@ export default function DrawingsPage() {
                   />
                 ) : (
                   <SectionMeasurementsPanel
-                    sections={drawingMeasurementSections}
+                    sections={projectMeasurementSections}
                     activeSectionId={activeSectionId}
                     placing={activeTool === 'section' && Boolean(activeSectionId)}
                     onCreate={startSectionSelection}
