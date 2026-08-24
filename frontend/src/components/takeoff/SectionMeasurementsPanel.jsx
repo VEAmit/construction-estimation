@@ -181,7 +181,7 @@ export default function SectionMeasurementsPanel({
                     </div>
                   </td>
                   <td style={tdStyle}>
-                    <span title="Source measurements plus every counted placement" style={{ color: '#fbbf24', fontSize: 11, fontWeight: 800 }}>
+                    <span title="Section measurements multiplied by counted placements" style={{ color: '#fbbf24', fontSize: 11, fontWeight: 800 }}>
                       {groupQuantity}
                     </span>
                   </td>

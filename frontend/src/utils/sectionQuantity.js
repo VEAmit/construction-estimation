@@ -47,16 +47,17 @@ export function getSectionGroupQuantity(section) {
   const measurementCount = Number(section?.measurementCount)
   if (!Number.isFinite(measurementCount) || measurementCount < 1) return 0
 
-  // Before placement the saved boundary is only a template. Once the section
-  // is used, the total contains both its source measurements and every placed
-  // copy, matching the base-plus-placement quantities shown in the grid.
-  return Math.floor(measurementCount) * (countedPlacements + 1)
+  // The saved source boundary is only a reusable template and never adds an
+  // extra group occurrence. Group Qty is exactly the measurements contained
+  // in the template multiplied by the counted placement locations.
+  return Math.floor(measurementCount) * countedPlacements
 }
 
 /**
  * Builds the quantity increases contributed by counted Section Group placements
- * for one PDF. The existing grid quantity already represents the source/base
- * measurements, so it is intentionally not included here.
+ * for one PDF. The existing grid quantity already represents the first counted
+ * occurrence, so placement one changes Used/Group Qty without increasing the
+ * grid. Only placements after the first add copies to the existing quantity.
  *
  * A template can contain several visual occurrences backed by the same saved
  * TakeoffItem row. Counting those references before multiplying by the number
@@ -71,8 +72,8 @@ export function buildSectionQuantityByTakeoffItem(sections, sourceDrawingId) {
   for (const section of sections ?? []) {
     if (positiveId(section?.sourceDrawingId) !== drawingId) continue
 
-    const placementCount = getSectionPlacementCount(section)
-    if (placementCount < 1) continue
+    const additionalPlacementCount = Math.max(0, getSectionPlacementCount(section) - 1)
+    if (additionalPlacementCount < 1) continue
 
     const measurements = readSectionTemplate(section)?.measurements
     if (!Array.isArray(measurements) || measurements.length === 0) continue
@@ -85,7 +86,7 @@ export function buildSectionQuantityByTakeoffItem(sections, sourceDrawingId) {
     }
 
     for (const [itemId, occurrenceCount] of occurrencesByItem) {
-      const sectionQuantity = occurrenceCount * placementCount
+      const sectionQuantity = occurrenceCount * additionalPlacementCount
       totals.set(itemId, (totals.get(itemId) ?? 0) + sectionQuantity)
     }
   }
