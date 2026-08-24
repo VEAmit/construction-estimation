@@ -1557,12 +1557,23 @@ function PdfSvgOverlay({
           : sectionBoundsFromFocus(sectionFocus, pageSize, viewerScale)
         if (!bounds) return null
         const { left, top, right, bottom, width, height } = bounds
+        const sourcePlacement = sourcePlacementBySectionId.get(Number(sectionFocus.id))
+        const usedPlaces = Math.max(0, Number(sectionFocus.usedPlaces) || 0)
         const label = editing
           ? `Resize ${sectionFocus.name} · drag a handle`
           : `${sectionFocus.name} · ${sectionFocus.measurementCount} measurement${Number(sectionFocus.measurementCount) === 1 ? '' : 's'} · click border to resize`
         const labelWidth = Math.max(86, label.length * 5.4) / pageScale
         const labelHeight = 17 / pageScale
         const labelY = Math.max(0, top - labelHeight - 3 / pageScale)
+        const cornerBadgeHeight = 15 / pageScale
+        const cornerBadgeInset = 5 / pageScale
+        const cornerBadgeY = Math.max(top + cornerBadgeInset, bottom - cornerBadgeHeight - cornerBadgeInset)
+        const quantityText = `QTY = ${usedPlaces}`
+        const quantityBadgeWidth = Math.max(42, quantityText.length * 5.2) / pageScale
+        const sourceText = `${sectionFocus.name} · Source`
+        const sourceBadgeWidth = Math.max(62, sourceText.length * 5.2) / pageScale
+        const quantityBadgeX = left + cornerBadgeInset
+        const sourceBadgeX = Math.max(left + cornerBadgeInset, right - sourceBadgeWidth - cornerBadgeInset)
         const handleSize = 9 / pageScale
         const handles = [
           { id: 'nw', x: left, y: top, cursor: 'nwse-resize' },
@@ -1579,7 +1590,6 @@ function PdfSvgOverlay({
           event.stopPropagation()
           onSectionEditRequest?.(sectionFocus.id)
         }
-        const sourcePlacement = sourcePlacementBySectionId.get(Number(sectionFocus.id))
         const requestCounterMenu = sourcePlacement ? (event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -1589,6 +1599,7 @@ function PdfSvgOverlay({
           onSectionPlacementContextMenu?.(event, sourcePlacement, counters)
         } : undefined
         const sectionColor = sectionFocus.color ?? '#3B82F6'
+        const sectionTextColor = readableTextColor(sectionColor)
         return (
           <g key={`section-focus-${sectionFocus.id}`} className="pdfjs-section-focus" onContextMenu={requestCounterMenu}>
             {!editing && (
@@ -1620,6 +1631,26 @@ function PdfSvgOverlay({
               fill={sectionColor} fontSize={8 / pageScale} fontWeight="800" pointerEvents="none">
               {label}
             </text>
+            {!editing && sourcePlacement && (
+              <>
+                <g transform={`translate(${quantityBadgeX} ${cornerBadgeY})`} pointerEvents="none">
+                  <rect width={quantityBadgeWidth} height={cornerBadgeHeight} rx={3 / pageScale}
+                    fill={sectionColor} stroke="#fff" strokeWidth={.8 / pageScale} />
+                  <text x={5 / pageScale} y={10.5 / pageScale} fill={sectionTextColor}
+                    fontSize={8 / pageScale} fontWeight="800">
+                    {quantityText}
+                  </text>
+                </g>
+                <g transform={`translate(${sourceBadgeX} ${cornerBadgeY})`} pointerEvents="none">
+                  <rect width={sourceBadgeWidth} height={cornerBadgeHeight} rx={3 / pageScale}
+                    fill={sectionColor} stroke="#fff" strokeWidth={.8 / pageScale} />
+                  <text x={5 / pageScale} y={10.5 / pageScale} fill={sectionTextColor}
+                    fontSize={8 / pageScale} fontWeight="800">
+                    {sourceText}
+                  </text>
+                </g>
+              </>
+            )}
             {editing && handles.map(handle => (
               <rect
                 key={`section-resize-${handle.id}`}
@@ -1646,9 +1677,7 @@ function PdfSvgOverlay({
         const source = Boolean(placement.isSource)
         const placeNumber = Number(placement.placeNumber) || 1
         const placeCount = Number(placement.placeCount) || 1
-        const markerText = source
-          ? `${placement.sectionName ?? 'Section'} · Source`
-          : `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}`
+        const markerText = `${placement.sectionName ?? 'Section'} · ${placeNumber}/${placeCount}`
         const sectionColor = placement.color ?? '#3B82F6'
         const markerTextColor = readableTextColor(sectionColor)
         const sectionCounters = source
@@ -1671,13 +1700,17 @@ function PdfSvgOverlay({
               fill={source ? colorWithAlpha(sectionColor, .35) : sectionColor} stroke="#fff" strokeWidth={1 / pageScale} />
             <path d={`M ${x - 2 / pageScale} ${y} L ${x + 2 / pageScale} ${y} M ${x} ${y - 2 / pageScale} L ${x} ${y + 2 / pageScale}`}
               stroke="#fff" strokeWidth={1 / pageScale} />
-            <g transform={`translate(${x + 8 / pageScale} ${y - 7 / pageScale})`}>
-              <rect x={0} y={0} width={Math.max(58, markerText.length * 5.2) / pageScale}
-                height={15 / pageScale} rx={3 / pageScale} fill={sectionColor} stroke="#fff" strokeWidth={.8 / pageScale} />
-              <text x={5 / pageScale} y={10.5 / pageScale} fill={markerTextColor} fontSize={8 / pageScale} fontWeight="800">
-                {markerText}
-              </text>
-            </g>
+            {source ? (
+              <title>{`${placement.sectionName ?? 'Section'} source · QTY = ${Math.max(0, Number(placement.placeCount) || 0)}`}</title>
+            ) : (
+              <g transform={`translate(${x + 8 / pageScale} ${y - 7 / pageScale})`}>
+                <rect x={0} y={0} width={Math.max(58, markerText.length * 5.2) / pageScale}
+                  height={15 / pageScale} rx={3 / pageScale} fill={sectionColor} stroke="#fff" strokeWidth={.8 / pageScale} />
+                <text x={5 / pageScale} y={10.5 / pageScale} fill={markerTextColor} fontSize={8 / pageScale} fontWeight="800">
+                  {markerText}
+                </text>
+              </g>
+            )}
           </g>
         )
       })}

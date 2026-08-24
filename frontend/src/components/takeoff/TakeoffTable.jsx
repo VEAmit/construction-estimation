@@ -69,6 +69,15 @@ function getSectionQuantityIncrease(sectionQuantityByItem, itemId) {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : null
 }
 
+function getSectionMemberships(sectionMembershipByItem, itemId) {
+  const numericId = Number(itemId)
+  if (!Number.isFinite(numericId) || numericId <= 0) return []
+  const memberships = sectionMembershipByItem instanceof Map
+    ? sectionMembershipByItem.get(numericId)
+    : sectionMembershipByItem?.[numericId]
+  return Array.isArray(memberships) ? memberships : []
+}
+
 function getBaseQuantity(item) {
   const quantity = Number(item?.quantity)
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
@@ -102,6 +111,7 @@ export default function MeasurementTable({
   onBeforeUpdate,
   onUpdateFailed,
   sectionQuantityByItem,
+  sectionMembershipByItem,
 }) {
   const { takeoffItems, memberScheduleItems, selectedProject, updateTakeoffItem, removeTakeoffItem } = useAppStore()
   const [page,    setPage]    = useState(1)
@@ -120,10 +130,37 @@ export default function MeasurementTable({
     prevItemCountRef.current = takeoffItems.length
   }, [takeoffItems.length])
 
-  const filtered = takeoffItems.filter(it =>
-    !filter || [it.description, it.mark, it.material, it.notes, it.category, getMeasurementMemberMark(it, memberScheduleItems)]
-      .some(v => v?.toLowerCase().includes(filter.toLowerCase()))
-  )
+  const groupedTakeoffItems = takeoffItems
+    .map((item, originalIndex) => ({
+      item,
+      originalIndex,
+      sections: getSectionMemberships(sectionMembershipByItem, item.id),
+    }))
+    .sort((left, right) => {
+      const leftSection = left.sections[0]?.name
+      const rightSection = right.sections[0]?.name
+      if (leftSection && rightSection) {
+        const comparison = leftSection.localeCompare(rightSection, undefined, { numeric: true, sensitivity: 'base' })
+        if (comparison !== 0) return comparison
+      } else if (leftSection) return -1
+      else if (rightSection) return 1
+      return left.originalIndex - right.originalIndex
+    })
+    .map(entry => entry.item)
+
+  const normalizedFilter = filter.trim().toLowerCase()
+  const filtered = groupedTakeoffItems.filter(it => {
+    const sectionNames = getSectionMemberships(sectionMembershipByItem, it.id).map(section => section.name)
+    return !normalizedFilter || [
+      it.description,
+      it.mark,
+      it.material,
+      it.notes,
+      it.category,
+      getMeasurementMemberMark(it, memberScheduleItems),
+      ...sectionNames,
+    ].some(value => String(value ?? '').toLowerCase().includes(normalizedFilter))
+  })
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
   const pageItems  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -373,7 +410,7 @@ export default function MeasurementTable({
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: '#0D1526', zIndex: 1 }}>
-                {['', '#', 'Pg', 'Meas.', 'Mark', 'Member', 'Section Size', 'Description', 'Member Type', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Qty', 'Time', ''].map((h, i) => (
+                {['', '#', 'Pg', 'Meas.', 'Mark', 'Member', 'Section Size', 'Description', 'Member Type', 'Length / Area', 'Unit', 'Scale', 'Thk', 'Wt/m', 'Total Wt', 'Section', 'Qty', 'Time', ''].map((h, i) => (
                   <th key={i} style={{
                     padding: '7px 8px', textAlign: 'left',
                     fontSize: '10px', fontWeight: 800, color: '#475569',
@@ -396,6 +433,18 @@ export default function MeasurementTable({
                 const itemColor  = getEffectiveColor(item, memberScheduleItems)
                 const sectionQuantityIncrease = getSectionQuantityIncrease(sectionQuantityByItem, item.id)
                 const displayQuantity = getBaseQuantity(item) + (sectionQuantityIncrease ?? 0)
+                const sectionMemberships = getSectionMemberships(sectionMembershipByItem, item.id)
+                const primarySection = sectionMemberships[0]
+                const sectionColor = primarySection?.color && HEX_RE.test(primarySection.color)
+                  ? primarySection.color
+                  : '#3B82F6'
+                const previousItem = pageItems[idx - 1]
+                const previousPrimarySection = previousItem
+                  ? getSectionMemberships(sectionMembershipByItem, previousItem.id)[0]
+                  : null
+                const startsSectionGroup = primarySection
+                  && Number(previousPrimarySection?.id) !== Number(primarySection.id)
+                const restingBackground = primarySection ? `${sectionColor}08` : 'transparent'
 
                 return (
                   <tr
@@ -413,18 +462,19 @@ export default function MeasurementTable({
                     }}
                     style={{
                       borderBottom: '1px solid rgba(255,255,255,.04)',
+                      borderTop: startsSectionGroup ? `1px solid ${sectionColor}55` : undefined,
                       cursor: isEditing ? 'default' : 'pointer',
                       background: isSelected
                         ? `${itemColor}18`
                         : isEditing
                         ? 'rgba(255,255,255,.03)'
-                        : 'transparent',
+                        : restingBackground,
                       outline: isSelected ? `1px solid ${itemColor}40` : 'none',
                       outlineOffset: '-1px',
                       transition: 'background .1s',
                     }}
                     onMouseEnter={e => { if (!isSelected && !isEditing) e.currentTarget.style.background = 'rgba(255,255,255,.03)' }}
-                    onMouseLeave={e => { if (!isSelected && !isEditing) e.currentTarget.style.background = 'transparent' }}
+                    onMouseLeave={e => { if (!isSelected && !isEditing) e.currentTarget.style.background = restingBackground }}
                   >
                     {/* Accent bar */}
                     <td style={{ padding: '0 0 0 4px', width: '4px' }}>
@@ -516,6 +566,27 @@ export default function MeasurementTable({
                     <td style={{ ...td, fontWeight: 700, color: item.totalWeight != null ? '#f59e0b' : '#1e293b', whiteSpace: 'nowrap' }}>
                       {item.totalWeight != null ? `${item.totalWeight.toFixed(1)} kg` : '—'}
                     </td>
+                    <td style={{ ...td, minWidth: 90 }}>
+                      {sectionMemberships.length > 0 ? (
+                        <span title={sectionMemberships.map(section => section.name).join(', ')}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                          {sectionMemberships.map(section => {
+                            const color = section.color && HEX_RE.test(section.color) ? section.color : '#3B82F6'
+                            return (
+                              <span key={section.id ?? section.name} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '2px 6px', borderRadius: 9,
+                                color, background: `${color}12`, border: `1px solid ${color}45`,
+                                fontSize: 9, fontWeight: 800, whiteSpace: 'nowrap',
+                              }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+                                {section.name}
+                              </span>
+                            )
+                          })}
+                        </span>
+                      ) : <span style={{ color: '#334155' }}>—</span>}
+                    </td>
                     <td style={td}>
                       {sectionQuantityIncrease != null
                         ? <span title="Base quantity plus counted Section Group placements">{displayQuantity}</span>
@@ -565,13 +636,13 @@ export default function MeasurementTable({
             {filtered.length > 0 && (
               <tfoot>
                 <tr style={{ background: '#0D1526', borderTop: '1px solid rgba(239,35,60,.2)' }}>
-                  <td colSpan={8} />
+                  <td colSpan={9} />
                   <td style={{ ...td, fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>
                     {totalLength > 0 ? `∑ ${fmt(totalLength)} ${getUnitLabel(unit)}` : ''}
                     {hasAnyArea && totalArea > 0 ? ` / ${fmt(totalArea)} ${getAreaUnitLabel(unit)}` : ''}
                     {totalLength === 0 && !hasAnyArea ? '—' : ''}
                   </td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                   <td style={{ ...td, fontWeight: 800, color: '#f59e0b', whiteSpace: 'nowrap' }}>
                     {hasAnyWeight ? `∑ ${totalWeight.toFixed(1)} kg` : '—'}
                   </td>

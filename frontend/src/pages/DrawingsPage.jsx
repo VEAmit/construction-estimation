@@ -45,6 +45,7 @@ import {
 import { resolveDrawColorForMemberMark } from '../utils/memberMarkColor'
 import { getMeasurementMemberMark, parseMemberScheduleNoteId } from '../utils/memberMeasureLink'
 import {
+  buildSectionMembershipByTakeoffItem,
   buildSectionQuantityByTakeoffItem,
   getCountedSectionPlacements,
   getSectionPlacementCount,
@@ -102,6 +103,7 @@ function buildMeasurementSectionFocus(section, editingSectionId = null) {
     widthRatio: Number(template?.bounds?.widthRatio ?? 0),
     heightRatio: Number(template?.bounds?.heightRatio ?? 0),
     measurementCount: Number(section.measurementCount ?? template?.measurements?.length ?? 0),
+    usedPlaces: getSectionPlacementCount(section),
     editing: Number(section.id) === Number(editingSectionId),
   }
 }
@@ -2076,6 +2078,11 @@ export default function DrawingsPage() {
   // display/export projection so the original TakeoffItem records stay intact.
   const sectionQuantityByTakeoffItem = useMemo(
     () => buildSectionQuantityByTakeoffItem(measurementSections, selectedDrawing?.id),
+    [measurementSections, selectedDrawing?.id],
+  )
+
+  const sectionMembershipByTakeoffItem = useMemo(
+    () => buildSectionMembershipByTakeoffItem(measurementSections, selectedDrawing?.id),
     [measurementSections, selectedDrawing?.id],
   )
 
@@ -5306,7 +5313,7 @@ export default function DrawingsPage() {
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,35,60,0.15)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                       >
-                        Delete Counter {Number(counter.placeNumber) || index + 1}
+                        Delete {ctxMenu.sectionName} · {Number(counter.placeNumber) || index + 1}/{Number(counter.placeCount) || ctxMenu.sectionCounters.length}
                       </button>
                     )) : (
                       <div style={{ padding: '9px 16px', color: '#64748b', fontSize: 13 }}>
@@ -5414,6 +5421,7 @@ export default function DrawingsPage() {
                   <MeasurementTable
                     drawing={activeDrawing}
                     sectionQuantityByItem={sectionQuantityByTakeoffItem}
+                    sectionMembershipByItem={sectionMembershipByTakeoffItem}
                     selectedId={selectedAnnotId}
                     selectedIds={selectedAnnotIds}
                     onRowSelect={handleRowSelect}
