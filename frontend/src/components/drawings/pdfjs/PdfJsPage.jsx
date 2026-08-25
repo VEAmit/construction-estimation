@@ -123,6 +123,7 @@ function PdfJsPage({
   const pageRef = useRef(null)
   const renderedOnceRef = useRef(false)
   const pageTextItemsRef = useRef([])
+  const pageTextItemsPromiseRef = useRef(null)
   const textItemsFetchedForRef = useRef(null)
   const snapPointsFetchedForRef = useRef(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1 || forceRender)
@@ -138,8 +139,13 @@ function PdfJsPage({
 
   useEffect(() => {
     // Do not expose the previous document's vector endpoints while a page with
-    // the same page number is loading after the user switches drawings.
+    // the same page number is loading after the user switches drawings. The
+    // same isolation is required for detected PDF labels; otherwise a quick
+    // draw after switching files can inherit text from the previous PDF.
     snapPointsFetchedForRef.current = null
+    textItemsFetchedForRef.current = null
+    pageTextItemsRef.current = []
+    pageTextItemsPromiseRef.current = null
     setPdfLineEndpoints([])
     setPdfLineSegments([])
   }, [documentKey, pageNumber])
@@ -245,25 +251,45 @@ function PdfJsPage({
       }
 
       const textItemsKey = `${documentKey}|${pageNumber}`
-      if (textItemsFetchedForRef.current !== textItemsKey) {
-        page.getTextContent().then(({ items }) => {
-          if (cancelled) return
+      if (textItemsFetchedForRef.current !== textItemsKey
+          && pageTextItemsPromiseRef.current?.key !== textItemsKey) {
+        const promise = page.getTextContent().then(({ items }) => {
           const rawItems = items
             .filter(item => typeof item.str === 'string' && item.transform)
             .map(item => {
-              const [x, y] = baseViewport.convertToViewportPoint(item.transform[4], item.transform[5])
-              const charWidth = Math.hypot(item.transform[0], item.transform[1]) || 4
-              return { str: item.str, x, y, charWidth }
+              const [originX, originY] = baseViewport.convertToViewportPoint(
+                item.transform[4], item.transform[5],
+              )
+              const glyphScale = Math.hypot(item.transform[0], item.transform[1]) || 4
+              const textAdvance = Number(item.width) || 0
+              const endPdfX = item.transform[4] + (item.transform[0] / glyphScale) * textAdvance
+              const endPdfY = item.transform[5] + (item.transform[1] / glyphScale) * textAdvance
+              const [endX, endY] = baseViewport.convertToViewportPoint(endPdfX, endPdfY)
+              return {
+                str: item.str,
+                x: (originX + endX) / 2,
+                y: (originY + endY) / 2,
+                charWidth: glyphScale,
+              }
             })
-          pageTextItemsRef.current = mergePdfTextItems(rawItems)
+          const mergedItems = mergePdfTextItems(rawItems)
+          // Scale changes can restart the render effect while extraction is in
+          // flight. Keep the result as long as this is still the current PDF
+          // page, rather than dropping it because an older render was cancelled.
+          if (pageTextItemsPromiseRef.current?.key === textItemsKey) {
+            pageTextItemsRef.current = mergedItems
+            textItemsFetchedForRef.current = textItemsKey
+          }
           // Only mark this page "done" once extraction actually lands — if the
           // effect re-runs (e.g. the initial auto-fit scale change right after
           // mount) and cancels this in-flight call first, it must be retried,
           // not permanently skipped.
-          textItemsFetchedForRef.current = textItemsKey
+          return mergedItems
         }).catch(error => {
           console.warn(`[PDF.js] Text extraction for label detection failed on page ${pageNumber}`, error)
+          return []
         })
+        pageTextItemsPromiseRef.current = { key: textItemsKey, promise }
       }
       const outputScale = Math.min(window.devicePixelRatio || 1, MAX_OUTPUT_SCALE)
 
@@ -327,9 +353,16 @@ function PdfJsPage({
     pageRef.current?.cleanup?.()
   }, [])
 
-  const handleMeasure = useCallback((measurement, opts) => (
-    onMeasure?.(attachDetectedLabel(measurement, pageTextItemsRef.current), opts)
-  ), [onMeasure])
+  const handleMeasure = useCallback(async (measurement, opts) => {
+    let textItems = pageTextItemsRef.current
+    // Drawing can become interactive before PDF text extraction finishes.
+    // Wait for the already-running page extraction so manual and native-line
+    // double-click measurements both save their real label on the first try.
+    if (!textItems.length && pageTextItemsPromiseRef.current?.promise) {
+      textItems = await pageTextItemsPromiseRef.current.promise
+    }
+    return onMeasure?.(attachDetectedLabel(measurement, textItems), opts)
+  }, [onMeasure])
 
   return (
     <section ref={hostRef} className="pdfjs-page-shell" data-page-number={pageNumber}

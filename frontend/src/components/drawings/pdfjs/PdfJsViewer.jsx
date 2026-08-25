@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import { useAppStore } from '../../../store/useAppStore'
@@ -10,6 +10,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.m
 
 const RANGE_CHUNK_SIZE = 1024 * 1024
 const PAGE_GAP = 12
+const PAGE_STACK_PADDING_X = 16
+const PAGE_STACK_PADDING_TOP = 8
 const FALLBACK_PAGE_WIDTH = 612
 const FALLBACK_PAGE_HEIGHT = 792
 // How far beyond the visible viewport a page is still kept mounted (and thus
@@ -29,6 +31,58 @@ const PAN_TOOLS = new Set(['select', 'pan'])
 
 function clampScale(value) {
   return Math.min(5, Math.max(0.2, Number(value) || 1))
+}
+
+function scaledPageLayout(pages, pageMetrics, firstMetric, scale) {
+  const clampedScale = clampScale(scale)
+  let top = PAGE_STACK_PADDING_TOP
+  return pages.map((pageNumber) => {
+    const metric = pageMetrics[pageNumber] ?? firstMetric
+    const width = Math.max(1, (metric?.width ?? FALLBACK_PAGE_WIDTH) * clampedScale)
+    const height = Math.max(1, (metric?.height ?? FALLBACK_PAGE_HEIGHT) * clampedScale)
+    const entry = { pageNumber, top, width, height }
+    top += height + PAGE_GAP
+    return entry
+  })
+}
+
+function closestPageAt(layout, documentY) {
+  let closest = null
+  let closestDistance = Number.POSITIVE_INFINITY
+  for (const entry of layout) {
+    const bottom = entry.top + entry.height
+    if (documentY >= entry.top && documentY <= bottom) return entry
+    const distance = documentY < entry.top ? entry.top - documentY : documentY - bottom
+    if (distance < closestDistance) {
+      closest = entry
+      closestDistance = distance
+    }
+  }
+  return closest
+}
+
+function capturePageZoomAnchor(container, pages, pageMetrics, firstMetric, scale, viewportX, viewportY) {
+  const layout = scaledPageLayout(pages, pageMetrics, firstMetric, scale)
+  if (!layout.length) return null
+
+  const x = Number.isFinite(viewportX) ? viewportX : container.clientWidth / 2
+  const y = Number.isFinite(viewportY) ? viewportY : container.clientHeight / 2
+  const page = closestPageAt(layout, container.scrollTop + y)
+  if (!page) return null
+
+  const contentWidth = Math.max(
+    container.clientWidth,
+    Math.max(...layout.map(entry => entry.width)) + PAGE_STACK_PADDING_X * 2,
+  )
+  const pageLeft = (contentWidth - page.width) / 2
+
+  return {
+    pageNumber: page.pageNumber,
+    xRatio: Math.min(1, Math.max(0, (container.scrollLeft + x - pageLeft) / page.width)),
+    yRatio: Math.min(1, Math.max(0, (container.scrollTop + y - page.top) / page.height)),
+    viewportX: x,
+    viewportY: y,
+  }
 }
 
 async function loadPageMetrics(pdfDocument, onMetric, isCancelled) {
@@ -107,6 +161,7 @@ export default function PdfJsViewer({
     clearPdfCommand,
     setSpaceHeld,
   } = useAppStore()
+  const previousPdfScaleRef = useRef(pdfScale)
 
   const [pdfDocument, setPdfDocument] = useState(null)
   const [pageMetrics, setPageMetrics] = useState({})
@@ -265,8 +320,13 @@ export default function PdfJsViewer({
   useEffect(() => {
     if (!firstMetric || !containerSize.width || initialFitAppliedRef.current) return
     initialFitAppliedRef.current = true
-    fitWidth()
-  }, [containerSize.width, firstMetric, fitWidth])
+    // Initial document fitting is navigation setup, not a user zoom. Keep a
+    // newly opened PDF at the top of page 1; subsequent Fit/+/− operations
+    // use the normal page-preserving zoom anchor below.
+    const initialScale = clampScale(Math.max(1, containerSize.width - 32) / firstMetric.width)
+    previousPdfScaleRef.current = initialScale
+    setPdfScale(initialScale)
+  }, [containerSize.width, firstMetric, setPdfScale])
 
   useEffect(() => {
     if (!pdfCommand) return
@@ -344,18 +404,6 @@ export default function PdfJsViewer({
       setPdfPage(pageNumber)
     }
   }, [pdfDocument, sectionFocus, setPdfPage])
-
-  useEffect(() => {
-    const anchor = zoomAnchorRef.current
-    const container = containerRef.current
-    if (!anchor || !container) return
-    requestAnimationFrame(() => {
-      const ratio = pdfScale / anchor.scale
-      container.scrollLeft = (anchor.scrollLeft + anchor.x) * ratio - anchor.x
-      container.scrollTop = (anchor.scrollTop + anchor.y) * ratio - anchor.y
-      zoomAnchorRef.current = null
-    })
-  }, [pdfScale])
 
   const handleVisibility = useCallback((pageNumber, ratio) => {
     visibilityRef.current.set(pageNumber, ratio)
@@ -481,18 +529,51 @@ export default function PdfJsViewer({
   // that isn't mounted is replaced by a plainly-sized spacer of the same
   // height, so scroll position/height never jumps as pages mount/unmount.
   const pageLayout = useMemo(() => {
-    const clampedScale = clampScale(pdfScale)
-    let top = 0
-    const entries = []
-    for (const pageNumber of pages) {
-      const metric = pageMetrics[pageNumber] ?? firstMetric
-      const width = Math.max(1, (metric?.width ?? FALLBACK_PAGE_WIDTH) * clampedScale)
-      const height = Math.max(1, (metric?.height ?? FALLBACK_PAGE_HEIGHT) * clampedScale)
-      entries.push({ pageNumber, top, width, height })
-      top += height + PAGE_GAP
-    }
-    return entries
+    return scaledPageLayout(pages, pageMetrics, firstMetric, pdfScale)
   }, [pages, pageMetrics, firstMetric, pdfScale])
+
+  // Zooming changes the height of every page above the viewport. Preserving
+  // only the document-wide scrollTop (or multiplying it by the zoom ratio)
+  // therefore moves users into a neighbouring page in multi-page drawings.
+  // Anchor the zoom to the page currently under the pointer/viewport and to
+  // the same relative point inside that page. This covers toolbar buttons,
+  // keyboard zoom and Ctrl+wheel without changing page navigation itself.
+  useLayoutEffect(() => {
+    const previousScale = previousPdfScaleRef.current
+    if (Math.abs(Number(previousScale) - Number(pdfScale)) < 0.0001) return
+    previousPdfScaleRef.current = pdfScale
+
+    const container = containerRef.current
+    if (!container || !pages.length) {
+      zoomAnchorRef.current = null
+      return
+    }
+
+    const anchor = zoomAnchorRef.current
+      ?? capturePageZoomAnchor(container, pages, pageMetrics, firstMetric, previousScale)
+    zoomAnchorRef.current = null
+    if (!anchor) return
+
+    const pageElement = container.querySelector(`[data-page-number="${anchor.pageNumber}"]`)
+    if (!pageElement) return
+    const containerRect = container.getBoundingClientRect()
+    const pageRect = pageElement.getBoundingClientRect()
+    const anchoredPageX = pageRect.left - containerRect.left + anchor.xRatio * pageRect.width
+    const anchoredPageY = pageRect.top - containerRect.top + anchor.yRatio * pageRect.height
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
+
+    container.scrollTop = Math.min(maxScrollTop, Math.max(0,
+      container.scrollTop + anchoredPageY - anchor.viewportY))
+    container.scrollLeft = Math.min(maxScrollLeft, Math.max(0,
+      container.scrollLeft + anchoredPageX - anchor.viewportX))
+
+    // Keep the toolbar page indicator aligned with the anchored page, and
+    // flag this as scroll-derived so the navigation effect does not turn it
+    // into a scrollIntoView jump back to the page top.
+    scrollTrackedPageRef.current = anchor.pageNumber
+    if (useAppStore.getState().pdfPage !== anchor.pageNumber) setPdfPage(anchor.pageNumber)
+  }, [firstMetric, pageLayout, pageMetrics, pages, pdfScale, setPdfPage])
 
   // Virtualization: a document can run 40+ pages, and mounting every one of
   // them permanently (as before) means 40+ live components each with their
@@ -601,17 +682,24 @@ export default function PdfJsViewer({
     const container = containerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
-    zoomAnchorRef.current = {
-      scale: pdfScale,
-      scrollLeft: container.scrollLeft,
-      scrollTop: container.scrollTop,
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    }
+    zoomAnchorRef.current = capturePageZoomAnchor(
+      container,
+      pages,
+      pageMetrics,
+      firstMetric,
+      pdfScale,
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    )
     const direction = event.deltaY < 0 ? 1 : -1
     const factor = 1 + direction * 0.1 * (wheelZoomSensitivity ?? 1)
-    setPdfScale(clampScale(pdfScale * factor))
-  }, [pdfScale, setPdfScale, wheelZoomSensitivity])
+    const nextScale = clampScale(pdfScale * factor)
+    if (Math.abs(nextScale - pdfScale) < 0.0001) {
+      zoomAnchorRef.current = null
+      return
+    }
+    setPdfScale(nextScale)
+  }, [firstMetric, pageMetrics, pages, pdfScale, setPdfScale, wheelZoomSensitivity])
 
   useEffect(() => {
     const container = containerRef.current

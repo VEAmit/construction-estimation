@@ -100,9 +100,15 @@ function labelGeometry(annotation, viewerScale) {
     x = midpoint.x - nx * gap
     y = midpoint.y - ny * gap
   }
-  const mark = annotation.mark || ''
+  const rawMark = String(annotation.mark ?? '').trim()
+  // Some legacy/API records contain the literal strings "null" or
+  // "undefined". Never expose those implementation values as a user label;
+  // the measurement value remains visible underneath while its mark resolves.
+  const mark = /^(?:null|undefined|nan)$/i.test(rawMark) ? '' : rawMark
+  const rawUnit = String(annotation.unit ?? '').trim()
+  const unit = !rawUnit || /^(?:null|undefined|nan)$/i.test(rawUnit) ? 'mm' : rawUnit
   const value = Number.isFinite(annotation.value) && annotation.value > 0
-    ? `${annotation.value.toFixed(2)} ${annotation.unit}`
+    ? `${annotation.value.toFixed(2)} ${unit}`
     : ''
   const widest = Math.max(mark.length, value.length, 3)
   // Align the label with the line's own direction (horizontal line → horizontal

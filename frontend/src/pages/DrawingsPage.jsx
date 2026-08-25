@@ -227,7 +227,7 @@ function getNextDefaultMemberColor(items) {
     ?? _MS_PALETTE[(items?.length ?? 0) % _MS_PALETTE.length]
 }
 
-const STRUCTURAL_SECTION_DETECTED_VALUE_RE = /^\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)$/i
+const STRUCTURAL_SECTION_DETECTED_VALUE_RE = /^(?:\d+(?:\.\d+)?\s*[X×]\s*\d+(?:\.\d+)?(?:\s*[X×]\s*\d+(?:\.\d+)?)?\s*(?:CHS|SHS|RHS|PFC|TFC|UB|UC|WB|WC|EA|UA)|\d+(?:\.\d+)?\s*(?:UB|UC|WB|WC|PFC|TFC|CHS|SHS|RHS|EA|UA)\s*\d+(?:\.\d+)?)$/i
 
 function isStructuralSectionDetectedValue(value) {
   return STRUCTURAL_SECTION_DETECTED_VALUE_RE.test(String(value ?? '').trim())

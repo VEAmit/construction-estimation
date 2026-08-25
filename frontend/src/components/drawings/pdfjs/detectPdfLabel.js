@@ -37,22 +37,61 @@ export function mergePdfTextItems(rawItems) {
       run.lastY = raw.y
       run.charWidth = raw.charWidth
     } else {
-      run = { str, x: raw.x, y: raw.y, lastX: raw.x, lastY: raw.y, charWidth: raw.charWidth }
+      run = {
+        str,
+        firstX: raw.x,
+        firstY: raw.y,
+        lastX: raw.x,
+        lastY: raw.y,
+        charWidth: raw.charWidth,
+      }
       merged.push(run)
     }
   }
   return merged
-    .map(({ str, x, y }) => ({ str: str.trim(), x, y }))
+    // Use the centre of the complete text run, rather than the first glyph's
+    // origin. This is especially important for vertical/rotated CAD labels:
+    // pdf.js reports their origin at one end of the word, which can be a long
+    // way from the measured line's midpoint even though the word overlaps it.
+    .map(({ str, firstX, firstY, lastX, lastY }) => ({
+      str: str.trim(),
+      x: (firstX + lastX) / 2,
+      y: (firstY + lastY) / 2,
+    }))
     .filter(item => /[A-Za-z0-9]/.test(item.str))
 }
 
-export function nearestPdfLabel(textItems, point) {
-  if (!Array.isArray(textItems) || !textItems.length || !point) return null
+function distanceToMeasurement(item, points) {
+  if (points.length === 1) return Math.hypot(item.x - points[0].x, item.y - points[0].y)
+  let nearest = Infinity
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1]
+    const end = points[index]
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const lengthSquared = dx * dx + dy * dy
+    const ratio = lengthSquared > 0
+      ? Math.max(0, Math.min(1, ((item.x - start.x) * dx + (item.y - start.y) * dy) / lengthSquared))
+      : 0
+    nearest = Math.min(nearest, Math.hypot(
+      item.x - (start.x + dx * ratio),
+      item.y - (start.y + dy * ratio),
+    ))
+  }
+  return nearest
+}
+
+export function nearestPdfLabel(textItems, target) {
+  if (!Array.isArray(textItems) || !textItems.length || !target) return null
+  const points = (Array.isArray(target) ? target : [target]).filter(point => (
+    Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y))
+  ))
+  if (!points.length) return null
   let best = null
   let bestDist = Infinity
   for (const item of textItems) {
     if (!item?.str || item.str.length > MAX_LABEL_LENGTH) continue
-    const dist = Math.hypot(item.x - point.x, item.y - point.y)
+    const dist = distanceToMeasurement(item, points)
     const text = String(item.str).toUpperCase()
     const structuralSections = text.match(STRUCTURAL_SECTION_TOKEN_RE) ?? []
     // An exact section printed along the measured member is a complete label,
@@ -79,11 +118,10 @@ export function attachDetectedLabel(measurement, textItems) {
   if (measurement?.memberMark || measurement?.drawingMark) return measurement
   const points = measurement?.rawAnnotation?.vertexPoints ?? measurement?.rawAnnotation?.VertexPoints
   if (!Array.isArray(points) || points.length === 0) return measurement
-  const mid = points.reduce(
-    (acc, p) => ({ x: acc.x + p.x / points.length, y: acc.y + p.y / points.length }),
-    { x: 0, y: 0 },
-  )
-  const label = nearestPdfLabel(textItems, mid)
+  // Search against the complete measured segment. A label can legitimately
+  // sit anywhere along a long horizontal or vertical member, so midpoint-only
+  // matching leaves otherwise valid labels blank.
+  const label = nearestPdfLabel(textItems, points)
   if (!label) return measurement
   return { ...measurement, drawingMark: label }
 }
