@@ -18,7 +18,7 @@ import SectionMeasurementsPanel from '../components/takeoff/SectionMeasurementsP
 import AddMeasurementModal from '../components/takeoff/AddTakeoffModal'
 import AddDetectedMemberModal from '../components/takeoff/AddDetectedMemberModal'
 import CalibrationModal from '../components/takeoff/CalibrationModal'
-import { exportToExcel, exportToPdf } from '../utils/exportUtils'
+import { exportToExcel } from '../utils/exportUtils'
 import {
   computeScaleRatio, getUnitLabel, getAreaUnitLabel,
   formatMeasureLength, formatMeasureArea, toMeters,
@@ -52,6 +52,8 @@ import {
 } from '../utils/sectionQuantity'
 import { isPlausibleDrawingMark } from '../utils/drawingMarkDetect'
 import ExtractionModal from '../components/extraction/ExtractionModal'
+import ProjectExportModal from '../components/export/ProjectExportModal'
+import { exportProjectToExcel, exportProjectToPdf } from '../utils/projectExportUtils'
 import toast from 'react-hot-toast'
 import { Files, Layers3, TableProperties } from 'lucide-react'
 import { BottomDock, SideDock } from '../components/layout/WorkspaceDock'
@@ -970,6 +972,8 @@ export default function DrawingsPage() {
   // Keep both so the grid and SVG overlay can stay selected together.
   const [selectedViewerAnnotId, setSelectedViewerAnnotId] = useState(null)
   const [showExtractModal, setShowExtractModal]  = useState(false)
+  const [showProjectExportModal, setShowProjectExportModal] = useState(false)
+  const [projectExporting, setProjectExporting] = useState(null)
   const [measurementSections, setMeasurementSections] = useState([])
   const [sectionSelection, setSectionSelection] = useState(null)
   const [sectionSaving, setSectionSaving] = useState(false)
@@ -4794,8 +4798,63 @@ export default function DrawingsPage() {
     setShowExtractModal(false)
   }, [selectedProject?.id, setMemberScheduleItems, setMemberScheduleSummary])
 
-  const handleExport    = () => exportToExcel(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
-  const handleExportPdf = () => exportToPdf(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
+  const handleExport = () => exportToExcel(takeoffItems, memberScheduleItems, selectedDrawing, selectedProject)
+
+  const handleProjectExport = useCallback(async (format) => {
+    if (!selectedProject?.id || projectExporting) return
+    setProjectExporting(format)
+    try {
+      const [drawingData, projectMembers, projectSections] = await Promise.all([
+        drawingService.getByProject(selectedProject.id),
+        memberScheduleService.getByProject(selectedProject.id),
+        measurementSectionService.getByProject(selectedProject.id),
+      ])
+      const projectDrawings = (Array.isArray(drawingData) ? drawingData : drawingData ? [drawingData] : [])
+        .map(normalizeDrawing)
+        .filter(Boolean)
+
+      if (projectDrawings.length === 0) {
+        toast.error('This project has no drawings to export')
+        return
+      }
+
+      const drawingMeasurements = await Promise.all(projectDrawings.map(async drawing => {
+        // The open drawing's in-memory rows include the latest auto-saved UI
+        // state. Every other drawing is read from the server at export time.
+        const measurements = Number(drawing.id) === Number(selectedDrawing?.id)
+          ? [...(takeoffItems ?? [])]
+          : await takeoffService.getByDrawing(drawing.id)
+        return {
+          drawing,
+          measurements: Array.isArray(measurements) ? measurements : [],
+        }
+      }))
+      const measurementCount = drawingMeasurements.reduce(
+        (total, entry) => total + (entry.measurements?.length ?? 0),
+        0,
+      )
+      if (measurementCount === 0) {
+        toast.error('No project measurements are available to export')
+        return
+      }
+
+      const schedule = Array.isArray(projectMembers) ? projectMembers : []
+      const sections = Array.isArray(projectSections) ? projectSections : []
+      const result = format === 'pdf'
+        ? exportProjectToPdf(drawingMeasurements, schedule, sections, selectedProject)
+        : exportProjectToExcel(drawingMeasurements, schedule, sections, selectedProject)
+      setShowProjectExportModal(false)
+      toast.success(
+        `Complete project ${format === 'pdf' ? 'PDF' : 'Excel'} exported — ${result.measurements} measurement row(s) from ${result.drawings} drawing(s)`,
+        { duration: 3500 },
+      )
+    } catch (error) {
+      console.error('[BuildTakeoff] project measurements export failed:', error)
+      toast.error('Project export failed — all drawings could not be collected')
+    } finally {
+      setProjectExporting(null)
+    }
+  }, [projectExporting, selectedDrawing?.id, selectedProject, takeoffItems])
 
   const drawingUrl        = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
   const selectedAnnotItem = selectedAnnotId
@@ -4955,41 +5014,27 @@ export default function DrawingsPage() {
           </button>
         )}
 
-        {/* Export buttons */}
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-          <button onClick={handleExport} disabled={takeoffItems.length === 0}
-            title="Export to Excel"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              padding: '4px 8px', borderRadius: '5px',
-              border: '1px solid rgba(34,197,94,.25)',
-              background: 'transparent', color: '#22c55e', fontSize: '11px', fontWeight: 600,
-              cursor: takeoffItems.length > 0 ? 'pointer' : 'not-allowed',
-              opacity: takeoffItems.length > 0 ? 1 : 0.3, touchAction: 'manipulation',
-            }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            {!isMobile && 'Excel'}
-          </button>
-          <button onClick={handleExportPdf} disabled={takeoffItems.length === 0}
-            title="Export to PDF"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              padding: '4px 8px', borderRadius: '5px',
-              border: '1px solid rgba(248,113,113,.25)',
-              background: 'transparent', color: '#f87171', fontSize: '11px', fontWeight: 600,
-              cursor: takeoffItems.length > 0 ? 'pointer' : 'not-allowed',
-              opacity: takeoffItems.length > 0 ? 1 : 0.3, touchAction: 'manipulation',
-            }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            {!isMobile && 'PDF'}
-          </button>
-        </div>
+        {/* Complete-project export. Drawing-level exports remain available in the Measurements grid. */}
+        <button
+          onClick={() => setShowProjectExportModal(true)}
+          disabled={!selectedProject || drawings.length === 0}
+          title="Export measurements from every PDF and page in this project"
+          aria-label="Project Measurements Export"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 5,
+            border: '1px solid rgba(96,165,250,.35)', background: 'rgba(59,130,246,.07)',
+            color: '#60a5fa', fontSize: 11, fontWeight: 700, flexShrink: 0,
+            cursor: selectedProject && drawings.length > 0 ? 'pointer' : 'not-allowed',
+            opacity: selectedProject && drawings.length > 0 ? 1 : .35, touchAction: 'manipulation',
+          }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <path d="M14 17h7M17.5 13.5v7"/>
+          </svg>
+          {!isMobile && 'Project Export'}
+        </button>
 
         {/* Data panel toggle */}
         <button onClick={() => {
@@ -5602,6 +5647,18 @@ export default function DrawingsPage() {
           drawingName={selectedDrawing.name}
           onClose={() => setShowExtractModal(false)}
           onSaved={handleExtractionSaved}
+        />
+      )}
+
+      {showProjectExportModal && (
+        <ProjectExportModal
+          project={selectedProject}
+          drawings={drawings}
+          loadingFormat={projectExporting}
+          onExport={handleProjectExport}
+          onClose={() => {
+            if (!projectExporting) setShowProjectExportModal(false)
+          }}
         />
       )}
 
