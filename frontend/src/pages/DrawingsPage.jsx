@@ -974,6 +974,7 @@ export default function DrawingsPage() {
   const [showExtractModal, setShowExtractModal]  = useState(false)
   const [showProjectExportModal, setShowProjectExportModal] = useState(false)
   const [projectExporting, setProjectExporting] = useState(null)
+  const [markedUpPdfExporting, setMarkedUpPdfExporting] = useState(null)
   const [measurementSections, setMeasurementSections] = useState([])
   const [sectionSelection, setSectionSelection] = useState(null)
   const [sectionSaving, setSectionSaving] = useState(false)
@@ -984,6 +985,7 @@ export default function DrawingsPage() {
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [bottomView, setBottomView] = useState('measurements')
   const sectionPlacementSavingRef = useRef(false)
+  const drawingViewerRef = useRef(null)
   const lastSectionPlacementRef = useRef(null)
   const previousSectionDrawingIdRef = useRef(null)
   const sectionDrawingNavigationRef = useRef(null)
@@ -4856,6 +4858,30 @@ export default function DrawingsPage() {
     }
   }, [projectExporting, selectedDrawing?.id, selectedProject, takeoffItems])
 
+  const handleMarkedUpPdfExport = useCallback(async () => {
+    if (!selectedDrawing || markedUpPdfExporting) return
+    const exporter = drawingViewerRef.current?.exportMarkedUpPdf
+    if (!exporter) {
+      toast.error('The drawing is still loading — please try again in a moment')
+      return
+    }
+
+    setCtxMenu(null)
+    setMarkedUpPdfExporting({ page: 0, total: 0 })
+    try {
+      const result = await exporter({
+        drawingName: selectedDrawing.name,
+        onProgress: progress => setMarkedUpPdfExporting(progress),
+      })
+      toast.success(`Marked-up PDF saved — ${result.pages} page${result.pages === 1 ? '' : 's'}`, { duration: 3000 })
+    } catch (error) {
+      console.error('[BuildTakeoff] marked-up PDF export failed:', error)
+      toast.error('Marked-up PDF could not be created — please try again')
+    } finally {
+      setMarkedUpPdfExporting(null)
+    }
+  }, [markedUpPdfExporting, selectedDrawing])
+
   const drawingUrl        = selectedDrawing ? drawingService.getFileUrl(selectedDrawing.id) : null
   const selectedAnnotItem = selectedAnnotId
     ? takeoffItems.find(t => String(t.id) === String(selectedAnnotId))
@@ -5034,6 +5060,25 @@ export default function DrawingsPage() {
             <path d="M14 17h7M17.5 13.5v7"/>
           </svg>
           {!isMobile && 'Project Export'}
+        </button>
+
+        <button
+          onClick={handleMarkedUpPdfExport}
+          disabled={!selectedDrawing || Boolean(markedUpPdfExporting)}
+          title="Save the current drawing with all visible markups across every page"
+          aria-label="Save Marked-Up PDF"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 5,
+            border: '1px solid rgba(248,113,113,.32)', background: 'rgba(248,113,113,.07)',
+            color: '#f87171', fontSize: 11, fontWeight: 700, flexShrink: 0,
+            cursor: selectedDrawing && !markedUpPdfExporting ? 'pointer' : 'not-allowed',
+            opacity: selectedDrawing && !markedUpPdfExporting ? 1 : .4, touchAction: 'manipulation',
+          }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6M8 13h8M8 17h5"/>
+          </svg>
+          {!isMobile && (markedUpPdfExporting ? 'Saving…' : 'Marked-Up PDF')}
         </button>
 
         {/* Data panel toggle */}
@@ -5275,6 +5320,7 @@ export default function DrawingsPage() {
             onClick={ctxMenu ? closeCtxMenu : undefined}
           >
             <DrawingViewer
+              ref={drawingViewerRef}
               key={`${selectedProject?.id ?? 'p'}-${selectedDrawing?.id ?? 'd'}`}
               drawingUrl={drawingUrl}
               drawing={activeDrawing}
@@ -5324,6 +5370,35 @@ export default function DrawingsPage() {
                 } catch (_) {}
               }}
             />
+
+            {markedUpPdfExporting && (
+              <div role="status" aria-live="polite" style={{
+                position: 'absolute', inset: 0, zIndex: 30,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(2,6,23,.72)', backdropFilter: 'blur(2px)',
+              }}>
+                <div style={{
+                  minWidth: 260, padding: '17px 20px', borderRadius: 10, textAlign: 'center',
+                  background: '#0D1526', border: '1px solid rgba(248,113,113,.3)',
+                  boxShadow: '0 16px 45px rgba(0,0,0,.45)',
+                }}>
+                  <div style={{ color: '#f8fafc', fontSize: 13, fontWeight: 800 }}>Saving Marked-Up PDF</div>
+                  <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 10.5 }}>
+                    {markedUpPdfExporting.total > 0
+                      ? `Rendering page ${markedUpPdfExporting.page} of ${markedUpPdfExporting.total}`
+                      : 'Preparing all drawing pages…'}
+                  </div>
+                  <div style={{ height: 4, marginTop: 12, overflow: 'hidden', borderRadius: 4, background: '#1e293b' }}>
+                    <div style={{
+                      width: markedUpPdfExporting.total > 0
+                        ? `${Math.min(100, (markedUpPdfExporting.page / markedUpPdfExporting.total) * 100)}%`
+                        : '8%',
+                      height: '100%', borderRadius: 4, background: '#f87171', transition: 'width .2s ease',
+                    }} />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Right-click context menu */}
             {ctxMenu && (

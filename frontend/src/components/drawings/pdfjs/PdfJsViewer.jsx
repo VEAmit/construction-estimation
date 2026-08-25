@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import { useAppStore } from '../../../store/useAppStore'
 import PdfJsPage, { clearDocumentBitmaps } from './PdfJsPage'
 import { normalizeAnnotations } from './pdfGeometryAdapter'
+import { exportMarkedUpPdfDocument } from '../../../utils/markedUpPdfExport'
 import './pdfJsViewer.css'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.mjs`
@@ -113,7 +114,7 @@ function commandAnnotationIds(command) {
   ].filter(Boolean).map(String)))
 }
 
-export default function PdfJsViewer({
+const PdfJsViewer = forwardRef(function PdfJsViewer({
   drawingUrl,
   annotations = [],
   selectedAnnotationId,
@@ -136,7 +137,7 @@ export default function PdfJsViewer({
   onSectionPlacement,
   onSectionPlacementContextMenu,
   measureReleaseRef,
-}) {
+}, ref) {
   const containerRef = useRef(null)
   const loadingTaskRef = useRef(null)
   const visibilityRef = useRef(new Map())
@@ -456,6 +457,27 @@ export default function PdfJsViewer({
     )
     return [...saved, ...pending]
   }, [annotations, hiddenAnnotationIds, optimisticGeometry, pageMetrics, pendingAnnotations])
+
+  useImperativeHandle(ref, () => ({
+    exportMarkedUpPdf: ({ drawingName, onProgress } = {}) => exportMarkedUpPdfDocument({
+      pdfDocument,
+      annotations: normalizedAnnotations,
+      sectionPlacements,
+      sectionFocuses: sectionFocuses.length > 0 ? sectionFocuses : (sectionFocus ? [sectionFocus] : []),
+      sectionMeasurementColors,
+      sectionDraftColor,
+      drawingName,
+      onProgress,
+    }),
+  }), [
+    normalizedAnnotations,
+    pdfDocument,
+    sectionDraftColor,
+    sectionFocus,
+    sectionFocuses,
+    sectionMeasurementColors,
+    sectionPlacements,
+  ])
 
   const handleMeasure = useCallback(async (measurement, options) => {
     const raw = measurement?.rawAnnotation
@@ -796,4 +818,6 @@ export default function PdfJsViewer({
       )}
     </div>
   )
-}
+})
+
+export default PdfJsViewer
