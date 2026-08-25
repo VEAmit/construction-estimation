@@ -336,51 +336,58 @@ export default function MemberSchedulePanel({
     })
   }
 
-  const renderEstimationFields = (row, setBuf, isNew) => (
+  const renderEstimationControls = (row, isNew, compact = false) => (
+    <div style={compact
+      ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, alignItems: 'end' }
+      : { display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+      <label style={estLabel}>
+        Unit wt (kg/m)
+        <input value={row.unitWeight || ''} type="number" min="0" step="0.1" placeholder="—"
+          onChange={e => (isNew ? set(newRow, setNewRow, 'unitWeight', +e.target.value) : setEditBuf(b => ({ ...b, unitWeight: +e.target.value })))}
+          style={{ ...ei, width: compact ? '100%' : '72px', boxSizing: 'border-box' }} />
+      </label>
+      <label style={estLabel}>
+        Length (m)
+        <input value={row.length || ''} type="number" min="0" step="0.01" placeholder="—"
+          onChange={e => (isNew ? set(newRow, setNewRow, 'length', +e.target.value) : setEditBuf(b => ({ ...b, length: +e.target.value })))}
+          style={{ ...ei, width: compact ? '100%' : '72px', boxSizing: 'border-box' }} />
+      </label>
+      <label style={estLabel}>
+        Qty
+        <input value={row.quantity || ''} type="number" min="0" step="1" placeholder="—"
+          onChange={e => (isNew ? set(newRow, setNewRow, 'quantity', +e.target.value) : setEditBuf(b => ({ ...b, quantity: +e.target.value })))}
+          style={{ ...ei, width: compact ? '100%' : '52px', boxSizing: 'border-box' }} />
+      </label>
+      <label style={{ ...estLabel, ...(compact ? { gridColumn: '1 / -1' } : {}) }}>
+        Link measurement
+        <select value={row.takeoffItemId ?? ''}
+          className="app-select"
+          onChange={e => applyLinkedMeasurement(isNew ? setNewRow : setEditBuf, e.target.value)}
+          style={{ ...es, width: compact ? '100%' : '130px', boxSizing: 'border-box' }}>
+          <option value="">— None —</option>
+          {linkableItems.map(t => (
+            <option key={t.id} value={t.id}>
+              {t.mark || `#${t.id}`}{t.length != null ? ` (${t.length.toFixed(2)})` : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      {(row.unitWeight > 0 && row.length > 0 && row.quantity > 0) && (
+        <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 700,
+          ...(compact ? { gridColumn: '1 / -1' } : {}) }}>
+          Total: {calcTotal(row).toFixed(1)} kg
+        </span>
+      )}
+    </div>
+  )
+
+  const renderEstimationFields = (row, isNew) => (
     <tr style={{ background: 'rgba(239,35,60,.04)', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
       <td colSpan={DISPLAY_HEADERS.length} style={{ padding: '8px 12px 10px 16px' }}>
         <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
           Optional — add for weight calculation (not from PDF extraction)
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          <label style={estLabel}>
-            Unit wt (kg/m)
-            <input value={row.unitWeight || ''} type="number" min="0" step="0.1" placeholder="—"
-              onChange={e => (isNew ? set(newRow, setNewRow, 'unitWeight', +e.target.value) : setEditBuf(b => ({ ...b, unitWeight: +e.target.value })))}
-              style={{ ...ei, width: '72px' }} />
-          </label>
-          <label style={estLabel}>
-            Length (m)
-            <input value={row.length || ''} type="number" min="0" step="0.01" placeholder="—"
-              onChange={e => (isNew ? set(newRow, setNewRow, 'length', +e.target.value) : setEditBuf(b => ({ ...b, length: +e.target.value })))}
-              style={{ ...ei, width: '72px' }} />
-          </label>
-          <label style={estLabel}>
-            Qty
-            <input value={row.quantity || ''} type="number" min="0" step="1" placeholder="—"
-              onChange={e => (isNew ? set(newRow, setNewRow, 'quantity', +e.target.value) : setEditBuf(b => ({ ...b, quantity: +e.target.value })))}
-              style={{ ...ei, width: '52px' }} />
-          </label>
-          <label style={estLabel}>
-            Link measurement
-            <select value={row.takeoffItemId ?? ''}
-              className="app-select"
-              onChange={e => applyLinkedMeasurement(isNew ? setNewRow : setEditBuf, e.target.value)}
-              style={{ ...es, width: '130px' }}>
-              <option value="">— None —</option>
-              {linkableItems.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.mark || `#${t.id}`}{t.length != null ? ` (${t.length.toFixed(2)})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          {(row.unitWeight > 0 && row.length > 0 && row.quantity > 0) && (
-            <span style={{ fontSize: '11px', color: '#22c55e', fontWeight: 700 }}>
-              Total: {calcTotal(row).toFixed(1)} kg
-            </span>
-          )}
-        </div>
+        {renderEstimationControls(row, isNew)}
       </td>
     </tr>
   )
@@ -547,6 +554,99 @@ export default function MemberSchedulePanel({
         </span>
       </div>
 
+      {addMode && (
+        <section
+          aria-label="Add member form"
+          style={{
+            flexShrink: 0, margin: '8px 10px', padding: '10px', maxHeight: 'min(54vh, 390px)',
+            overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box',
+            background: '#0D1526', border: '1px solid rgba(239,35,60,.28)', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,.28)',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{
+              width: 22, height: 22, flexShrink: 0, borderRadius: 5,
+              background: '#EF233C', border: '2px solid rgba(255,255,255,.18)', opacity: .72,
+            }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#f1f5f9', fontSize: 12, fontWeight: 800 }}>Add project member</div>
+              <div style={{ color: '#64748b', fontSize: 10 }}>Enter the member details, then save below.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+            <label style={memberFormLabel}>
+              <span>Mark <span style={{ color: '#EF233C' }}>*</span></span>
+              <input
+                value={newRow.mark}
+                onChange={e => set(newRow, setNewRow, 'mark', e.target.value)}
+                placeholder="SC2"
+                autoFocus
+                style={{ ...ei, width: '100%', boxSizing: 'border-box' }}
+              />
+            </label>
+            <label style={memberFormLabel}>
+              <span>Section size</span>
+              <input
+                value={newRow.memberSize}
+                onChange={e => set(newRow, setNewRow, 'memberSize', e.target.value)}
+                placeholder="360UB45"
+                style={{ ...ei, width: '100%', boxSizing: 'border-box' }}
+                list="steel-sections-list"
+              />
+              <datalist id="steel-sections-list">
+                {steelSections.map(s => <option key={s.code} value={s.code} />)}
+              </datalist>
+            </label>
+            <label style={{ ...memberFormLabel, gridColumn: '1 / -1' }}>
+              <span>Type</span>
+              <select
+                className="app-select"
+                value={newRow.memberType}
+                onChange={e => set(newRow, setNewRow, 'memberType', e.target.value)}
+                style={{ ...es, width: '100%', boxSizing: 'border-box' }}>
+                {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <div style={{
+            margin: '11px -10px 0', padding: '9px 10px 0',
+            borderTop: '1px solid rgba(255,255,255,.07)',
+          }}>
+            <div style={{
+              fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '.06em', marginBottom: 8,
+            }}>
+              Optional — weight calculation
+            </div>
+            {renderEstimationControls(newRow, true, true)}
+          </div>
+
+          <div style={{
+            position: 'sticky', bottom: -10, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)',
+            gap: 8, margin: '10px -10px -10px', padding: '10px',
+            background: '#0D1526', borderTop: '1px solid rgba(255,255,255,.08)',
+          }}>
+            <button
+              type="button"
+              onClick={() => { setAddMode(false); setNewRow({ ...emptyRow }) }}
+              aria-label="Cancel adding member"
+              style={memberFormButton('#64748b')}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveNew}
+              disabled={saving}
+              aria-label="Save new member"
+              style={{ ...memberFormButton('#22c55e'), fontWeight: 800, opacity: saving ? .65 : 1 }}>
+              {saving ? 'Saving…' : '✓ Save Member'}
+            </button>
+          </div>
+        </section>
+      )}
+
       <div ref={tableScrollRef} style={{ flex: 1, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
@@ -555,50 +655,14 @@ export default function MemberSchedulePanel({
                 <th key={i} style={{ padding: '7px 8px', textAlign: i === 0 ? 'center' : 'left', fontSize: '10px',
                   fontWeight: 800, color: '#EF233C', textTransform: 'uppercase',
                   letterSpacing: '.07em', borderBottom: '2px solid rgba(239,35,60,.35)',
-                  width: i === 0 ? '52px' : undefined }}>
+                  width: i === 0 ? '52px' : undefined,
+                  ...(i === DISPLAY_HEADERS.length - 1 ? stickyActionHeader : {}) }}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {addMode && (
-              <>
-                <tr style={{ background: 'rgba(239,35,60,.06)', borderBottom: '1px solid rgba(239,35,60,.15)' }}>
-                  <td style={{ padding: '4px 6px', width: '52px', textAlign: 'center' }}>
-                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#EF233C', margin: '0 auto', border: '2px solid rgba(255,255,255,.18)', opacity: 0.5 }} />
-                  </td>
-                  <td style={td}>
-                    <input value={newRow.mark} onChange={e => set(newRow, setNewRow, 'mark', e.target.value)}
-                      placeholder="SC2" autoFocus style={{ ...ei, width: '64px' }} />
-                  </td>
-                  <td style={td}>
-                    <input value={newRow.memberSize} onChange={e => set(newRow, setNewRow, 'memberSize', e.target.value)}
-                      placeholder="360UB45" style={{ ...ei, width: '100px' }} list="steel-sections-list" />
-                    <datalist id="steel-sections-list">
-                      {steelSections.map(s => <option key={s.code} value={s.code} />)}
-                    </datalist>
-                  </td>
-                  <td style={td}>
-                    <select className="app-select" value={newRow.memberType}
-                      onChange={e => set(newRow, setNewRow, 'memberType', e.target.value)}
-                      style={{ ...es, width: '88px' }}>
-                      {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <span style={{ display: 'flex', gap: '3px' }}>
-                      <button onClick={handleSaveNew} disabled={saving} style={ab('#22c55e')}>
-                        {saving ? '…' : '✓'}
-                      </button>
-                      <button onClick={() => setAddMode(false)} style={ab('#475569')}>✕</button>
-                    </span>
-                  </td>
-                </tr>
-                {renderEstimationFields(newRow, setNewRow, true)}
-              </>
-            )}
-
             {filteredMemberScheduleItems.length === 0 && !addMode ? (
               <tr>
                 <td colSpan={DISPLAY_HEADERS.length} style={{ padding: '40px', textAlign: 'center' }}>
@@ -679,21 +743,26 @@ export default function MemberSchedulePanel({
                             {item.memberType}
                           </span>}
                     </td>
-                    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                    <td style={{
+                      ...td, ...stickyActionCell, whiteSpace: 'nowrap',
+                      background: isEditing ? '#15101A' : isSelected ? '#0B1717' : '#080B12',
+                    }}>
                       {isEditing ? (
                         <span style={{ display: 'flex', gap: '3px' }}>
-                          <button onClick={handleSaveEdit} disabled={saving} style={ab('#22c55e')}>{saving ? '…' : '✓'}</button>
-                          <button onClick={cancelEdit} style={ab('#475569')}>✕</button>
+                          <button onClick={handleSaveEdit} disabled={saving} style={ab('#22c55e')}
+                            title="Save changes" aria-label="Save member changes">{saving ? '…' : '✓'}</button>
+                          <button onClick={cancelEdit} style={ab('#475569')}
+                            title="Cancel editing" aria-label="Cancel member editing">✕</button>
                         </span>
                       ) : (
                         <span style={{ display: 'flex', gap: '3px' }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => startEdit(item)} style={ab('#EF233C')} title="Edit">✎</button>
-                          <button onClick={() => handleDelete(item)} style={ab('#f87171')} title="Delete">✕</button>
+                          <button onClick={() => startEdit(item)} style={ab('#EF233C')} title="Edit" aria-label={`Edit ${item.mark}`}>✎</button>
+                          <button onClick={() => handleDelete(item)} style={ab('#f87171')} title="Delete" aria-label={`Delete ${item.mark}`}>✕</button>
                         </span>
                       )}
                     </td>
                   </tr>
-                  {isEditing && renderEstimationFields(editBuf, setEditBuf, false)}
+                  {isEditing && renderEstimationFields(editBuf, false)}
                 </Fragment>
               )
             })}
@@ -724,4 +793,21 @@ const ab = (color) => ({
 const estLabel = {
   display: 'flex', flexDirection: 'column', gap: '3px',
   fontSize: '10px', color: '#475569', fontWeight: 600,
+}
+const memberFormLabel = {
+  display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0,
+  fontSize: 10, color: '#94a3b8', fontWeight: 700,
+}
+const memberFormButton = (color) => ({
+  minWidth: 0, minHeight: 32, padding: '7px 8px', boxSizing: 'border-box',
+  borderRadius: 6, border: `1px solid ${color}55`, background: `${color}14`,
+  color, cursor: 'pointer', fontSize: 11, whiteSpace: 'nowrap',
+})
+const stickyActionHeader = {
+  position: 'sticky', right: 0, zIndex: 3, minWidth: 56,
+  background: '#0D1526', boxShadow: '-8px 0 12px rgba(8,11,18,.88)',
+}
+const stickyActionCell = {
+  position: 'sticky', right: 0, zIndex: 2, minWidth: 52,
+  boxShadow: '-8px 0 12px rgba(8,11,18,.84)',
 }
