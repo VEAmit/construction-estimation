@@ -43,7 +43,7 @@ export default function DashboardPage() {
     setCreating(true)
     try {
       const proj = await projectService.create(form)
-      setProjects([...projects, proj])
+      setProjects([proj, ...projects])
       setForm(emptyForm)
       setShowCreate(false)
       toast.success(`Project "${proj.name}" created`)
