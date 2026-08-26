@@ -103,10 +103,12 @@ function PdfJsPage({
   sectionFocuses,
   sectionMeasurementColors,
   sectionDraftColor,
+  measurementGroupSelection,
   sectionEditMode,
   onSectionEditRequest,
   onMeasure,
   onSectionSelection,
+  onMeasurementGroupSelection,
   onSectionPlacement,
   onSectionPlacementContextMenu,
   onSelect,
@@ -386,10 +388,12 @@ function PdfJsPage({
         sectionFocuses={sectionFocuses}
         sectionMeasurementColors={sectionMeasurementColors}
         sectionDraftColor={sectionDraftColor}
+        measurementGroupSelection={measurementGroupSelection}
         sectionEditMode={sectionEditMode}
         onSectionEditRequest={onSectionEditRequest}
         onMeasure={handleMeasure}
         onSectionSelection={onSectionSelection}
+        onMeasurementGroupSelection={onMeasurementGroupSelection}
         onSectionPlacement={onSectionPlacement}
         onSectionPlacementContextMenu={onSectionPlacementContextMenu}
         onSelect={onSelect}

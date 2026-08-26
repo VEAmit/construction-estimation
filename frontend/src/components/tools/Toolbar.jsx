@@ -18,6 +18,13 @@ const MEASURE_TOOLS = [
     </svg>,
   },
   {
+    id: 'group-select', label: 'Select Group', shortcut: 'B', color: '#EF233C',
+    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="16" rx="1" strokeDasharray="3 2"/>
+      <path d="m14 13 6 6m-6 0 6-6"/>
+    </svg>,
+  },
+  {
     id: 'area', label: 'Area', shortcut: 'A', color: '#22c55e',
     icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
@@ -172,8 +179,9 @@ export default function Toolbar({
   const isMarkup  = ALL_MARKUP_IDS.includes(activeTool)
   const isCount   = activeTool === 'count'
   const isSection = activeTool === 'section'
+  const isGroupSelect = activeTool === 'group-select'
   const isLine    = activeTool === 'line' || activeTool === 'perimeter' || activeTool === 'calibrate'
-  const showStyleBar = (isMeasure && !isSection) || isMarkup
+  const showStyleBar = (isMeasure && !isSection && !isGroupSelect) || isMarkup
 
   const pickTool = (toolId) => {
     if (onPickMeasureTool && ALL_MEASURE_IDS.includes(toolId)) {
@@ -354,7 +362,7 @@ export default function Toolbar({
           <Sep />
 
           {/* ── Action buttons ── */}
-          {isCount ? null : ((isMeasure && !isSection) || isMarkup) ? (
+          {isCount ? null : ((isMeasure && !isSection && !isGroupSelect) || isMarkup) ? (
             <button
               onClick={() => (activeTool === 'calibrate' ? onSaveCalib?.() : triggerPdfCommand('captureAnnotations'))}
               title={activeTool === 'calibrate' ? 'Enter real-world length for calibration line' : 'Save drawn annotations'}

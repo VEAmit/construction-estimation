@@ -636,10 +636,12 @@ function PdfSvgOverlay({
   sectionFocuses = [],
   sectionMeasurementColors = [],
   sectionDraftColor = '#3B82F6',
+  measurementGroupSelection,
   sectionEditMode,
   onSectionEditRequest,
   onMeasure,
   onSectionSelection,
+  onMeasurementGroupSelection,
   onSectionPlacement,
   onSectionPlacementContextMenu,
   onSelect,
@@ -852,7 +854,11 @@ function PdfSvgOverlay({
     // not make ordinary wheel movement resize its label in the middle of the
     // paste workflow. Ending paste mode restores the existing selected-label
     // wheel resize behaviour automatically.
-    if (!svg || pasteClipboard || selectedAnnotationId == null) return undefined
+    // A rectangle-built group selection keeps one annotation as its primary
+    // item for existing grid/context-menu behaviour. That primary must not
+    // turn the page wheel into label resizing: users still need to scroll and
+    // navigate while the selected rectangle remains visible.
+    if (!svg || pasteClipboard || measurementGroupSelection || selectedAnnotationId == null) return undefined
     const selected = pageAnnotations.find(a => [a.id, a.dbId].some(
       id => id != null && String(id) === String(selectedAnnotationId)
     ))
@@ -863,7 +869,7 @@ function PdfSvgOverlay({
     }
     svg.addEventListener('wheel', handleWheel, { passive: false })
     return () => svg.removeEventListener('wheel', handleWheel)
-  }, [selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber, pasteClipboard])
+  }, [measurementGroupSelection, selectedAnnotationId, pageAnnotations, onLabelSizeChange, pageNumber, pasteClipboard])
 
   // Bluebeam-style paste uses the final endpoint of the first copied line as
   // its cursor/reference point. translateRawLine accepts a target centre, so
@@ -1137,15 +1143,15 @@ function PdfSvgOverlay({
     // capturing so the gesture bubbles up to the viewer's own pan handler
     // instead of starting/finalizing a draw.
     if (spaceHeld) return
-    if (activeTool === 'section' && event.button === 0 && !pasteClipboard) {
+    if (['section', 'group-select'].includes(activeTool) && event.button === 0 && !pasteClipboard) {
       // While editing a saved section, only its visible resize handles should
       // change the boundary. Clicking elsewhere must not start a second group.
-      if (sectionEditMode?.id) return
+      if (activeTool === 'section' && sectionEditMode?.id) return
       if (!svgRef.current) return
       event.preventDefault()
       event.stopPropagation()
       const point = toPdfPoint(event, svgRef.current, pageSize)
-      if (sectionPlacementMode?.id) {
+      if (activeTool === 'section' && sectionPlacementMode?.id) {
         onSectionPlacement?.({
           sectionId: sectionPlacementMode.id,
           pageNumber,
@@ -1256,7 +1262,9 @@ function PdfSvgOverlay({
       setSectionResizeBounds(bounds)
       return
     }
-    if (sectionStartRef.current && activeTool === 'section' && !sectionPlacementMode?.id) {
+    if (sectionStartRef.current
+      && ['section', 'group-select'].includes(activeTool)
+      && !(activeTool === 'section' && sectionPlacementMode?.id)) {
       setSectionCursor(rawPoint)
       return
     }
@@ -1396,7 +1404,10 @@ function PdfSvgOverlay({
       return
     }
     const start = sectionStartRef.current
-    if (start && activeTool === 'section' && !sectionPlacementMode?.id && svgRef.current) {
+    if (start
+      && ['section', 'group-select'].includes(activeTool)
+      && !(activeTool === 'section' && sectionPlacementMode?.id)
+      && svgRef.current) {
       const end = toPdfPoint(event, svgRef.current, pageSize)
       sectionStartRef.current = null
       setSectionStart(null)
@@ -1406,7 +1417,7 @@ function PdfSvgOverlay({
       const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
       if (bounds.width * pageScale < 8 || bounds.height * pageScale < 8) return
       const selected = pageAnnotations.filter(annotation => annotationIntersectsBounds(annotation, bounds))
-      onSectionSelection?.({
+      const selection = {
         pageNumber,
         pageSize: { ...pageSize },
         bounds,
@@ -1415,11 +1426,21 @@ function PdfSvgOverlay({
           y: (bounds.top + bounds.bottom) / 2,
         },
         annotations: selected,
-      })
+      }
+      if (activeTool === 'group-select') {
+        // Releasing a captured drag is followed by a synthetic click on the
+        // SVG root. Consume that click so it cannot immediately run the
+        // empty-space deselection path and erase the selection outline.
+        shapeInteractedRef.current = true
+        setTimeout(() => { shapeInteractedRef.current = false }, 0)
+        onMeasurementGroupSelection?.(selection)
+      } else {
+        onSectionSelection?.(selection)
+      }
       return
     }
     endDrag(event)
-  }, [activeTool, endDrag, onSectionSelection, pageAnnotations, pageNumber, pageSize, sectionPlacementMode, viewerScale])
+  }, [activeTool, endDrag, onMeasurementGroupSelection, onSectionSelection, pageAnnotations, pageNumber, pageSize, sectionPlacementMode, viewerScale])
 
   const handlePointerCancel = useCallback((event) => {
     if (sectionResizeRef.current?.pointerId === event.pointerId) {
@@ -1440,7 +1461,8 @@ function PdfSvgOverlay({
 
   const dimensionCommandActive = ['line', 'calibrate'].includes(activeTool)
   const sectionCommandActive = activeTool === 'section'
-  const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive || sectionCommandActive
+  const groupSelectionCommandActive = activeTool === 'group-select'
+  const interactive = pasteClipboard || activeTool === 'select' || dimensionCommandActive || sectionCommandActive || groupSelectionCommandActive
   const sectionColorByAnnotationId = new Map()
   sectionMeasurementColors
     .filter(section => Number(section.pageNumber) === Number(pageNumber))
@@ -1504,7 +1526,7 @@ function PdfSvgOverlay({
           </rect>
         )
       })}
-      <g pointerEvents={pasteClipboard || dimensionCommandActive || sectionCommandActive ? 'none' : 'auto'}>
+      <g pointerEvents={pasteClipboard || dimensionCommandActive || sectionCommandActive || groupSelectionCommandActive ? 'none' : 'auto'}>
         {pageAnnotations.map(annotation => (
           <AnnotationShape
             key={annotation.id}
@@ -1540,18 +1562,68 @@ function PdfSvgOverlay({
       {sectionStart && sectionCursor && !sectionPlacementMode?.id && (() => {
         const bounds = selectionBounds(sectionStart, sectionCursor)
         const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        const draftColor = activeTool === 'group-select' ? '#EF233C' : sectionDraftColor
         return (
           <rect
             x={bounds.left}
             y={bounds.top}
             width={bounds.width}
             height={bounds.height}
-            fill={colorWithAlpha(sectionDraftColor, .1)}
-            stroke={sectionDraftColor}
+            fill={colorWithAlpha(draftColor, .1)}
+            stroke={draftColor}
             strokeWidth={1.5 / pageScale}
             strokeDasharray={`${6 / pageScale} ${4 / pageScale}`}
             pointerEvents="none"
           />
+        )
+      })()}
+      {Number(measurementGroupSelection?.pageNumber) === Number(pageNumber) && (() => {
+        const bounds = measurementGroupSelection?.bounds
+        if (!bounds
+          || !Number.isFinite(Number(bounds.left))
+          || !Number.isFinite(Number(bounds.top))
+          || !Number.isFinite(Number(bounds.width))
+          || !Number.isFinite(Number(bounds.height))) return null
+
+        const pageScale = Number.isFinite(viewerScale) && viewerScale > 0 ? viewerScale : 1
+        const selectionColor = '#EF233C'
+        const count = Math.max(0, Number(measurementGroupSelection?.count) || 0)
+        const label = `${count} selected`
+        const labelHeight = 18 / pageScale
+        const labelWidth = Math.max(70, label.length * 6.2) / pageScale
+        const labelX = Number(bounds.left) + 4 / pageScale
+        const labelY = Number(bounds.top) + 4 / pageScale
+
+        return (
+          <g className="pdfjs-measurement-group-selection" pointerEvents="none">
+            <rect
+              x={bounds.left}
+              y={bounds.top}
+              width={bounds.width}
+              height={bounds.height}
+              fill={colorWithAlpha(selectionColor, .08)}
+              stroke={selectionColor}
+              strokeWidth={2 / pageScale}
+              strokeDasharray={`${7 / pageScale} ${4 / pageScale}`}
+            />
+            <rect
+              x={labelX}
+              y={labelY}
+              width={labelWidth}
+              height={labelHeight}
+              rx={3 / pageScale}
+              fill={selectionColor}
+            />
+            <text
+              x={labelX + 7 / pageScale}
+              y={labelY + 12.5 / pageScale}
+              fill="#FFFFFF"
+              fontSize={10 / pageScale}
+              fontWeight="700"
+            >
+              {label}
+            </text>
+          </g>
         )
       })()}
       {visiblePageSectionFocuses.map(sectionFocus => {

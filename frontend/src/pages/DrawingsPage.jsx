@@ -1010,10 +1010,12 @@ export default function DrawingsPage() {
   // copy/paste path branches on `.size > 1`.
   const [selectedAnnotIds, setSelectedAnnotIds] = useState(() => new Set())
   const [selectedViewerAnnotIds, setSelectedViewerAnnotIds] = useState(() => new Set())
+  const [measurementGroupSelection, setMeasurementGroupSelection] = useState(null)
   const selectedAnnotIdsRef = useRef(new Set())
   const selectedViewerAnnotIdsRef = useRef(new Set())
 
   const clearAllSelection = useCallback(() => {
+    setMeasurementGroupSelection(null)
     selectedOccurrenceAnnotIdRef.current = null
     setSelectedAnnotId(null)
     setSelectedViewerAnnotId(null)
@@ -1577,9 +1579,14 @@ export default function DrawingsPage() {
   useEffect(() => {
     if (prevPdfScaleRef.current === pdfScale) return
     prevPdfScaleRef.current = pdfScale
+    // Group-selection bounds use stable PDF coordinates, so they remain
+    // accurate through zoom and scroll. Preserve that explicit selection;
+    // ordinary single-measurement selection keeps its existing reset-on-zoom
+    // behaviour below.
+    if (measurementGroupSelection) return
     if (!selectedAnnotId && !selectedViewerAnnotId && selectedAnnotIds.size === 0) return
     clearAllSelection()
-  }, [pdfScale, selectedAnnotId, selectedViewerAnnotId, selectedAnnotIds, clearAllSelection])
+  }, [pdfScale, measurementGroupSelection, selectedAnnotId, selectedViewerAnnotId, selectedAnnotIds, clearAllSelection])
 
   // Close mobile drawers on route change or desktop switch
   useEffect(() => {
@@ -2046,6 +2053,10 @@ export default function DrawingsPage() {
     } else {
       setActiveSectionId(null)
       setSectionSelection(null)
+      if (toolId === 'group-select') {
+        clearAllSelection()
+        clearCopiedMeasurements()
+      }
     }
     if (toolId === 'calibrate') {
       calibrationDrawPendingRef.current = true
@@ -2067,8 +2078,8 @@ export default function DrawingsPage() {
       setLineThickness(2)
     }
     setActiveTool(toolId)
-    triggerPdfCommand('ensureMeasureMode')
-  }, [clearAllSelection, setActiveTool, triggerPdfCommand, setLineThickness])
+    if (toolId !== 'group-select') triggerPdfCommand('ensureMeasureMode')
+  }, [clearAllSelection, clearCopiedMeasurements, setActiveTool, triggerPdfCommand, setLineThickness])
 
   const activeMeasurementSection = useMemo(
     () => measurementSections.find(section => Number(section.id) === Number(activeSectionId)) ?? null,
@@ -3872,6 +3883,60 @@ export default function DrawingsPage() {
     }
   }, [takeoffItems, pdfScale])
 
+  const handleMeasurementGroupSelection = useCallback((selection) => {
+    const annotations = Array.isArray(selection?.annotations) ? selection.annotations : []
+    if (!annotations.length) {
+      toast.error('No measurements were found inside that rectangle')
+      return
+    }
+
+    const viewerIds = new Set(annotations
+      .map(annotation => annotation?.id)
+      .filter(id => id != null)
+      .map(String))
+    const rowIds = new Set(annotations
+      .map(annotation => Number(annotation?.dbId))
+      .filter(id => Number.isFinite(id) && id > 0))
+    if (!viewerIds.size || !rowIds.size) {
+      toast.error('No saved measurements were found inside that rectangle')
+      return
+    }
+
+    const primaryAnnotation = annotations[0]
+    const primaryViewerId = primaryAnnotation?.id == null ? null : String(primaryAnnotation.id)
+    const primaryDbId = Number.isFinite(Number(primaryAnnotation?.dbId))
+      ? Number(primaryAnnotation.dbId)
+      : (primaryViewerId == null ? null : resolveMeasurementDbId(primaryViewerId))
+
+    // Rectangle selection mirrors Ctrl/Shift multi-selection. Copy remains an
+    // explicit user action through Ctrl+C, right-click Copy, or the toolbar.
+    clearCopiedMeasurements()
+    closeCtxMenu()
+    setMeasurementGroupSelection({
+      pageNumber: Number(selection?.pageNumber) || 1,
+      bounds: selection?.bounds ? { ...selection.bounds } : null,
+      count: viewerIds.size,
+    })
+    selectedAnnotIdsRef.current = rowIds
+    selectedViewerAnnotIdsRef.current = viewerIds
+    selectedOccurrenceAnnotIdRef.current = primaryViewerId
+    setSelectedAnnotIds(rowIds)
+    setSelectedViewerAnnotIds(viewerIds)
+    setSelectedAnnotId(primaryDbId)
+    setSelectedViewerAnnotId(primaryViewerId)
+    setStyleEditTargetId(primaryDbId)
+    annotStyleBaselineRef.current = null
+    if (primaryDbId) {
+      lastCopyTargetRef.current = primaryDbId
+      syncToolbarFromTakeoffItem(
+        takeoffItems.find(item => Number(item.id) === Number(primaryDbId)),
+        primaryViewerId,
+      )
+    }
+    setActiveTool('select')
+    toast.success(`${viewerIds.size} measurements selected — right-click or press Ctrl+C to copy`)
+  }, [clearCopiedMeasurements, closeCtxMenu, resolveMeasurementDbId, setActiveTool, syncToolbarFromTakeoffItem, takeoffItems])
+
   const handleCopyMeasurement = useCallback(() => {
     const selectedRowIds = [...selectedAnnotIdsRef.current]
     const selectedOccurrenceIds = [...selectedViewerAnnotIdsRef.current].map(String)
@@ -3965,7 +4030,8 @@ export default function DrawingsPage() {
     selectedViewerAnnotIds.size,
   )
   const canCopyMeasurement = selectedMeasurementCount > 1 ? true : !!copyTargetId
-  const canPasteMeasurement = !!measurementClipboard?.items?.length && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
+  const canPasteMeasurement = !!measurementClipboard?.items?.length
+    && (measurementClipboard.items[0].itemType || 'Line') === 'Line'
 
   // Reassign the selected PDF occurrences without moving their siblings.
   // Occurrences join an existing row for the destination member when one
@@ -4405,6 +4471,9 @@ export default function DrawingsPage() {
   }, [activeSectionId, activeTool, editingSectionId, focusedSectionId])
 
   const handleAnnotationSelect = useCallback((annotUuid, annotation = null, event = null) => {
+    // A direct measurement click replaces the rectangle-built selection, so
+    // its persisted area outline should disappear with that old selection.
+    setMeasurementGroupSelection(null)
     // Clicking a measurement after reviewing a section should first clear
     // the Eye-selected group. The clicked measurement is then selected by
     // the unchanged logic below, instead of remaining part of that group.
@@ -5352,9 +5421,11 @@ export default function DrawingsPage() {
               sectionFocuses={visibleSectionFocuses}
               sectionMeasurementColors={sectionMeasurementColors}
               sectionDraftColor={nextMeasurementSectionColor}
+              measurementGroupSelection={measurementGroupSelection}
               sectionEditMode={editingSectionId ? visibleSectionFocus : null}
               onSectionEditRequest={editMeasurementSectionById}
               onSectionSelection={handleSectionSelection}
+              onMeasurementGroupSelection={handleMeasurementGroupSelection}
               onSectionPlacement={handleSectionPlacement}
               onSectionPlacementContextMenu={handleSectionPlacementContextMenu}
               resolveMeasurementDbId={resolveMeasurementDbId}

@@ -131,9 +131,11 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
   sectionFocuses = [],
   sectionMeasurementColors = [],
   sectionDraftColor,
+  measurementGroupSelection,
   sectionEditMode,
   onSectionEditRequest,
   onSectionSelection,
+  onMeasurementGroupSelection,
   onSectionPlacement,
   onSectionPlacementContextMenu,
   measureReleaseRef,
@@ -143,6 +145,7 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
   const visibilityRef = useRef(new Map())
   const programmaticPageRef = useRef(null)
   const panRef = useRef(null)
+  const suppressPanClickRef = useRef(false)
   const initialFitAppliedRef = useRef(false)
   const zoomAnchorRef = useRef(null)
   const visibilityCommitRef = useRef(null)
@@ -681,6 +684,7 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
       y: event.clientY,
       left: container.scrollLeft,
       top: container.scrollTop,
+      moved: false,
     }
   }, [activeTool, spaceHeld, pasteClipboard])
 
@@ -688,15 +692,25 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
     const pan = panRef.current
     const container = containerRef.current
     if (!pan || !container || pan.pointerId !== event.pointerId) return
+    if (Math.abs(event.clientX - pan.x) >= 3 || Math.abs(event.clientY - pan.y) >= 3) {
+      pan.moved = true
+    }
     container.scrollLeft = pan.left - (event.clientX - pan.x)
     container.scrollTop = pan.top - (event.clientY - pan.y)
   }, [])
 
   const endPan = useCallback((event) => {
-    if (panRef.current?.pointerId !== event.pointerId) return
+    const pan = panRef.current
+    if (pan?.pointerId !== event.pointerId) return
     containerRef.current?.releasePointerCapture?.(event.pointerId)
     panRef.current = null
-  }, [])
+    if (pan.moved && measurementGroupSelection) {
+      // Pointer capture retargets the post-drag click to the viewer. Consume
+      // that click so navigation does not clear the selected group outline.
+      suppressPanClickRef.current = true
+      setTimeout(() => { suppressPanClickRef.current = false }, 0)
+    }
+  }, [measurementGroupSelection])
 
   const handleWheel = useCallback((event) => {
     if (!event.ctrlKey) return
@@ -744,6 +758,14 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
         if (event.button === 1) event.preventDefault()
       }}
       onClick={() => {
+        if (suppressPanClickRef.current) {
+          suppressPanClickRef.current = false
+          return
+        }
+        // Scrollbar/gutter clicks bubble directly to this container. They are
+        // navigation, not an intentional canvas deselection. Empty-space PDF
+        // clicks still clear through PdfSvgOverlay's own handler.
+        if (measurementGroupSelection) return
         // Safety net for Pan tool specifically: the page SVG is deliberately
         // pointer-events:none there (so panning isn't blocked by hit-testing
         // shapes), so no click ever reaches PdfSvgOverlay's own handleClick
@@ -792,10 +814,12 @@ const PdfJsViewer = forwardRef(function PdfJsViewer({
                 sectionFocuses={sectionFocuses}
                 sectionMeasurementColors={sectionMeasurementColors}
                 sectionDraftColor={sectionDraftColor}
+                measurementGroupSelection={measurementGroupSelection}
                 sectionEditMode={sectionEditMode}
                 onSectionEditRequest={onSectionEditRequest}
                 onMeasure={handleMeasure}
                 onSectionSelection={onSectionSelection}
+                onMeasurementGroupSelection={onMeasurementGroupSelection}
                 onSectionPlacement={onSectionPlacement}
                 onSectionPlacementContextMenu={onSectionPlacementContextMenu}
                 onSelect={onAnnotationSelect}

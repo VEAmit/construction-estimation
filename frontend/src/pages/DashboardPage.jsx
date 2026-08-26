@@ -98,7 +98,7 @@ export default function DashboardPage() {
   )
 
   /* ── Responsive grid columns ─────────────────────────────── */
-  const statCols   = isSmallMobile ? '1fr' : isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)'
+  const statCols   = isSmallMobile ? '1fr' : 'repeat(2,minmax(0,1fr))'
   const projectCols = isMobile ? '1fr' : isTablet ? 'repeat(2,1fr)' : 'repeat(4,1fr)'
   const pad        = isMobile ? '16px' : '28px 32px'
 
@@ -174,27 +174,41 @@ export default function DashboardPage() {
       {/* ── Stats row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: isMobile ? '10px' : '12px', marginBottom: isMobile ? '16px' : '24px' }}>
         {[
-          { label: 'Total Projects', value: projects.length,                                  color: '#EF233C', icon: '📁' },
-          { label: 'Active',         value: projects.filter(p => p.status === 'Active').length, color: '#22C55E', icon: '✅' },
-          { label: 'Completed',      value: projects.filter(p => p.status === 'Completed').length, color: '#F59E0B', icon: '🏁' },
+          { label: 'Total Projects', value: projects.length, color: '#EF233C', detail: 'All projects in your workspace', icon: 'folder' },
+          { label: 'Active Projects', value: projects.filter(p => p.status === 'Active').length, color: '#22C55E', detail: 'Available for drawings and takeoff', icon: 'active' },
         ].map(stat => (
           <div key={stat.label} style={{
-            background: '#111827', border: '1px solid rgba(255,255,255,.06)',
-            borderRadius: '10px', padding: isMobile ? '12px 14px' : '16px 20px',
+            background: `linear-gradient(135deg,#111827 55%,${stat.color}0D)`,
+            border: '1px solid rgba(255,255,255,.07)',
+            borderRadius: '12px', padding: isMobile ? '14px 16px' : '18px 22px',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            boxShadow: '0 2px 10px rgba(0,0,0,.4)',
+            minHeight: isMobile ? '64px' : '76px', boxSizing: 'border-box',
+            boxShadow: '0 4px 18px rgba(0,0,0,.28)',
             borderLeft: `3px solid ${stat.color}`,
           }}>
             <div>
-              <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{stat.value}</div>
-              <div style={{ fontSize: isMobile ? '10px' : '11px', color: '#475569', marginTop: '4px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.05em' }}>{stat.label}</div>
+              <div style={{ fontSize: isMobile ? '24px' : '30px', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{stat.value}</div>
+              <div style={{ fontSize: isMobile ? '10px' : '11px', color: stat.color, marginTop: '6px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em' }}>{stat.label}</div>
+              {!isSmallMobile && (
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{stat.detail}</div>
+              )}
             </div>
             <div style={{
-              width: isMobile ? '30px' : '36px', height: isMobile ? '30px' : '36px', borderRadius: '8px',
+              width: isMobile ? '36px' : '44px', height: isMobile ? '36px' : '44px', borderRadius: '10px',
               background: `${stat.color}15`, border: `1px solid ${stat.color}25`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: isMobile ? '14px' : '16px',
-            }}>{stat.icon}</div>
+              color: stat.color, flexShrink: 0,
+            }}>
+              {stat.icon === 'folder' ? (
+                <svg width={isMobile ? 18 : 21} height={isMobile ? 18 : 21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9l2 2h7.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/>
+                </svg>
+              ) : (
+                <svg width={isMobile ? 18 : 21} height={isMobile ? 18 : 21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16.5 9"/>
+                </svg>
+              )}
+            </div>
           </div>
         ))}
       </div>
