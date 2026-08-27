@@ -682,6 +682,7 @@ function PdfSvgOverlay({
     lineStyle,
     measureLabelFontSize,
     selectedDrawing,
+    snapEnabled,
     spaceHeld,
   } = useAppStore()
 
@@ -716,6 +717,13 @@ function PdfSvgOverlay({
     setCursor(null)
     setEndpointSnap(null)
   }, [pasteClipboard])
+
+  // Turning Snap off is a display/placement preference only. Clear any
+  // currently highlighted target immediately without touching the active
+  // tool, draft line, selection, or saved annotations.
+  useEffect(() => {
+    if (!snapEnabled) setEndpointSnap(null)
+  }, [snapEnabled])
 
   const pageAnnotations = useMemo(() => annotations.map(annotation => {
     if (dragged?.id !== annotation.id) return annotation
@@ -827,7 +835,7 @@ function PdfSvgOverlay({
   const resolveEndpointSnap = useCallback((point) => {
     const svg = svgRef.current
     const snapCommandActive = Boolean(pasteClipboard) || ['line', 'calibrate'].includes(activeTool)
-    if (!svg || !snapCommandActive || spaceHeld) return null
+    if (!snapEnabled || !svg || !snapCommandActive || spaceHeld) return null
     const rect = svg.getBoundingClientRect()
     return findNearestLineEndpoint(
       point,
@@ -837,7 +845,7 @@ function PdfSvgOverlay({
       { width: rect.width, height: rect.height },
       ENDPOINT_SNAP_SCREEN_PIXELS,
     )
-  }, [activeTool, nearbyPdfEndpoints, pageAnnotations, pageSize, pasteClipboard, spaceHeld])
+  }, [activeTool, nearbyPdfEndpoints, pageAnnotations, pageSize, pasteClipboard, snapEnabled, spaceHeld])
 
   // Once a measurement is selected (by click, or the first tick of hovering
   // its own label), scrolling ANYWHERE on this page resizes its label instead

@@ -9,8 +9,13 @@ export const extractionService = {
   async extract(drawingId) {
     const res = await api.post(`/extraction/drawing/${drawingId}`)
     const data = res.data.data
+    // The extraction preview is a review surface, so it must show every row the
+    // server found. De-duplicating here changed a stable 159-row response into
+    // 116 visible rows and made Re-scan appear non-deterministic. The confirm
+    // path below still de-duplicates by the persisted Mark + Section identity,
+    // preserving the existing database/import behaviour.
     const members = sortMembersByMark(
-      dedupeUniqueByMarkAndSection((data?.members ?? data?.Members ?? []).map(normalizeExtractedMember))
+      (data?.members ?? data?.Members ?? []).map(normalizeExtractedMember)
     )
     return { ...data, members }
   },

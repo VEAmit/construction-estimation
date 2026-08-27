@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { useBreakpoint } from '../../utils/useBreakpoint'
 import { CATEGORY_COLORS } from '../../utils/calculations'
@@ -164,6 +164,7 @@ export default function Toolbar({
     fontSize,        setFontSize,
     measureLabelFontSize, setMeasureLabelFontSize,
     showMeasurementLabels, toggleShowMeasurementLabels,
+    snapEnabled, toggleSnapEnabled,
     countSession,
     selectedMemberScheduleItem, lastMeasureMember,
   } = useAppStore()
@@ -255,8 +256,7 @@ export default function Toolbar({
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: '2px', minWidth: 'max-content', height: '100%' }}>
 
           {/* ── Navigation group ── */}
-          <GroupLabel label="Nav" />
-          {NAV_TOOLS.map(tool => (
+          {NAV_TOOLS.filter(tool => tool.id !== 'select').map(tool => (
             <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
               compact={compact} onClick={() => setActiveTool(tool.id)} />
           ))}
@@ -264,16 +264,20 @@ export default function Toolbar({
           <Sep />
 
           {/* ── Measure group ── */}
-          <GroupLabel label="Measure" />
           {MEASURE_TOOLS.filter(tool => !HIDDEN_HEADER_MEASURE_TOOL_IDS.has(tool.id)).map(tool => (
-            <ToolBtn key={tool.id} tool={tool} active={activeTool === tool.id}
-              compact={compact}
-              titleHint={
-                !isCalibrated && ['line', 'area', 'perimeter'].includes(tool.id)
-                  ? ' — calibrate scale first'
-                  : ''
-              }
-              onClick={() => pickTool(tool.id)} />
+            <Fragment key={tool.id}>
+              <ToolBtn tool={tool} active={activeTool === tool.id}
+                compact={compact}
+                titleHint={
+                  !isCalibrated && ['line', 'area', 'perimeter'].includes(tool.id)
+                    ? ' — calibrate scale first'
+                    : ''
+                }
+                onClick={() => pickTool(tool.id)} />
+              {tool.id === 'line' && (
+                <SnapToggle enabled={snapEnabled} onToggle={toggleSnapEnabled} />
+              )}
+            </Fragment>
           ))}
 
           <Sep />
@@ -843,6 +847,36 @@ function ToolBtn({ tool, active, compact, onClick, titleHint = '' }) {
     >
       {tool.icon}
       {!compact && tool.label}
+    </button>
+  )
+}
+
+function SnapToggle({ enabled, onToggle }) {
+  const accentColor = '#EF233C'
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={enabled}
+      title={enabled
+        ? 'Snap ON — measurement and calibration points snap to nearby endpoints. Click to turn off.'
+        : 'Snap OFF — measurement and calibration points use the exact clicked position. Click to turn on.'}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '5px',
+        padding: '5px 9px', borderRadius: '6px',
+        border: `1px solid ${enabled ? `${accentColor}66` : 'rgba(255,255,255,.1)'}`,
+        background: enabled ? `${accentColor}18` : 'transparent',
+        color: enabled ? accentColor : '#64748b',
+        cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+        transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0,
+        touchAction: 'manipulation',
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M6 3v8a6 6 0 0 0 12 0V3" />
+        <path d="M6 7h4M14 7h4" />
+      </svg>
+      Snap {enabled ? 'ON' : 'OFF'}
     </button>
   )
 }

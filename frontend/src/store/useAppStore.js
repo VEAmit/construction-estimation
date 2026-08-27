@@ -117,6 +117,10 @@ export const useAppStore = create(
       // measurement's label stays visible even while hidden, so the user can
       // still see what they're editing.
       showMeasurementLabels: true,
+      // Endpoint snapping is enabled by default to preserve the established
+      // drawing behaviour. The toolbar toggle only changes whether the
+      // existing snap resolver participates in point placement.
+      snapEnabled: true,
       countSession:    0,         // running count of markers in current session
       pdfScale: 1.2,
       pdfPage: 1,
@@ -154,6 +158,8 @@ export const useAppStore = create(
       setMeasureLabelFontSize: (s) => set({ measureLabelFontSize: s }),
       setShowMeasurementLabels: (v) => set({ showMeasurementLabels: v }),
       toggleShowMeasurementLabels: () => set((s) => ({ showMeasurementLabels: !s.showMeasurementLabels })),
+      setSnapEnabled: (v) => set({ snapEnabled: Boolean(v) }),
+      toggleSnapEnabled: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
       setCountSession:   (n)     => set({ countSession: n }),
       setPdfScale: (scaleFn) =>
         set((s) => ({ pdfScale: typeof scaleFn === 'function' ? scaleFn(s.pdfScale) : scaleFn })),
@@ -191,6 +197,7 @@ export const useAppStore = create(
         activeUnit: s.activeUnit,
         measureLabelFontSize: s.measureLabelFontSize,
         showMeasurementLabels: s.showMeasurementLabels,
+        snapEnabled: s.snapEnabled,
         selectedProject: s.selectedProject,
         wheelZoomSensitivity: s.wheelZoomSensitivity,
       }),

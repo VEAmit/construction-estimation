@@ -77,6 +77,21 @@ public class ExtractionService
         RegexOptions.IgnoreCase | RegexOptions.Compiled
     );
 
+    // Plain Z/EZ cold-formed sections as printed in PURLIN/GIRT schedule member columns,
+    // for example "EZ20015" or "Z15012". Spacing/lap information belongs to the NOTE
+    // column and must not become part of the section size.
+    private static readonly Regex PlainZPurlinSectionPattern = new(
+        @"\bE?Z\s*\d{3,5}\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
+    // Pile/column schedules commonly express their size as "450mm DIA" or "Ø450".
+    // Keep this deliberately narrow so ordinary dimension notes are not treated as members.
+    private static readonly Regex DiameterSectionPattern = new(
+        @"(?:\b\d{2,4}\s*mm\s*(?:DIA|DIAMETER)\b|[Ø]\s*\d{2,4}\b|\b\d{2,4}\s*DIA\b)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled
+    );
+
     // Rod bracing — "16# ROD", "12mm ROD WITH TURNBUCKLE"
     private static readonly Regex RodBracingPattern = new(
         @"\b\d{1,3}\s*(?:#|mm)\s*ROD\b",
@@ -177,6 +192,7 @@ public class ExtractionService
             var allLines = new List<string>();
             var variantScheduleMembers = new List<ExtractedMemberDto>();
             var columnScheduleMembers = new List<ExtractedMemberDto>();
+            var numberedScheduleMembers = new List<ExtractedMemberDto>();
             var headerlessScheduleMembers = new List<ExtractedMemberDto>();
             var coordinateDrawingListMembers = new List<ExtractedMemberDto>();
             int pageCount;
@@ -203,6 +219,10 @@ public class ExtractionService
                     // Conventional MARK/SIZE and ITEM/MEMBER schedule columns can also be
                     // resolved by coordinates without mixing them with plan annotations.
                     columnScheduleMembers.AddRange(ExtractColumnScheduleRows(words));
+                    // Schedules headed No./MEMBER/SIZE/NOTE need a separate, additive
+                    // coordinate path. This keeps notes and adjacent drawing text out of
+                    // the section-size field without changing any established parser.
+                    numberedScheduleMembers.AddRange(ExtractNumberedScheduleRows(words));
                     // Some consultant drawings use a named, boxed schedule with no MARK/SIZE
                     // column-heading row. Resolve those rows from their table geometry instead
                     // of falling back to full-page Y bands that splice unrelated drawing text.
@@ -255,7 +275,8 @@ public class ExtractionService
             var fullText = string.Join(" ", allLines);
             var members = ParseMembers(
                 allLines, fullText, variantScheduleMembers, columnScheduleMembers,
-                coordinateDrawingListMembers, headerlessScheduleMembers);
+                coordinateDrawingListMembers, headerlessScheduleMembers,
+                numberedScheduleMembers);
 
             if (ShouldRunScheduleOcr(allLines, members))
             {
@@ -272,7 +293,8 @@ public class ExtractionService
                     fullText = string.Join(" ", allLines);
                     members = ParseMembers(
                         allLines, fullText, variantScheduleMembers, columnScheduleMembers,
-                        coordinateDrawingListMembers, headerlessScheduleMembers);
+                        coordinateDrawingListMembers, headerlessScheduleMembers,
+                        numberedScheduleMembers);
                 }
             }
 
@@ -777,6 +799,7 @@ public class ExtractionService
                 || HollowSectionPattern.IsMatch(remainder)
                 || PurlinSectionPattern.IsMatch(remainder)
                 || ZPurlinSectionPattern.IsMatch(remainder)
+                || PlainZPurlinSectionPattern.IsMatch(remainder)
                 || RodBracingPattern.IsMatch(remainder)
                 || Regex.IsMatch(remainder,
                     @"^(?:\d+\s*/\s*)?\d|EXISTING|FASCIA|REFER",
@@ -805,6 +828,7 @@ public class ExtractionService
                 || HollowSectionPattern.IsMatch(firstDescription)
                 || PurlinSectionPattern.IsMatch(firstDescription)
                 || ZPurlinSectionPattern.IsMatch(firstDescription)
+                || PlainZPurlinSectionPattern.IsMatch(firstDescription)
                 || RodBracingPattern.IsMatch(firstDescription);
             var baseHasNoMark = !Regex.IsMatch(baseDescription,
                 @"^[A-Z]{1,4}\d{0,3}[A-Z]?\s*[-:]",
@@ -833,6 +857,7 @@ public class ExtractionService
                 || HollowSectionPattern.IsMatch(member)
                 || PurlinSectionPattern.IsMatch(member)
                 || ZPurlinSectionPattern.IsMatch(member)
+                || PlainZPurlinSectionPattern.IsMatch(member)
                 || RodBracingPattern.IsMatch(member);
         });
 
@@ -1538,6 +1563,7 @@ public class ExtractionService
             || HollowSectionPattern.IsMatch(line)
             || PurlinSectionPattern.IsMatch(line)
             || ZPurlinSectionPattern.IsMatch(line)
+            || PlainZPurlinSectionPattern.IsMatch(line)
             || RodBracingPattern.IsMatch(line))
             score += 12;
         if (Regex.IsMatch(line, @"\b(MARK|SIZE|MEMBER|RAFTERS|BEAMS|PURLINS|BRACING)\b",
@@ -2485,6 +2511,7 @@ public class ExtractionService
                 || HollowSectionPattern.IsMatch(value)
                 || PurlinSectionPattern.IsMatch(value)
                 || ZPurlinSectionPattern.IsMatch(value)
+                || PlainZPurlinSectionPattern.IsMatch(value)
                 || RodBracingPattern.IsMatch(value);
             var hasMemberDescription = Regex.IsMatch(value,
                 @"\b(STRUT|BRACE|MEMBER)\b");
@@ -2577,7 +2604,8 @@ public class ExtractionService
         List<ExtractedMemberDto>? variantScheduleMembers = null,
         List<ExtractedMemberDto>? columnScheduleMembers = null,
         List<ExtractedMemberDto>? coordinateDrawingListMembers = null,
-        List<ExtractedMemberDto>? headerlessScheduleMembers = null)
+        List<ExtractedMemberDto>? headerlessScheduleMembers = null,
+        List<ExtractedMemberDto>? numberedScheduleMembers = null)
     {
         // Merge split mark tokens produced by CAD PDFs: "PF 2" → "PF2", "C 1" → "C1"
         var mergedLines = lines.Select(MergeMarkFragments).ToList();
@@ -2642,8 +2670,20 @@ public class ExtractionService
             _logger.LogDebug("After ParseByPattern: {Count} rows (pre-merge)", results.Count);
         }
 
-        // One row per mark — prefer drawing list > schedule > pattern
+        // Preserve the established one-row-per-mark selection for every existing parser.
         results = MergePreferBestRows(results);
+
+        // Numbered schedule rows are intentionally additive and authoritative. They are
+        // bounded by a real SCHEDULE title and native PDF columns. Only these trusted rows
+        // may preserve multiple Mark + Section definitions (for example pile P1 and purlin
+        // P1); all other extraction paths retain their previous merge behaviour.
+        if (numberedScheduleMembers is { Count: > 0 })
+        {
+            results = MergeAuthoritativeNumberedRows(results, numberedScheduleMembers);
+            _logger.LogInformation(
+                "Extraction: merged {Count} coordinate-resolved numbered schedule rows",
+                numberedScheduleMembers.Count);
+        }
 
         var valid = results.Where(IsValidExtractedMember)
             .OrderBy(r => r.Mark, StringComparer.OrdinalIgnoreCase)
@@ -2849,6 +2889,22 @@ public class ExtractionService
         double Left,
         double Middle,
         double Right);
+
+    private sealed record NumberedScheduleTable(
+        Word NumberHeader,
+        Word ValueHeader,
+        Word? NoteHeader,
+        string Title,
+        double Left,
+        double Middle,
+        double ValueRight,
+        double Right);
+
+    private sealed record NumberedScheduleCandidate(
+        double Y,
+        string Mark,
+        string Value,
+        string Source);
 
     private enum NamedScheduleKind
     {
@@ -3093,6 +3149,7 @@ public class ExtractionService
             || HollowSectionPattern.IsMatch(value)
             || PurlinSectionPattern.IsMatch(value)
             || ZPurlinSectionPattern.IsMatch(value)
+            || PlainZPurlinSectionPattern.IsMatch(value)
             || RodBracingPattern.IsMatch(value);
         var hasCircularHollowSection = Regex.IsMatch(value,
             @"\b\d{2,4}(?:\.\d+)?\s*[xX×]\s*\d{1,2}(?:\.\d+)?\s*CHS\b",
@@ -3267,6 +3324,234 @@ public class ExtractionService
         return results;
     }
 
+    /// <summary>
+    /// Reads schedules whose first column is headed No. and whose remaining columns are
+    /// MEMBER/SIZE and NOTE/COMMENTS. These tables are common for piles, purlins, rafters,
+    /// and beams. Requiring a nearby SCHEDULE title and using the native PDF X coordinates
+    /// prevents plan labels on the same visual row from leaking into the section size.
+    /// </summary>
+    private static List<ExtractedMemberDto> ExtractNumberedScheduleRows(List<Word> pageWords)
+    {
+        if (pageWords.Count == 0) return [];
+
+        const double rowTolerance = 4.0;
+        const double markColumnTolerance = 25.0;
+        var numberHeaders = pageWords
+            .Where(word => Regex.IsMatch(word.Text.Trim(), @"^NO\.?$", RegexOptions.IgnoreCase))
+            .OrderByDescending(word => word.BoundingBox.Bottom)
+            .ThenBy(word => word.BoundingBox.Left)
+            .ToList();
+        var tables = new List<NumberedScheduleTable>();
+
+        foreach (var numberHeader in numberHeaders)
+        {
+            var valueHeader = pageWords
+                .Where(word =>
+                    (word.Text.Equals("MEMBER", StringComparison.OrdinalIgnoreCase)
+                        || word.Text.Equals("SIZE", StringComparison.OrdinalIgnoreCase))
+                    && Math.Abs(word.BoundingBox.Bottom - numberHeader.BoundingBox.Bottom)
+                        < rowTolerance
+                    && word.BoundingBox.Left > numberHeader.BoundingBox.Left)
+                .OrderBy(word => word.BoundingBox.Left)
+                .FirstOrDefault();
+            if (valueHeader == null) continue;
+
+            var noteHeader = pageWords
+                .Where(word =>
+                    (word.Text.Equals("NOTE", StringComparison.OrdinalIgnoreCase)
+                        || word.Text.Equals("NOTES", StringComparison.OrdinalIgnoreCase)
+                        || word.Text.Equals("COMMENTS", StringComparison.OrdinalIgnoreCase)
+                        || word.Text.Equals("REINFORCEMENT", StringComparison.OrdinalIgnoreCase))
+                    && Math.Abs(word.BoundingBox.Bottom - numberHeader.BoundingBox.Bottom)
+                        < rowTolerance
+                    && word.BoundingBox.Left > valueHeader.BoundingBox.Left)
+                .OrderBy(word => word.BoundingBox.Left)
+                .FirstOrDefault();
+
+            var scheduleWord = pageWords
+                .Where(word => word.Text.Equals("SCHEDULE", StringComparison.OrdinalIgnoreCase)
+                    && word.BoundingBox.Bottom > numberHeader.BoundingBox.Bottom + rowTolerance
+                    && word.BoundingBox.Bottom < numberHeader.BoundingBox.Bottom + 120
+                    && word.BoundingBox.Left > numberHeader.BoundingBox.Left - 180
+                    && word.BoundingBox.Left < (noteHeader?.BoundingBox.Right
+                        ?? valueHeader.BoundingBox.Right) + 220)
+                .OrderBy(word => word.BoundingBox.Bottom - numberHeader.BoundingBox.Bottom)
+                .FirstOrDefault();
+            if (scheduleWord == null) continue;
+
+            var title = string.Join(" ", pageWords
+                .Where(word => Math.Abs(word.BoundingBox.Bottom - scheduleWord.BoundingBox.Bottom)
+                        < rowTolerance
+                    && word.BoundingBox.Left >= numberHeader.BoundingBox.Left - 180
+                    && word.BoundingBox.Right <= scheduleWord.BoundingBox.Right + 20)
+                .OrderBy(word => word.BoundingBox.Left)
+                .Select(word => word.Text))
+                .Trim()
+                .ToUpperInvariant();
+            if (!title.Contains("SCHEDULE", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var nextHeaderX = numberHeaders
+                .Where(header => Math.Abs(
+                        header.BoundingBox.Bottom - numberHeader.BoundingBox.Bottom) < rowTolerance
+                    && header.BoundingBox.Left > numberHeader.BoundingBox.Left)
+                .Select(header => header.BoundingBox.Left)
+                .DefaultIfEmpty(double.MaxValue)
+                .Min();
+            var columnDistance = valueHeader.BoundingBox.Left - numberHeader.BoundingBox.Left;
+            var valueRight = noteHeader != null
+                ? (valueHeader.BoundingBox.Left + noteHeader.BoundingBox.Left) / 2.0
+                : valueHeader.BoundingBox.Left + Math.Max(100, columnDistance * 4);
+            var right = nextHeaderX < double.MaxValue
+                ? nextHeaderX - 8
+                : noteHeader != null
+                    ? noteHeader.BoundingBox.Left + Math.Max(
+                        120, (noteHeader.BoundingBox.Left - valueHeader.BoundingBox.Left) * 1.6)
+                    : valueRight;
+
+            tables.Add(new NumberedScheduleTable(
+                numberHeader,
+                valueHeader,
+                noteHeader,
+                title,
+                numberHeader.BoundingBox.Left - markColumnTolerance,
+                (numberHeader.BoundingBox.Left + valueHeader.BoundingBox.Left) / 2.0,
+                valueRight,
+                right));
+        }
+
+        var results = new List<ExtractedMemberDto>();
+        foreach (var table in tables)
+        {
+            var lowerHeaderBoundary = tables
+                .Where(candidate =>
+                    candidate.NumberHeader.BoundingBox.Bottom
+                        < table.NumberHeader.BoundingBox.Bottom - rowTolerance
+                    && Math.Min(candidate.Right, table.Right)
+                        - Math.Max(candidate.Left, table.Left) > 20)
+                .Select(candidate => candidate.NumberHeader.BoundingBox.Bottom)
+                .DefaultIfEmpty(table.NumberHeader.BoundingBox.Bottom - 400)
+                .Max();
+
+            var candidateRows = pageWords
+                .Where(word =>
+                    word.BoundingBox.Bottom
+                        < table.NumberHeader.BoundingBox.Bottom - rowTolerance
+                    && word.BoundingBox.Bottom > lowerHeaderBoundary + rowTolerance
+                    && word.BoundingBox.Left > table.Left
+                    && word.BoundingBox.Left < table.Right)
+                .GroupBy(word => (int)Math.Round(word.BoundingBox.Bottom / rowTolerance))
+                .Select(group => group.OrderBy(word => word.BoundingBox.Left).ToList())
+                .Select(row =>
+                {
+                    var markWord = row
+                        .Where(word => Math.Abs(
+                                word.BoundingBox.Left
+                                    - table.NumberHeader.BoundingBox.Left)
+                                < markColumnTolerance
+                            && Regex.IsMatch(word.Text.Trim(),
+                                "^" + MarkPrefix + @"[A-Z]{1,5}[A-Z0-9]{0,4}"
+                                    + CompoundMarkSuffix + @"\*?$",
+                                RegexOptions.IgnoreCase))
+                        .OrderBy(word => Math.Abs(
+                            word.BoundingBox.Left - table.NumberHeader.BoundingBox.Left))
+                        .FirstOrDefault();
+                    if (markWord == null) return null;
+
+                    var value = string.Join(" ", row
+                        .Where(word =>
+                        {
+                            var center = (word.BoundingBox.Left + word.BoundingBox.Right) / 2.0;
+                            return center >= table.Middle && center < table.ValueRight;
+                        })
+                        .OrderBy(word => word.BoundingBox.Left)
+                        .Select(word => word.Text))
+                        .Trim()
+                        .Replace('\uFFFD', 'Ø');
+                    if (value.Length < 2) return null;
+
+                    var source = string.Join(" ", row
+                        .Where(word =>
+                        {
+                            var center = (word.BoundingBox.Left + word.BoundingBox.Right) / 2.0;
+                            return center >= table.Left && center < table.Right;
+                        })
+                        .OrderBy(word => word.BoundingBox.Left)
+                        .Select(word => word.Text))
+                        .Trim()
+                        .Replace('\uFFFD', 'Ø');
+
+                    return new NumberedScheduleCandidate(
+                        markWord.BoundingBox.Bottom,
+                        markWord.Text.Trim().ToUpperInvariant(),
+                        value,
+                        source);
+                })
+                .Where(candidate => candidate != null)
+                .Select(candidate => candidate!)
+                .OrderByDescending(candidate => candidate.Y)
+                .ToList();
+
+            for (var index = 0; index < candidateRows.Count; index++)
+            {
+                var row = candidateRows[index];
+                var section = ExtractNumberedScheduleSection(row.Value);
+                if (string.IsNullOrWhiteSpace(section)) continue;
+
+                var source = row.Source;
+                if (table.NoteHeader != null)
+                {
+                    var nextRowY = index + 1 < candidateRows.Count
+                        ? candidateRows[index + 1].Y
+                        : row.Y - 30;
+                    var continuation = string.Join(" ", pageWords
+                        .Where(word => word.BoundingBox.Bottom < row.Y - rowTolerance
+                            && word.BoundingBox.Bottom > Math.Max(nextRowY + rowTolerance, row.Y - 30)
+                            && word.BoundingBox.Left >= table.NoteHeader.BoundingBox.Left - 10
+                            && word.BoundingBox.Left < table.Right)
+                        .OrderByDescending(word => word.BoundingBox.Bottom)
+                        .ThenBy(word => word.BoundingBox.Left)
+                        .Select(word => word.Text))
+                        .Trim();
+                    if (continuation.Length > 0)
+                        source = $"{source} {continuation}";
+                }
+
+                source = Regex.Replace(source, @"\s+", " ").Trim();
+                var memberType = table.Title.Contains("PILE", StringComparison.OrdinalIgnoreCase)
+                    ? "Other"
+                    : table.Title.Contains("GIRT", StringComparison.OrdinalIgnoreCase)
+                        || row.Mark.StartsWith("G", StringComparison.OrdinalIgnoreCase)
+                        ? "Girt"
+                        : table.Title.Contains("PURLIN", StringComparison.OrdinalIgnoreCase)
+                            ? "Purlin"
+                            : DetectMemberType(row.Mark, section);
+
+                results.Add(new ExtractedMemberDto(
+                    row.Mark,
+                    section,
+                    memberType,
+                    0, 0, 0,
+                    $"Schedule row: {source}",
+                    1.0));
+            }
+        }
+
+        return results;
+    }
+
+    private static string ExtractNumberedScheduleSection(string value)
+    {
+        var match = SteelSectionPattern.Match(value);
+        if (!match.Success) match = HollowSectionPattern.Match(value);
+        if (!match.Success) match = PlainZPurlinSectionPattern.Match(value);
+        if (!match.Success) match = ZPurlinSectionPattern.Match(value);
+        if (!match.Success) match = PurlinSectionPattern.Match(value);
+        if (!match.Success) match = DiameterSectionPattern.Match(value);
+        if (!match.Success) match = ConcreteDimPattern.Match(value);
+        if (!match.Success) match = RodBracingPattern.Match(value);
+        return match.Success ? NormalizeSection(match.Value) : string.Empty;
+    }
+
     private static bool HasNearbyPurlinScheduleHeader(List<Word> pageWords)
     {
         var purlinHeaders = pageWords
@@ -3350,6 +3635,8 @@ public class ExtractionService
                 || HollowSectionPattern.IsMatch(r.MemberSize)
                 || PurlinSectionPattern.IsMatch(r.MemberSize)
                 || ZPurlinSectionPattern.IsMatch(r.MemberSize)
+                || PlainZPurlinSectionPattern.IsMatch(r.MemberSize)
+                || DiameterSectionPattern.IsMatch(r.MemberSize)
                 || RodBracingPattern.IsMatch(r.MemberSize);
             var hasTextMemberEvidence = Regex.IsMatch(r.MemberSize,
                 @"\b(EXISTING|FASCIA|REFER\s+SECTION)\b",
@@ -3376,6 +3663,8 @@ public class ExtractionService
             || ConcreteDimPattern.IsMatch(r.MemberSize)
             || PurlinSectionPattern.IsMatch(r.MemberSize)
             || ZPurlinSectionPattern.IsMatch(r.MemberSize)
+            || PlainZPurlinSectionPattern.IsMatch(r.MemberSize)
+            || DiameterSectionPattern.IsMatch(r.MemberSize)
             || RodBracingPattern.IsMatch(r.MemberSize)
             || (r.Confidence >= 0.95 && r.MemberSize.Length >= 2);
     }
@@ -3653,6 +3942,92 @@ public class ExtractionService
         return best.Values.ToList();
     }
 
+    private static List<ExtractedMemberDto> MergeAuthoritativeNumberedRows(
+        List<ExtractedMemberDto> existingRows,
+        List<ExtractedMemberDto> numberedRows)
+    {
+        var authoritative = new Dictionary<string, ExtractedMemberDto>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var row in numberedRows)
+        {
+            var markKey = NormalizeExtractionIdentity(row.Mark);
+            var sectionKey = NormalizeExtractionIdentity(row.MemberSize);
+            if (markKey.Length == 0 || sectionKey.Length == 0) continue;
+
+            var key = $"{markKey}|{sectionKey}";
+            if (!authoritative.TryGetValue(key, out var current)
+                || row.Description.Length > current.Description.Length)
+                authoritative[key] = row;
+        }
+
+        var authoritativeRows = authoritative.Values.ToList();
+
+        // Keep the established number of extracted members. Coordinate rows are evidence
+        // used to correct an existing row's mark, section and source; they must not delete
+        // legitimate level-prefixed marks (for example 1C9) or add extra rows.
+        return existingRows.Select(candidate =>
+        {
+            var candidateMark = NormalizeExtractionIdentity(candidate.Mark);
+            var candidateSection = NormalizeExtractionIdentity(candidate.MemberSize);
+
+            var exactMatches = authoritativeRows
+                .Where(row => NormalizeExtractionIdentity(row.Mark)
+                    .Equals(candidateMark, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (exactMatches.Count > 0)
+            {
+                return exactMatches.FirstOrDefault(row =>
+                        NormalizeExtractionIdentity(row.MemberSize).Equals(
+                            candidateSection,
+                            StringComparison.OrdinalIgnoreCase))
+                    ?? exactMatches[0];
+            }
+
+            // Repair only a proven glued prefix: the canonical table mark must be a suffix
+            // and either its section exactly matches or the reconstructed value has no
+            // structural-section evidence at all (for example "1C1 5 S STAIR S"). A clean
+            // row such as "1C9 75x3.0 SHS" therefore remains untouched. The row stays in
+            // place, so extraction count and all unrelated schedule logic are unchanged.
+            var hasRecognizedCandidateSection = HasRecognizedSectionEvidence(
+                candidate.MemberSize);
+            var corrected = authoritativeRows.FirstOrDefault(row =>
+                IsNumericPrefixContamination(
+                    candidateMark,
+                    NormalizeExtractionIdentity(row.Mark))
+                && (NormalizeExtractionIdentity(row.MemberSize).Equals(
+                        candidateSection,
+                        StringComparison.OrdinalIgnoreCase)
+                    || !hasRecognizedCandidateSection));
+            return corrected ?? candidate;
+        }).ToList();
+    }
+
+    private static bool HasRecognizedSectionEvidence(string value)
+        => SteelSectionPattern.IsMatch(value)
+            || HollowSectionPattern.IsMatch(value)
+            || ReidBarPattern.IsMatch(value)
+            || ConcreteDimPattern.IsMatch(value)
+            || PurlinSectionPattern.IsMatch(value)
+            || ZPurlinSectionPattern.IsMatch(value)
+            || PlainZPurlinSectionPattern.IsMatch(value)
+            || DiameterSectionPattern.IsMatch(value)
+            || RodBracingPattern.IsMatch(value);
+
+    private static bool IsNumericPrefixContamination(string candidateMark, string canonicalMark)
+    {
+        if (canonicalMark.Length == 0
+            || candidateMark.Length <= canonicalMark.Length
+            || !candidateMark.EndsWith(canonicalMark, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var extraPrefix = candidateMark[..^canonicalMark.Length];
+        return Regex.IsMatch(extraPrefix, @"^[0-9O]+$", RegexOptions.IgnoreCase);
+    }
+
+    private static string NormalizeExtractionIdentity(string value)
+        => Regex.Replace(value ?? string.Empty, @"[^A-Z0-9Ø]+", string.Empty,
+            RegexOptions.IgnoreCase).ToUpperInvariant();
+
     /// <summary>Drawing list (0.95) beats schedule (0.90) beats pattern (0.70).</summary>
     private static bool PreferExtractedRow(ExtractedMemberDto candidate, ExtractedMemberDto current)
     {
@@ -3709,6 +4084,8 @@ public class ExtractionService
             {
                 var hasSpec = SteelSectionPattern.IsMatch(line) || HollowSectionPattern.IsMatch(line)
                            || PurlinSectionPattern.IsMatch(line) || ZPurlinSectionPattern.IsMatch(line)
+                           || PlainZPurlinSectionPattern.IsMatch(line)
+                           || DiameterSectionPattern.IsMatch(line)
                            || ConcreteDimPattern.IsMatch(line) || ReidBarPattern.IsMatch(line);
                 if (hasSpec)
                 {
@@ -3857,8 +4234,12 @@ public class ExtractionService
         if (!sectionMatch.Success) sectionMatch = HollowSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = PurlinSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = ZPurlinSectionPattern.Match(rest);
+        if (!sectionMatch.Success) sectionMatch = PlainZPurlinSectionPattern.Match(rest);
         if (!sectionMatch.Success) sectionMatch = RodBracingPattern.Match(rest);
         if (sectionMatch.Success) return NormalizeSection(sectionMatch.Value.Trim());
+
+        var diameterMatch = DiameterSectionPattern.Match(rest);
+        if (diameterMatch.Success) return NormalizeSection(diameterMatch.Value.Trim());
 
         var concreteMatch = ConcreteDimPattern.Match(rest);
         if (concreteMatch.Success) return concreteMatch.Value.Trim();
@@ -4090,6 +4471,22 @@ public class ExtractionService
     private static string NormalizeSection(string raw)
     {
         var trimmed = raw.Trim();
+
+        var plainZ = Regex.Match(trimmed, @"^E?Z\s*(\d{3,5})$", RegexOptions.IgnoreCase);
+        if (plainZ.Success)
+        {
+            var prefix = trimmed.TrimStart().StartsWith("EZ", StringComparison.OrdinalIgnoreCase)
+                ? "EZ"
+                : "Z";
+            return $"{prefix}{plainZ.Groups[1].Value}".ToUpperInvariant();
+        }
+
+        var diameter = DiameterSectionPattern.Match(trimmed);
+        if (diameter.Success && diameter.Index == 0 && diameter.Length == trimmed.Length)
+        {
+            var number = Regex.Match(diameter.Value, @"\d{2,4}").Value;
+            return $"{number}mm DIA";
+        }
 
         // "75 x 5 SHS" / "150 x 150 x 6 SHS" / "150 x 10 EA"
         var hollow = Regex.Match(trimmed,

@@ -36,6 +36,63 @@ export function normalizeExtractedMember(m) {
   }
 }
 
+/**
+ * Presentation-only cleanup for the extraction review table. The backend keeps
+ * the untouched description as extraction evidence; this removes only parser
+ * labels and the repeated leading mark so "PDF source line" starts with the
+ * actual material/note printed beside that mark.
+ */
+export function formatPdfSourceLine(description, mark) {
+  let source = String(description ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  source = source
+    .replace(/^(?:Schedule(?:\s+row)?|Pattern)\s*:\s*/i, '')
+    .replace(/^[•·▪◦]\s*/, '')
+    .trim()
+
+  const compactMark = String(mark ?? '').replace(/\s+/g, '')
+  if (!compactMark) return source
+
+  const escapedMark = [...compactMark]
+    .map(character => character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('\\s*')
+  const repeatedLeadingMark = new RegExp(
+    `^(?:${escapedMark})(?=\\s|[-–—:]|$)[\\s:–—-]*`,
+    'i',
+  )
+
+  // A few PDFs repeat the mark more than once before the material. Remove
+  // only consecutive leading copies; a mark found later in a note is kept.
+  while (repeatedLeadingMark.test(source)) {
+    source = source.replace(repeatedLeadingMark, '').trim()
+  }
+
+  return source
+}
+
+/**
+ * Removes only rows that would be visually identical in the extraction
+ * review. Different sections or material/source text for the same mark remain
+ * separate so valid schedule variants are never collapsed.
+ */
+export function dedupeExactExtractedMembers(members) {
+  const seen = new Set()
+  return members.filter(member => {
+    const key = [
+      normalizeIdentityPart(member.mark),
+      normalizeIdentityPart(member.memberSize),
+      normalizeIdentityPart(member.memberType),
+      normalizeIdentityPart(formatPdfSourceLine(member.description, member.mark)),
+    ].join('|')
+
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function isPatternDescription(desc) {
   return /^Pattern\s*:/i.test(String(desc ?? '').trim())
 }

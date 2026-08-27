@@ -1,6 +1,10 @@
 import { useState, useCallback, useRef } from 'react'
 import { extractionService } from '../../services/extractionService'
-import { sortMembersByMark } from '../../utils/extractionNormalize'
+import {
+  dedupeExactExtractedMembers,
+  formatPdfSourceLine,
+  sortMembersByMark,
+} from '../../utils/extractionNormalize'
 
 const MEMBER_TYPES = ['Beam', 'Column', 'Rafter', 'Purlin', 'Girt', 'Brace', 'Plate', 'Other']
 
@@ -154,12 +158,14 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
     setSaveResult(null)
     try {
       const data = await extractionService.extract(drawingId)
-      const initialRows = sortMembersByMark(data.members ?? []).map((m, idx) => ({
+      const uniqueMembers = dedupeExactExtractedMembers(data.members ?? [])
+      const initialRows = sortMembersByMark(uniqueMembers).map((m, idx) => ({
         _id: Math.random().toString(36).slice(2),
         mark: m.mark ?? '',
         memberSize: m.memberSize ?? '',
         memberType: m.memberType ?? 'Other',
         description: m.description ?? '',
+        sourceLine: formatPdfSourceLine(m.description, m.mark),
         color: m.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
       }))
       setResult(data)
@@ -175,6 +181,12 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
 
   const updateRow = (id, field, value) => {
     setRows(prev => prev.map(r => r._id === id ? { ...r, [field]: value } : r))
+  }
+
+  const updateSourceLine = (id, value) => {
+    setRows(prev => prev.map(r => r._id === id
+      ? { ...r, sourceLine: value, description: value }
+      : r))
   }
 
   const deleteRow = (id) => setRows(prev => prev.filter(r => r._id !== id))
@@ -335,8 +347,9 @@ export default function ExtractionModal({ drawingId, drawingName, onClose, onSav
                           </select>
                         </td>
                         <td style={s.td}>
-                          <input style={{ ...s.input, width: 200 }} value={row.description}
-                            onChange={e => updateRow(row._id, 'description', e.target.value)} />
+                          <input style={{ ...s.input, width: 200 }}
+                            value={row.sourceLine ?? row.description}
+                            onChange={e => updateSourceLine(row._id, e.target.value)} />
                         </td>
                         <td style={s.td}>
                           <button style={s.deleteBtn} onClick={() => deleteRow(row._id)} title="Remove row">✕</button>
