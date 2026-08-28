@@ -15,11 +15,14 @@ export function normalizeExtractedMember(m) {
   }
 
   const sectionFromDesc = desc.match(
-    /(\d{2,4}\s*(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS)\s*\d{1,3}(?:\.\d+)?|\d{2,4}(?:UB|UC|PFC)\d{1,3}(?:\.\d+)?|\d{2,3}\s*[xX×]\s*\d{2,3}(?:\s*[xX×]\s*\d{1,2}(?:\.\d+)?)?\s*(?:RHS|SHS|CHS|EA|UA)|RB\d+)/i
+    /(\d{2,4}\s*(?:UB|UC|PFC|TFC|EA|UA|CHS|RHS|SHS)\s*\d{1,3}(?:\.\d+)?|\d{2,4}(?:UB|UC|PFC)\d{1,3}(?:\.\d+)?|\d{2,3}\s*[xX×]\s*\d{2,3}(?:\s*[xX×]\s*\d{1,2}(?:\.\d+)?)?\s*(?:RHS|SHS|CHS|EA|UA))/i
   )?.[1]
 
   let normalizedSize = memberSize
-  if (sectionFromDesc) {
+  // The API memberSize is authoritative. Description recovery must never let a
+  // mark token (for example RB1) replace its actual material (for example
+  // 125x125x6.0 SHS). Reid-bar sections remain intact through memberSize.
+  if (sectionFromDesc && normalizeIdentityPart(sectionFromDesc) !== normalizeIdentityPart(mark)) {
     normalizedSize = sectionFromDesc
       .replace(/\s+/g, '')
       .replace(/[xX×]/g, 'X')

@@ -3118,9 +3118,10 @@ public class ExtractionService
     }
 
     /// <summary>
-    /// Reads ordinary two-column schedules when their native PDF text exposes aligned
-    /// MARK/SIZE, ITEM/MEMBER, or TAG/MEMBER headers. Geometry keeps adjacent schedule
-    /// columns separate (the TAG/MEMBER form is used by the HV purlin schedule).
+    /// Reads ordinary member schedules when their native PDF text exposes aligned
+    /// MARK/SIZE, ITEM/MEMBER, TAG/MEMBER, or NO./MEMBER headers. Geometry keeps
+    /// adjacent schedule columns separate (the TAG/MEMBER form is used by the HV
+    /// purlin schedule). NO./SIZE tables are intentionally not member schedules.
     /// </summary>
     private static List<ExtractedMemberDto> ExtractColumnScheduleRows(List<Word> pageWords)
     {
@@ -3134,7 +3135,14 @@ public class ExtractionService
         {
             ("MARK", "SIZE"),
             ("ITEM", "MEMBER"),
-            ("TAG", "MEMBER")
+            ("TAG", "MEMBER"),
+            // Structural schedules commonly label their first two columns
+            // "No. / MEMBER" (for example COLUMN SCHEDULE and MEMBER
+            // SCHEDULE). Only that exact MEMBER-column shape is accepted here.
+            // "No. / SIZE" tables such as FOOTING or SLAB schedules are not
+            // member schedules and therefore remain excluded.
+            ("NO.", "MEMBER"),
+            ("NO", "MEMBER")
         })
         {
             // TAG/MEMBER is intentionally limited to an actual PURLIN SCHEDULE
@@ -3172,9 +3180,27 @@ public class ExtractionService
                     .Min();
 
                 var columnDistance = valueHeader.BoundingBox.Left - markHeader.BoundingBox.Left;
-                var right = nextMarkX < double.MaxValue
-                    ? nextMarkX - 8
-                    : valueHeader.BoundingBox.Left + columnDistance * 1.1;
+                var followingValueHeader = pageWords
+                    .Where(w => Math.Abs(w.BoundingBox.Bottom - valueHeader.BoundingBox.Bottom) < rowTolerance
+                        && w.BoundingBox.Left > valueHeader.BoundingBox.Right
+                        && w.BoundingBox.Left < nextMarkX
+                        && Regex.IsMatch(
+                            w.Text,
+                            @"^(?:COMMENT|COMMENTS|NOTE|NOTES|REINFORCEMENT|TYPE|DESCRIPTION|QTY|QUANTITY|LENGTH|CONCRETE|STRENGTH|COUNT|VOLUME)$",
+                            RegexOptions.IgnoreCase))
+                    .OrderBy(w => w.BoundingBox.Left)
+                    .FirstOrDefault();
+
+                // Use the next named header to find the actual right edge of the
+                // MEMBER/SIZE cell. This prevents NOTE/COMMENTS text from being
+                // appended to the material while retaining the existing fallback for
+                // two-column schedules that do not expose a following header.
+                var right = followingValueHeader != null
+                    ? ((valueHeader.BoundingBox.Left + valueHeader.BoundingBox.Right) / 2.0
+                        + (followingValueHeader.BoundingBox.Left + followingValueHeader.BoundingBox.Right) / 2.0) / 2.0
+                    : nextMarkX < double.MaxValue
+                        ? nextMarkX - 8
+                        : valueHeader.BoundingBox.Left + columnDistance * 1.1;
 
                 tables.Add(new ColumnScheduleTable(
                     markHeader,
@@ -3188,6 +3214,10 @@ public class ExtractionService
         var results = new List<ExtractedMemberDto>();
         foreach (var table in tables)
         {
+            var allowsNumericConcreteMarks =
+                table.MarkHeader.Text.Equals("MARK", StringComparison.OrdinalIgnoreCase)
+                && table.ValueHeader.Text.Equals("SIZE", StringComparison.OrdinalIgnoreCase);
+
             // Stacked schedules often share the same MARK column (for example floor,
             // column, then truss schedules). Stop this table at the next lower MARK
             // header whose horizontal range overlaps, otherwise the upper table can
@@ -3220,6 +3250,20 @@ public class ExtractionService
                         .OrderBy(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left))
                         .FirstOrDefault();
 
+                    // Concrete quantity schedules can use the slab thickness itself as
+                    // the mark (for example 150, 200, 380). Numeric marks remain
+                    // disabled for every other schedule shape; the material check below
+                    // further requires an exact "CONCRETE - <same mark> ..." value.
+                    if (markWord == null && allowsNumericConcreteMarks)
+                    {
+                        markWord = row
+                            .Where(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left)
+                                    < markColumnTolerance
+                                && Regex.IsMatch(w.Text, @"^\d{2,4}$"))
+                            .OrderBy(w => Math.Abs(w.BoundingBox.Left - table.MarkHeader.BoundingBox.Left))
+                            .FirstOrDefault();
+                    }
+
                     if (markWord == null) return null;
 
                     var value = string.Join(" ", row
@@ -3233,11 +3277,16 @@ public class ExtractionService
                         .Trim();
 
                     if (value.Length < 2) return null;
+                    var numericConcreteQuantity = IsNumericConcreteQuantityRow(markWord.Text, value);
+                    if (Regex.IsMatch(markWord.Text, @"^\d{2,4}$") && !numericConcreteQuantity)
+                        return null;
+
                     return new
                     {
                         Y = markWord.BoundingBox.Bottom,
                         Mark = markWord.Text.ToUpperInvariant(),
-                        Value = value
+                        Value = value,
+                        IsNumericConcreteQuantity = numericConcreteQuantity
                     };
                 })
                 .Where(x => x != null)
@@ -3253,7 +3302,17 @@ public class ExtractionService
 
                 if (row.Mark is "MARK" or "ITEM" or "TAG" or "SIZE" or "MEMBER"
                     or "STEEL" or "STRUCTURAL" or "COMMENTS") continue;
-                var section = NormalizeSection(row.Value);
+                // Keep only the material/section token from the value cell. Even when
+                // a PDF places the first NOTE/COMMENTS word very close to the cell
+                // boundary, it must not become part of Section Size.
+                var section = row.IsNumericConcreteQuantity
+                    ? Regex.Replace(row.Value.Trim(), @"\s+", " ").ToUpperInvariant()
+                    : NormalizeSection(ExtractGenericScheduleSection(row.Value));
+                if (string.Equals(
+                        Regex.Replace(section, @"[^A-Z0-9]", ""),
+                        Regex.Replace(row.Mark, @"[^A-Z0-9]", ""),
+                        StringComparison.OrdinalIgnoreCase))
+                    continue;
                 results.Add(new ExtractedMemberDto(
                     row.Mark,
                     section,
@@ -3332,7 +3391,11 @@ public class ExtractionService
     {
         if (string.IsNullOrWhiteSpace(r.Mark) || string.IsNullOrWhiteSpace(r.MemberSize))
             return false;
-        if (!Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @"\*?$", RegexOptions.IgnoreCase))
+        var isNumericConcreteQuantity = IsNumericConcreteQuantityRow(r.Mark, r.MemberSize)
+            && r.Confidence >= 0.99
+            && r.Description.StartsWith("Schedule row:", StringComparison.OrdinalIgnoreCase);
+        if (!isNumericConcreteQuantity
+            && !Regex.IsMatch(r.Mark, "^" + MarkPrefix + @"[A-Z]{1,4}\d{0,3}[A-Z]?" + CompoundMarkSuffix + @"\*?$", RegexOptions.IgnoreCase))
             return false;
         // Auto-guess marks M1/M2 — not used on structural drawings
         if (Regex.IsMatch(r.Mark, @"^M\d+$", RegexOptions.IgnoreCase))
@@ -3645,12 +3708,40 @@ public class ExtractionService
         var best = new Dictionary<string, ExtractedMemberDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
         {
-            var key = row.Mark.Trim();
+            var key = BuildExtractedMemberMergeKey(row);
             if (string.IsNullOrEmpty(key)) continue;
             if (!best.TryGetValue(key, out var existing) || PreferExtractedRow(row, existing))
                 best[key] = row;
         }
         return best.Values.ToList();
+    }
+
+    private static string BuildExtractedMemberMergeKey(ExtractedMemberDto row)
+    {
+        var mark = row.Mark.Trim();
+        if (!IsNumericConcreteQuantityRow(mark, row.MemberSize))
+            return mark;
+
+        // A concrete schedule may legitimately contain multiple rows with the same
+        // numeric mark but different materials, such as "150 SLAB ON GROUND" and
+        // "150 THICK". Exact duplicates still merge; distinct materials survive.
+        var material = Regex.Replace(
+            row.MemberSize.ToUpperInvariant(),
+            @"[^A-Z0-9]",
+            string.Empty);
+        return $"{mark}|{material}";
+    }
+
+    private static bool IsNumericConcreteQuantityRow(string? mark, string? value)
+    {
+        var normalizedMark = mark?.Trim() ?? string.Empty;
+        if (!Regex.IsMatch(normalizedMark, @"^\d{2,4}$") || string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return Regex.IsMatch(
+            value.Trim(),
+            @"^CONCRETE\s*[-–—]\s*" + Regex.Escape(normalizedMark) + @"\b",
+            RegexOptions.IgnoreCase);
     }
 
     /// <summary>Drawing list (0.95) beats schedule (0.90) beats pattern (0.70).</summary>
@@ -3828,10 +3919,23 @@ public class ExtractionService
         var section = ExtractGenericScheduleSection(rest);
         if (string.IsNullOrWhiteSpace(section)) return null;
 
+        // Some AutoCAD PDFs render door-beam schedule sizes correctly but expose
+        // damaged glyphs to OCR (for example "150UC30" as "15( 1C30" and
+        // "250x150x5.0 RHS" as "25 <150x5.0 RHS"). Repair only these highly
+        // specific DB-row signatures; every other schedule and section continues
+        // through the existing extraction path unchanged.
+        var repairedSection = RepairDoorBeamScheduleSection(mark, section);
+        var repaired = !string.Equals(repairedSection, section, StringComparison.Ordinal);
+        section = repairedSection;
+
         var memberType = DetectScheduleMemberType(mark, rest);
         return new ExtractedMemberDto(
             mark, section, memberType,
-            0, 0, 0, $"Schedule: {TruncateLine(cleaned)}", 0.96);
+            0, 0, 0,
+            repaired
+                ? $"Schedule: {mark} | {section}"
+                : $"Schedule: {TruncateLine(cleaned)}",
+            0.96);
     }
 
     private static bool IsLikelyScheduleMark(string mark)
@@ -3873,6 +3977,33 @@ public class ExtractionService
 
         section = Regex.Replace(section, @"\s+", " ").Trim(' ', '-', '–', '—', '|', ':');
         return section.Length > 48 ? section[..48] : section;
+    }
+
+    private static string RepairDoorBeamScheduleSection(string mark, string section)
+    {
+        if (!Regex.IsMatch(mark, @"^DB\d{1,3}[A-Z]?$", RegexOptions.IgnoreCase))
+            return section;
+
+        var compact = Regex.Replace(section.ToUpperInvariant(), @"\s+", "")
+            .Replace('×', 'X');
+
+        // OCR substitutions seen in CAD-exported UC sections:
+        //   15(1C30 / 15(C23 -> 150UC30 / 150UC23
+        //   20JC46             -> 200UC46
+        var uc = Regex.Match(compact,
+            @"^(?<depth>15|20)(?:(?:[\(<|]1?)|J)C(?<mass>\d{2,3}(?:\.\d+)?)$");
+        if (uc.Success)
+            return $"{uc.Groups["depth"].Value}0UC{uc.Groups["mass"].Value}";
+
+        // OCR substitutions seen where the visible "0x" between 25 and 150
+        // becomes either "<" or "1(":
+        //   25<150X5.0RHS / 251(150X6.0RHS -> 250X150X...RHS
+        var rhs = Regex.Match(compact,
+            @"^25(?:<|1\()(?<width>\d{2,3})X(?<wall>\d{1,2}(?:\.\d+)?)RHS$");
+        if (rhs.Success)
+            return $"250X{rhs.Groups["width"].Value}X{rhs.Groups["wall"].Value}RHS";
+
+        return section;
     }
 
     private static string DetectScheduleMemberType(string mark, string rowText)
